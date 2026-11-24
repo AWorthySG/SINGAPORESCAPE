@@ -1191,7 +1191,7 @@ const SLEEVE = {
   swordsman: '#b8c4d0', rogue: '#2f4a4a', samurai: '#c0392b', corsair: '#3a3340', paladin: '#e8dfc8', knight: '#aab6c2',
   berserker: '#e9d6b0', juggernaut: '#6f7884', gladiator: '#c08a3a', lancer: '#2f5fb3', brawler: '#f2efe6', halberdier: '#c7cfd8',
   dancer: '#f4a7c4', merchant: '#7a2f4a', ninja: '#2b3a5a', archer: '#4f7a3a', ranger: '#4f7a3a', wizard: '#4b2a7a',
-  sorcerer: '#5b3a8c', pistoler: '#2f5a5a', sniper: '#2f5a5a', monk: '#8cc7a1',
+  sorcerer: '#5b3a8c', pistoler: '#2f5a5a', sniper: '#2f5a5a', monk: '#98b892',
   priest: '#fbf6ea', zealot: '#d9482b',
 };
 // Where the hand grips each tool's sticker (0..1 across the picture), which
@@ -1315,7 +1315,8 @@ function star(c, x, y, r, k) {
 // from the usual shoulders sat inside the chest and vanished into it, leaving
 // two empty sleeves. His hang from the sleeve ends instead, and the back one is
 // drawn over the body, as his own rig arms are (see armInFront).
-const SKILL_SHOULDER = { brawler: [13, -13, -1], monk: [13, -13, -1] };
+// (The redrawn Monk's arms hang from the sides of its round bean.)
+const SKILL_SHOULDER = { brawler: [13, -13, -1], monk: [13, -15, 0] };
 /** Whether a class's back life-skill arm is drawn over its body, not behind it. */
 export const armInFront = (jobClass) => !!SKILL_SHOULDER[jobClass];
 /** The life-skill arms for a painted rig: the back one before the body (after

@@ -109,3 +109,49 @@ test('Rogue and Samurai caches are isolated and preserve canvas opacity', () => 
     assert.equal(rigParts().length, 12, 'returning to an already loaded class reuses images');
   } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
 });
+
+// The redrawn Monk (sheets MK-a/b/c): its glove only when monk gloves are
+// worn, its palm strike over the knuckled arm (pulled down to the hip so the
+// glove never lands on the knuckles), and a back view on its wide stance.
+test('the Monk: bare hands without gloves, the palm over a chambered fist, feet apart from behind', async () => {
+  const { sampleHeroClip } = await import('../src/render/heroanim.js');
+  const { drawHeroBack } = await import('../src/render/heroAnimArt.js');
+  const previous = globalThis.Image;
+  globalThis.Image = class { constructor() { this.complete = true; this.naturalWidth = 100; this.naturalHeight = 100; } };
+  try {
+    let drawn = [], turn = 0;
+    const stack = [];
+    const ctx = {
+      globalAlpha: 1, lineCap: '', strokeStyle: '', fillStyle: '', lineWidth: 1,
+      save() { stack.push([this.globalAlpha, turn]); }, restore() { [this.globalAlpha, turn] = stack.pop(); },
+      translate() {}, rotate(a) { turn += a; }, scale() {}, beginPath() {}, arc() {}, stroke() {}, fill() {}, lineTo() {}, closePath() {},
+      drawImage(img, x) { drawn.push({ name: String(img.src).split('/').pop().replace('.webp', ''), turn, x }); },
+    };
+    const held = { kind: 'combat', jobClass: 'monk', weapon: 'knuckles', offhand: 'bronze_monk_gloves' };
+    const draw = (opts) => { drawn = []; assert.equal(drawHeroRig(ctx, { jobClass: 'monk', hasWeapon: true, ...opts }), true); return drawn.map((d) => d.name); };
+    // Gloves on (and the title's heroes, which say nothing of a shield): the glove arm.
+    assert.ok(draw({ dualWield: true }).includes('monk-back'));
+    assert.ok(draw({}).includes('monk-back'));
+    // Neither weapon nor gloves: two empty hands, no glove.
+    const bare = draw({ hasWeapon: false, dualWield: false, hasShield: false });
+    assert.ok(!bare.includes('monk-back') && !bare.includes('monk-sword'), bare.join());
+    assert.equal(bare.filter((n) => n === 'monk_hand').length, 2);
+    // Through the coil the rig's own glove arm draws back to the hip (the painted
+    // wind-up would hide behind the body).
+    const coil = draw({ dualWield: true, anim: sampleHeroClip('fist_dual', 0.3, held) });
+    assert.ok(coil.includes('monk-back') && !coil.includes('monk_offwind'), coil.join());
+    // The palm strike: drawn after the knuckled arm, whose fist has turned down to the hip.
+    const rest = draw({ dualWield: true, anim: sampleHeroClip('fist_dual', 0.02, held) });
+    const restTurn = drawn.find((d) => d.name === 'monk-sword').turn;
+    const palm = draw({ dualWield: true, anim: sampleHeroClip('fist_dual', 0.72, held) });
+    assert.ok(rest.includes('monk-sword'));
+    assert.ok(palm.indexOf('monk_offfollow') > palm.indexOf('monk-sword'), palm.join());
+    assert.ok(drawn.find((d) => d.name === 'monk-sword').turn - restTurn > 0.8, 'the fist is chambered');
+    assert.equal(stack.length, 0, 'transforms and opacity are balanced');
+    // From behind, the feet stand as wide apart as the front view's.
+    drawn = [];
+    assert.equal(drawHeroBack(ctx, { jobClass: 'monk', facing: { dx: 0, dy: -1 } }), true);
+    const feet = drawn.filter((d) => /backfoot/.test(d.name)).map((d) => d.x);
+    assert.deepEqual(feet, [-16.8, 4.3]);
+  } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
+});

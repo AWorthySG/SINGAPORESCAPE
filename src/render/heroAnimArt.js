@@ -14,7 +14,9 @@
 // the shoulder (the pivot) inside it; a back-view part is [x, y, w, h] from
 // the hero's feet (the off arm, which hangs from its shoulder, is [shoulder
 // x, y, w, h, then the shoulder and the fist in the picture]); a hand is
-// [w, h, shoulder x, y, fist x, y].
+// [w, h, shoulder x, y, fist x, y]. A class may say where its back view's
+// feet stand (`backFeet`: [left x, right x, width]); otherwise they sit where
+// most heroes' do.
 // Without Image (headless tests) nothing loads and every helper returns
 // false or null, so the rigs draw exactly as before; a set is only used once
 // all of its pictures have loaded, never half assembled. Each is drawn with
@@ -44,8 +46,8 @@ export const ANIM_ART = {
   sorcerer: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [28, 31, 4.5, 26.7], mid: [36.3, 25.3, 4.2, 19.6], follow: [41.5, 19.3, 4.4, 13.1] }, back: { body: [-16.8, -36.6, 33.3, 39.8], other: [-13.9, -35.2, 22, 19.2, 2.3, 3.3, 17.7, 12.2], arm: [0.5, -39.8, 22.2, 40.7], strike: [-18, -43.4, 36, 30.7] }, hand: [11.7, 11.8, 1.7, 1.7, 8.9, 10] },
   pistoler: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [19.3, 19.8, 2.9, 16.9], mid: [24.5, 12.5, 2.5, 9.2], follow: [24.5, 17, 2.8, 13.8] }, back: { body: [-11.7, -37.6, 23.2, 43.2], arm: [-8.3, -25.9, 25, 31.2], strike: [-35.3, -11.9, 35.3, 18.5] }, hand: [10.3, 12.5, 2, 1.5, 7.9, 10.8] },
   sniper: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [31.5, 26.7, 3.8, 21.8], mid: [34.8, 14.3, 4.1, 9.1], follow: [36.5, 24.5, 4.3, 19] }, back: { body: [-11.9, -37.6, 23.7, 43.2], other: [-3.3, -10.5, 18.3, 14.3, 1.7, 4.1, 16, 7.7], arm: [-29.5, -21.2, 36.7, 18], strike: [-37, -21.2, 45, 18] }, hand: [10.8, 12.3, 1.9, 1.6, 8.3, 10.6] },
-  // The Monk, Priest and Zealot (art pack 2-New-Classes, sheets H7b/H7c, H8b and H9b).
-  monk: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [16.4, 14.3, 4.1, 3.3], mid: [19.9, 11.7, 3.4, 7.4], follow: [21.6, 8.8, 3.6, 4.8] }, off: { wind: [16.4, 15.5, 3.8, 3.6], mid: [20, 13.8, 3.4, 8.3], follow: [24.4, 14.4, 4.1, 9.6] }, back: { body: [-19.9, -41.5, 39.7, 50.6], other: [-17.5, -13.6, 20, 18.3, 15.3, 4.1, 4.4, 13.8], arm: [9.2, -26.7, 15.3, 15.7], strike: [8.8, -19.3, 18.2, 11.3] }, hand: [18.7, 11.8, 3, 6.5, 15.4, 4.6] },
+  // The Monk (redrawn, sheets MK-b and MK-c), Priest and Zealot (art pack 2-New-Classes, sheets H8b and H9b).
+  monk: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [14.2, 13.9, 4, 3.2], mid: [17.9, 11.6, 2.9, 4.4], follow: [23.3, 13.9, 3.9, 4.6] }, off: { wind: [18.5, 17, 3.9, 3.6], mid: [22.4, 15.7, 3.7, 8], follow: [31, 13, 5.2, 7.4] }, back: { body: [-17.2, -37.7, 34.4, 45.4], other: [-14.4, -14.3, 17.5, 19.5, 13.4, 4, 4.7, 15.2], arm: [9.6, -16.5, 17.9, 13], strike: [8.8, -19.8, 23.6, 12.7] }, backFeet: [-16.8, 4.3, 13], hand: [19, 14.6, 3.7, 3.6, 15.7, 8.7] },
   priest: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [18.6, 24.5, 3.2, 17.3], mid: [19.7, 21.2, 3.3, 13], follow: [22.7, 19.7, 3.8, 10] }, back: { body: [-19.2, -39.7, 38.4, 49.9], other: [-9.4, -8, 15.7, 17.7, 12.2, 3.3, 3.7, 12.4], arm: [10.5, -26.7, 16.1, 18.1], strike: [10.7, -25.1, 19.9, 17.8] }, hand: [18, 16, 3.1, 6.8, 14.8, 3] },
   zealot: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [19.6, 16.9, 3.2, 10.2], mid: [21.4, 18.3, 3.5, 6], follow: [24.2, 10.5, 4, 5.9] }, back: { body: [-16.9, -41.4, 33.9, 51.4], other: [-9.9, -8.6, 14.4, 18.4, 10.8, 3.6, 3.5, 14.8], arm: [11.5, -22, 20.8, 22.8], strike: [11.4, -14.9, 22.6, 9] }, hand: [17.1, 15.3, 3.4, 10.5, 14.1, 4.2] },
 };
@@ -220,7 +222,8 @@ const wrap = (a) => a - Math.PI * 2 * Math.round(a / (Math.PI * 2));
 // The wind-ups are painted raised over the head, so they are tipped forward too:
 // the guard and fist sit above the hat or hood rather than over the eyes.
 const CLEAR = { corsair: { wind: 0.5, mid: 0.35 }, rogue: { wind: 0.55, mid: 0.15 } };
-const CLEAR_OFF = { corsair: { mid: 0.2 } };
+// (The Monk's palm, fingers up, dips a little below the cheek as it crosses the chest.)
+const CLEAR_OFF = { corsair: { mid: 0.2 }, monk: { mid: -0.2 } };
 /** The direction the weapon points at picture-walk position a (1..3). */
 function arcDir(g, a) {
   const k = Math.max(1, Math.min(3, a)) - 1, i = Math.min(1, Math.floor(k));
@@ -356,6 +359,8 @@ export function hasSwingArt(classId, hand = 'main') {
 }
 
 // ---------------- Back view ----------------
+// Where most heroes' back-view feet stand: [left x, right x, width].
+const BACK_FEET = [-10, 1, 12];
 /** Is the hero facing up the screen (away from the camera)? */
 export function facingAway(opts = {}) {
   const f = opts.facing;
@@ -381,13 +386,15 @@ export function drawHeroBack(ctx, opts = {}) {
   const step = Math.sin((g.phase || 0) * Math.PI) * move;
   const ch = anim?.ch;
   const breathe = Math.sin((opts.time || 0) * 0.0032) * 0.35 * (1 - move) + (ch?.crouch || 0);
-  // Feet where the front view has them, the soles showing as each lifts.
+  // Feet where the front view has them, the soles showing as each lifts
+  // (a wide stance, the Monk's, says where: [left x, right x, width]).
+  const [flx, frx, fw] = a.backFeet || BACK_FEET;
   const foot = (img, x, lift) => {
-    const w = 12, h = w * img.naturalHeight / img.naturalWidth;
+    const w = fw, h = w * img.naturalHeight / img.naturalWidth;
     ctx.drawImage(heroLit(img), x, 15 - h - lift, w, h);
   };
-  foot(footL, -10 - step * 1.5, Math.max(0, step) * 3 + (ch?.liftB || 0));
-  foot(footR, 1 + step * 1.5, Math.max(0, -step) * 3 + (ch?.liftF || 0));
+  foot(footL, flx - step * 1.5, Math.max(0, step) * 3 + (ch?.liftB || 0));
+  foot(footR, frx + step * 1.5, Math.max(0, -step) * 3 + (ch?.liftF || 0));
   const put = (img, r, dy = 0) => ctx.drawImage(heroLit(img), r[0], r[1] + breathe + dy, r[2], r[3]);
   put(body, b.body);
   if (other) {
