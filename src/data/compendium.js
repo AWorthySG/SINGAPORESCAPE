@@ -548,7 +548,7 @@ export const CHAPTERS = [
           'Each element also has its own effect, shown on the foe while it lasts: **burning** foes glow orange (🔥 under their life bar), **chilled** ones turn icy blue (❄) and hit softer, and **cracked** armour shows a brown wash (🪨 and the number of cracks).',
           () => ({ table: { head: ['Spell', 'Magic', 'Effect', 'Strong against', 'Resisted by'], rows: spellRows() } }),
           'Every spell also blasts the area round its target for the same damage. Earth\'s cracks count for every hit you land on that foe, whatever you hit it with.',
-          'The **Priest** and the **Zealot** have elements of their own and cast only those: the Priest the Light path (Radiance, Grace, Judgement, Sanctuary: dazzling, warding, judging the hurt and healing), the Zealot the Flame path (Holy Fire, Wrath, Ash, Martyrdom: brands that burst, stored wrath, cinders and sacrifice). The Wizard and the Sorcerer cast the seven above.',
+          'The **Priest** and the **Zealot** have elements of their own and cast only those: the Priest the Light path (Radiance, Grace, Judgement, Sanctuary: dazzling, warding, judging the hurt and healing), the Zealot the Flame path (Holy Fire, Wrath, Ash, Blood: brands that burst, stored wrath, cinders and life paid for much harder hits; the Zealot's Blood is its own, not the Wizard's). The Wizard and the Sorcerer cast the seven above.',
         ],
         see: ['monster-armour', 'codex-mastery'],
       },

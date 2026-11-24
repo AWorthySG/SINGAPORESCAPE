@@ -28,7 +28,9 @@ export const SPELLS = [
   { id: 'holyfire_strike', name: 'Holy Fire', level: 1, maxHit: 2, xp: 5.5, tint: '#ffe9a0', critTint: '#fffbe0', runes: { air_rune: 1, mind_rune: 1 }, cls: 'zealot' },
   { id: 'wrath_strike', name: 'Wrath', level: 15, maxHit: 2, xp: 11.5, tint: '#ff6a4a', critTint: '#ffc08a', runes: { fire_rune: 2, air_rune: 1, mind_rune: 1 }, cls: 'zealot' },
   { id: 'ash_strike', name: 'Ash', level: 30, maxHit: 2, xp: 15.5, tint: '#b8a8a0', critTint: '#ffb070', runes: { death_rune: 1, fire_rune: 2, mind_rune: 1 }, cls: 'zealot' },
-  { id: 'martyrdom_strike', name: 'Martyrdom', level: 45, maxHit: 2, xp: 18.5, tint: '#e04a5a', critTint: '#ffd27a', runes: { blood_rune: 1, air_rune: 2, mind_rune: 1 }, cls: 'zealot' },
+  // The Zealot's Blood (the owner asked for it in place of Martyrdom): its own id,
+  // so the Wizard's Blood (blood_strike, Siphon) stays as it was.
+  { id: 'bloodprice_strike', name: 'Blood', level: 45, maxHit: 2, xp: 18.5, tint: '#a8102a', critTint: '#ff4a5e', runes: { blood_rune: 1, air_rune: 2, mind_rune: 1 }, cls: 'zealot' },
 ];
 export const SPELL_HIT_CAP = 20;
 /** A spell's base max hit at a Magic level (before the Magic multiplier and the element's damage). */
@@ -68,8 +70,13 @@ export const ELEMENT_MATCHUP = { strong: 1.5, weak: 0.7 };
 // levels 50-200 and 80% at 300 (kill speed 88-101%), the Zealot 103-119% at
 // 50-200 and 86% at 300 (kill 87-116%). Martyrdom's +60% made the Zealot
 // 1.3-1.8 times the Wizard where its strong races came up, before its strong
-// list was narrowed to spirits and constructs.
-export const LIGHT_POWER = 0.85, FLAME_POWER = 0.7;
+// list was narrowed to spirits and constructs. Blood, which took its place, hits
+// +120% when its price is paid, which at the Flame path's power made it the
+// Zealot's best cast on nearly everything and put it at 1.3-1.6 times the
+// Wizard at level 200; so Blood alone has a lower power (BLOOD_POWER: x1.1 paid,
+// a weak cast unpaid) and the Zealot sits at 104-117% of the Wizard's
+// single-target damage at 50-200, 85% at 300 (kill 89-115%), as before.
+export const LIGHT_POWER = 0.85, FLAME_POWER = 0.7, BLOOD_POWER = 0.5;
 const PATH_BURN = { share: 0.15, secs: 5, tickMs: 500, max: 20 };
 export const ELEMENTS = {
   wind:  { name: 'Wind',  icon: '🌪️', splat: '#2f9a6a', strong: ['avian', 'spirit', 'bug'], weak: ['construct', 'dragon'],
@@ -87,7 +94,7 @@ export const ELEMENTS = {
   blood: { name: 'Blood', icon: '🩸', splat: '#b0162e', strong: ['beast', 'reptile', 'aquatic'], weak: ['undead', 'construct'],
     effect: 'Siphon: heals you 12% of the damage it deals, its splash included', siphon: 0.12 },
   // The Priest's Light path (protect, heal, punish the unholy) and the Zealot's
-  // Flame path (holy fire, wrath, sacrifice). What each effect does in a fight
+  // Flame path (holy fire, wrath, cinders, blood). What each effect does in a fight
   // lives in game/classelements.js; `power` is the path's damage beside the
   // seven (see LIGHT_POWER and FLAME_POWER below).
   radiance:  { name: 'Radiance', icon: '☀️', splat: '#c79600', strong: ['undead', 'spirit', 'bug'], weak: ['construct', 'flora'], power: LIGHT_POWER, ignite: PATH_BURN,
@@ -104,8 +111,11 @@ export const ELEMENTS = {
     effect: 'Retribution: the damage you take is stored, and your next Wrath hits harder for it: twice the share of your life you lost, up to +50%; then the store empties', retribution: { per: 2, cap: 0.5 } },
   ash:       { name: 'Ash', icon: '🌫️', splat: '#76665f', strong: ['avian', 'construct', 'reptile'], weak: ['aquatic', 'undead'], power: FLAME_POWER, ignite: PATH_BURN,
     effect: 'Cinders: a foe it has struck that dies branded or burning (holy fire or Ignite) bursts into cinders, hitting foes within 2 tiles for 30% of the killing blow', cinders: { share: 0.3, ticks: 10 } },
-  martyrdom: { name: 'Martyrdom', icon: '💔', splat: '#9a1a4a', strong: ['spirit', 'construct'], weak: ['humanoid', 'dragon'], power: FLAME_POWER, ignite: PATH_BURN,
-    effect: 'Sacrifice: every cast costs 2% of your life (never taking you under a fifth of it) and hits 60% harder', sacrifice: { life: 0.02, dmg: 0.6 } },
+  // The Zealot's Blood (Martyrdom until the owner asked for a blood element
+  // with a much bigger bonus): the hit is only harder when the life is paid, so
+  // the price always means something.
+  bloodprice: { name: 'Blood', icon: '🩸', splat: '#8a0f22', strong: ['spirit', 'construct'], weak: ['humanoid', 'dragon'], power: BLOOD_POWER, ignite: PATH_BURN,
+    effect: 'Blood Price: every cast pays 5% of your life and hits 120% harder (x2.2). At a fifth of your life or under it costs nothing, and hits only as hard as any other', sacrifice: { life: 0.05, dmg: 1.2 } },
 };
 for (const s of SPELLS) s.element = s.id.split('_')[0];
 // (Say so on each of the paths' elements, after its own effect.)
@@ -121,8 +131,13 @@ export function elementMatchup(element, race) {
 export const elementMult = (m) => (m === 'strong' ? ELEMENT_MATCHUP.strong : m === 'weak' ? ELEMENT_MATCHUP.weak : 1);
 
 export const SPELL_BY_ID = Object.fromEntries(SPELLS.map((s) => [s.id, s]));
+// Elements renamed since saves held them: a Zealot's Martyrdom is now Blood.
+const RENAMED = { martyrdom: 'bloodprice' };
 // Old saves may hold a retired tier (e.g. 'fire_wave'): it becomes that element's spell.
-export const getSpell = (id) => SPELL_BY_ID[id] || SPELL_BY_ID[`${String(id).split('_')[0]}_strike`] || SPELLS[0];
+export const getSpell = (id) => {
+  const el = String(id).split('_')[0];
+  return SPELL_BY_ID[id] || SPELL_BY_ID[`${RENAMED[el] || el}_strike`] || SPELLS[0];
+};
 /** The seven elements every caster had: the Wizard's and the Sorcerer's. */
 export const WIZARD_ELEMENTS = SPELLS.filter((s) => !s.cls).map((s) => s.element);
 const BY_CLASS = new Map();

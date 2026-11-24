@@ -5851,10 +5851,11 @@ export class Game {
       if (el.consecrate) v *= 1 + el.consecrate.per * 5 * hurt;
       // Brand: every fifth hit lands again on the foe (its area too, counted below).
       if (el.brand) v *= 1 + el.brand.burst / el.brand.max;
-      // Wrath: as strong as what you have stored. Sacrifice hits harder but is paid
-      // in life: the more hurt you already are, the less auto battle spends.
+      // Wrath: as strong as what you have stored. Blood hits harder but is paid
+      // in life: the more hurt you already are, the less auto battle spends
+      // (and at the life-cost floor it costs nothing and hits as any other).
       if (el.retribution) v *= 1 + ClassEl.wrathBonus(this);
-      if (el.sacrifice) v *= (1 + el.sacrifice.dmg) * (1 - 0.5 * hurt);
+      if (el.sacrifice && ClassEl.lifeCost(this, el.sacrifice.life) > 0) v *= (1 + el.sacrifice.dmg) * (1 - 0.5 * hurt);
       // Cinders: kills among a crowd spread to the rest.
       if (el.cinders) v *= 1 + el.cinders.share * Math.min(1, crowd(AOE_RADIUS) / 2);
       // Shatter's cracks build over the first few casts: count most of the full effect.

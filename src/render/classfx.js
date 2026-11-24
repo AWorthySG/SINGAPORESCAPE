@@ -1,13 +1,15 @@
 // How the Priest's Light path and the Zealot's Flame path look (magic.js
-// radiance ... martyrdom; their effects are game/classelements.js):
+// radiance ... bloodprice; their effects are game/classelements.js):
 //  - drawClassShot: each element's own bolt in place of the plain glowing orb:
 //    Radiance a straight beam, Grace a soft golden orb shedding feather motes,
 //    Judgement a plain blade of light dropping onto the foe, Sanctuary a glowing
 //    circle spreading on the ground, Holy Fire a white-gold flame, Wrath a
 //    red-gold shock that swells with the wrath stored, Ash a grey-orange
-//    swirl of cinders, Martyrdom crimson-gold sparks drawn out of you;
+//    swirl of cinders, Blood a deep-red drop trailing dark red, with red
+//    droplets drawn out of you into it;
 //  - drawClassEffect: the brands' flare as they burst, an ash burst on a death,
-//    a chime of light as a ward forms (game.effects of type 'classfx');
+//    a chime of light as a ward forms, Blood's price paid (red droplets drawn
+//    out of you) (game.effects of type 'classfx');
 //  - drawClassAuras: the Grace ward's golden bubble round you, a Zealot's
 //    stored Wrath as a red-gold glow and a small meter at your feet, and the
 //    Holy Fire brands as flame pips over each branded foe.
@@ -18,7 +20,7 @@ import { ELEMENTS } from '../data/magic.js';
 
 const INK = '#22304A';
 const TAU = Math.PI * 2;
-const SHOTS = new Set(['radiance', 'grace', 'judgement', 'sanctuary', 'holyfire', 'wrath', 'ash', 'martyrdom']);
+const SHOTS = new Set(['radiance', 'grace', 'judgement', 'sanctuary', 'holyfire', 'wrath', 'ash', 'bloodprice']);
 
 /** Draw a spell bolt of one of the eight elements (`e` a projectile effect,
  *  `t` 0..1 through its flight). False for any other bolt (drawn as before). */
@@ -158,25 +160,33 @@ export function drawClassShot(ctx, e, t, ox, oy, game) {
       ctx.fillStyle = '#ffb070'; ctx.beginPath(); ctx.arc(x, y, 1.3 * k, 0, TAU); ctx.fill();
       break;
     }
-    case 'martyrdom': {
-      // Crimson-gold sparks drawn out of you and along the bolt's path, and a heavy crimson core.
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.35; ctx.strokeStyle = '#d8304a'; ctx.lineWidth = 1.6;
-      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(x, y); ctx.stroke();
-      if (!low) {
-        ctx.fillStyle = '#ffd27a';
-        for (let i = 0; i < 5; i++) {
-          const u = (i + (calm ? 0.5 : (t * 4) % 1)) / 5 * t;
-          ctx.globalAlpha = 0.9;
-          ctx.beginPath(); ctx.arc(sx + (tx - sx) * u + Math.sin(i * 2.3) * 3, sy + (ty - sy) * u + Math.cos(i * 1.7) * 3, 1.3, 0, TAU); ctx.fill();
+    case 'bloodprice': {
+      // A deep-red drop flying round end first, a dark-red trail behind it, and
+      // (early in the flight) red droplets drawn out of you into it.
+      const ang = Math.atan2(ty - sy, tx - sx), back = Math.max(0, t - (low ? 0.12 : 0.28));
+      ctx.globalAlpha = 0.55; ctx.strokeStyle = '#5a0612'; ctx.lineWidth = 3.2 * k;
+      ctx.beginPath(); ctx.moveTo(sx + (tx - sx) * back, sy + (ty - sy) * back); ctx.lineTo(x, y); ctx.stroke();
+      ctx.globalAlpha = 0.8; ctx.strokeStyle = '#8a0f22'; ctx.lineWidth = 1.4 * k;
+      ctx.beginPath(); ctx.moveTo(sx + (tx - sx) * (back + t) / 2, sy + (ty - sy) * (back + t) / 2); ctx.lineTo(x, y); ctx.stroke();
+      if (!low && t < 0.45) {
+        ctx.fillStyle = '#c8142e'; ctx.strokeStyle = INK; ctx.lineWidth = 0.5;
+        for (let i = 0; i < 4; i++) {
+          // Each droplet leaves your hand a little after the last and catches the bolt up.
+          const u = Math.max(0, Math.min(1, (t - i * 0.06) / 0.3));
+          if (u <= 0 || u >= 1) continue;
+          const wob = calm ? 0 : Math.sin(i * 2.1 + t * 20) * 2;
+          const dx = sx + (x - sx) * u + wob, dy = sy - 6 * Math.sin(u * Math.PI) + (y - sy) * u;
+          ctx.globalAlpha = 0.95 * (1 - u * 0.4);
+          ctx.beginPath(); ctx.arc(dx, dy, 1.7, 0, TAU); ctx.fill(); ctx.stroke();
         }
       }
-      ctx.globalAlpha = 0.4; ctx.fillStyle = '#ffcf70';
-      ctx.beginPath(); ctx.arc(x, y, 7.5 * k, 0, TAU); ctx.fill();
-      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
-      ctx.fillStyle = e.color; ctx.strokeStyle = INK; ctx.lineWidth = 0.9;
-      ctx.beginPath(); ctx.arc(x, y, 4.4 * k, 0, TAU); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = '#ffd27a'; ctx.beginPath(); ctx.arc(x - 1, y - 1, 1.6 * k, 0, TAU); ctx.fill();
+      ctx.translate(x, y); ctx.rotate(ang); ctx.scale(k, k);
+      ctx.globalAlpha = 1; ctx.fillStyle = e.color; ctx.strokeStyle = INK; ctx.lineWidth = 0.9;
+      // A drop on its side: the round end leads, the point trails.
+      ctx.beginPath(); ctx.moveTo(-9, 0);
+      ctx.quadraticCurveTo(-2, -5.2, 2.5, -4.4); ctx.arc(2.5, 0, 4.4, -Math.PI / 2, Math.PI / 2);
+      ctx.quadraticCurveTo(-2, 5.2, -9, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ff7a88'; ctx.beginPath(); ctx.ellipse(3.6, -1.8, 1.6, 1, -0.4, 0, TAU); ctx.fill();
       break;
     }
   }
@@ -212,6 +222,19 @@ export function drawClassEffect(ctx, e, ox, oy) {
     for (let i = 0; i < 9; i++) {
       const ang = i * 0.7 + 0.3, r = 4 + 34 * t;
       ctx.beginPath(); ctx.arc(x + Math.cos(ang) * r, y + Math.sin(ang) * r * 0.7 - 10 * t, 1.6, 0, TAU); ctx.fill();
+    }
+  } else if (e.kind === 'bloodprice') {
+    // Blood's price paid: a red ring closing in on you and red droplets drawn
+    // up out of you to your hand (low graphics: the ring alone).
+    ctx.globalAlpha = 0.75 * a; ctx.strokeStyle = '#c8142e'; ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.ellipse(x, y + 4, 22 - 10 * t, 9 - 4 * t, 0, 0, TAU); ctx.stroke();
+    if (!e.low) {
+      ctx.fillStyle = '#b0102a'; ctx.strokeStyle = INK; ctx.lineWidth = 0.5;
+      for (let i = 0; i < 6; i++) {
+        const ang = i * 1.05 + 0.4, r = 16 * (1 - t), rise = 18 * t + (e.calm ? 0 : Math.sin(i * 1.7) * 2);
+        ctx.globalAlpha = a;
+        ctx.beginPath(); ctx.arc(x + Math.cos(ang) * r, y + 4 + Math.sin(ang) * r * 0.4 - rise, 1.8, 0, TAU); ctx.fill(); ctx.stroke();
+      }
     }
   } else if (e.kind === 'ward') {
     // A ward forming: a soft golden ring closing in on you, with a glint.

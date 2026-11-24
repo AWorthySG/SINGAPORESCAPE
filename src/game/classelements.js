@@ -1,12 +1,13 @@
 // What the Priest's and the Zealot's own elements do beyond their damage (the
-// Light and Flame paths, magic.js ELEMENTS radiance ... martyrdom). Each effect
+// Light and Flame paths, magic.js ELEMENTS radiance ... bloodprice). Each effect
 // is a field on its element, as Fire's `ignite` or Dark's `hex` are, so the
 // numbers stay in the data table. Kept out of game.js, which only calls in:
 //  - _offensiveMods multiplies a cast by castMult (the path's power, Verdict,
-//    Retribution and Sacrifice), and the Stats tab (statsheet.js) shows it;
+//    Retribution and Blood Price), and the Stats tab (statsheet.js) shows it;
 //  - _magicAttack and _spellSplash call markFoe on every foe a spell hits
-//    (Dazzle, Ash's mark, Consecrate's count), and _magicAttack calls afterCast
-//    once the cast has landed (Ward, Consecrate, Brand, Wrath spent, Sacrifice);
+//    (Dazzle, Ash's mark, Consecrate's count; the Blood Price is paid as the
+//    cast goes off), and _magicAttack calls afterCast once the cast has landed
+//    (Ward, Consecrate, Brand, Wrath spent);
 //  - resolveNpcAttack asks dazzleMiss before a foe's blow lands, and the Ward
 //    soaks blows in Player.soakWard; Player.takeDamage stores Wrath;
 //  - killNpc calls onKill (Cinders), and doTick calls tick (the Ward fading).
@@ -36,14 +37,15 @@ export function wrathBonus(game) {
 }
 
 /** A cast's damage multiplier from its element's own effects (1 for the seven
- *  elements): the path's power, Verdict on a hurt foe, stored Wrath, Sacrifice. */
+ *  elements): the path's power, Verdict on a hurt foe, stored Wrath, and the
+ *  Zealot's Blood Price, but only while there is life above the floor to pay. */
 export function castMult(game, npc, element) {
   const el = ELEMENTS[element];
   if (!el) return 1;
   let m = el.power || 1;
   if (el.verdict && npc?.maxHp > 0) m *= 1 + el.verdict * Math.max(0, Math.min(1, 1 - npc.hp / npc.maxHp));
   if (el.retribution) m *= 1 + wrathBonus(game);
-  if (el.sacrifice) m *= 1 + el.sacrifice.dmg;
+  if (el.sacrifice && lifeCost(game, el.sacrifice.life) > 0) m *= 1 + el.sacrifice.dmg;
   return m;
 }
 
@@ -52,6 +54,9 @@ export function castMult(game, npc, element) {
 export function markFoe(game, npc, spell, first = false) {
   const el = ELEMENTS[spell.element];
   if (first) game._consecrated = 0;
+  // Blood's price is paid as the cast goes off, as castMult has just counted it
+  // (nothing between the two changes your life), so a hit is only harder when paid.
+  if (first && el?.sacrifice) payLife(game, el.sacrifice.life);
   if (!el || !npc.alive) return;
   if (el.dazzle) {
     if (!(npc.dazzleUntil > game.tickCount)) game.spawnSparkle(npc, '#fff6c8', 3);
@@ -76,7 +81,6 @@ export function afterCast(game, npc, spell, { dmg, raw, dealt }) {
     game.bus.emit('hp');
   }
   if (el.retribution) p.wrath = 0;   // spent on this cast (castMult counted it)
-  if (el.sacrifice) payLife(game, el.sacrifice.life);
   if (el.brand && dmg > 0) brandFoe(game, npc, dmg, raw, spell);
 }
 
@@ -89,14 +93,22 @@ export function addWard(game, amt) {
   if (p.ward > was) { if (!was) fx(game, 'ward', p, 600); game.bus.emit('hp'); }
 }
 
-/** Martyrdom's Sacrifice: `share` of your life as it is now, never taking you
- *  under LIFE_COST_FLOOR of your life (as the Zealot's life-paid skills). */
-export function payLife(game, share) {
+/** Blood's price for a cast now: `share` of your life as it is, never taking you
+ *  under LIFE_COST_FLOOR of your life (as the Zealot's life-paid skills); 0 at
+ *  or under the floor. */
+export function lifeCost(game, share) {
   const p = game.player, floor = Math.ceil(game.maxHp() * LIFE_COST_FLOOR);
-  const cost = Math.min(Math.floor(p.hp * share), p.hp - floor);
+  return Math.max(0, Math.min(Math.floor(p.hp * share), p.hp - floor));
+}
+
+/** Pay Blood's price: the life comes off with a deep-red number over you, and
+ *  red droplets drawn out of you into the bolt (render/classfx.js). */
+export function payLife(game, share) {
+  const p = game.player, cost = lifeCost(game, share);
   if (!(cost > 0)) return 0;
   p.hp -= cost;
-  game.addHitsplat(p, cost, { tint: '#d8304a' });
+  game.addHitsplat(p, cost, { tint: '#b0102a' });
+  fx(game, 'bloodprice', p, 520, { low: !!game.lowFx, calm: !!game.reduceMotion });
   game.bus.emit('hp');
   return cost;
 }

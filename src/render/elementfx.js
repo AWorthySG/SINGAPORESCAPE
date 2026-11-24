@@ -98,10 +98,11 @@ export const ELEMENT_FX = {
     { kind: 'cloud', n: 3, speed: 0.035, life: 520, col: '#b8aca6', size: 4 },
     { kind: 'dot', n: 6, speed: 0.09, life: 480, col: '#ff9a40', g: -0.0001, up: -0.03, add: true, size: 1.5 },
   ] },
-  martyrdom: { col: '#e04a5a', pieces: [   // a heavy crimson-gold blow
-    { kind: 'dot', n: 8, speed: 0.12, life: 460, col: '#d8304a', g: 0.0006, up: -0.1, size: 2 },
-    { kind: 'spark', n: 6, speed: 0.2, life: 240, col: '#ffd27a', add: true, size: 1.6 },
-    { ring: true, r0: 4, r1: 22, life: 300, col: '#ffcf70', w: 3 },
+  bloodprice: { col: '#b0102a', pieces: [   // the Zealot's Blood: a heavy red splash, as Blood's droplets but more and darker
+    { kind: 'dot', n: 11, speed: 0.13, life: 560, col: '#a8102a', g: 0.0008, up: -0.12, size: 2.3 },
+    { kind: 'dot', n: 5, speed: 0.07, life: 440, col: '#e0304a', g: 0.0007, up: -0.08, size: 1.6 },
+    { ring: true, r0: 4, r1: 22, life: 300, col: '#d0243e', w: 3.4 },
+    { ring: true, r0: 4, r1: 20, life: 380, col: '#7a0818', w: 2.4, sq: 0.45, dy: 8 },
   ] },
   // Anything else (a new element nobody has drawn yet, or plain magic).
   arcane: { col: '#c890f0', pieces: [
