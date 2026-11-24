@@ -2527,6 +2527,8 @@ body #tip-toast.tip-strip { font-size: var(--fs-xs); padding: 4px 6px 4px 7px; b
   .tab-btn { min-width: 44px; min-height: 44px; }
   .inv-slot, .equip-slot, .item-cell { min-width: 44px; min-height: 44px; }
   .inv-tab, #inv-sort, .chat-tab, .as-opt, .wm-chip, .subtab-btn { min-height: 44px; }
+  /* Grown to 44px, the chat tabs' names sat at the top of their pills: centred. */
+  .chat-tab { display: flex; align-items: center; justify-content: center; padding-block: 0; }
   #inv-sort { min-width: 44px; }
   .auto-row #auto-battle-btn, .auto-row .ab-btn, .auto-row #auto-battle-cfg { min-height: 44px; }
   #wave-hud .wv-leave { min-height: 44px; }
@@ -2680,11 +2682,14 @@ body #tip-toast.tip-strip { font-size: var(--fs-xs); padding: 4px 6px 4px 7px; b
   /* The first-run tip is placed by ui.js (_placeTip): under the strip and the
      minimap, short of the launcher. Its words get the badge's width. */
   #tip-toast .tip-badge { display: none; }
-  /* Chat, unfolded: above the Auto button, clear of the skill arc. */
+  /* Chat, unfolded: above the Auto button, clear of the skill arc. Tall
+     enough that the log shows a few lines over its row of 44px tabs (at
+     130px it showed one). */
   #chatbox:not(.collapsed) {
     left: calc(6px + var(--sa-l)); right: auto; top: auto; bottom: calc(var(--auto-b) + 74px);
-    width: min(236px, calc(100vw - 160px)); height: 130px;
+    width: min(236px, calc(100vw - 160px)); height: 172px;
   }
+  #chatbox:not(.collapsed) #chat-tabs { padding: 4px; }
   /* The bottom sheets, at most 85% of the height, the game showing above. */
   #sidepanel:not(.collapsed), #sidepanel.wide:not(.collapsed) {
     left: 0; right: 0; top: auto; bottom: 0; width: auto; height: 60dvh; max-height: 85dvh;

@@ -37,6 +37,8 @@
    and banner, under modals. */
 .story-scene { position: absolute; inset: 0; z-index: 70; cursor: var(--cur-pointer); }
 .story-scene.hidden { display: none; }
+/* The first-run tip waits while a scene plays: it sat half under the top bar. */
+body:has(.story-scene:not(.hidden)) #notice-lane .nl-tip { visibility: hidden; }
 .ss-bar { position: absolute; left: 0; right: 0; height: min(11vh, 90px); background: #10141c; transform: scaleY(0); transition: transform .45s ease; }
 .ss-top { top: 0; transform-origin: top; display: flex; align-items: flex-end; justify-content: center; padding: 0 90px 8px; }
 .ss-bottom { bottom: 0; transform-origin: bottom; }

@@ -147,6 +147,22 @@ function airmail(g, x, y, w, h) {
 /** The arrival card's size for a view `vw` wide (the renderer's view units, which the camera's zoom scales up). */
 export const arrivalSize = (vw) => { const w = Math.round(Math.max(Math.min(300, vw - 24), Math.min(330, vw * 0.44))); return { w, h: Math.round(w * 0.36) }; };
 
+// On a phone held upright the HUD's right-hand column (the Special, Faith and
+// HP orbs, the Menu and quick bar buttons) runs down the screen at the height
+// the title cards show, and it hid their right ends (the postcard's stamp, the
+// plaque's level line). That column is about 150 CSS px wide (styles/main.css,
+// the phone block), so there the cards keep to the space left of it.
+export const PHONE_HUD_COLUMN = 150;
+/** The room a region's title card has: its centre `cx` and widest `w`, in view
+ *  units (CSS px over the camera's `zoom`). The whole width, centred, except on
+ *  a portrait phone (at most 540 CSS px wide), where the HUD column is kept clear. */
+export function titleRoom(vw, vh, zoom = 1) {
+  const cssW = vw * zoom;
+  if (cssW > 540 || vh <= vw) return { cx: vw / 2, w: vw };
+  const left = 8 / zoom, right = vw - PHONE_HUD_COLUMN / zoom;
+  return { cx: (left + right) / 2, w: right - left };
+}
+
 /**
  * Paint a region's arrival postcard into a w x h box on `g` (the card's own
  * small canvas, or a test's recording context). `info`: { name, sub, line,
@@ -218,15 +234,15 @@ export class RegionPostcards {
 
   /** Draw `tc` (the cinematics title card) at opacity `a`. False when it
    *  can't (headless) or shouldn't (the grim lands keep their dark plaque). */
-  draw(ctx, tc, vw, vh, a) {
+  draw(ctx, tc, vw, vh, a, room = { cx: vw / 2, w: vw }) {
     if (!this.ok || !tc || DARK_REGIONS.has(tc.name)) return false;
-    const card = this._bake(tc, vw);
+    const card = this._bake(tc, Math.min(vw, room.w + 24));   // sized to its room (titleRoom)
     if (!card) return false;
     const rise = 1 - a;
     ctx.save();
     ctx.globalAlpha = a;
     // Below the region label and the notices at the top, above the hero.
-    ctx.translate(vw / 2, Math.max(card.h / 2 + 64, vh * 0.34) + rise * 18);
+    ctx.translate(room.cx, Math.max(card.h / 2 + 64, vh * 0.34) + rise * 18);
     ctx.rotate((-2.2 - rise * 4) * Math.PI / 180);
     ctx.drawImage(card.cv, -card.w / 2, -card.h / 2, card.w, card.h);
     ctx.restore();

@@ -32,6 +32,14 @@
 #minimap-panel #minimap-region::after { right: -9px; border-left: 0; clip-path: polygon(0 0, 100% 0, 55% 50%, 100% 100%, 0 100%); }
 #minimap-panel #minimap-region.wild::before, #minimap-panel #minimap-region.wild::after { background: #F28C82; }
 #minimap-panel #minimap-region:empty { display: none; }
+/* A long name ("Sungei Buloh Wetlands", "The Wilderness (Lvl 3)") ran left
+   over the HP orb: it is set a size smaller, and on a wide screen sits a little
+   right of the ring's middle, where there is room to the screen's edge. */
+#minimap-panel #minimap-region.long { font-size: var(--fs-xs); letter-spacing: 0; padding-inline: 8px; }
+@media (min-width: 541px) { #minimap-panel #minimap-region.long { transform: translateX(calc(-50% + 14px)); } }
+/* A phone's minimap is at the screen's right edge: there a long name is set
+   smaller still and sits a little left of the ring's middle, so it ends on screen. */
+@media (max-width: 540px) { #minimap-panel #minimap-region.long { font-size: var(--fs-cap); padding-inline: 6px; transform: translateX(calc(-50% - 10px)); } }
 
 /* MAP sits on the ring's lower right, like a tab stuck on the sticker. */
 #map-btn { bottom: 26px; right: -4px; }

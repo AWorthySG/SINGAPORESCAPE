@@ -254,6 +254,13 @@ body.boss-on #rep-pill { display: none; }
 @media (max-width: 540px) {
   #rep-pill { top: auto; bottom: calc(var(--auto-b, 154px) + 58px); }
 }
+/* Centred, a long region's pill ran under the quick-use slot on the right
+   (left of Interact): on a phone held upright it starts at the left edge,
+   over the Auto and Chat row, and a name too long for the room is cut short. */
+@media (pointer: coarse) and (max-width: 540px) {
+  #rep-pill { left: calc(12px + var(--sa-l, 0px)); transform: none; max-width: calc(100vw - 166px); box-sizing: border-box; }
+  #rep-pill span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+}
 
 /* Shops: each item's price under its cell, and the stock takes the wider
    column while your pack (the sell side) is small. */
