@@ -2549,7 +2549,7 @@ const WORLD_ART = {
   'obj-wall': [40, 36, 15], 'obj-ruin': [44, 44, 15], 'obj-fence': [40, 34, 15], 'obj-bush': [34, 30, 14],
   'obj-flower': [28, 26, 13], 'obj-palm': [50, 66, 15], 'obj-lamp': [24, 54, 15], 'obj-sign': [28, 38, 15],
   'obj-fishing_spot': [42, 30, 12], 'obj-rod_spot': [42, 34, 12], 'obj-sea_rod_spot': [42, 34, 12],
-  'obj-fishing_cage': [42, 32, 12], 'obj-harpoon_spot': [42, 34, 12],
+  'obj-fishing_cage': [42, 32, 12], 'obj-grouper_spot': [42, 32, 12], 'obj-harpoon_spot': [42, 34, 12],
   'obj-bird_snare': [40, 34, 14], 'obj-squirrel_trap': [40, 34, 14], 'obj-lizard_snare': [40, 34, 14],
   'obj-mousedeer_trail': [40, 34, 14], 'obj-boar_pit': [42, 34, 14], 'obj-python_trap': [44, 34, 14],
   'obj-crocodile_trap': [44, 32, 14], 'obj-hornbill_nest': [40, 40, 14], 'obj-qilin_trail': [40, 34, 14],
@@ -2770,10 +2770,10 @@ const RISE_MS = 500, DIP_MS = 260, UNDER_MS = 600, SPLASH_MS = 450;
 // The way a raw fish's sticker faces (its head), so it leaps head first; any
 // not listed face right. A repainted sticker may face another way: update it here.
 export const FISH_FACING = {
-  ...Object.fromEntries(['anchovy', 'arapaima', 'bluefin_tuna', 'dorado', 'dragon_arowana', 'giant_snakehead', 'grouper',
-    'lobster', 'longfin_trevally', 'mackerel', 'marble_goby', 'moonfish', 'peacock_bass', 'pike', 'rift_eel', 'sailfish', 'sardine',
-    'shark', 'speckled_temensis', 'stingray', 'swordfish', 'tenggiri', 'tilapia', 'trout', 'tuna'].map((f) => [`raw_${f}`, 'left'])),
-  raw_red_snapper: 'up', raw_golden_snapper: 'up', raw_manta_ray: 'up',
+  ...Object.fromEntries(['anchovy', 'arapaima', 'bluefin_tuna', 'climbing_perch', 'coral_trout', 'diamond_trevally', 'dragon_arowana',
+    'giant_snakehead', 'grouper', 'lobster', 'longfin_trevally', 'mackerel', 'marble_goby', 'moonfish', 'peacock_bass', 'pike', 'rift_eel',
+    'sailfish', 'sardine', 'shark', 'speckled_temensis', 'stingray', 'swordfish', 'tenggiri', 'tilapia', 'trout', 'tuna'].map((f) => [`raw_${f}`, 'left'])),
+  raw_red_snapper: 'up', raw_manta_ray: 'up',
 };
 // A steady 0..1 for a tile and a salt: each spot's own beat.
 function tileHash(x, y, salt) {

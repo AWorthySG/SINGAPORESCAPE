@@ -820,12 +820,14 @@ for (const [id, h] of Object.entries(HUNT)) {
 
 // Fishing spots with one species each (see the Fishing block above). Each kind
 // borrows the picture of the old mixed spot it was carved from: a net, rod,
-// coastal rod, cage or harpoon spot. [id, name, label, fish, level, xp, examine]
+// coastal rod or harpoon spot. The grouper reef (cage) has a picture of its own
+// (obj-grouper_spot), so it no longer borrows the lobster bed's crate.
+// [id, name, label, fish, level, xp, examine]
 const FISH_SPOT_KINDS = {
   net: { verb: 'Net', emoji: '🎣', tool: 'net', art: 'obj-fishing_spot' },
   pool: { verb: 'Lure', emoji: '🎣', tool: 'rod', art: 'obj-rod_spot' },
   coast: { verb: 'Cast', emoji: '🎣', tool: 'rod', art: 'obj-sea_rod_spot' },
-  cage: { verb: 'Cage', emoji: '🦞', tool: 'lobster_pot', art: 'obj-fishing_cage' },
+  cage: { verb: 'Cage', emoji: '🦞', tool: 'lobster_pot' },
   harpoon: { verb: 'Harpoon', emoji: '🦈', tool: 'harpoon', art: 'obj-harpoon_spot' },
 };
 export const FISH_SPOTS = {
