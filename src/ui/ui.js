@@ -98,6 +98,7 @@ import { PanelSizer } from './panelsize.js';
 import { TIPS, TIPS_KEY, TIP_MS, nextTip, markTipSeen, tipsSeen } from './tips.js';
 import { labelMode, nextLabelMode, LABEL_MODE_NAMES, questNpcIds } from '../render/worldlabels.js';
 import { applyAccessibility, countUp, playCloseGhost, inlineIcon } from './uifx.js';
+import { installPressStates, easeHeight, swapIn, staggerIn, bump, sheetCloseGhost, celebrateLevel } from './motion.js';
 import { mechLabel } from '../game/bossmech.js';
 import { renderBossBar } from './bossbar.js';
 import { whatNextHTML, wireWhatNext, whatNextTrackerRows, watchUpgrades, watchGoals } from './whatnextui.js';
@@ -332,6 +333,9 @@ export class UI {
     watchUpgrades(this);   // "Wear it" when loot beats your gear (whatnextui.js)
     watchGoals(this);      // the journal's "What next?" card follows the goals
     this.bus.on('inventory', () => this.scheduleInventory());
+    installPressStates();   // pressed looks on iPhones (motion.js)
+    // Loot landing: the Bag tab (or the phone's folded menu button) gives a little hop.
+    this.bus.on('sfx', (n) => { if (n === 'pickup') this._soon('lootBump', () => this._lootBump()); });
     // Gear changes come in bursts (every worn piece gains mastery on a kill), so redraw once a frame.
     this.bus.on('equipment', () => { this._soon('equipment', () => this.renderEquipment()); this._soon('combat', () => this.renderCombatPanel()); this.scheduleInventory(); });
     // Busy events (every hit gives XP, adrenaline, rhythm) only mark a panel to
@@ -744,7 +748,10 @@ export class UI {
 
   _wireCollapse(key, panel, btn, label) {
     if (!panel || !btn) return;
+    let wired = false;
     const apply = (collapsed) => {
+      // A phone's sheet slides away rather than vanishing (motion.js; the panel folds at once).
+      if (key === 'panel' && wired && collapsed && !panel.classList.contains('collapsed')) sheetCloseGhost(panel, this.game);
       panel.classList.toggle('collapsed', collapsed);
       if (collapsed) panel.classList.remove('sheet-full');   // a phone sheet always reopens at half height
       if (key === 'panel' && !collapsed) this._fullForBag();   // (but the Bag, Gear and Skills open full)
@@ -759,6 +766,7 @@ export class UI {
     const compact = typeof matchMedia === 'function' && matchMedia('(max-width: 540px), (max-height: 500px)').matches;
     if (this._collapse[key] === undefined && compact && (key === 'panel' || key === 'chat')) this._collapse[key] = true;
     apply(!!this._collapse[key]);
+    wired = true;
     this._collapseApply = this._collapseApply || {};
     this._collapseApply[key] = (c) => { this._collapse[key] = c; apply(c); this._saveCollapse(); };
     btn.addEventListener('click', (e) => {
@@ -890,13 +898,14 @@ export class UI {
         const tap = d < 6 && up < 6 && start.handle;
         const h = start.h;
         start = null;
+        sheet._dragD = d;   // a sheet let go part-way down slides away from there (motion.js)
         sheet.style.transition = ''; sheet.style.transform = ''; sheet.style.height = '';
         if (snap && !side() && !tap) {
           const to = sheetSnap({ full: sheet.classList.contains('sheet-full'), dy: d || -up, h });
           if (to === 'full' || to === 'half') sheet.classList.toggle('sheet-full', to === 'full');
           else if (to === 'close') close();
         } else if (d > 70 || tap) close();
-        d = 0; up = 0;
+        d = 0; up = 0; sheet._dragD = 0;
       };
       for (const g of grips) {
         if (!g) continue;
@@ -3679,7 +3688,18 @@ export class UI {
     if (!big) { q.clear(); return; }
     const more = q.size > 1 ? ` (and ${q.size - 1} more skill${q.size > 2 ? 's' : ''})` : '';
     this.showBanner(`<span class="big">Level up!</span>Your ${last.sk.name} is now level ${last.to}${last.n > 1 ? ` (+${last.n})` : ''}${more}.${last.news ? ` <span class="lvl-news">${escapeHtml(last.news)}</span>` : ''}`);
+    celebrateLevel({ skill: last.sk.id, name: last.sk.name, level: last.to, more: q.size - 1 }, this.game);   // the gold burst (motion.js)
     q.clear();
+  }
+
+  /** Loot just went into the bag: hop the Bag tab if it shows, else the
+   *  phone's folded menu button (it shows one tab: the way to the bag). */
+  _lootBump() {
+    if (typeof document === 'undefined') return;
+    const tabs = document.querySelectorAll('#panel-tabs .tab-btn');
+    const bag = [...tabs].find((b) => b.dataset.view === 'inventory' && b.offsetParent !== null);
+    const btn = bag || [...tabs].find((b) => b.offsetParent !== null && b.classList.contains('active'));
+    if (btn) bump(btn, 'ui-bump', this.game);
   }
 
   // Banners go to the one notification lane (noticelane.js): a small card,
@@ -3865,6 +3885,7 @@ export class UI {
   openModal(title, render) {
     this._dropTips();
     this.winMem?.leave();   // a window opened from another: remember where that one was
+    const swap = !!this.modal && this.el.modalOverlay?.classList?.contains?.('hidden') === false;
     this.modal = { title, render };
     this.el.modalTitle.textContent = title;
     this.el.modalOverlay.classList.remove('hidden');
@@ -3872,8 +3893,14 @@ export class UI {
     // this a window opened from a scrolled one (Gear Mastery -> Dismantle)
     // opened part-way down, its intro and first rows out of sight.
     this.el.modalBody.scrollTop = 0;
-    render(this.el.modalBody);
+    // From another window, the shared window's height glides to the new page's (motion.js).
+    if (swap) easeHeight(this.el.modalOverlay.querySelector?.('#modal-window'), () => render(this.el.modalBody), this.game);
+    else render(this.el.modalBody);
     this.winMem?.enter();   // ...then back to where this window was last time (windowease.js)
+    // Opened from another window, the new page fades in; a fresh window's
+    // sections rise in one after another (motion.js; both only visual).
+    if (swap) swapIn(this.el.modalBody, this.game);
+    else staggerIn(this.el.modalBody, this.game);
   }
 
   /** One-time, non-dismissible prompt: pick a job class. A new character gets its
@@ -4572,7 +4599,8 @@ export class UI {
         }
       };
       if (!this.modal) this.openModal(npc.name, render);
-      else { this.modal.render = render; render(this.el.modalBody); }
+      // The next line of talk: the sheet's height glides to fit (motion.js).
+      else { this.modal.render = render; easeHeight(this.el.modalOverlay.querySelector?.('#modal-window'), () => render(this.el.modalBody), this.game); }
     };
     this.openModal(npc.name, () => {});
     this.modal.kind = 'dialogue';

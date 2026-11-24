@@ -40,7 +40,9 @@ export function countUp(el, key, to, fmt = (n) => String(n), from) {
   el.classList.add('counting');
   const step = (now) => {
     if (!el.isConnected && now - t0 > 50) return;   // the window was redrawn: the new one takes over
-    const k = Math.min(1, (now - t0) / dur);
+    // A frame's timestamp can be from before t0 (it is when the frame began,
+    // and timeline throttling can hold it back): never ease below the start.
+    const k = Math.max(0, Math.min(1, (now - t0) / dur));
     const eased = 1 - (1 - k) ** 3;
     el.textContent = fmt(Math.round(start + (to - start) * eased));
     if (k < 1) requestAnimationFrame(step);
