@@ -1515,12 +1515,13 @@ function drawRod(c, hx, hy, ang, bend = 0) {
   return [tx, ty];
 }
 
-// A rod's sticker has a float and hook painted beside it (and the tier-1 one a
-// line hanging from its tip), but the fishing draws its own out on the water,
-// so the rod in hand is cut free of them: these boxes (0..1 across the
-// sticker) are cleared from it, once, into a small canvas kept for the rod.
+// A rod's sticker has a float and hook painted beside it, on a line hanging
+// from its tip, but the fishing draws its own out on the water, so the rod in
+// hand is cut free of them: these boxes (0..1 across the sticker) are cleared
+// from it, once, into a small canvas kept for the rod.
 const ROD_CUTS = { fishing_rod: [[0.62, 0.36, 1, 1], [0.78, 0.2, 1, 0.36]] };
-const TIER_ROD_CUTS = [[0.65, 0.6, 1, 1]];   // iron to eternal share one layout
+// Iron to eternal are painted on the tier-1 rod's shape (the TL-4 sheet), float and hook in the same place.
+const TIER_ROD_CUTS = ROD_CUTS.fishing_rod;
 const ROD_PX = 64;   // about twice the size it is drawn, so it shrinks cleanly
 const _rodPics = new Map();
 /** The rod's sticker cut free of its float and hook, or null (no DOM, not loaded yet). */
