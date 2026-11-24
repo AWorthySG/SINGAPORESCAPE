@@ -13,8 +13,10 @@ export const HERO_RIG_CLASSES = ['swordsman', 'rogue', 'samurai', 'corsair', 'pa
 // arm as [shoulder x, y, w, h, pivot x, y], turning about its shoulder (the
 // pivot inside the picture). All in game units, feet on the ground at y = 15.
 const PLACED = {
-  monk: { body: [-19.3, -38, 38.6, 47.4], left: [-20.9, 2.2, 10.3, 12.8], right: [-0.8, 1.7, 10.9, 13.3],
-    sword: [10.1, -12.8, 15.3, 17.8, 3.2, 14.2], back: [-17.5, -13.6, 15.9, 15.8, 12.7, 12.2], strike: [9.9, -12.8, 21.3, 9.3, 3.5, 4.9] },
+  // (Redrawn on sheet MK-a: a round bean with its arms on its sides, the
+  // knuckled fist forward at the waist and the gloved palm out at the hip.)
+  monk: { body: [-19, -38, 38.1, 46], left: [-17.5, 1.2, 12.6, 13.8], right: [4.4, 1.2, 13, 13.8],
+    sword: [12.4, -10.8, 20.7, 15.3, 3.4, 4.8], back: [-10.1, -10.8, 23.7, 15, 19.6, 6.8], strike: [13.5, -12.2, 23.2, 10.4, 3.8, 4.3] },
 };
 // Heavier weapons commit later; spears extend forward and whips sweep wider.
 const ATTACKS = {
@@ -43,9 +45,9 @@ const GRIP = {
 };
 // Where the weapon arm's shoulder is (the painted attack arms hang from it),
 // and the off hand's for the dual wielders' second set.
-const SHOULDER = { rogue: [15, -8], brawler: [14, -9], monk: [10.1, -12.8] };
-// (The Monk's palm strikes from nearer the middle, so the thrust carries past the body.)
-const OFF_SHOULDER = { corsair: [-9, -10], rogue: [-11, -9], monk: [-8, -8] };
+const SHOULDER = { rogue: [15, -8], brawler: [14, -9], monk: [12.4, -10.8] };
+// (The Monk's palm strikes from its own back shoulder, so the thrust carries across the body.)
+const OFF_SHOULDER = { corsair: [-9, -10], rogue: [-11, -9], monk: [-10.1, -10.8] };
 const images = new Map();
 // Limb angles and reach ease across a restarted swing (see poseBlend.js).
 const blendRig = poseBlender();
@@ -210,7 +212,14 @@ export function drawHeroRig(ctx, opts = {}) {
   const mk = combat && !anim.trail ? 'flourish' : 'melee';
   // A two-handed grip keeps the turning arm, so the back hand stays on the handle.
   const frame = combat && !grip && opts.hasWeapon !== false && hasSwingArt(classId) ? swingPhase(anim.ch, 'main', mk) : null;
-  const offFrame = combat && OFF_SHOULDER[classId] && (classId !== 'corsair' || corsairPair) && hasSwingArt(classId, 'off') ? swingPhase(anim.ch, 'off') : null;
+  // The Monk's back hand wears its glove only when monk gloves are worn (the
+  // renderer says so; the title's and the reflection's heroes keep the glove).
+  const monk = classId === 'monk';
+  const bareBack = monk && opts.dualWield === false && opts.hasShield === false;
+  let offFrame = combat && OFF_SHOULDER[classId] && (classId !== 'corsair' || corsairPair) && !bareBack && hasSwingArt(classId, 'off') ? swingPhase(anim.ch, 'off') : null;
+  // The Monk's painted palm wind-up hides behind the body, so through the
+  // coil its own rig arm draws the glove back beside the hip instead.
+  if (monk && offFrame === 'wind') offFrame = null;
   // Either side of its painted pictures (a clip's arc) an arm rests in the
   // rig's own guard, never a half-faded extended drawing as it comes back.
   if (combat && !grip && anim.ch.paint) {
@@ -224,11 +233,19 @@ export function drawHeroRig(ctx, opts = {}) {
   if (anim && !backFront) drawHeroArm(ctx, anim, 'back', -11 + pose.breathe);
   // A painted off arm (the Corsair's second scimitar, the Rogue's second
   // dagger) stays behind the body, clear of the face, except while it cuts.
-  // The Monk's gloved palm has no blade to keep clear of the face: it is held
-  // up before the chest and driven out in front of the body the whole way.
-  const offFront = !!offFrame && (classId === 'monk' || offArmInFront(anim.ch));
-  // Its thrust passes in front of the raised fist too.
-  const offLast = offFront && classId === 'monk' && offArmInFront(anim.ch);
+  // The Monk's gloved palm has no blade to keep clear of the face: it swings
+  // across the front of the body and is driven out in front of it.
+  const offFront = !!offFrame && (monk || offArmInFront(anim.ch));
+  // It passes in front of the knuckled arm too, whose fist is pulled down to
+  // the hip meanwhile (chambered) and comes back up only once the palm has
+  // drawn back, so the glove never lands on the knuckles.
+  const offLast = offFront && monk;
+  const arc2 = monk && combat && !bareBack ? anim.ch.arc2 || 0 : 0;
+  const chamber = arc2 > 1 ? (arc2 <= 3.2 ? smoothstep(arc2 - 1) : 1 - smoothstep((arc2 - 3.2) / 0.4)) : 0;
+  // A bare back hand hangs out at the side, coils back and, on its cross,
+  // punches forward over the body.
+  const bareCross = bareBack && combat && (anim.ch.strike2 || 0) > 0.3;
+  const bareArm = () => faded(ctx, arms, () => drawEmptyArm(ctx, classId, placed.back[0], placed.back[1] + pose.breathe, -1.15 - pose.back * 1.6 - pose.step * 0.3, 13));
   const offArm = () => drawSwingArm(ctx, classId, anim, 'off', 'melee', osh[0] + (pose.reach2 || 0) * 0.4, osh[1] + pose.breathe, arms);
   if (offFrame && !offFront) offArm();
   else if (offFrame) { /* drawn over the body, below */ }
@@ -240,8 +257,10 @@ export function drawHeroRig(ctx, opts = {}) {
     drawIf('sword', -9, -10 + pose.breathe, 21, 38, -pose.back * 0.8 - 0.55, 21 * 0.83, 38 * 0.88, (1 - shown2) * arms);
     drawIf('strike', -7 + (pose.reach2 || 0), -12 + pose.breathe, 37, 13, (-pose.back - 1.5) * 0.25, 4, 5, shown2 * arms);
   }
+  // A bare back hand out at the side (over the body on its cross, below).
+  else if (bareBack) { if (!bareCross) bareArm(); }
   // A placed rig's back arm turns about its own shoulder, behind the body (the
-  // Monk's glove is raised beside the head, so it coils outward, not over it).
+  // Monk's glove, held out at the hip, coils back and down beside it).
   else if (placed) { const b = placed.back; draw('back', b[0], b[1] + pose.breathe, b[2], b[3], -pose.back, b[4], b[5], arms); }
   // The Ninja and Merchant are slimmer, so their back hand sits closer in, half behind the body.
   // On a two-handed grip the back hand is on the handle instead (drawn below).
@@ -252,6 +271,7 @@ export function drawHeroRig(ctx, opts = {}) {
   // The Rogue's and the Brawler's back hands hold their own dagger and claw,
   // in front of the tunic; on an off-hand strike that arm swaps for its
   // extended drawing, lunging forward across the body.
+  if (bareCross) bareArm();
   if (offFront && !offLast) offArm();
   else if (rogue && !offFrame) {
     draw('back', -14, -9 + pose.breathe, 22, 18, pose.back, 18, 3, (1 - shown2) * arms);
@@ -277,7 +297,7 @@ export function drawHeroRig(ctx, opts = {}) {
     draw('strike', 14 + pose.reach, -9 + pose.breathe, 27, 12, 0, 4, 4, shown * arms);
   } else if (placed) {
     const a = placed.sword, k = placed.strike;
-    draw('sword', a[0], a[1] + pose.breathe, a[2], a[3], pose.sword, a[4], a[5], (1 - shown) * arms);
+    draw('sword', a[0], a[1] + pose.breathe, a[2], a[3], pose.sword + chamber * 0.9, a[4], a[5], (1 - shown) * arms);
     draw('strike', k[0] + reach, k[1] + pose.breathe, k[2], k[3], (pose.sword - 0.8) * 0.3, k[4], k[5], shown * arms);
   } else {
     draw('sword', 11, y, w, h, sa, spx, spy, (1 - shown) * arms);
@@ -288,6 +308,9 @@ export function drawHeroRig(ctx, opts = {}) {
   return true;
 }
 
+/** fn() drawn at opacity a (on top of the canvas's own). */
+function faded(ctx, a, fn) { ctx.save(); ctx.globalAlpha *= a; const r = fn(); ctx.restore(); return r; }
+const smoothstep = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
 /** Where a point (fx, fy across a picture) lands once the picture is drawn at
  *  x, y, w x h, turned by angle about its pivot px, py. */
 function partPoint(fx, fy, [x, y, w, h, angle, px, py]) {
