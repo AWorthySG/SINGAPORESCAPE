@@ -726,7 +726,7 @@ const LANDMARKS = {
   flower_dome: [[4, 3], 'Flower dome', 'A great glasshouse full of flowers from cooler lands.'],
   supertree_tall: [[2, 2], 'Supertree', 'A towering tree of steel, wrapped in ferns and orchids.', 1.45],
   supertree_short: [[2, 2], 'Supertree', 'A young Supertree, its canopy strung with little lights.', 1.3],
-  kelong: [[4, 3], 'Kelong', 'A fishing platform on stilts. Its net comes up full of silver every morning.'],
+  kelong: [[4, 3], 'Kelong', 'A fishing platform on stilts. Its net comes up full of silver every morning.', 1.3],
   lifeguard_tower: [[2, 2], 'Lifeguard tower', 'The flag is flying, so the sea is safe to swim today.', 1.25],
   lighthouse: [[2, 2], 'Lighthouse', 'Its lamp has guided boats past the islands for a hundred years.', 1.35],
   kusu_turtle_temple: [[3, 3], 'Turtle temple', 'A little island temple by a pond of sleepy turtles.'],
