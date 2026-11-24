@@ -811,7 +811,7 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
     // Art batch 1: the secondary weapon types, quivers and the scout, hide and mage gloves and boots.
     for (const w of ['parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan', 'rifle', 'quiver',
       'scout_gloves', 'scout_boots', 'hide_vambraces', 'hide_boots', 'mage_gloves', 'mage_boots']) ITEM_ART.add(`${t}_${w}`);
-    // The Monk's monk knuckles and monk gloves and the Zealot's censers (stand-in stickers until their own art arrives).
+    // The Monk's monk knuckles and monk gloves and the Zealot's censers (art pack IC-2 to IC-4).
     for (const w of ['knuckles', 'monk_gloves', 'censer']) ITEM_ART.add(`${t}_${w}`);
   }
   // Art batch 1: endgame ores, bars, logs and ashes, the bone kinds, the refine
@@ -830,7 +830,9 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   const SIG_ART = new Set(['toman_tyrant', 'ubin_quarry_python', 'kopitiam_roach_queen', 'bakau_mud_lobster', 'strangler_fig_mother',
     'kranji_bullfrog_emperor', 'sea_eagle_sovereign', 'slag_titan', 'arowana_emperor', 'toyol_kingpin',
     'atlas_moth_empress', 'jembalang_lord', 'krait_matriarch', 'duyung_queen', 'great_argus_monarch',
-    'typhoon_mother', 'void_eel_leviathan', 'todak_king', 'jade_moon_hare', 'fenghuang'].map((b) => `sig_${b}`));
+    'typhoon_mother', 'void_eel_leviathan', 'todak_king', 'jade_moon_hare', 'fenghuang',
+    // The Monk's, Priest's and Zealot's ascended weapons (art pack IC-2 to IC-4).
+    'spirit_of_badang_monk', 'jade_moon_hare_priest', 'eternal_wyrm_zealot'].map((b) => `sig_${b}`));
   for (const [id, it] of Object.entries(ITEMS)) if (it.signature && (!NEW_SIG.has(id) || SIG_ART.has(id))) ITEM_ART.add(id);
   // Gameplay art pack: endgame fish and dishes, crops and seeds, brews, Hunter
   // catches and lures, jewellery, the casino chip and Pest Control's goods.
