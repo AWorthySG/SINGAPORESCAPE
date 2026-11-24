@@ -2,6 +2,7 @@ import { poseBlender, swapOpacity } from './poseBlend.js';
 import { drawHeroArm, drawGripHand } from './heroanim.js';
 import { drawAnimBody, drawSwingArm, drawEmptyArm, hasSwingArt, swingPhase } from './heroAnimArt.js';
 import { heroLit } from './herolight.js';
+import { drawCenserSwing, censerBackTurn } from './censerSwing.js';
 
 // Ranged and magic limbs are separate from the melee pilot so each batch can
 // be reviewed independently. All parts must load before replacing a portrait.
@@ -105,7 +106,9 @@ export function drawRangedHeroRig(ctx, opts = {}) {
   if (anim) drawHeroArm(ctx, anim, 'back', -11 + pose.breathe);
   // The rifle is held in both hands, so the Sniper's back hand steadies it (below).
   const rifle = classId === 'sniper' && anim?.weapon === 'rifle';
-  if (placed) { const b = placed.back; draw('back', b[0], b[1] + pose.breathe, b[2], b[3], -pose.step * 0.2 - pose.charge * 0.35, b[4], b[5], arms); }
+  // The Zealot's censer swings on its own chain through an attack (censerSwing.js).
+  const censer = classId === 'zealot' && anim?.id === 'censer';
+  if (placed) { const b = placed.back; draw('back', b[0], b[1] + pose.breathe, b[2], b[3], -pose.step * 0.2 - pose.charge * 0.35 + (censer ? censerBackTurn(anim.u, anim.calm) : 0), b[4], b[5], arms); }
   else if (!bow && !guns && !rifle) draw('back', -15, -10 + pose.breathe, 16, 12, -pose.step * 0.2 - pose.charge * 0.35, 12, 3, arms);
   // The painted body can blink, flinch and cheer (heroAnimArt.js).
   const [bx, by, bw, bh] = placed ? placed.body : [-21, -38, 42, 44];
@@ -118,7 +121,8 @@ export function drawRangedHeroRig(ctx, opts = {}) {
   const kind = bow ? 'bow' : guns || classId === 'sniper' ? 'gun' : 'staff';
   const frame = anim && anim.kind === 'combat' && hasSwingArt(classId) ? swingPhase(anim.ch, 'main', kind) : null;
   const sh = SHOULDER[classId];
-  if (frame && !guns) drawSwingArm(ctx, classId, anim, 'main', kind, sh[0], sh[1] + pose.breathe);
+  if (censer && drawCenserSwing(ctx, image('weapon'), anim, placed.weapon[0], placed.weapon[1] + pose.breathe, placed.weapon[2], opts)) { /* drawn */ }
+  else if (frame && !guns) drawSwingArm(ctx, classId, anim, 'main', kind, sh[0], sh[1] + pose.breathe);
   // With no weapon equipped the hand is empty: the painted bare arm.
   else if (opts.hasWeapon === false && drawEmptyArm(ctx, classId, 8, -12 + pose.breathe, 0.25 + pose.step * 0.3, 12)) { /* drawn */ }
   else if (guns) {
