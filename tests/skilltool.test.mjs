@@ -146,6 +146,8 @@ test('with pictures, the rod in hand is the rod in use, cut free of its float an
       assert.equal(rodPicture(id), pic, `${id}: baked once, then reused`);
     }
     assert.equal(baked.length, 2);
+    // The tiered rods are painted on the tier-1 rod's shape (TL-4), so the same boxes are cut from them.
+    assert.deepEqual(rodPicture('jade_rod').cuts, rodPicture('fishing_rod').cuts);
     // Drawn in the hand while fishing: two pieces (the tip half bowing) or, in low graphics, one.
     for (const [low, n] of [[false, 2], [true, 1]]) {
       const ctx = stubCtx();
