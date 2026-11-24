@@ -1,0 +1,21 @@
+{
+  "tree-ancient": { "bytes": 24762, "clearRows": 1 },
+  "tree-angsana": { "bytes": 16542, "clearRows": 3 },
+  "tree-bamboo": { "bytes": 17342, "clearRows": 3 },
+  "tree-chengal_tree": { "bytes": 15632, "clearRows": 2 },
+  "tree-keramat_tree": { "bytes": 17208, "clearRows": 1 },
+  "tree-magic_tree": { "bytes": 17906, "clearRows": 3 },
+  "tree-mahogany": { "bytes": 16178, "clearRows": 3 },
+  "tree-mangrove": { "bytes": 17858, "clearRows": 3 },
+  "tree-meranti_tree": { "bytes": 15004, "clearRows": 1 },
+  "tree-moonlit_kapok": { "bytes": 15784, "clearRows": 1 },
+  "tree-oak": { "bytes": 15344, "clearRows": 6 },
+  "tree-rain_tree": { "bytes": 12942, "clearRows": 4 },
+  "tree-seraya_tree": { "bytes": 14802, "clearRows": 2 },
+  "tree-starfall_banyan": { "bytes": 17774, "clearRows": 1 },
+  "tree-teak": { "bytes": 13596, "clearRows": 3 },
+  "tree-tembusu": { "bytes": 16590, "clearRows": 3 },
+  "tree-tree": { "bytes": 12598, "clearRows": 4 },
+  "tree-willow": { "bytes": 17264, "clearRows": 6 },
+  "tree-yew_tree": { "bytes": 16142, "clearRows": 3 }
+}
