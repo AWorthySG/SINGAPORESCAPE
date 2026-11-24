@@ -937,7 +937,32 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   export const skillIconSVG = (id, size = 20, cls) => (SKILL_ART.has(id) ? artImg(`skill-${id}`, size, cls) : svg(S[id] || S.attack, size, cls));
   /** Prayer and spell icons (assets/icons/prayer-<id>.webp, spell-<id>.webp). */
   export const prayerIconHTML = (id, size = 28, cls, tint) => artImg(`prayer-${id}`, size, cls, tint);
-  export const spellIconHTML = (id, size = 28, cls) => artImg(`spell-${id}`, size, cls);
+  export const spellIconHTML = (id, size = 28, cls) => (SPELL_SVG[id] ? svg(SPELL_SVG[id], size, cls) : artImg(`spell-${id}`, size, cls));
+  // The Priest's and the Zealot's own spells (magic.js) wait on painted icons:
+  // stickered vectors until their art arrives (then the entry goes, as the art
+  // file comes in: tests/render.test.mjs keeps the two in step). No religious
+  // symbols: a sun, a feather, a plain blade of light, a ground circle, flames.
+  export const SPELL_SVG = {
+    radiance_strike: `<g stroke="#e0a800" stroke-width="1.6" stroke-linecap="round">${[0, 45, 90, 135, 180, 225, 270, 315].map((a) => `<line x1="12" y1="3" x2="12" y2="6.2" transform="rotate(${a} 12 12)"/>`).join('')}</g>
+      <circle cx="12" cy="12" r="4.6" fill="#fff3b0" stroke="${OL}" stroke-width="1.1"/><circle cx="10.6" cy="10.6" r="1.4" fill="#ffffff"/>`,
+    grace_strike: `<circle cx="11" cy="12.5" r="6.5" fill="#ffd98a" stroke="${OL}" stroke-width="1.1"/><circle cx="9" cy="10" r="1.8" fill="#fff6dc"/>
+      <path d="M13 20 C14 14 17 8 21 4 C21.5 9 19 14 13 20 Z" fill="#fffaf0" stroke="${OL}" stroke-width="0.9" stroke-linejoin="round"/>
+      <path d="M13.6 19 L19.8 6" stroke="#d8b070" stroke-width="0.7"/>`,
+    judgement_strike: `<ellipse cx="12" cy="20" rx="7" ry="2" fill="#cfe0ff" stroke="${OL}" stroke-width="0.9"/>
+      <path d="M12 19 L9.6 8 L12 2.5 L14.4 8 Z" fill="#eef4ff" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
+      <path d="M12 18 L12 4" stroke="#9db8e8" stroke-width="0.8"/>`,
+    sanctuary_strike: `<ellipse cx="12" cy="16" rx="9" ry="4" fill="#f6e7a8" stroke="${OL}" stroke-width="1.1"/><ellipse cx="12" cy="16" rx="5.5" ry="2.3" fill="none" stroke="#d8b040" stroke-width="1"/>
+      <circle cx="8" cy="10" r="1.3" fill="#fff6c8" stroke="${OL}" stroke-width="0.6"/><circle cx="13" cy="6.5" r="1.5" fill="#fff6c8" stroke="${OL}" stroke-width="0.6"/><circle cx="16.5" cy="10.5" r="1.1" fill="#fff6c8" stroke="${OL}" stroke-width="0.6"/>`,
+    holyfire_strike: `<path d="M12 21 C6.5 21 5 16.5 7.5 12.5 C8.5 14.5 9.5 14.8 10 14 C9 10 11 6 14 3 C14 7 18.5 9.5 18 15 C17.6 19 15.5 21 12 21 Z" fill="#ffe9a0" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
+      <path d="M12 19.5 C9.8 19.5 9.3 17.4 10.6 15.6 C11.2 16.6 12 16.4 12.2 15.4 C13.6 16 15 17.6 14.2 18.8 C13.7 19.3 13 19.5 12 19.5 Z" fill="#ffffff"/>`,
+    wrath_strike: `<path d="M3 12 A9 9 0 0 1 12 3" fill="none" stroke="#ffb060" stroke-width="1.4" stroke-linecap="round"/><path d="M21 12 A9 9 0 0 1 12 21" fill="none" stroke="#ffb060" stroke-width="1.4" stroke-linecap="round"/>
+      <path d="M13.5 3.5 L7.5 13 L11.5 13 L10 20.5 L16.5 10.5 L12.5 10.5 Z" fill="#ff6a4a" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>`,
+    ash_strike: `<path d="M12 20 C6 20 4 15 7 11 C9 8 13 9 13 12 C13 14 10.5 14.5 10 13 C12 13 11.5 10.5 9.5 11.5 C7 13 8.5 18 13 18 C17 18 19 14 18 10 C20.5 13 20 20 12 20 Z" fill="#b8a8a0" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
+      <circle cx="16" cy="5" r="1.4" fill="#ff9a40" stroke="${OL}" stroke-width="0.6"/><circle cx="19.5" cy="7.5" r="1" fill="#ffb070"/><circle cx="6" cy="6" r="1.1" fill="#ff9a40" stroke="${OL}" stroke-width="0.6"/>`,
+    martyrdom_strike: `<path d="M12 21 C7 21 5 17.5 6.5 14 C8 10.5 11 8 12 3 C13 8 16 10.5 17.5 14 C19 17.5 17 21 12 21 Z" fill="#e04a5a" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
+      <path d="M12 19 C10 19 9.2 17.4 10 15.8 C10.8 14.4 11.6 13.6 12 12 C12.4 13.6 13.2 14.4 14 15.8 C14.8 17.4 14 19 12 19 Z" fill="#ffd27a"/>
+      <circle cx="4.5" cy="8" r="1" fill="#ffd27a" stroke="${OL}" stroke-width="0.5"/><circle cx="19.5" cy="7" r="1.2" fill="#ffd27a" stroke="${OL}" stroke-width="0.5"/>`,
+  };
   /** Combat-skill (action bar) icon: mascot artwork, or a stickered vector for
    *  any ability still waiting on artwork (listed in ABILITY_SVG). */
   const ABILITY_SVG = {};

@@ -16,7 +16,7 @@ import { masteryType, MASTERY_RANKS, enchantValue, isMagicItem, STONE as UP_STON
 import { starterBlessings } from '../src/game/blessings.js';
 import { CLASS_BY_ID } from '../src/data/classes.js';
 import { RACES } from '../src/data/races.js';
-import { ELEMENTS, ELEMENT_MATCHUP, elementMatchup, elementMult, getSpell } from '../src/data/magic.js';
+import { ELEMENTS, ELEMENT_MATCHUP, elementMatchup, elementMult, getSpell, WIZARD_ELEMENTS } from '../src/data/magic.js';
 import { shatterPierce, hexStacks, magicAttunement, playerMagicVsNpc } from '../src/game/combat.js';
 import { PERK_TRACKS, sumPerks } from '../src/data/perks.js';
 import { elementTint, targetTag, foeDetails } from '../src/render/worldlabels.js';
@@ -377,8 +377,11 @@ test('Blood: Siphon heals you 12% of what the cast deals, its splash included', 
 });
 
 test('seven elements, each with races it bites into and races that resist it, and a spell icon', () => {
-  assert.deepEqual(Object.keys(ELEMENTS), ['wind', 'water', 'earth', 'fire', 'chaos', 'dark', 'blood']);
-  for (const [id, e] of Object.entries(ELEMENTS)) {
+  // (The Priest's and the Zealot's own eight come after them: tests/class-elements.test.mjs.)
+  assert.deepEqual(WIZARD_ELEMENTS, ['wind', 'water', 'earth', 'fire', 'chaos', 'dark', 'blood']);
+  assert.deepEqual(Object.keys(ELEMENTS).slice(0, 7), WIZARD_ELEMENTS);
+  for (const id of WIZARD_ELEMENTS) {
+    const e = ELEMENTS[id];
     assert.ok(e.strong.length >= 3 && e.weak.length >= 2, id);
     for (const r of [...e.strong, ...e.weak]) assert.ok(RACES[r], `${id}: ${r} is a race`);
     assert.ok(getSpell(`${id}_strike`).element === id, `${id} has its spell`);

@@ -4470,7 +4470,8 @@ test('spells: every spell hits the area for 100% damage (with XP), and elements 
   assert.equal(elementMatchup('fire', 'flora'), 'strong');
   assert.equal(elementMatchup('fire', 'aquatic'), 'weak', 'elements can be resisted again (x0.7)');
   assert.equal(elementMatchup('fire', 'humanoid'), null);
-  assert.ok(SPELLS.every((s) => ['wind', 'water', 'earth', 'fire', 'chaos', 'dark', 'blood'].includes(s.element)), 'every spell has an element');
+  // (The Priest's and the Zealot's own spells, `cls`, have elements of their own: tests/class-elements.test.mjs.)
+  assert.ok(SPELLS.filter((s) => !s.cls).every((s) => ['wind', 'water', 'earth', 'fire', 'chaos', 'dark', 'blood'].includes(s.element)), 'every spell has an element');
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start(); g.chooseClass('wizard');
   g.ui = new Proxy({}, { get: () => () => {} });
@@ -4672,7 +4673,7 @@ test('one spell per element: wind casts 1/0.6 as fast, water slows and casts 40%
   g.ui = new Proxy({}, { get: () => () => {} });
   for (const r of ['fire_rune', 'water_rune', 'earth_rune', 'air_rune', 'mind_rune']) g.inventory.add(r, 5000);
   g.skills.xp.magic = 50000000;
-  assert.deepEqual(SPELLS.map((s) => s.element), ['wind', 'water', 'earth', 'fire', 'chaos', 'dark', 'blood']);
+  assert.deepEqual(SPELLS.filter((s) => !s.cls).map((s) => s.element), ['wind', 'water', 'earth', 'fire', 'chaos', 'dark', 'blood']);
   assert.equal(getSpell('fire_wave').id, 'fire_strike', 'an old saved tier becomes its element');
   const p = g.player;
   const foe = (dx, dy = 0) => { const n = new NPC('goblin', p.x + dx, p.y + dy, 0, {}); n.maxHp = n.hp = 1e7; n.def = { ...n.def, defence: 0 }; return n; };

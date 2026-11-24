@@ -45,7 +45,7 @@ import { raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { DOT_KINDS } from '../data/bossAbilities.js';
 import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor, canWield, classesForType, SECONDARY_WEAPON, shieldBarred, noShieldMsg, weaponTypeOf, sigBarred } from '../data/classes.js';
 import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS, PERK_CAPS } from '../data/perks.js';
-import { getSpell, SPELLS, ELEMENTS, AOE_RADIUS, elementMatchup, elementMult } from '../data/magic.js';
+import { ELEMENTS, AOE_RADIUS, elementMatchup, elementMult, spellsFor, classSpell } from '../data/magic.js';
 import { xpForLevel, pastCapXpMult } from '../data/xp.js';
 import { PRAYER_BY_ID, FAITH_BASE } from '../data/prayers.js';
 import * as Bless from './blessings.js';
@@ -80,6 +80,7 @@ import * as Mercs from './mercenary.js';
 import * as Monk from './monk.js';   // the Monk's Chi and light feet
 import * as Priest from './priest.js';   // the Priest's healing spells and smiting
 import * as Zealot from './zealot.js';   // the Zealot's Fervour
+import * as ClassEl from './classelements.js';   // the Priest's and the Zealot's own elements
 import * as Culling from './culling.js';
 import { classPerks } from './classperks.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_TOP_LEVEL, lifePerkNoteAt, lifePerkTotals, lifePerkText } from './lifeperks.js';
@@ -757,6 +758,7 @@ export class Game {
     const cls = CLASS_BY_ID[classId];
     if (!cls || this.jobClass) return;
     this.jobClass = classId;
+    this.player.spell = classSpell(classId, this.player.spell).id;   // a Priest or a Zealot casts its own elements
     this.saveSoon = true;   // a permanent choice: don't lose it to a closed tab
     if (!this.pendingStyleChoice) {
       // An existing character: put away a weapon it can no longer use, and hand over its class weapon.
@@ -1251,6 +1253,7 @@ export class Game {
     // Rhythm fades if the Dancer stops lashing for a few ticks.
     if (this.danceRhythm > 0 && this.tickCount - this._danceHitTick > 4) { this.danceRhythm = 0; this.bus.emit('rhythm'); }
     Monk.tickChi(this);   // ...and so does a Monk's Chi
+    ClassEl.tick(this);   // ...and a Priest's Grace ward, untended
     if (!this.player.alive) {
       if (--this.player.respawnTimer <= 0) this.respawnPlayer();
     } else {
@@ -2434,7 +2437,7 @@ export class Game {
     // Race: the weapon in hand bites harder into some races and is shrugged off by others.
     const race = this.raceMatchup(npc);
     const raceM = (r) => (r === 'strong' ? RACE_BONUS.dmg : r === 'weak' ? RACE_PENALTY.dmg : 1);
-    if (this._castElement) dmgM *= elementMult(race);   // a spell's element: x1.5 strong, x0.7 resisted
+    if (this._castElement) dmgM *= elementMult(race) * ClassEl.castMult(this, npc, this._castElement);   // a spell's element: x1.5 strong, x0.7 resisted (and a Priest's or Zealot's own effects)
     else dmgM *= raceM(race);
     // The Holy path (good alignment) smites the unholy: undead, spirits and demons.
     { const kc = this.karmaCombat(); if (kc.side === 'holy' && UNHOLY_RACES.has(raceOf(npc.def, npc.npcId))) dmgM *= 1 + kc.holyDmg; }
@@ -2542,7 +2545,7 @@ export class Game {
       * 100 / (100 + (this.attrs?.dex || 0) * SPEED_PER_DEX)   // Dexterity
       / (1 + (this.perkMods().haste || 0));   // a haste brew (Herblore)
     if (this.combatMode() !== 'magic') return ws;
-    const sp = spell || getSpell(this.player.spell);
+    const sp = spell || classSpell(this.jobClass, this.player.spell);
     return ws * 0.5 * (ELEMENTS[sp.element]?.castSpeed || 1);
   }
 
@@ -3192,8 +3195,9 @@ export class Game {
 
   /** The strongest spell you can cast right now (level and runes), or null. */
   bestSpell() {
-    for (let i = SPELLS.length - 1; i >= 0; i--) {
-      const sp = SPELLS[i];
+    const spells = spellsFor(this.jobClass);   // a Priest's or Zealot's own, or the seven elements
+    for (let i = spells.length - 1; i >= 0; i--) {
+      const sp = spells[i];
       if (this.skills.magic >= sp.level && this._hasRunes(sp)) return sp;
     }
     return null;
@@ -3211,6 +3215,7 @@ export class Game {
       if (this._aoeSpares(o)) continue;   // bosses aren't dragged in
       const c = this._aoeCrit(dmg);
       const d = Math.min(o.hp, c.dmg);
+      ClassEl.markFoe(this, o, spell);   // Dazzle, Ash's mark, Consecrate's count
       o.takeDamage(d);
       this.addHitsplat(o, d, { aoe: true, tint: spell.tint, critX: c.critX });
       if (ELEMENTS[spell.element]?.slowTicks) this._slowFoe(o, ELEMENTS[spell.element].slowTicks);
@@ -3230,7 +3235,7 @@ export class Game {
   }
 
   _magicAttack(npc) {
-    let spell = getSpell(this.player.spell);
+    let spell = classSpell(this.jobClass, this.player.spell);
     // Can't cast the chosen spell (level or runes)? Fall back to the best one you can.
     if (this.skills.magic < spell.level || !this._hasRunes(spell)) {
       const alt = this.bestSpell();
@@ -3253,10 +3258,13 @@ export class Game {
     const raw = dmg;   // the splash rolls its own crits
     const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
     this._swingToward(this.player, npc.x, npc.y);
-    this._projectile(npc, (c.crit || fancy) ? spell.critTint || spell.tint : spell.tint, 'bolt', 0, !!(c.crit || fancy));   // the element's colour, brighter and bigger for a crit
+    // (`el` lets the renderer draw a Priest's beam, falling blade or ground circle, a stored Wrath's swell: render/classfx.js.)
+    this._projectile(npc, (c.crit || fancy) ? spell.critTint || spell.tint : spell.tint, 'bolt', 0, !!(c.crit || fancy),   // the element's colour, brighter and bigger for a crit
+      { el: spell.element, power: el.retribution ? ClassEl.wrathBonus(this) : 0 });
     this.bus.emit('sfx', `atk:${this.weaponType() || 'staff'}`);   // staves shimmer, wands sparkle, orbs hum
     // The number shows the element: gold where it bites, grey where it's resisted, else its own colour.
     const tint = mods.race === 'strong' ? '#f5b82e' : mods.race === 'weak' ? '#9aa3b2' : ELEMENTS[spell.element]?.splat;
+    ClassEl.markFoe(this, npc, spell, true);
     this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax), tint });
     this.skills.addXp('magic', spell.xp * this.combatXpMult());
     if (dmg > 0) { const m = this.combatXpMult(); this.spawnHitSparks(npc, spell.tint); for (const x of magicXp(dmg)) this.skills.addXp(x.skill, x.xp * m); }
@@ -3283,6 +3291,8 @@ export class Game {
       this.spawnSparkle(this.player, '#ff5a72', 3);
       this.bus.emit('hp');
     }
+    // A Priest's or Zealot's own element: Ward, Consecrate, Brand, Wrath spent, Sacrifice paid.
+    ClassEl.afterCast(this, npc, spell, { dmg, raw, dealt: dmg > 0 ? dmg * (npc.def?.hpScale || 1) + splashed : 0 });
     // Spells come off at half the weapon's swing time (wands quicker than staves); Wind and Water quicker still.
     this._resetCooldown(this.attackInterval(spell));
     this._postAttack(npc);
@@ -3550,7 +3560,7 @@ export class Game {
     return wpn?.coins ? 'coin' : wpn?.weaponType === 'pistol' || wpn?.weaponType === 'rifle' ? 'bullet' : wpn?.weaponType === 'shuriken' || wpn?.weaponType === 'chakram' ? 'shuriken' : 'arrow';
   }
 
-  _projectile(npc, color, kind = 'bolt', spread = 0, crit = color === '#ffd24a') {
+  _projectile(npc, color, kind = 'bolt', spread = 0, crit = color === '#ffd24a', extra = null) {
     const from = this.player.renderCenter();
     const to = npc.renderCenter();
     // `spread` fans a volley (Snapshot, Arrow Storm) so each arrow is visible.
@@ -3569,7 +3579,7 @@ export class Game {
       // Which arrows were loosed (bronze ... eternal): the renderer draws each kind its own way.
       ammo: kind === 'arrow' ? this._shotAmmo || null : null, crit,
       // Which gun fired a bullet: the Pistoler's rounds are tiny, the Sniper's a long tracer (renderer.js).
-      gun: kind === 'bullet' ? (this.weaponType() === 'rifle' ? 'rifle' : 'pistol') : null });
+      gun: kind === 'bullet' ? (this.weaponType() === 'rifle' ? 'rifle' : 'pistol') : null, ...extra });
   }
 
   /** Dodging a monster's attack trains Agility, more for tougher foes: a share
@@ -3614,6 +3624,12 @@ export class Game {
       if (this._shouldRetaliate()) this.attackNpc(npc);
       return;
     }
+    // Radiance's Dazzle: a dazzled foe's blows miss more often.
+    if (ClassEl.dazzleMiss(this, npc, heavy)) {
+      this.addHitsplat(p, 0, { text: 'Dazzled!' });
+      if (this._shouldRetaliate()) this.attackNpc(npc);
+      return;
+    }
     const { atkRoll, defRoll, max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, p.style);
     let dmg = rollAttack(atkRoll, defRoll * this.prayerMult().def, heavy ? Math.round(max * 2) : max);
     if (heavy && dmg === 0) dmg = Math.max(1, Math.round(max * 1.2)); // a telegraphed blow always stings
@@ -3631,6 +3647,7 @@ export class Game {
       npc.takeDamage(back); this.addHitsplat(npc, back, { tint: '#9aa6b2' });
       if (npc.hp <= 0) { this.killNpc(npc); }
     }
+    dmg = p.soakWard(dmg);   // a Priest's Grace ward takes it first (so the number shows what got through)
     p.takeDamage(dmg);
     if (dmg > 0) this._knock(p, npc);
     this.addHitsplat(p, dmg, { crit: heavy && dmg > 0 });
@@ -3909,6 +3926,7 @@ export class Game {
       if (++this.moral.heroKills >= HERO_KILLS_PER_GOOD) { this.moral.heroKills = 0; this.addGood(1); }
     }
     juiceKill(this, npc);   // it alone freezes for a beat before it falls
+    ClassEl.onKill(this, npc);   // Ash's Cinders
     if (npc.def.boss) {
       this.msg(`You have slain ${npc.name}!`, 'combat');
       this.banner(`<span class="big">${npc.name} defeated!</span>The spoils are yours.`);
@@ -5163,6 +5181,7 @@ export class Game {
       return;
     }
     this.msg('Oh dear, you are dead!', 'combat');
+    ClassEl.reset(this);   // no ward or stored Wrath carried into the next life
     // Killed by a boss you hadn't beaten yet: auto battle steers clear of it for a while.
     {
       const p0 = this.player, a = p0.action;
@@ -5617,7 +5636,7 @@ export class Game {
     const mode = this.combatMode(), pm = this.prayerMult();
     let max, sp = null;
     if (mode === 'magic') {
-      const chosen = getSpell(this.player.spell);
+      const chosen = classSpell(this.jobClass, this.player.spell);
       sp = this.skills.magic >= chosen.level && this._hasRunes(chosen) ? chosen : this.bestSpell();
       if (!sp) return null;
       max = playerMagicVsNpc(this.skills, this.equipment, sp, def).max * pm.magic;
@@ -5779,13 +5798,15 @@ export class Game {
   }
 
   /** Auto battle's spell for a target: the element that hits it hardest (its
-   *  damage x the race matchup), or Earth when a crowd stands within its reach. */
+   *  damage x the race matchup), or Earth when a crowd stands within its reach.
+   *  A Priest or a Zealot weighs only its own four (spellsFor). */
   _autoSpellFor(tgt) {
-    const ok = SPELLS.filter((sp) => this.skills.magic >= sp.level && this._hasRunes(sp));
+    const ok = spellsFor(this.jobClass).filter((sp) => this.skills.magic >= sp.level && this._hasRunes(sp));
     if (!ok.length) return null;
     const race = raceOf(tgt.def, tgt.npcId);
-    const crowd = this.nearbyNpcs().filter((n) => n !== tgt && n.alive && n.attackable && !n.ally && !n.def.fixed
-      && chebyshev(n.x, n.y, tgt.x, tgt.y) <= 5).length;
+    const foes = this.nearbyNpcs().filter((n) => n !== tgt && n.alive && n.attackable && !n.ally && !n.def.fixed);
+    const crowd = (r) => foes.filter((n) => chebyshev(n.x, n.y, tgt.x, tgt.y) <= r).length;
+    const hurt = 1 - this.player.hp / Math.max(1, this.maxHp());
     // For Wind's Gale (extra crit chance is worth nothing past 100%) and Earth's
     // Shatter (cracks are armour pierce: worth most against heavy armour).
     const gb = this.equipment.bonuses();
@@ -5819,13 +5840,27 @@ export class Game {
       // Dark's hexes build over the first casts, like Earth's cracks: count most of the full effect.
       if (el.hex) v *= 1 + 0.8 * el.hex.per * el.hex.max / 100;
       // Blood heals: worth more the more hurt you are.
-      if (el.siphon) v *= 1 + el.siphon * (1 - this.player.hp / Math.max(1, this.maxHp()));
+      if (el.siphon) v *= 1 + el.siphon * hurt;
+      // The Light and Flame paths (classelements.js): their power, and each effect's worth.
+      if (el.power) v *= el.power;
+      // Verdict: the foe's missing life from now to its death, about halfway on average.
+      if (el.verdict) v *= 1 + el.verdict * (1 + Math.max(0, 1 - tgt.hp / Math.max(1, tgt.maxHp))) / 2;
+      // Dazzle and Ward guard you, Consecrate heals: worth a little, more the more hurt you are.
+      if (el.dazzle) v *= 1 + 0.1 * (tgt.def.maxHit > 0 ? 1 : 0) + 0.2 * hurt;
+      if (el.ward) v *= 1 + el.ward.share * (0.5 + hurt);
+      if (el.consecrate) v *= 1 + el.consecrate.per * 5 * hurt;
+      // Brand: every fifth hit lands again on the foe (its area too, counted below).
+      if (el.brand) v *= 1 + el.brand.burst / el.brand.max;
+      // Wrath: as strong as what you have stored. Sacrifice hits harder but is paid
+      // in life: the more hurt you already are, the less auto battle spends.
+      if (el.retribution) v *= 1 + ClassEl.wrathBonus(this);
+      if (el.sacrifice) v *= (1 + el.sacrifice.dmg) * (1 - 0.5 * hurt);
+      // Cinders: kills among a crowd spread to the rest.
+      if (el.cinders) v *= 1 + el.cinders.share * Math.min(1, crowd(AOE_RADIUS) / 2);
       // Shatter's cracks build over the first few casts: count most of the full effect.
       if (el.shatter) v *= 1 + 0.8 * (armourMult(armour, gb.pierce + el.shatter.per * el.shatter.max, weak) / armourMult(armour, gb.pierce, weak) - 1);
-      // Area damage: Earth reaches everyone within 5 tiles, the rest only within 2.
-      const near = el.aoeRadius ? crowd : this.nearbyNpcs().filter((n) => n !== tgt && n.alive && n.attackable && !n.ally && !n.def.fixed
-        && chebyshev(n.x, n.y, tgt.x, tgt.y) <= AOE_RADIUS).length;
-      return v * (1 + near);
+      // Area damage: Earth reaches everyone within 5 tiles, Sanctuary 4, the rest only within 2.
+      return v * (1 + crowd(el.aoeRadius || AOE_RADIUS));
     };
     return ok.reduce((a, b) => (value(b) > value(a) ? b : a));
   }

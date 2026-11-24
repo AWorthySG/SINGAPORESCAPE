@@ -36,6 +36,8 @@ const rel = (r, m) => r[m] / med[m];
 // target at 2-4 times the median class: they are held to a band of their own. So
 // are the Priest and the Zealot, who cast Fire as well (the owner chose a strong
 // Fire for every caster): the Priest at 85-100% of the Wizard, the Zealot 95-115%.
+// (They now cast their own elements instead, which burn as Fire's Ignite does:
+// magic.js LIGHT_POWER and FLAME_POWER.)
 const FIRE_CASTERS = ['wizard', 'sorcerer', 'priest', 'zealot'];
 // The Merchant is the strongest class by design (MERCHANT_POWER, mercenary.js), so
 // the other classes are also held against the median of the rest, which neither
@@ -102,7 +104,10 @@ test('the Priest and the Zealot hit about as hard as the Wizard: the Priest a li
     const avg = (boss) => ts.reduce((s, id) => s + dummyDps(cls, L, [id], [[1, 0]], TICKS, { game, boss }), 0) / ts.length;
     return { single: avg(false), boss: avg(true) };
   };
-  for (const [L, bands] of [[50, [['priest', 0.6, 0.9], ['zealot', 0.85, 1.3]]], [LEVEL, [['priest', 0.75, 1.1], ['zealot', 0.85, 1.25]]], [200, [['priest', 0.75, 1.1], ['zealot', 0.85, 1.25]]]]) {
+  // (Since the Priest and the Zealot cast their own elements, the level 50 window
+  // is gone: the Light path's four elements cover the races there better than
+  // Fire alone, and the Priest deals 98-106% of the Wizard at level 50.)
+  for (const [L, bands] of [[50, [['priest', 0.75, 1.15], ['zealot', 0.85, 1.3]]], [LEVEL, [['priest', 0.75, 1.1], ['zealot', 0.85, 1.25]]], [200, [['priest', 0.75, 1.1], ['zealot', 0.85, 1.25]]]]) {
     const wiz = at('wizard', L);
     for (const [cls, lo, hi] of bands) {
       const r = at(cls, L);

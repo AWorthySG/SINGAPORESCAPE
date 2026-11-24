@@ -54,6 +54,7 @@ import { spawnPose, deathPose, windupAge, hazardPulse, hazardIn } from './creatu
 import { drawGrave } from './grave.js';
 import { drawFishSchool } from './fishschoolfx.js';
 import { playerBarVisible, drawPlayerHp } from './playerhp.js';
+import { drawClassShot, drawClassEffect, drawClassAuras } from './classfx.js';   // the Priest's and the Zealot's own elements
 import { namePill, drawPill, pillRes, PILL_ROW } from './namepill.js';
 import { foeThreat } from '../ui/bossbar.js';
 
@@ -517,6 +518,7 @@ export class Renderer {
     this.motes.drawGlow(ctx, ox, oy, timeMs);   // sunlit motes and glow-flies, over the night
     this._drawParticles(ox, oy);
     this._drawProjectiles(ox, oy);
+    drawClassAuras(ctx, game, ox, oy, timeMs);   // a Grace ward, stored Wrath, Holy Fire's brands
     // Impacts, crit stars, death poofs, coin sparkles, level-up light (combatfx.js).
     game.cfx.update(game.hitStop > 0 ? fdt * 0.12 : fdt);
     game.cfx.draw(ctx, ox, oy);
@@ -940,6 +942,7 @@ export class Renderer {
     const { ctx, game } = this;
     for (const e of game.effects) {
       if (e._showAt > this._now) continue;   // waiting for the weapon to land
+      if (e.type === 'classfx') { drawClassEffect(ctx, e, ox, oy); continue; }   // brands bursting, cinders, a ward forming
       if (e.type === 'slash' && e.thrust) {
         // A spear's thrust: a bright straight streak driving through the target
         // along the line of the attack, shooting forward as it fades.
@@ -1185,6 +1188,8 @@ export class Renderer {
         ctx.restore();
         continue;
       }
+      // A Priest's or Zealot's own element: a beam, a falling blade, a ground circle... (classfx.js).
+      if (drawClassShot(ctx, e, t, ox, oy, game)) continue;
       // Magic bolt: a glowing orb in its element's colour with a fading trail of
       // embers behind it; a crit's is half as big again (and brighter, game.js).
       const k = e.crit ? 1.5 : 1;

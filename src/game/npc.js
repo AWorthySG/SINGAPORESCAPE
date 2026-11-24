@@ -95,6 +95,9 @@ export class NPC extends Character {
     this.recentDmg = undefined;
     this.ignite = null;           // Fire's burns on it (game.js _igniteFoe)
     this.hex = null;              // Dark's hexes on it (game.js _hexFoe)
+    // The Priest's and the Zealot's elements (classelements.js): dazzled until,
+    // Holy Fire's brands, struck by Ash until, and the blow that felled it (Cinders).
+    this.dazzleUntil = 0; this.brand = null; this.ashUntil = 0; this.lastHit = 0;
     this._lastSplat = undefined; this._splatN = undefined; this._splatRow = undefined; this._raceSaid = undefined;
     this._weakTag = undefined;    // the one hit number on it that wears "weak!" (renderer.js)
     this.stopFrom = undefined; this.stopUntil = undefined; this.squashK = undefined; this.squashDir = undefined;
@@ -132,6 +135,7 @@ export class NPC extends Character {
   takeDamage(dmg) {
     const before = this.hp;
     this.hp = Math.max(0, this.hp - dmg);
+    this.lastHit = before - this.hp;   // the blow that fells it: Ash's Cinders (classelements.js)
     this.combatLatch = 12;
     // Damage taken lately (fades each tick): a boss's heal is capped by it.
     this.recentDmg = (this.recentDmg || 0) + (before - this.hp);
@@ -300,6 +304,7 @@ export class NPC extends Character {
     this.respawnTimer = this.def.respawn || 15;
     this.deathT = 420; // ms of fall-over + fade-out animation
     this.ignite = null;   // its burns go out with it (and don't come back with the respawn)
+    this.brand = null;    // ...and so do Holy Fire's brands
   }
 
   update(dt) {

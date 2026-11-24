@@ -17,7 +17,16 @@ import { raceOf } from '../data/races.js';
 // 71-74%: from Magic 50 to 59 the Wizard has the speed-4 ancient staff while the
 // Priest's orbs cast at speed 5 until the dragon orb (Magic 60); below and above
 // that window it is level with the Wizard or a little under.
-export const PRIEST = { heal: 0.08, smite: 0.3, power: 1.06 };
+//
+// Since the Priest casts its own Light path (magic.js; game/classelements.js)
+// rather than Fire, its damage beside the Wizard's is set by LIGHT_POWER there:
+// 98-102% of the Wizard's single-target damage at levels 50-200 and 80% at 300.
+// censer: the share of its damage a Priest deals through a censer, its second
+// weapon. The censer's holy fire burns on top of the Light path's own searing,
+// which put the censer level with the orb (100%) and broke the rule that a
+// class's own type is its best weapon (combat.js WEAPON_DMG_MULT), as the
+// Zealot's orb once did (zealot.js ZEALOT.orb).
+export const PRIEST = { heal: 0.08, smite: 0.3, power: 1.06, censer: 0.9 };
 // The races the Holy path smites too (UNHOLY_RACES in game.js).
 const UNHOLY = new Set(['undead', 'spirit', 'demon']);
 
@@ -29,5 +38,6 @@ export const unholy = (npc) => !!npc?.def && UNHOLY.has(raceOf(npc.def, npc.npcI
 /** The lifesteal (in %) on a Priest's spells: 0 for anyone else, or out of Magic. */
 export const spellLifesteal = (game) => (isPriest(game) && game.combatMode() === 'magic' ? PRIEST.heal * 100 : 0);
 
-/** A Priest's damage multiplier against this foe (1 for anyone else). */
-export const smite = (game, npc) => (isPriest(game) ? PRIEST.power * (unholy(npc) ? 1 + PRIEST.smite : 1) : 1);
+/** A Priest's damage multiplier against this foe (1 for anyone else), a censer's lesser share included. */
+export const smite = (game, npc) => (isPriest(game) ? PRIEST.power * (unholy(npc) ? 1 + PRIEST.smite : 1)
+  * (game.weaponType?.() === 'censer' ? PRIEST.censer : 1) : 1);

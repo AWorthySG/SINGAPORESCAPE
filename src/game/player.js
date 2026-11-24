@@ -46,6 +46,9 @@ export class Player extends Character {
     this.danceStyle = 'balanced';
     this.spell = 'wind_strike';    // selected combat spell
     this.spellAuto = false;        // true: auto battle picks the element for each target
+    this.ward = 0;                 // a Priest's Grace ward: life it soaks off your next blows (classelements.js)
+    this.wardUntil = 0;            // ...until this tick, unless topped up
+    this.wrath = 0;                // damage taken since the last Wrath cast (a Zealot's Retribution)
     this.autoRetaliate = true;
     this.respawnTimer = 0;
 
@@ -197,8 +200,19 @@ export class Player extends Character {
   }
 
   takeDamage(dmg) {
+    dmg = this.soakWard(dmg);
+    const before = this.hp;
     this.hp = Math.max(0, this.hp - dmg);
+    this.wrath += before - this.hp;   // stored for a Zealot's next Wrath
     return this.hp;
+  }
+
+  /** A Grace ward soaks what it can of a blow: returns what gets through. */
+  soakWard(dmg) {
+    if (!(this.ward > 0) || !(dmg > 0)) return dmg;
+    const soak = Math.min(this.ward, dmg);
+    this.ward -= soak;
+    return dmg - soak;
   }
 
   heal(amount, maxHp) {

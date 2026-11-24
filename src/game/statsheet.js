@@ -17,7 +17,7 @@ import {
   CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE, RHYTHM_MAX, RHYTHM_DMG, OFFHAND_SHARE, CLASS_POWER, openWoundStacks, OPEN_WOUNDS, shatterPierce } from './combat.js';
 import { attrForMode, ATTR_NAMES, DMG_PER_POINT, LIFE_PER_STR, CRIT_PER_INT, SPEED_PER_DEX } from './attributes.js';
 import { getItem } from '../data/items.js';
-import { getSpell, ELEMENTS, elementMatchup, elementMult } from '../data/magic.js';
+import { classSpell, ELEMENTS, elementMatchup, elementMult } from '../data/magic.js';
 import { raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { POTIONS } from '../data/trades.js';
 import { PRAYER_BY_ID, burstPower, STACK_SHARE } from '../data/prayers.js';
@@ -28,6 +28,7 @@ import { masteryDamage, stewardship, masterySummary, titleText, MASTERY_TIERS } 
 import * as Monk from './monk.js';
 import * as Priest from './priest.js';
 import * as Zealot from './zealot.js';
+import { castMult } from './classelements.js';
 
 // The same set as game.js (not exported there): the Holy path smites these races.
 const UNHOLY_RACES = new Set(['undead', 'spirit', 'demon']);
@@ -50,7 +51,7 @@ export const fmtTime = (ms) => {
 /** The spell an attack right now would cast: the chosen one, or the best one
  *  you can afford when it can't be cast (as _magicAttack falls back). */
 export function currentSpell(game) {
-  const chosen = getSpell(game.player.spell);
+  const chosen = classSpell(game.jobClass, game.player.spell);   // (a Priest or a Zealot casts only its own)
   if (game.skills.magic >= chosen.level && game._hasRunes(chosen)) return chosen;
   return game.bestSpell() || chosen;
 }
@@ -130,6 +131,8 @@ export function damageMult(game, mode = game.combatMode(), { npc = null, boss = 
   mul(1 + (mode === 'magic' ? gb.magPct : gb.atkPct) / 100, mode === 'magic' ? 'Magic damage bonus' : 'Physical damage bonus');
   mul(1 + game.buffMod('dmg'), 'Class buff');
   mul(CLASS_POWER, 'Class power');
+  // A Priest's or Zealot's own element: its path's power, Verdict, stored Wrath, Sacrifice (classelements.js).
+  if (mode === 'magic') { const sp = spell || currentSpell(game); mul(castMult(game, npc, sp.element), `${ELEMENTS[sp.element].name} (its own effect)`); }
   if (npc && game.onSlayerTask(npc)) mul(1 + game.slayerBonus().dmg / 100, 'Slayer task');
   if (npc) { const cm = masteryDamage(game, npc); mul(1 + cm.species, 'Codex mastery (species)'); mul(1 + cm.race, 'Codex mastery (race)'); }
   if (npc?.openWounds) mul(1 + openWoundStacks(npc, game.tickCount) * OPEN_WOUNDS.per, 'Open wounds (Brawler)');

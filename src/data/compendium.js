@@ -199,10 +199,11 @@ export function prayerRows() {
   });
 }
 
-/** Spells: element, Magic level, what its element does, and the races it bites into and is resisted by. */
+/** Spells: element, Magic level, what its element does, and the races it bites into and is resisted by.
+ *  The Priest's and the Zealot's own elements say whose they are. */
 export function spellRows() {
   const races = (ids) => ids.map((r) => RACES[r]?.name || r).join(', ') || '-';
-  return SPELLS.map((s) => [`${ELEMENTS[s.element].icon} ${s.name}`, num(s.level), ELEMENTS[s.element].effect,
+  return SPELLS.map((s) => [`${ELEMENTS[s.element].icon} ${s.name}${s.cls ? ` (${s.cls === 'priest' ? 'Priest' : 'Zealot'} only)` : ''}`, num(s.level), ELEMENTS[s.element].effect,
     races(ELEMENTS[s.element].strong), races(ELEMENTS[s.element].weak)]);
 }
 
@@ -547,6 +548,7 @@ export const CHAPTERS = [
           'Each element also has its own effect, shown on the foe while it lasts: **burning** foes glow orange (🔥 under their life bar), **chilled** ones turn icy blue (❄) and hit softer, and **cracked** armour shows a brown wash (🪨 and the number of cracks).',
           () => ({ table: { head: ['Spell', 'Magic', 'Effect', 'Strong against', 'Resisted by'], rows: spellRows() } }),
           'Every spell also blasts the area round its target for the same damage. Earth\'s cracks count for every hit you land on that foe, whatever you hit it with.',
+          'The **Priest** and the **Zealot** have elements of their own and cast only those: the Priest the Light path (Radiance, Grace, Judgement, Sanctuary: dazzling, warding, judging the hurt and healing), the Zealot the Flame path (Holy Fire, Wrath, Ash, Martyrdom: brands that burst, stored wrath, cinders and sacrifice). The Wizard and the Sorcerer cast the seven above.',
         ],
         see: ['monster-armour', 'codex-mastery'],
       },
