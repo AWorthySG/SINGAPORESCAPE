@@ -56,12 +56,21 @@ export function spellBaseHit(spell, magic) {
 // `splat` is the colour of the element's hit numbers (`tint`, the projectile's, is
 // too pale behind white digits).
 export const ELEMENT_MATCHUP = { strong: 1.5, weak: 0.7 };
-// The Light and Flame paths' damage beside the seven elements: those lean on
-// Fire's Ignite (much the strongest on one foe), which the Priest and the Zealot
-// no longer cast, and their own effects mostly guard or heal. Tuned on
-// tools/balance/classes.mjs to keep the Priest at about 85-100% of the Wizard
-// and the Zealot at 95-115% (see priest.js and zealot.js).
-export const LIGHT_POWER = 1, FLAME_POWER = 1;
+// The Light and Flame paths' damage beside the seven. The Priest and the Zealot
+// used to cast Fire, whose Ignite is much the strongest effect on one foe in a
+// long fight (it puts the Wizard at 2-4 times the median class there); without
+// it they fell to a fifth and a third of the Wizard's single-target damage on
+// tools/balance/classes.mjs. So every Light and Flame spell also burns like
+// Ignite (PATH_BURN, the same numbers: the light sears, the flames burn) and
+// each path's damage is scaled to fit. The four elements each cover more races
+// than the Wizard's Fire-on-everything does, so the paths sit below 1: at these
+// numbers the Priest deals 98-102% of the Wizard's single-target damage at
+// levels 50-200 and 80% at 300 (kill speed 88-101%), the Zealot 103-119% at
+// 50-200 and 86% at 300 (kill 87-116%). Martyrdom's +60% made the Zealot
+// 1.3-1.8 times the Wizard where its strong races came up, before its strong
+// list was narrowed to spirits and constructs.
+export const LIGHT_POWER = 0.85, FLAME_POWER = 0.7;
+const PATH_BURN = { share: 0.15, secs: 5, tickMs: 500, max: 20 };
 export const ELEMENTS = {
   wind:  { name: 'Wind',  icon: '🌪️', splat: '#2f9a6a', strong: ['avian', 'spirit', 'bug'], weak: ['construct', 'dragon'],
     effect: 'Gale: casts 65% faster and +15% critical chance', castSpeed: 0.6, crit: 0.15 },
@@ -81,24 +90,26 @@ export const ELEMENTS = {
   // Flame path (holy fire, wrath, sacrifice). What each effect does in a fight
   // lives in game/classelements.js; `power` is the path's damage beside the
   // seven (see LIGHT_POWER and FLAME_POWER below).
-  radiance:  { name: 'Radiance', icon: '☀️', splat: '#c79600', strong: ['undead', 'spirit', 'bug'], weak: ['construct', 'flora'], power: LIGHT_POWER,
+  radiance:  { name: 'Radiance', icon: '☀️', splat: '#c79600', strong: ['undead', 'spirit', 'bug'], weak: ['construct', 'flora'], power: LIGHT_POWER, ignite: PATH_BURN,
     effect: 'Dazzle: a beam of light. The foes it hits are dazzled for 3s: their attacks miss an extra 25% of the time', dazzle: { ticks: 5, miss: 0.25 } },
-  grace:     { name: 'Grace', icon: '🪶', splat: '#c8801e', strong: ['demon', 'beast', 'avian'], weak: ['spirit'], power: LIGHT_POWER,
+  grace:     { name: 'Grace', icon: '🪶', splat: '#c8801e', strong: ['demon', 'beast', 'avian'], weak: ['spirit'], power: LIGHT_POWER, ignite: PATH_BURN,
     effect: 'Ward: 20% of the damage it deals becomes a ward that soaks the blows you take (up to 20% of your life; it fades 8s after the last top-up)', ward: { share: 0.2, cap: 0.2, ticks: 13 } },
-  judgement: { name: 'Judgement', icon: '⚖️', splat: '#3f6aa8', strong: ['humanoid', 'dragon', 'demon'], weak: ['bug', 'aquatic'], power: LIGHT_POWER,
+  judgement: { name: 'Judgement', icon: '⚖️', splat: '#3f6aa8', strong: ['humanoid', 'dragon', 'demon'], weak: ['bug', 'aquatic'], power: LIGHT_POWER, ignite: PATH_BURN,
     effect: 'Verdict: hits harder the more hurt the foe is, up to +60% on one at death\'s door (x1 + 0.6 x the share of its life missing)', verdict: 0.6 },
-  sanctuary: { name: 'Sanctuary', icon: '⭕', splat: '#7f8f1e', strong: ['undead', 'aquatic', 'reptile', 'flora'], weak: ['dragon', 'demon'], power: LIGHT_POWER,
+  sanctuary: { name: 'Sanctuary', icon: '⭕', splat: '#7f8f1e', strong: ['undead', 'aquatic', 'reptile', 'flora'], weak: ['dragon', 'demon'], power: LIGHT_POWER, ignite: PATH_BURN,
     effect: 'Consecrate: blasts everything within 4 tiles and heals you 2% of your life for each foe it hits (up to 10% a cast)', aoeRadius: 4, consecrate: { per: 0.02, cap: 0.1 } },
-  holyfire:  { name: 'Holy Fire', icon: '🔆', splat: '#d9780a', strong: ['undead', 'flora', 'bug'], weak: ['aquatic', 'dragon'], power: FLAME_POWER,
+  holyfire:  { name: 'Holy Fire', icon: '🔆', splat: '#d9780a', strong: ['undead', 'flora', 'bug'], weak: ['aquatic', 'dragon'], power: FLAME_POWER, ignite: PATH_BURN,
     effect: 'Brand: every hit brands the foe (up to 5, for 6s). The fifth brand bursts: the whole hit again on the foe and all around it', brand: { max: 5, ticks: 10, burst: 1 } },
-  wrath:     { name: 'Wrath', icon: '💢', splat: '#c3301e', strong: ['humanoid', 'demon', 'beast'], weak: ['construct', 'spirit'], power: FLAME_POWER,
+  wrath:     { name: 'Wrath', icon: '💢', splat: '#c3301e', strong: ['humanoid', 'demon', 'beast'], weak: ['construct', 'spirit'], power: FLAME_POWER, ignite: PATH_BURN,
     effect: 'Retribution: the damage you take is stored, and your next Wrath hits harder for it: twice the share of your life you lost, up to +50%; then the store empties', retribution: { per: 2, cap: 0.5 } },
-  ash:       { name: 'Ash', icon: '🌫️', splat: '#76665f', strong: ['avian', 'construct', 'reptile'], weak: ['aquatic', 'undead'], power: FLAME_POWER,
+  ash:       { name: 'Ash', icon: '🌫️', splat: '#76665f', strong: ['avian', 'construct', 'reptile'], weak: ['aquatic', 'undead'], power: FLAME_POWER, ignite: PATH_BURN,
     effect: 'Cinders: a foe it has struck that dies branded or burning (holy fire or Ignite) bursts into cinders, hitting foes within 2 tiles for 30% of the killing blow', cinders: { share: 0.3, ticks: 10 } },
-  martyrdom: { name: 'Martyrdom', icon: '💔', splat: '#9a1a4a', strong: ['dragon', 'spirit', 'aquatic'], weak: ['humanoid'], power: FLAME_POWER,
+  martyrdom: { name: 'Martyrdom', icon: '💔', splat: '#9a1a4a', strong: ['spirit', 'construct'], weak: ['humanoid', 'dragon'], power: FLAME_POWER, ignite: PATH_BURN,
     effect: 'Sacrifice: every cast costs 2% of your life (never taking you under a fifth of it) and hits 60% harder', sacrifice: { life: 0.02, dmg: 0.6 } },
 };
 for (const s of SPELLS) s.element = s.id.split('_')[0];
+// (Say so on each of the paths' elements, after its own effect.)
+for (const s of SPELLS) if (s.cls) ELEMENTS[s.element].effect += s.cls === 'priest' ? '. Its light sears too, burning like Fire\'s Ignite' : '. It burns too, like Fire\'s Ignite';
 export const AOE_RADIUS = 2;   // tiles around the target that every spell also hits
 /** 'strong' | 'weak' | null: how a spell's element fares against a race. */
 export function elementMatchup(element, race) {

@@ -271,11 +271,11 @@ export function drawClassAuras(ctx, game, ox, oy, timeMs = 0) {
     if (nx < -40 || nx > vw + 40 || ny < -40 || ny > vh + 40) continue;
     ctx.save();
     for (let i = 0; i < b.n; i++) {
-      const px = nx + (i - (b.n - 1) / 2) * 7, fl = calm ? 0 : Math.sin(timeMs * 0.02 + i) * 0.6;
-      ctx.fillStyle = '#ffe9a0'; ctx.strokeStyle = INK; ctx.lineWidth = 0.8;
-      ctx.beginPath(); ctx.moveTo(px, ny - 6 - fl); ctx.quadraticCurveTo(px + 3.4, ny - 1, px, ny + 1.8); ctx.quadraticCurveTo(px - 3.4, ny - 1, px, ny - 6 - fl); ctx.closePath();
+      const px = nx + (i - (b.n - 1) / 2) * 9, fl = calm ? 0 : Math.sin(timeMs * 0.02 + i) * 0.8;
+      ctx.fillStyle = '#ffc94a'; ctx.strokeStyle = INK; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(px, ny - 8.5 - fl); ctx.quadraticCurveTo(px + 4.6, ny - 1.5, px, ny + 2.4); ctx.quadraticCurveTo(px - 4.6, ny - 1.5, px, ny - 8.5 - fl); ctx.closePath();
       ctx.fill(); ctx.stroke();
-      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(px, ny - 0.4, 1, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#fff6d0'; ctx.beginPath(); ctx.arc(px, ny - 0.6, 1.6, 0, TAU); ctx.fill();
     }
     ctx.restore();
   }
