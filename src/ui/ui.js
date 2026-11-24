@@ -53,7 +53,7 @@ import { isSalvageable, sameKind, nearOfferingShrine } from '../game/salvage.js'
 import { QUALITY, qualityNameHTML } from '../game/loot.js';
 import { ranksCardHTML, openRanksGuide, masteryLine, masteryProgressText, qualityLine } from './ranksui.js';
 import { openSacrifice, openSacrificeFrom, openDismantle, shrineGearSection, askOffer, redraw } from './salvageui.js';
-import { hotOffer, HOT_HINT } from './shrinehot.js';
+import { hotOffer, TAP_HINT, HOT_HINT } from './shrinehot.js';
 import { shrineGoodsSection, askGoods, shrineMaxButton } from './shrineui.js';
 import { goodsKind } from '../game/offerings.js';
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT, holdRepeatDelay } from '../game/attributes.js';
@@ -1390,7 +1390,15 @@ export class UI {
     }
     // Beside the Offering Shrine, anything it takes can be offered from here.
     if ((isSalvageable(s.id) || goodsKind(s.id) || materialKind(s.id)) && nearOfferingShrine(this.game)) {
-      opts.push({ label: 'Offer at shrine', target: item.name, fn: () => this.openOfferingShrine(s.id) });
+      // One tap offers (shrinehot.js): one, or every one you carry.
+      const offer = (n) => {
+        if (this.modal?.kind === 'shrine' && this.modal._hotItem) return this.modal._hotItem(s.id, n);
+        const a = { pending: null, result: null }, b = { pending: null, result: null };
+        if (!hotOffer(this, a, b, s.id, n) && (a.result || b.result)) this.game.msg(String(a.result || b.result).replace(/<[^>]+>/g, ''));
+      };
+      opts.push({ label: 'Offer at shrine', target: item.name, fn: () => offer(1) });
+      if (this.game.inventory.count(s.id) > 1) opts.push({ label: 'Offer all at shrine', target: item.name, fn: () => offer(Infinity) });
+      opts.push({ label: 'Open shrine', target: item.name, fn: () => this.openOfferingShrine() });
     }
     opts.push({ label: 'Drop', target: item.name, fn: () => this.game.dropItem(i, (n) => typeof confirm !== 'function'
       || confirm(`Drop all ${n.toLocaleString()} ${item.name}? Things left on the ground vanish after about 3 minutes.`)) });
@@ -2026,7 +2034,7 @@ export class UI {
           + `<div class="gear-stats">+${formatNumber(o.points)} mastery XP each</div></div>`;
         const btns = document.createElement('div');
         btns.className = 'qty-btns';
-        for (const [label, n] of [['1', 1], ['10', 10], ['All', Infinity]]) {
+        for (const [label, n] of [['Offer', 1], ['10', 10], ['All', Infinity]]) {
           const b = document.createElement('button');
           b.type = 'button';
           b.className = 'gear-tab small';
@@ -2063,7 +2071,7 @@ export class UI {
       body.innerHTML = '<div class="gear-intro"><p>Offer the materials your life skills gather (bars, ore, gems, logs, hides, herbs, fish and feathers), spare gear, or anything else, for '
         + '<b>shrine points</b> (a material gives a tenth of its value; gear and other items less). Spend them on <b>blessings</b>: permanent bonuses to your fighting that never run out. '
         + `Each rank costs a little more than the last.</p><p class="shrine-points">Shrine points: <b>${formatNumber(sh.points)}</b></p></div>`
-        + `<div class="modal-hint hotkey-hint">${HOT_HINT}</div>`;
+        + `<div class="modal-hint">${TAP_HINT}</div><div class="modal-hint hotkey-hint">${HOT_HINT}</div>`;
       const tracks = document.createElement('div');
       tracks.className = 'gear-list shrine-tracks';
       for (const t of SHRINE_TRACK_IDS) {
@@ -2102,7 +2110,7 @@ export class UI {
           + `<div class="gear-stats">${formatNumber(o.points)} point${o.points > 1 ? 's' : ''} each (${formatNumber(o.points * o.count)} for all)</div></div>`;
         const btns = document.createElement('div');
         btns.className = 'qty-btns';
-        for (const [label, n] of [['1', 1], ['10', 10], ['All', Infinity]]) {
+        for (const [label, n] of [['Offer', 1], ['10', 10], ['All', Infinity]]) {
           const b = document.createElement('button');
           b.type = 'button';
           b.className = 'gear-tab small';
