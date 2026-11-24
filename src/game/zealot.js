@@ -24,8 +24,8 @@
 // class's own type is its best weapon (combat.js WEAPON_DMG_MULT).
 // Since the Zealot casts its own Flame path (magic.js; game/classelements.js)
 // rather than Fire, its damage beside the Wizard's is set by FLAME_POWER (and
-// BLOOD_POWER) there: 104-117% of the Wizard's single-target damage at levels
-// 50-200 and 85% at 300.
+// BLOOD_POWER) there: 103-117% of the Wizard's single-target damage at levels
+// 50-200 and 86% at 300.
 // Blood's life price keeps it hurt, so Fervour keeps counting.
 export const ZEALOT = { fervour: 0.3, orb: 0.85 };
 // Holy fire (WOUNDS.holyfire in game.js): each spell through a censer adds a burn

@@ -74,8 +74,8 @@ export const ELEMENT_MATCHUP = { strong: 1.5, weak: 0.7 };
 // +120% when its price is paid, which at the Flame path's power made it the
 // Zealot's best cast on nearly everything and put it at 1.3-1.6 times the
 // Wizard at level 200; so Blood alone has a lower power (BLOOD_POWER: x1.1 paid,
-// a weak cast unpaid) and the Zealot sits at 104-117% of the Wizard's
-// single-target damage at 50-200, 85% at 300 (kill 89-115%), as before.
+// a weak cast unpaid) and the Zealot sits at 103-117% of the Wizard's
+// single-target damage at 50-200, 86% at 300 (kill 89-116%), as before.
 export const LIGHT_POWER = 0.85, FLAME_POWER = 0.7, BLOOD_POWER = 0.5;
 const PATH_BURN = { share: 0.15, secs: 5, tickMs: 500, max: 20 };
 export const ELEMENTS = {
