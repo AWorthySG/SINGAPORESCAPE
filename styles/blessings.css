@@ -53,6 +53,9 @@
 #prayer-panel .bl-slot-ic img { width: 22px; height: 22px; }
 #prayer-panel .bl-slot-name { max-width: 100%; text-overflow: ellipsis; }
 #prayer-panel .bl-slot.empty { border: 2px dashed var(--aw-sun); color: var(--aw-text-sec); }
+/* The word "Empty" was written across the ring (wider than its open centre):
+   the ring sits at the top of the slot and the word under it. */
+#prayer-panel .bl-slot.empty { min-height: 52px; justify-content: flex-end; line-height: 1.1; background-position: center top; background-size: auto calc(100% - 13px); }
 #prayer-panel .bl-slot.locked { border: 2px dashed rgba(36, 50, 74, .25); color: var(--aw-text-sec); opacity: .6; }
 
 #prayer-panel .prayer-cell { min-height: 44px; box-sizing: border-box; }

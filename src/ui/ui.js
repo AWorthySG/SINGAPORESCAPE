@@ -87,6 +87,16 @@ import { mountRefineRun, mountEnchantRun, openImprove } from './smartgearui.js';
 export const COLLAPSE_V = 2;   // the saved fold states' version (see _loadCollapse)
 export const TIP_LINGER_MS = 1000;   // an item's hover description stays this long after the pointer leaves
 export const CHAT_LINES = 120;   // the chat keeps (and its log shows) this many lines
+export const MINIMAP_LONG_NAME = 16;   // a minimap area name longer than this is set smaller (setRegion)
+/** The world map's lettering, in canvas pixels: `screenPx` on screen once the
+ *  canvas (drawn at 2+ pixels a tile) is shrunk `k` times to fit its window, and
+ *  never under `base`. Sized in canvas pixels alone, the names came out 3-5px
+ *  tall on screen, too small to read on a phone or a desktop. */
+export const mapLabelPx = (screenPx, k, base) => Math.round(Math.max(base, screenPx * k));
+/** At this many canvas pixels to a screen pixel or more (a phone), the map
+ *  leaves out the resource zones', groves' and quarries' names: too many to fit
+ *  beside the regions' own, so only their dots stay (a tap still names them). */
+export const MAP_GROVE_NAMES_K = 2.5;
 import { NoticeLane, afterLayout } from './noticelane.js';
 import { QuickSlot, interactCaption, trackerHTML, TRACKER_ROWS, TRACKER_ROWS_PHONE, sellSideSmall, loadTrackerFolded, saveTrackerFolded, sheetSnap } from './hudease.js';
 import { QuickBar } from './quickbar.js';
@@ -1099,8 +1109,11 @@ export class UI {
       this.el.region.classList.toggle('wild', wild);
     }
     if (this.el.minimapRegion) {
-      this.el.minimapRegion.textContent = wild ? `${name} (Lvl ${wildLevel})` : name;
+      const label = wild ? `${name} (Lvl ${wildLevel})` : name;
+      this.el.minimapRegion.textContent = label;
       this.el.minimapRegion.classList.toggle('wild', wild);
+      // A long name ("The Wilderness (Lvl 3)") ran over the HP orb: set smaller (minimap.css).
+      this.el.minimapRegion.classList.toggle('long', label.length > MINIMAP_LONG_NAME);
     }
   }
 
@@ -4722,9 +4735,29 @@ export class UI {
           c.globalAlpha = 1;
         }
       }
-      // zone labels
-      c.font = `800 ${Math.max(9, scale * 3)}px Nunito,"Trebuchet MS",sans-serif`;
-      c.textAlign = 'center'; c.textBaseline = 'middle';
+      // Map lettering: navy-outlined sticker letters, so names read on grass and sea alike.
+      c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+      const label = (text, x, y, fill) => { c.strokeStyle = 'rgba(34,48,74,0.85)'; c.lineWidth = 2.6 * k; c.strokeText(text, x, y); c.fillStyle = fill; c.fillText(text, x, y); };
+      // Resource zones (world.js): a green dot and the zone's name at its signpost.
+      c.font = `800 ${mapLabelPx(8.5, k, Math.max(8, scale * 2.4))}px Nunito,"Trebuchet MS",sans-serif`;
+      for (const rz of game.world.resourceZones || []) {
+        const zx = rz.cx * scale + scale / 2, zy = rz.cy * scale + scale / 2;
+        c.fillStyle = '#22304A'; c.beginPath(); c.arc(zx, zy, 4.5 * k, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#9be37a'; c.beginPath(); c.arc(zx, zy, 3.2 * k, 0, Math.PI * 2); c.fill();
+        if (k < MAP_GROVE_NAMES_K) label(rz.name, zx, zy - 10 * k, '#c8f5b0');
+      }
+      // Groves and quarries (groves.js): a smaller dot and name, a darker green (grey for a quarry).
+      c.font = `800 ${mapLabelPx(7.5, k, Math.max(7, scale * 2))}px Nunito,"Trebuchet MS",sans-serif`;
+      for (const g of game.world.groves || []) {
+        const gx = g.cx * scale + scale / 2, gy = g.cy * scale + scale / 2;
+        const q = g.kind === 'quarry';   // quarries in stone grey
+        c.fillStyle = '#22304A'; c.beginPath(); c.arc(gx, gy, 3.6 * k, 0, Math.PI * 2); c.fill();
+        c.fillStyle = q ? '#a9b4c2' : '#4fae5a'; c.beginPath(); c.arc(gx, gy, 2.4 * k, 0, Math.PI * 2); c.fill();
+        if (k < MAP_GROVE_NAMES_K) label(g.name, gx, gy - 9 * k, q ? '#e2e8f0' : '#b6e8a4');
+      }
+      // Zone labels last, over every dot.
+      const zonePx = mapLabelPx(8.5, k, Math.max(9, scale * 3));
+      c.font = `800 ${zonePx}px Nunito,"Trebuchet MS",sans-serif`;
       // Nudge labels apart where neighbouring regions' names would overlap.
       const placed = [];
       // Regions with a level band carry it, on the scale monsters show, and turn
@@ -4732,33 +4765,13 @@ export class UI {
       const you = game.fightLevel();
       for (const z of game.world.zones) {
         const rec = zoneLevel(z);
-        const label = rec ? `${z.name} ${rec}+` : z.name;
-        const cx = ((z.x0 + z.x1) / 2) * scale;
+        const text = rec ? `${z.name} ${rec}+` : z.name;
+        const w2 = c.measureText(text).width / 2 + 3, h = zonePx + 2;
+        const cx = Math.min(cnv.width - w2, Math.max(w2, ((z.x0 + z.x1) / 2) * scale));   // kept inside the map's edges
         let cy = ((z.y0 + z.y1) / 2) * scale;
-        const w2 = c.measureText(label).width / 2 + 3, h = Math.max(9, scale * 3) + 2;
         while (placed.some((b) => Math.abs(b.cx - cx) < b.w2 + w2 && Math.abs(b.cy - cy) < h)) cy += h;
         placed.push({ cx, cy, w2 });
-        c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillText(label, cx + 1, cy + 1);
-        c.fillStyle = z.wilderness ? '#ff8a7a' : tooHigh(rec, you) ? '#ffb347' : '#fff3c8'; c.fillText(label, cx, cy);
-      }
-      // Resource zones (world.js): a green dot and the zone's name at its signpost.
-      c.font = `800 ${Math.max(8, scale * 2.4)}px Nunito,"Trebuchet MS",sans-serif`;
-      for (const rz of game.world.resourceZones || []) {
-        const zx = rz.cx * scale + scale / 2, zy = rz.cy * scale + scale / 2;
-        c.fillStyle = '#22304A'; c.beginPath(); c.arc(zx, zy, 4.5 * k, 0, Math.PI * 2); c.fill();
-        c.fillStyle = '#9be37a'; c.beginPath(); c.arc(zx, zy, 3.2 * k, 0, Math.PI * 2); c.fill();
-        c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillText(rz.name, zx + 1, zy - 7 * k + 1);
-        c.fillStyle = '#c8f5b0'; c.fillText(rz.name, zx, zy - 7 * k);
-      }
-      // Groves and quarries (groves.js): a smaller dot and name, a darker green (grey for a quarry).
-      c.font = `800 ${Math.max(7, scale * 2)}px Nunito,"Trebuchet MS",sans-serif`;
-      for (const g of game.world.groves || []) {
-        const gx = g.cx * scale + scale / 2, gy = g.cy * scale + scale / 2;
-        const q = g.kind === 'quarry';   // quarries in stone grey
-        c.fillStyle = '#22304A'; c.beginPath(); c.arc(gx, gy, 3.6 * k, 0, Math.PI * 2); c.fill();
-        c.fillStyle = q ? '#a9b4c2' : '#4fae5a'; c.beginPath(); c.arc(gx, gy, 2.4 * k, 0, Math.PI * 2); c.fill();
-        c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillText(g.name, gx + 1, gy - 6 * k + 1);
-        c.fillStyle = q ? '#e2e8f0' : '#b6e8a4'; c.fillText(g.name, gx, gy - 6 * k);
+        label(text, cx, cy, z.wilderness ? '#ff8a7a' : tooHigh(rec, you) ? '#ffb347' : '#fff3c8');
       }
       c.textAlign = 'start'; c.textBaseline = 'alphabetic';
       // The picked spot gets a gold ring.

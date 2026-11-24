@@ -42,7 +42,7 @@ import { CosyLight } from './cosylight.js';
 import { Atmosphere } from './atmosphere.js';
 import { AmbientLife } from './ambient.js';
 import { AirMotes } from './airmotes.js';
-import { RegionPostcards } from './postcard.js';
+import { RegionPostcards, titleRoom } from './postcard.js';
 import { Weather } from './weather.js';
 import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, DARK_REGIONS } from './fxart.js';
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
@@ -695,24 +695,29 @@ export class Renderer {
         ctx.globalAlpha = entering ? 1 : banner;
         ctx.translate(slide, 0);
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
-        ctx.font = `900 ${size.toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
+        // Like the title cards, kept left of a phone's HUD column (titleRoom),
+        // the name set smaller where it would not fit the banner there.
+        const room = titleRoom(vw, vh, this.game.camera?.zoom || 1), cx = room.cx;
         const name = cine.intro.name.toUpperCase();
+        const bh = h * 1.4, tone = DARK_REGIONS.has(this.game.currentZoneName) ? 'dark' : 'normal';
+        ctx.font = `900 ${size.toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
+        const fit = Math.min(1, (room.w * 0.98 - bh * 2.4) / Math.max(1, ctx.measureText(name).width));
+        if (fit < 1) ctx.font = `900 ${(size * Math.max(0.6, fit)).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
         // The painted banner (dark in the grim lands) with its crest on top,
         // sized to the name; a plain navy ribbon with gold rules until it loads.
-        const bh = h * 1.4, tone = DARK_REGIONS.has(this.game.currentZoneName) ? 'dark' : 'normal';
-        if (drawStrip(ctx, 'banner', tone, vw / 2, y, Math.min(vw * 0.98, ctx.measureText(name).width + bh * 2.4), bh)) {
+        if (drawStrip(ctx, 'banner', tone, cx, y, Math.min(room.w * 0.98, ctx.measureText(name).width + bh * 2.4), bh)) {
           const crest = fxImage('banner-crest');
-          if (crest) drawFx(ctx, crest, vw / 2, y - bh * 0.5 - size * 0.25, size * 1.5);
+          if (crest) drawFx(ctx, crest, cx, y - bh * 0.5 - size * 0.25, size * 1.5);
         } else {
           ctx.fillStyle = 'rgba(34,48,74,0.86)';
           ctx.fillRect(0, y - h / 2, vw, h);
           ctx.fillStyle = '#F5B82E';
           ctx.fillRect(0, y - h / 2, vw, 2.5); ctx.fillRect(0, y + h / 2 - 2.5, vw, 2.5);
         }
-        ctx.strokeStyle = '#22304A'; ctx.lineWidth = size * 0.22; ctx.strokeText(name, vw / 2, y - size * 0.22);
-        ctx.fillStyle = '#FFE38A'; ctx.fillText(name, vw / 2, y - size * 0.22);
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = size * 0.22; ctx.strokeText(name, cx, y - size * 0.22);
+        ctx.fillStyle = '#FFE38A'; ctx.fillText(name, cx, y - size * 0.22);
         ctx.font = `800 ${(size * 0.48).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
-        ctx.fillStyle = '#FAF6EE'; ctx.fillText(`Level ${cine.intro.level}`, vw / 2, y + size * 0.62);
+        ctx.fillStyle = '#FAF6EE'; ctx.fillText(`Level ${cine.intro.level}`, cx, y + size * 0.62);
         ctx.restore();
       }
     }
@@ -721,19 +726,20 @@ export class Renderer {
       const a = titleAlpha(tc.t);
       if (a > 0) {
         const y = vh * 0.3 - (1 - a) * 6;   // clear of the region label and tips
+        const room = titleRoom(vw, vh, this.game.camera?.zoom || 1), cx = room.cx;   // clear of a phone's HUD column
         ctx.save();
         ctx.globalAlpha = a;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
-        if (this.postcards.draw(ctx, tc, vw, vh, a) || this._titlePlaque(tc, vw, y, size)) { ctx.restore(); return; }   // a postcard (postcard.js), else the plaque
+        if (this.postcards.draw(ctx, tc, vw, vh, a, room) || this._titlePlaque(tc, room, y, size)) { ctx.restore(); return; }   // a postcard (postcard.js), else the plaque
         // Sticker lettering: a white border round navy ink round the colour.
         ctx.font = `900 ${(size * 1.25).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
-        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = size * 0.5; ctx.strokeText(tc.name, vw / 2, y);
-        ctx.strokeStyle = '#22304A'; ctx.lineWidth = size * 0.22; ctx.strokeText(tc.name, vw / 2, y);
-        ctx.fillStyle = '#F5B82E'; ctx.fillText(tc.name, vw / 2, y);
+        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = size * 0.5; ctx.strokeText(tc.name, cx, y);
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = size * 0.22; ctx.strokeText(tc.name, cx, y);
+        ctx.fillStyle = '#F5B82E'; ctx.fillText(tc.name, cx, y);
         if (tc.sub) {
           ctx.font = `800 ${(size * 0.5).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
-          ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = size * 0.2; ctx.strokeText(tc.sub, vw / 2, y + size * 1.05);
-          ctx.fillStyle = '#22304A'; ctx.fillText(tc.sub, vw / 2, y + size * 1.05);
+          ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = size * 0.2; ctx.strokeText(tc.sub, cx, y + size * 1.05);
+          ctx.fillStyle = '#22304A'; ctx.fillText(tc.sub, cx, y + size * 1.05);
         }
         ctx.restore();
       }
@@ -742,19 +748,21 @@ export class Renderer {
 
   // A region's title card on its painted plaque (dark in the grim lands), the
   // region's round badge pinned to its left end. False until the art loads.
-  _titlePlaque(tc, vw, y, size) {
+  _titlePlaque(tc, room, y, size) {
     const { ctx } = this;
     const dark = DARK_REGIONS.has(tc.name);
     const ph = size * (tc.sub ? 2.9 : 2.4);
-    const nameFont = `900 ${(size * 1.1).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
-    const subFont = `800 ${(size * 0.5).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
-    ctx.font = nameFont;
-    let tw = ctx.measureText(tc.name).width;
-    if (tc.sub) { ctx.font = subFont; tw = Math.max(tw, ctx.measureText(tc.sub).width); }
     const badge = fxImage(badgeKey(tc.name));
     const bw = badge ? ph * 1.2 : 0;   // the badge overhangs the plaque's left end
-    const w = Math.min(vw * 0.96, tw + ph * 1.5 + bw * 0.55);
-    const cx = vw / 2 + bw * 0.22;
+    // The lettering shrinks to fit a narrow room (titleRoom) rather than run off the plaque.
+    const font = (k) => [`900 ${(size * 1.1 * k).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`, `800 ${(size * 0.5 * k).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`];
+    const textW = ([nf, sf]) => { ctx.font = nf; let t = ctx.measureText(tc.name).width; if (tc.sub) { ctx.font = sf; t = Math.max(t, ctx.measureText(tc.sub).width); } return t; };
+    let [nameFont, subFont] = font(1);
+    let tw = textW([nameFont, subFont]);
+    const fit = Math.min(1, (room.w * 0.96 - ph * 1.5 - bw * 0.55) / Math.max(1, tw));
+    if (fit < 1) { [nameFont, subFont] = font(Math.max(0.6, fit)); tw = textW([nameFont, subFont]); }
+    const w = Math.min(room.w * 0.96, tw + ph * 1.5 + bw * 0.55);
+    const cx = room.cx + bw * 0.22;
     if (!drawStrip(ctx, 'plaque', dark ? 'dark' : 'normal', cx, y, w, ph)) return false;
     if (badge) drawFx(ctx, badge, cx - w / 2 + bw * 0.1, y, bw);
     const tx = cx + bw * 0.2, ny = tc.sub ? y - size * 0.32 : y;
