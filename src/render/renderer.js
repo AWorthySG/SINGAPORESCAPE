@@ -26,7 +26,7 @@ const ARROW_LOOK = {
   starmetal: { head: '#ffd24a', fletch: '#fff2b0', shaft: '#4a4a6a', trail: '#ffe88a', glow: '#ffd24a', size: 1.2, barbed: true },
   eternal: { head: '#c27bff', fletch: '#ecd6ff', shaft: '#3a2a5a', trail: '#d6a8ff', glow: '#a855ff', size: 1.25, barbed: true },
 };
-import { labelMode, objectLabelAlpha, npcNameVisible, targetTag, elementTint } from './worldlabels.js';
+import { labelMode, objectLabelAlpha, npcNameVisible, targetTag, targetTagY, TAG_H, elementTint } from './worldlabels.js';
 import { drawCreature, drawPlayer, drawObjectSprite, drawGroundItem, fishCalm } from './sprites.js';
 import { heroAnimFrame, drawFishingGear, strikeClock } from './heroanim.js';
 import { petDrawable } from './petsprite.js';
@@ -46,7 +46,7 @@ import { RegionPostcards } from './postcard.js';
 import { Weather } from './weather.js';
 import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, DARK_REGIONS } from './fxart.js';
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
-import { TerrainFx, growBox, tileHash } from './terrainfx.js';
+import { TerrainFx, growBox, tileHash, recolourGround } from './terrainfx.js';
 import { sunShadow, drawSunShadow, footfall } from './shadows.js';
 import { dropArc, dropFx, spawnFx } from './combatfx.js';
 import { applySquash, splatMotion, drawCritBurst, drawMissPuff, drawLootGlow, drawCoinGlint, motionOK } from './juice.js';
@@ -113,8 +113,45 @@ const GROUND_TEX = {
 // has variants (an inset Peranakan tile, a worn patch): each 4 x 4 block picks
 // one by a stable hash, the plain paving most of the time.
 const GROUND_VARIANTS = { [TERRAIN.STONE]: [['stone-2', 0.2], ['stone-3', 0.2]] };
+// A region whose ground looks unlike everyone else's: region name -> ground
+// type -> { tex } (its own texture, assets/world/ground-<tex>.webp) or
+// { tint } (the usual texture recoloured once, terrainfx.js recolourGround).
+// Either way it's baked into the terrain chunks, so it costs nothing per frame.
+// The Celestial Peaks' stone is the town paving turned cool grey-blue mountain
+// rock until painted rock arrives: then add ground-stone-peaks.webp and make
+// the entry { tex: 'stone-peaks' }; nothing else needs to change.
+export const REGION_GROUND = {
+  'The Celestial Peaks': { [TERRAIN.STONE]: { tint: { lo: [76, 84, 96], hi: [208, 213, 220], mid: 0.6, gain: 3 } } },
+};
+const REGION_TERRAINS = new Set(Object.values(REGION_GROUND).flatMap((r) => Object.keys(r).map(Number)));
 export const groundTextures = () => new Set([...Object.values(GROUND_TEX),
-  ...Object.values(GROUND_VARIANTS).flatMap((v) => v.map(([n]) => n))]);
+  ...Object.values(GROUND_VARIANTS).flatMap((v) => v.map(([n]) => n)),
+  ...Object.values(REGION_GROUND).flatMap((r) => Object.values(r).map((e) => e.tex).filter(Boolean))]);
+
+/** A region's own look for ground type t at tile (x, y) (REGION_GROUND), or
+ *  null for the usual one. A tinted texture is made the first time a chunk
+ *  needs it and kept (on `tex`). */
+function regionGround(game, tex, t, x, y) {
+  const w = game?.world, z = w?.zoneAt ? w.zoneAt(x, y) : null;
+  const e = z && REGION_GROUND[z.name]?.[t];
+  if (!e) return null;
+  const key = `${z.name}|${t}`;
+  tex.region ||= {};
+  if (tex.region[key] === undefined) {
+    let cv = null;
+    try {
+      const src = tex[t], W = src.naturalWidth || src.width, H = src.naturalHeight || src.height;
+      cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+      const g = cv.getContext('2d');
+      g.drawImage(src, 0, 0);
+      const im = g.getImageData(0, 0, W, H);
+      recolourGround(im.data, e.tint);
+      g.putImageData(im, 0, 0);
+    } catch { cv = null; }   // (no canvas to hand: the usual texture)
+    tex.region[key] = cv;
+  }
+  return tex.region[key];
+}
 
 const LIT_RGB = [255, 190, 110];   // the warm pool round lamps and fires drawn with them
 
@@ -154,8 +191,9 @@ export class Renderer {
    *  terrain so the painted ground replaces the drawn one. */
   _loadGroundTextures() {
     if (typeof Image === 'undefined' || !this.terrainCanvas) return null;
-    const tex = { variants: {} }, ids = Object.keys(GROUND_TEX);
-    let left = ids.length + Object.values(GROUND_VARIANTS).reduce((n, v) => n + v.length, 0);
+    const tex = { variants: {}, region: {} }, ids = Object.keys(GROUND_TEX);
+    const own = Object.entries(REGION_GROUND).flatMap(([z, r]) => Object.entries(r).filter(([, e]) => e.tex).map(([t, e]) => [`${z}|${t}`, e.tex]));
+    let left = ids.length + Object.values(GROUND_VARIANTS).reduce((n, v) => n + v.length, 0) + own.length;
     tex.ready = false;
     const load = (name) => {
       const img = new Image();
@@ -169,6 +207,7 @@ export class Renderer {
     };
     for (const t of ids) tex[t] = load(GROUND_TEX[t]);
     for (const [t, v] of Object.entries(GROUND_VARIANTS)) tex.variants[t] = v.map(([n, w]) => [load(n), w]);
+    for (const [k, n] of own) tex.region[k] = load(n);
     return tex;
   }
 
@@ -179,7 +218,9 @@ export class Renderer {
     const k = GROUND_TEX_PX / TILE;
     let img = tex[t];
     const vs = tex.variants[t];
-    if (vs) {   // the block's variant: the same every bake (the variants share the plain one's outer ring of stones)
+    const own = REGION_TERRAINS.has(t) ? regionGround(this.game, tex, t, x, y) : null;
+    if (own) img = own;   // a region's own ground (one look, no inset tiles)
+    else if (vs) {   // the block's variant: the same every bake (the variants share the plain one's outer ring of stones)
       let r = tileHash(Math.floor(x / k), Math.floor(y / k), 41);
       for (const [v, w] of vs) { if ((r -= w) < 0) { img = v; break; } }
     }
@@ -1899,21 +1940,6 @@ export class Renderer {
         ctx.fillStyle = '#1C1B19'; ctx.fillText(n.chatText, px, py - 1);
       }
       if (boss || n.combatLatch > 0 || targeted) this._healthBar(c.x - ox, c.y - oy + yo, n.hp / n.maxHp, boss);
-      if (targeted) {
-        const px = c.x - ox;
-        let py = c.y - oy + yo + 13;
-        // A compact tag: race icon, ▲ effective / ▼ resisted, and one status
-        // count. The weakness, armour and every wound are spelt out in the
-        // battle bar instead (worldlabels.js foeDetails). A navy pill just
-        // under the health bar, its words coloured by the matchup.
-        const m = game.raceMatchup(n);
-        const pill = namePill(ctx, targetTag(game, n), m === 'strong' ? 'tagStrong' : m === 'weak' ? 'tagWeak' : 'tagEven', this._pillRes);
-        // Clear of a name already there: a line lower (twice at most). Always drawn.
-        const hw = pill.w / 2;
-        for (let k = 0; k < 2 && this._placeHits(px, py, hw); k++) py += PILL_ROW;
-        this._place(px, py, hw);
-        drawPill(ctx, pill, px, py);
-      }
       if (moral && !(n.chatTimer > 0)) {
         // A small gold "!" bobbing over their head until you have chosen.
         const px = c.x - ox, py = c.y - oy + yo - 8 + Math.sin(performance.now() * 0.005) * 1.5;
@@ -1956,6 +1982,32 @@ export class Renderer {
         let tries = 0;
         while (this._placeHits(px, py, hw) && tries < 2) { py += PILL_ROW; tries++; }
         if (this._placeHits(px, py, hw) && !targeted) continue;   // (your target's name always shows)
+        this._place(px, py, hw);
+        drawPill(ctx, pill, px, py);
+      }
+      if (targeted) {
+        const px = c.x - ox;
+        // A compact tag: race icon, ▲ effective / ▼ resisted, and one status
+        // count. The weakness, armour and every wound are spelt out in the
+        // battle bar instead (worldlabels.js foeDetails). A navy pill, its
+        // words coloured by the matchup, above the health bar and clear of the
+        // picture (worldlabels.js targetTagY): under the bar it sat on the
+        // monster's face. Drawn after the names, so it steps round them.
+        let py = c.y - oy + targetTagY(sc, yo, n.def.sprite);
+        const m = game.raceMatchup(n);
+        const pill = namePill(ctx, targetTag(game, n), m === 'strong' ? 'tagStrong' : m === 'weak' ? 'tagWeak' : 'tagEven', this._pillRes);
+        const hw = pill.w / 2;
+        // The "!" of a charging blow or a choice waiting (up to 25px over the
+        // bar) stays in view: the tag goes up over it while it shows.
+        if (n.telegraph > 0 || moral) py = Math.min(py, c.y - oy + yo - 27 - TAG_H / 2);
+        // Clear of a name already there: a line higher (twice at most). Always drawn.
+        for (let k = 0; k < 2 && this._placeHits(px, py, hw); k++) py -= PILL_ROW;
+        // Near the top of the view it would be cut off: under the feet instead
+        // (below a name there), still clear of the picture.
+        if (py - TAG_H / 2 < 2) {
+          py = c.y - oy + 16 * sc + 9;
+          for (let k = 0; k < 2 && this._placeHits(px, py, hw); k++) py += PILL_ROW;
+        }
         this._place(px, py, hw);
         drawPill(ctx, pill, px, py);
       }

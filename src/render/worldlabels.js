@@ -168,6 +168,26 @@ export function targetTag(game, n) {
   return `${r.icon}${arrow}${status ? ' ' + status : ''}`;
 }
 
+// Where the target's tag goes. It sat just under the health bar, which put it
+// over the monster's head and face, worst as it reared up to strike. It now
+// sits above the bar, clear of the tallest the picture ever stands: 34 units
+// of art from its feet (11.5 px below its centre), stretched 14% at the top of
+// a strike, lifted 4.2 more by a hover (ghosts, bats, wisps, jellyfish and
+// insects: sprites.js FLOATERS), all times its scale, plus the 5 px its body
+// lunges at you. Fixed per creature, so the tag never jiggles with the fight
+// (it only steps up out of the way of a name or a warning "!").
+const TAG_HOVERERS = new Set(['ghost', 'wisp', 'bat', 'jellyfish', 'insect']);
+export const TAG_H = 13;   // the tag pill's height (namepill.js, 8.5px words)
+/** How far above its centre (px) a creature's picture can reach. */
+export function spriteReach(sc = 1, sprite = '') {
+  return 2 + (34 * 1.14 - 13.5 + (TAG_HOVERERS.has(sprite) ? 4.2 : 0)) * sc + 5;
+}
+/** The tag's centre, as a y offset (px) from the creature's centre: 2 px above
+ *  both its health bar's top (`barY`, the same offset) and its picture's reach. */
+export function targetTagY(sc, barY, sprite = '') {
+  return Math.min(barY, -spriteReach(sc, sprite)) - 2 - TAG_H / 2;
+}
+
 /** The full read-out on a foe: race, matchup, weakness, armour and wounds. */
 export function foeDetails(game, n) {
   const r = RACES[raceOf(n.def, n.npcId)] || RACES.beast;
