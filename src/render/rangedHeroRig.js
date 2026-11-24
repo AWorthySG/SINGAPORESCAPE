@@ -5,16 +5,22 @@ import { heroLit } from './herolight.js';
 
 // Ranged and magic limbs are separate from the melee pilot so each batch can
 // be reviewed independently. All parts must load before replacing a portrait.
-// The Sniper borrows the Pistoler's parts until its own art arrives (same file names, sniper-*),
-// and the Priest and Zealot the Sorcerer's, recoloured ivory and ember red (priest-*, zealot-*).
+// The Sniper borrows the Pistoler's parts until its own art arrives (same file names, sniper-*).
 export const RANGED_HERO_CLASSES = ['ranger', 'archer', 'sorcerer', 'wizard', 'pistoler', 'sniper', 'priest', 'zealot'];
 export const RANGED_HERO_PARTS = ['body', 'weapon', 'back', 'left', 'right', 'action'];
 export const rangedHeroSrc = (classId, part) => `assets/creatures/hero/rig/${classId}-${part}.webp`;
 // The weapon arm's shoulder, where the painted attack arms (heroAnimArt.js) hang.
-const SHOULDER = { archer: [4, -11], ranger: [4, -11], pistoler: [10, -10], sniper: [6, -10], wizard: [9, -11], sorcerer: [9, -11], priest: [9, -11], zealot: [9, -11] };
-// Rigs drawn on another class's layout (its poses and part sizes): the Priest's and
-// Zealot's stand-in parts are the Sorcerer's until their own sheets arrive.
-const LAYOUT = { priest: 'sorcerer', zealot: 'sorcerer' };
+const SHOULDER = { archer: [4, -11], ranger: [4, -11], pistoler: [10, -10], sniper: [6, -10], wizard: [9, -11], sorcerer: [9, -11], priest: [13, -8.1], zealot: [14.7, -7.1] };
+// Rigs cut from a sheet with every part where it sits on the assembled hero (the
+// Priest's H8a and the Zealot's H9a), drawn at their measured places: the body and
+// boots as [x, y, w, h], each arm as [shoulder x, y, w, h, pivot x, y], turning
+// about its shoulder (the pivot inside the picture). Game units, ground at y = 15.
+const PLACED = {
+  priest: { body: [-20.8, -38, 41.7, 49.4], left: [-15.2, 3.4, 11.6, 11.6], right: [5.3, 3.6, 12.3, 11.4],
+    weapon: [13, -8.1, 18.4, 20.5, 3.1, 13.9], back: [-9.4, -8, 14.9, 15.7, 11.7, 2.9], action: [13.3, -10.2, 24.3, 20.3, 4.1, 11.3] },
+  zealot: { body: [-18, -38, 35.9, 47.7], left: [-15.9, 2.6, 12, 12.4], right: [4, 4.1, 13, 10.9],
+    weapon: [14.7, -7.1, 20.8, 23.8, 3.2, 5.4], back: [-9.9, -8.6, 12.4, 16.7, 9, 3.2], action: [14.4, -1.5, 25.6, 9.9, 4.1, 5.4] },
+};
 const images = new Map();
 // Draw, release and cast ease across a restarted shot (see poseBlend.js).
 const blendRanged = poseBlender();
@@ -22,7 +28,6 @@ const RANGED_BLEND = ['draw', 'release', 'charge', 'cast'];
 const smooth = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
 
 export function rangedHeroPose(classId, gait = {}, time = 0, swing = -1) {
-  classId = LAYOUT[classId] || classId;
   const move = Math.max(0, Math.min(1, gait.move || 0));
   const step = Math.sin((gait.phase || 0) * Math.PI) * move;
   const active = swing >= 0 && swing <= 1;
@@ -38,7 +43,7 @@ export function rangedHeroPose(classId, gait = {}, time = 0, swing = -1) {
   } else if (active && (classId === 'ranger' || classId === 'archer')) {
     draw = smooth(swing / 0.48) * (1 - smooth((swing - 0.5) / 0.14));
     release = smooth((swing - 0.5) / 0.08) * (1 - smooth((swing - 0.58) / 0.27));
-  } else if (active && (classId === 'sorcerer' || classId === 'wizard')) {
+  } else if (active && (classId === 'sorcerer' || classId === 'wizard' || PLACED[classId])) {
     charge = smooth(swing / 0.6) * (1 - smooth((swing - 0.72) / 0.28));
     cast = smooth((swing - 0.6) / 0.14) * (1 - smooth((swing - 0.74) / 0.26));
   }
@@ -91,16 +96,20 @@ export function drawRangedHeroRig(ctx, opts = {}) {
     ctx.drawImage(heroLit(image(part)), -px, -py, w, h);   // with its rim light (herolight.js)
     ctx.restore();
   };
-  draw('left', -10 - pose.step * 1.5 - (pose.plantB || 0), -1 - Math.max(0, pose.step) * 3 - (pose.liftB || 0), 13, 16);
-  draw('right', 1 + pose.step * 1.5 - (pose.plantF || 0), -1 - Math.max(0, -pose.step) * 3 - (pose.liftF || 0), 13, 16);
+  const placed = PLACED[classId];
+  const [lx, ly, lw, lh] = placed ? placed.left : [-10, -1, 13, 16], [rx, ry, rw, rh] = placed ? placed.right : [1, -1, 13, 16];
+  draw('left', lx - pose.step * 1.5 - (pose.plantB || 0), ly - Math.max(0, pose.step) * 3 - (pose.liftB || 0), lw, lh);
+  draw('right', rx + pose.step * 1.5 - (pose.plantF || 0), ry - Math.max(0, -pose.step) * 3 - (pose.liftF || 0), rw, rh);
   const bow = classId === 'ranger' || classId === 'archer';
   const guns = classId === 'pistoler';
   if (anim) drawHeroArm(ctx, anim, 'back', -11 + pose.breathe);
   // The rifle is held in both hands, so the Sniper's back hand steadies it (below).
   const rifle = classId === 'sniper' && anim?.weapon === 'rifle';
-  if (!bow && !guns && !rifle) draw('back', -15, -10 + pose.breathe, 16, 12, -pose.step * 0.2 - pose.charge * 0.35, 12, 3, arms);
+  if (placed) { const b = placed.back; draw('back', b[0], b[1] + pose.breathe, b[2], b[3], -pose.step * 0.2 - pose.charge * 0.35, b[4], b[5], arms); }
+  else if (!bow && !guns && !rifle) draw('back', -15, -10 + pose.breathe, 16, 12, -pose.step * 0.2 - pose.charge * 0.35, 12, 3, arms);
   // The painted body can blink, flinch and cheer (heroAnimArt.js).
-  if (!drawAnimBody(ctx, classId, opts, -21, -38 + pose.breathe, 42, 44)) draw('body', -21, -38 + pose.breathe, 42, 44);
+  const [bx, by, bw, bh] = placed ? placed.body : [-21, -38, 42, 44];
+  if (!drawAnimBody(ctx, classId, opts, bx, by + pose.breathe, bw, bh)) draw('body', bx, by + pose.breathe, bw, bh);
   if (anim) drawHeroArm(ctx, anim, 'front', -11 + pose.breathe);
   if (arms <= 0.001) return true;
   if (arms < 1) { ctx.save(); ctx.globalAlpha *= arms; }
@@ -162,10 +171,18 @@ export function drawRangedHeroRig(ctx, opts = {}) {
     draw('weapon', 14, y, 20, 39, angle, 5, 33);
     if (rifle) drawGripHand(ctx, classId, 'fist', 0, 0, hx, hy);
     draw('action', 30, y - 9, 16, 10, 0, 2, 5, pose.release);
+  } else if (placed) {
+    // The orb is raised on the palm, the censer hangs from its chain: each is
+    // lifted through the charge and swapped for the outstretched cast.
+    const angle = -pose.charge * 0.35 + pose.step * 0.1;
+    const cast = swapOpacity(pose.cast);
+    const a = placed.weapon, k = placed.action;
+    draw('weapon', a[0], a[1] + pose.breathe, a[2], a[3], angle, a[4], a[5], 1 - cast);
+    draw('action', k[0], k[1] + pose.breathe, k[2], k[3], (1 - pose.cast) * 0.3, k[4], k[5], cast);
   } else {
     const angle = -pose.charge * 0.2 + pose.cast * 1.1 + pose.step * 0.12;
     const cast = swapOpacity(pose.cast);
-    const staff = (LAYOUT[classId] || classId) === 'wizard';   // the long staff's drawings are sized their own way
+    const staff = classId === 'wizard';   // the long staff's drawings are sized their own way
     draw('weapon', 14, -10 + pose.breathe, 20, staff ? 54 : 39, angle + 0.3, staff ? 18 : 5, staff ? 45 : 33, 1 - cast);
     draw('action', 14, -10 + pose.breathe, staff ? 48 : 35, staff ? 16 : 13, (angle - 1.1) * 0.3, 4, 5, cast);
   }
