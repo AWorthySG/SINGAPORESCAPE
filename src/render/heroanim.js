@@ -942,7 +942,13 @@ function atWork(p, a) {
 function watch(game) {
   if (_watched.has(game) || !game.bus?.on) return;
   _watched.add(game);
-  game.bus.on('levelup', () => { stateOf(game.player).pending = { id: 'cheer', at: 0 }; });
+  game.bus.on('levelup', () => { const st = stateOf(game.player); st.pending = { id: 'cheer', at: 0 }; st.propFor = null; });
+  // A better tool picked up, wielded or (with that level-up) now usable is
+  // the one the game works with from here on, so the hand changes to it too:
+  // the tool in hand is looked up again on the next frame.
+  const retool = () => { stateOf(game.player).propFor = null; };
+  game.bus.on('inventory', retool);
+  game.bus.on('equipment', retool);
   // A boss falling earns the same cheer (and the painted victory face).
   game.bus.on('sfx', (e) => { if (e === 'bossdie') stateOf(game.player).pending = { id: 'cheer', at: 0 }; });
   game.bus.on('xp', (e) => {
@@ -1246,7 +1252,9 @@ function drawProp(c, id, dir, wrist, upright) {
   c.rotate(want);
   if (P.edge === -1) c.scale(1, -1);
   c.rotate(-iconAng);
-  c.drawImage(propImage(img), -P.grip[0] * P.size, -P.grip[1] * P.size, P.size, P.size);
+  // (A rod is held without its painted float and hook, as it is while fishing.)
+  const pic = ITEMS[id]?.tool === 'rod' ? rodPicture(id) || propImage(img) : propImage(img);
+  c.drawImage(pic, -P.grip[0] * P.size, -P.grip[1] * P.size, P.size, P.size);
   c.restore();
 }
 
@@ -1472,7 +1480,8 @@ function heldGear(c, anim, hx, hy, ang) {
   f.hand = devicePoint(c, hx, hy);
   f.tip = f.hand;
   if (f.tool === 'rod') {
-    const tip = drawRod(c, hx, hy, ang, anim.ch.bend);
+    // The rod in use (an eternal rod's own sticker...), else the plain cane without its picture.
+    const tip = drawRodArt(c, anim.tool, hx, hy, ang, anim.ch.bend, anim.low) || drawRod(c, hx, hy, ang, anim.ch.bend);
     f.tip = devicePoint(c, tip[0], tip[1]);
   } else if (f.tool === 'net') {
     if (netInHand(f)) drawNetBundle(c, hx, hy + 3);
@@ -1504,6 +1513,64 @@ function drawRod(c, hx, hy, ang, bend = 0) {
   c.fillStyle = '#cdd3dc'; c.strokeStyle = INK; c.lineWidth = 0.9;
   c.beginPath(); c.arc(hx + ca * 3 - sa * 3, hy + sa * 3 + ca * 3, 2, 0, Math.PI * 2); c.fill(); c.stroke();
   return [tx, ty];
+}
+
+// A rod's sticker has a float and hook painted beside it (and the tier-1 one a
+// line hanging from its tip), but the fishing draws its own out on the water,
+// so the rod in hand is cut free of them: these boxes (0..1 across the
+// sticker) are cleared from it, once, into a small canvas kept for the rod.
+const ROD_CUTS = { fishing_rod: [[0.62, 0.36, 1, 1], [0.78, 0.2, 1, 0.36]] };
+const TIER_ROD_CUTS = [[0.65, 0.6, 1, 1]];   // iron to eternal share one layout
+const ROD_PX = 64;   // about twice the size it is drawn, so it shrinks cleanly
+const _rodPics = new Map();
+/** The rod's sticker cut free of its float and hook, or null (no DOM, not loaded yet). */
+export function rodPicture(id) {
+  if (_rodPics.has(id)) return _rodPics.get(id);
+  const img = id ? itemIconImage(id) : null;
+  if (!img || !img.complete || !img.naturalWidth || typeof document === 'undefined') return null;
+  const c = document.createElement('canvas');
+  c.width = c.height = ROD_PX;
+  const g = c.getContext('2d');
+  if (!g) { _rodPics.set(id, null); return null; }
+  g.drawImage(propImage(img), 0, 0, ROD_PX, ROD_PX);
+  for (const [x0, y0, x1, y1] of ROD_CUTS[id] || TIER_ROD_CUTS) g.clearRect(x0 * ROD_PX, y0 * ROD_PX, (x1 - x0) * ROD_PX, (y1 - y0) * ROD_PX);
+  _rodPics.set(id, c);
+  return c;
+}
+
+/** The rod in use drawn from its sticker, gripped at the hand (hx, hy) and
+ *  pointing along ang. It bows under a fish as drawRod's cane does: the outer
+ *  half is turned down at the middle (in low graphics the whole rod dips a
+ *  little instead). Returns its tip, or null to fall back on drawRod. */
+function drawRodArt(c, id, hx, hy, ang, bend = 0, low = false) {
+  const pic = rodPicture(id);
+  if (!pic) return null;
+  const P = propOf(id) || PROPS.fishing_rod, S = P.size;
+  const iconAng = Math.atan2(P.tip[1] - P.grip[1], P.tip[0] - P.grip[0]);
+  const len = Math.hypot(P.tip[0] - P.grip[0], P.tip[1] - P.grip[1]) * S;
+  const b = Math.max(-0.4, Math.min(1.2, bend)) * 0.45, j = len * 0.5;
+  // Drawn turned so the hand-to-tip line runs along +x, between x0 and x1 only.
+  const piece = (x0, x1) => {
+    c.save();
+    c.beginPath(); c.rect(x0, -S, x1 - x0, S * 2); c.clip();
+    c.rotate(-iconAng);
+    c.drawImage(pic, -P.grip[0] * S, -P.grip[1] * S, S, S);
+    c.restore();
+  };
+  c.save(); c.translate(hx, hy); c.rotate(ang);
+  let tx, ty;
+  if (low) {
+    c.rotate(b * 0.5); piece(-S, S * 2);
+    tx = Math.cos(b * 0.5) * len; ty = Math.sin(b * 0.5) * len;
+  } else {
+    piece(-S, j + 0.6);   // the butt half, a hair over the joint so no seam shows
+    c.translate(j, 0); c.rotate(b); c.translate(-j, 0);
+    piece(j, S * 2);
+    tx = j + Math.cos(b) * (len - j); ty = Math.sin(b) * (len - j);
+  }
+  c.restore();
+  const ca = Math.cos(ang), sa = Math.sin(ang);
+  return [hx + ca * tx - sa * ty, hy + sa * tx + ca * ty];
 }
 
 /** The cast net gathered up in the hand, weights dangling. */
