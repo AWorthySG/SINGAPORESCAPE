@@ -332,3 +332,29 @@ test('the fish is drawn as one sticker over its spot; low graphics keeps the lit
     assert.ok(!calls.some((c) => c[0] === 'drawImage' && c[1].src === sticker), 'no fish on an event shoal');
   } finally { delete globalThis.Image; }
 });
+
+test('every fishing spot has a picture of its own (FS4, FS5), and the mud crab shows its CR-1 repaint', async () => {
+  // The Asian arowana pool's picture came back as a copy of the endgame Arowana
+  // pool, so it alone still borrows the freshwater rod (objects.js FISH_SPOT_BORROW).
+  const WAITING = { asian_arowana_spot: 'obj-rod_spot' };
+  const pics = new Map();
+  for (const id of SPOTS) {
+    const d = OBJECTS[id], key = d.art || `obj-${id}`;
+    assert.equal(d.art, WAITING[id], `${id} ${WAITING[id] ? 'borrows ' + WAITING[id] : 'has no borrowed picture'}`);
+    assert.ok(!d.tint && worldArt().has(key), `${id}: ${key} is registered`);
+    const file = new URL(`../assets/world/${key}.webp`, import.meta.url);
+    assert.ok(existsSync(file), `${key} is on disk`);
+    if (!WAITING[id]) {
+      const bytes = readFileSync(file).toString('base64');
+      assert.ok(!pics.has(bytes), `${id} and ${pics.get(bytes)} share a painting`);
+      pics.set(bytes, id);
+    }
+    if (key !== `obj-${id}`) assert.ok(!worldArt().has(`obj-${id}`), `${id} has no unused picture of its own`);
+  }
+  assert.ok(pics.size >= 45, `${pics.size} spots with pictures of their own`);
+  // The mud crab's animation parts were cut from the old green crab, so it is
+  // drawn from its new still picture until a parts sheet of the repaint comes back.
+  const { CREATURE_RIGS } = await import('../src/render/creatureRigs.js');
+  assert.ok(!CREATURE_RIGS.mud_crab, 'the mud crab is not drawn from the old crab\'s parts');
+  for (const c of ['mud_crab', 'kelong_crab']) assert.ok(existsSync(new URL(`../assets/creatures/species/${c}.webp`, import.meta.url)), c);
+});

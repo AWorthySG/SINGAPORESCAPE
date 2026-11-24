@@ -825,17 +825,20 @@ for (const [id, h] of Object.entries(HUNT)) {
     examine: `${h.examine} (Hunter ${h.level})` };
 }
 
-// Fishing spots with one species each (see the Fishing block above). Each kind
-// borrows the picture of the old mixed spot it was carved from: a net, rod,
-// coastal rod or harpoon spot. The grouper reef (cage) has a picture of its own
-// (obj-grouper_spot), so it no longer borrows the lobster bed's crate.
+// Fishing spots with one species each (see the Fishing block above). Each spot
+// has a picture of its own (assets/world/obj-<id>.webp: its fish's tell-tale
+// back, fin or leap) rather than the net, rod, coastal rod or harpoon spot it was
+// carved from. FISH_SPOT_BORROW lists any still waiting for theirs: the Asian
+// arowana pool's came back as a copy of the endgame Arowana pool's walled pond,
+// so it keeps the freshwater rod's picture until it is redrawn.
+const FISH_SPOT_BORROW = { asian_arowana_spot: 'obj-rod_spot' };
 // [id, name, label, fish, level, xp, examine]
 const FISH_SPOT_KINDS = {
-  net: { verb: 'Net', emoji: '🎣', tool: 'net', art: 'obj-fishing_spot' },
-  pool: { verb: 'Lure', emoji: '🎣', tool: 'rod', art: 'obj-rod_spot' },
-  coast: { verb: 'Cast', emoji: '🎣', tool: 'rod', art: 'obj-sea_rod_spot' },
+  net: { verb: 'Net', emoji: '🎣', tool: 'net' },
+  pool: { verb: 'Lure', emoji: '🎣', tool: 'rod' },
+  coast: { verb: 'Cast', emoji: '🎣', tool: 'rod' },
   cage: { verb: 'Cage', emoji: '🦞', tool: 'lobster_pot' },
-  harpoon: { verb: 'Harpoon', emoji: '🦈', tool: 'harpoon', art: 'obj-harpoon_spot' },
+  harpoon: { verb: 'Harpoon', emoji: '🦈', tool: 'harpoon' },
 };
 export const FISH_SPOTS = {
   net: [
@@ -887,7 +890,7 @@ export const FISH_SPOTS = {
 for (const [kind, list] of Object.entries(FISH_SPOTS)) {
   const k = FISH_SPOT_KINDS[kind];
   for (const [id, name, label, fish, level, xp, examine] of list) {
-    OBJECTS[id] = { name, label, type: 'fishing', verb: k.verb, emoji: k.emoji, blocking: false, art: k.art,
+    OBJECTS[id] = { name, label, type: 'fishing', verb: k.verb, emoji: k.emoji, blocking: false, art: FISH_SPOT_BORROW[id],
       skill: 'fishing', tool: k.tool, depleteChance: 0, respawn: 0,
       catches: [{ id: fish, level, xp, weight: 1 }], examine: `${examine} (Fishing ${level})` };
   }
