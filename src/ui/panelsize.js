@@ -1,93 +1,139 @@
-// The side panel's size, for easier reading and clicking. On a screen with a
-// mouse the whole panel (its width, the bag's cells, the text and icons) grows
-// in three steps, Normal / Large / Extra large, or freely by dragging the grip
-// on its left edge up to 1.6x. It uses CSS zoom on #sidepanel (compact.css), so
-// every view inside scales together and clicks, hovers and tooltips still land
-// where they look. Touch screens never get the zoom (iPhone Safari hit-tests a
-// zoomed panel a few pixels off, which is why the old Text size setting went):
-// their sheet has a "Larger text in menus" switch instead, done with plain CSS.
-// A bigger panel stops where it would run into the minimap above it or the
-// quick bar and action buttons in the middle (panelScaleCap). The choice is
-// remembered on this device only; headless (the tests) there is no page.
+// The side panel's size: how big its window is, so more fits in it without
+// scrolling. On a screen with a mouse the panel's width and its body's height
+// grow in steps, Normal / Large / Extra large / Full height (the whole free
+// right-hand column), or freely by dragging a grip: its left edge for the
+// width, its top edge for the height, its top-left corner for both. Only the
+// box grows: the text, icons and bag cells keep their size and the views
+// reflow (the bag gets more columns, lists show more rows), which is what the
+// owner asked for. (#579 zoomed the whole panel instead, so the text grew too.)
+// A bigger panel stops where it would run into the minimap, orbs and XP
+// counter above it or the quick bar, HP bar and ability bar in the middle
+// (panelFit); a small window shows less than chosen and the Settings chip says
+// so. Touch screens keep their sheet, which already spans the screen; they get
+// a "Bigger menu text" switch, off unless chosen. The choice is remembered on
+// this device only; headless (the tests) there is no page.
 
+/** Height meaning "all the free height" (any window is shorter). */
+export const PANEL_FULL = 9999;
+
+// w: the panel's width, h: its body's height, in px; 0 is Normal's own (the CSS).
 export const PANEL_STEPS = [
-  { name: 'Normal', s: 1 },
-  { name: 'Large', s: 1.25 },
-  { name: 'Extra large', s: 1.5 },
+  { name: 'Normal', w: 0, h: 0 },
+  { name: 'Large', w: 400, h: 640 },
+  { name: 'Extra large', w: 480, h: 760 },
+  { name: 'Full height', w: 520, h: PANEL_FULL },
 ];
-export const PANEL_MAX = 1.6;
+export const PANEL_MAX_W = 720;   // the widest a drag goes, even on a huge window
+export const PANEL_MIN_H = 240;   // a dragged body never gets shorter than this
 const KEY = 'ss_ui_panel';
 
-// The room the panel works in (px, unscaled; compact.css's panel-size block
-// keeps the same numbers):
-const MARGIN = 10;        // the panel's own gap from the window's right edge
+// The room the panel works in (px; compact.css's panel-size block keeps the
+// same numbers):
+const MARGIN = 10;        // the panel's own gap from the window's right and bottom edges
 const CENTRE_HALF = 152;  // half the quick bar, the widest thing in the bottom-centre column
 const GAP = 12;           // kept between the panel and that column
 const TOP_CLEAR = 272;    // the minimap, its orbs and caption, and the XP counter under them
-const RAIL_H = 316;       // the header plus the five 52px tabs, at Normal
+const HEAD_H = 36;        // the panel's header and borders, above the body
 
-/** The largest scale the panel fits at in a `vw` x `vh` window, whose Normal
- *  width is `baseW`: left of it the bottom-centre column (quick bar, HP bar,
- *  ability bar), above it the minimap. Never below 1 (Normal always shows). Pure. */
-export function panelScaleCap(vw, vh, baseW = 320) {
-  const byW = (vw / 2 - CENTRE_HALF - GAP - MARGIN) / baseW;
-  const byH = (vh - TOP_CLEAR - MARGIN) / RAIL_H;
-  const cap = Math.min(PANEL_MAX, byW, byH);
-  return Math.round(Math.max(1, cap) * 100) / 100;
+/** The largest panel that fits a `vw` x `vh` window whose Normal width is
+ *  `baseW`: `w` keeps it right of the bottom-centre column (quick bar, HP bar,
+ *  ability bar), `h` (the body) keeps it under the minimap. Never narrower than
+ *  Normal. Pure. */
+export function panelFit(vw, vh, baseW = 320) {
+  const w = Math.floor(Math.min(PANEL_MAX_W, vw / 2 - CENTRE_HALF - GAP - MARGIN));
+  const h = Math.floor(vh - TOP_CLEAR - MARGIN - HEAD_H);
+  return { w: Math.max(baseW, w), h: Math.max(0, h) };
 }
 
-/** `s` kept between Normal and `cap` (and a sane number). Pure. */
-export function clampScale(s, cap = PANEL_MAX) {
-  const n = Number(s);
-  if (!Number.isFinite(n)) return 1;
-  return Math.round(Math.min(Math.max(n, 1), Math.max(1, cap)) * 100) / 100;
+const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+/** A saved width kept sane: 0 (Normal) or a px width. Pure. */
+export function cleanW(w) {
+  const n = num(w);
+  return n > 0 ? Math.round(Math.min(Math.max(n, 160), PANEL_MAX_W)) : 0;
+}
+/** A saved body height kept sane: 0 (Normal), a px height or PANEL_FULL. Pure. */
+export function cleanH(h) {
+  const n = num(h);
+  return n > 0 ? Math.round(Math.min(Math.max(n, PANEL_MIN_H), PANEL_FULL)) : 0;
 }
 
-/** A drag that ends close to a step lands on it. Pure. */
-export function snapScale(s) {
-  for (const st of PANEL_STEPS) if (Math.abs(st.s - s) <= 0.05) return st.s;
-  return Math.round(s * 100) / 100;
+/** What shows for the choice `size` ({ w, h }) when the window allows `fit`:
+ *  { w, h, big, cut }. h 0 leaves Normal's height; `cut` says the window is
+ *  too small for the choice (Full height is never cut: it is whatever is free). Pure. */
+export function resolvePanelSize(size, fit, baseW = 320) {
+  const w = size.w ? Math.min(Math.max(size.w, baseW), fit.w) : baseW;
+  const h = size.h ? Math.min(Math.max(size.h, Math.min(PANEL_MIN_H, fit.h)), fit.h) : 0;
+  const cut = (size.w > 0 && w < size.w) || (size.h > 0 && size.h < PANEL_FULL && h < size.h);
+  return { w, h, big: w > baseW || h > 0, cut };
 }
 
-/** The step after (dir 1) or before (dir -1) `s`; past Extra large, `wrap`
- *  goes back to Normal (the Settings chip), otherwise on to the largest. Pure. */
-export function stepScale(s, dir, wrap = false) {
-  const list = PANEL_STEPS.map((st) => st.s);
-  if (dir > 0) {
-    const up = list.find((v) => v > s + 0.001);
-    return up ?? (wrap ? list[0] : PANEL_MAX);
-  }
-  const down = [...list].reverse().find((v) => v < s - 0.001);
-  return down ?? list[0];
+/** The step `size` is exactly, or -1 (a dragged size). Pure. */
+export function stepIndex(size) {
+  return PANEL_STEPS.findIndex((st) => st.w === size.w && st.h === size.h);
 }
 
-/** "Normal", "Large", "Extra large", or "140%" between steps. Pure. */
-export function scaleName(s) {
-  const st = PANEL_STEPS.find((x) => Math.abs(x.s - s) < 0.005);
-  return st ? st.name : `${Math.round(s * 100)}%`;
+/** The largest step `size` is at least as big as, both ways (Normal at worst). Pure. */
+function stepBelow(size) {
+  let at = 0;
+  PANEL_STEPS.forEach((st, i) => { if (size.w >= st.w && size.h >= st.h) at = i; });
+  return at;
 }
 
-/** The saved choice: { s: scale, t: larger text on touch screens }. */
+/** The step after (dir 1) or before (dir -1) `size`. Past Full height `wrap`
+ *  goes back to Normal (the Settings chip), otherwise it stays. Pure. */
+export function stepSize(size, dir, wrap = false) {
+  const at = stepIndex(size), below = stepBelow(size);
+  let i;
+  if (dir > 0) i = below + 1;
+  else i = at >= 0 ? at - 1 : below;
+  if (i >= PANEL_STEPS.length) i = wrap ? 0 : PANEL_STEPS.length - 1;
+  const st = PANEL_STEPS[Math.max(0, i)];
+  return { w: st.w, h: st.h };
+}
+
+/** "Normal", "Large", ... or "Custom" for a dragged size. Pure. */
+export function sizeName(size) {
+  const i = stepIndex(size);
+  return i >= 0 ? PANEL_STEPS[i].name : 'Custom';
+}
+
+/** An old zoom choice (#579 saved { s: 1 to 1.6 }) as the nearest window size. Pure. */
+export function migrateZoom(s) {
+  const n = num(s);
+  const st = n < 1.1 ? PANEL_STEPS[0] : n < 1.375 ? PANEL_STEPS[1] : PANEL_STEPS[2];
+  return { w: st.w, h: st.h };
+}
+
+/** The saved choice: { w, h, t: bigger menu text on touch screens }. */
 export function loadPanelPrefs(store = globalThis.localStorage) {
   let p = null;
   try { p = JSON.parse(store?.getItem(KEY) || 'null'); } catch { p = null; }
-  return { s: clampScale(p?.s ?? 1), t: !!p?.t };
+  if (!p || typeof p !== 'object') return { w: 0, h: 0, t: false };
+  const size = p.v === 2 ? { w: cleanW(p.w), h: cleanH(p.h) } : migrateZoom(p.s);
+  return { ...size, t: !!p.t };
 }
 
 export function savePanelPrefs(prefs, store = globalThis.localStorage) {
-  try { store?.setItem(KEY, JSON.stringify({ s: prefs.s, t: prefs.t ? 1 : 0 })); } catch { /* storage blocked: it just isn't remembered */ }
+  try { store?.setItem(KEY, JSON.stringify({ v: 2, w: prefs.w, h: prefs.h, t: prefs.t ? 1 : 0 })); } catch { /* storage blocked: it just isn't remembered */ }
 }
 
-/** Put a scale on the panel element: the --ps variable compact.css zooms by,
- *  and .ps-big while it is above Normal (the rules only switch on then). */
-export function applyPanelScale(panel, s, bigText = false) {
+/** Put a resolved size on the panel element: --ps-w (its width), --ps-h (its
+ *  body's height), --ps-dw (the width added to Normal's, so the bag's cells
+ *  keep Normal's size), .ps-big while it is above Normal and .ps-tall while
+ *  its height is set (compact.css's rules only switch on then). */
+export function applyPanelSize(panel, r, baseW = 320, bigText = false) {
   if (!panel) return;
-  panel.style?.setProperty?.('--ps', String(s));
-  panel.classList?.toggle('ps-big', s > 1.001);
+  const st = panel.style;
+  st?.setProperty?.('--ps-w', `${r.w}px`);
+  st?.setProperty?.('--ps-dw', `${Math.max(0, r.w - baseW)}px`);
+  if (r.h) st?.setProperty?.('--ps-h', `${r.h}px`);
+  else st?.removeProperty?.('--ps-h');
+  panel.classList?.toggle('ps-big', !!r.big);
+  panel.classList?.toggle('ps-tall', r.h > 0);
   panel.classList?.toggle('menu-big', !!bigText);
 }
 
-/** The live sizer: the header's A− / A+ buttons, the grip, the window's
+/** The live sizer: the header's − / + buttons, the grips, the window's
  *  resizes. `onChange` (Settings' chip) hears every change. */
 export class PanelSizer {
   constructor(panel, head) {
@@ -100,47 +146,66 @@ export class PanelSizer {
     if (typeof window !== 'undefined') window.addEventListener('resize', () => this.apply());
   }
 
-  /** The chosen scale (what Settings names). */
-  get chosen() { return this.prefs.s; }
+  /** The chosen size, { w, h } (what Settings names). */
+  get chosen() { return { w: this.prefs.w, h: this.prefs.h }; }
   get bigText() { return this.prefs.t; }
 
   /** The panel's Normal width: --panel-w (320px on a desktop, less on narrow windows). */
   _baseW() {
-    const v = typeof getComputedStyle === 'function' ? parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--panel-w')) : NaN;
+    const v = typeof getComputedStyle === 'function' && typeof document !== 'undefined'
+      ? parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--panel-w')) : NaN;
     return v > 0 ? v : 320;
   }
 
-  cap() {
-    if (typeof window === 'undefined') return PANEL_MAX;
-    return panelScaleCap(window.innerWidth, window.innerHeight, this._baseW());
+  /** The room this window has (headless: as if it were big). */
+  fit() {
+    if (typeof window === 'undefined') return { w: PANEL_MAX_W, h: PANEL_FULL };
+    return panelFit(window.innerWidth, window.innerHeight, this._baseW());
   }
 
-  /** The scale in use: the choice, or less where the window is too small for it. */
-  get scale() { return clampScale(this.prefs.s, this.cap()); }
+  /** What shows: the choice, or less where the window is too small for it. */
+  get shown() { return resolvePanelSize(this.chosen, this.fit(), this._baseW()); }
 
   apply(live) {
-    const s = live ?? this.scale;
-    applyPanelScale(this.panel, s, this.prefs.t);
+    const r = live ?? this.shown;
+    applyPanelSize(this.panel, r, this._baseW(), this.prefs.t);
     if (this._minus) {
-      this._minus.disabled = s <= 1;
-      this._plus.disabled = s >= this.cap() - 0.001;
+      this._minus.disabled = !r.big;
+      this._plus.disabled = !this._next(1);
     }
     this.onChange?.();
   }
 
-  /** Choose a scale (kept, then shown as far as the window allows). */
-  set(s) {
-    this.prefs.s = clampScale(s);
+  /** Choose a size (kept, then shown as far as the window allows). */
+  set(size) {
+    this.prefs.w = cleanW(size.w);
+    this.prefs.h = cleanH(size.h);
     savePanelPrefs(this.prefs);
     this.apply();
   }
 
-  /** One step up or down; `wrap` (Settings) goes from Extra large back to Normal. */
+  /** The next step up or down that looks different here (on a small window
+   *  Large and Extra large can both be cut to the same size), or null. */
+  _next(dir) {
+    const fit = this.fit(), baseW = this._baseW();
+    const same = (a, b) => a.w === b.w && a.h === b.h;
+    const now = resolvePanelSize(this.chosen, fit, baseW);
+    let size = this.chosen;
+    for (let i = 0; i < PANEL_STEPS.length; i++) {
+      const next = stepSize(size, dir);
+      if (same(next, size)) return null;
+      if (!same(resolvePanelSize(next, fit, baseW), now)) return next;
+      size = next;
+    }
+    return null;
+  }
+
+  /** One step up or down; `wrap` (Settings) goes from Full height back to Normal. */
   step(dir, wrap = false) {
-    // The buttons step from what shows (a capped Extra large steps down to
-    // Large); Settings' chip from what was chosen, so it can go round.
-    const from = wrap ? this.prefs.s : this.scale;
-    this.set(stepScale(from, dir, wrap));
+    // The buttons skip steps that look the same here; Settings' chip goes
+    // through the names in turn, and round.
+    const next = wrap ? stepSize(this.chosen, dir, true) : this._next(dir);
+    if (next) this.set(next);
   }
 
   setBigText(on) {
@@ -149,15 +214,15 @@ export class PanelSizer {
     this.apply();
   }
 
-  /** What Settings' chip says: the choice, and what fits when the window is too small for it. */
+  /** What Settings' chip says: the choice, and when the window is too small for it. */
   label() {
-    const s = this.scale;
-    const name = scaleName(this.prefs.s);
-    return s < this.prefs.s - 0.001 ? `${name} (fits ${Math.round(s * 100)}%)` : name;
+    const r = this.shown, name = sizeName(this.chosen);
+    if (name === 'Custom') return `Custom (${r.w} wide${r.h ? `, ${r.h} tall` : ''})`;
+    return r.cut ? `${name} (cut to fit this window)` : name;
   }
 
   _buildControls(head) {
-    // A− / A+ in the header, beside the fold button (mouse screens only: compact.css).
+    // − / + in the header, beside the fold button (mouse screens only: compact.css).
     if (head) {
       const box = document.createElement('span');
       box.className = 'ps-btns';
@@ -171,45 +236,72 @@ export class PanelSizer {
         b.addEventListener('click', (e) => { e.stopPropagation(); this.step(dir); });
         return box.appendChild(b);
       };
-      this._minus = mk('A&minus;', 'Smaller side panel', -1);
-      this._plus = mk('A+', 'Bigger side panel', 1);
+      this._minus = mk('&minus;', 'Smaller side panel window', -1);
+      this._plus = mk('+', 'Bigger side panel window', 1);
       head.insertBefore(box, head.querySelector('#panel-collapse'));
     }
-    // The grip on the left edge: drag it out to widen the panel (the right
-    // edge stays put); a release near a step settles on it.
-    const grip = document.createElement('div');
-    grip.className = 'ps-grip';
-    grip.title = 'Drag to resize the side panel';
-    grip.setAttribute('aria-hidden', 'true');
-    this.panel.appendChild(grip);
+    // The grips: the left edge drags the width, the top edge the height, the
+    // top-left corner both (the bottom-right corner stays put). A release near
+    // a step settles on it; a double-click puts the panel back to Normal.
+    for (const [cls, mode, title] of [
+      ['ps-grip', 'w', 'Drag to make the side panel wider or narrower'],
+      ['ps-grip-top', 'h', 'Drag to make the side panel taller or shorter'],
+      ['ps-grip-corner', 'wh', 'Drag to resize the side panel'],
+    ]) {
+      const grip = document.createElement('div');
+      grip.className = cls;
+      grip.title = title;
+      grip.setAttribute('aria-hidden', 'true');
+      this.panel.appendChild(grip);
+      this._wireGrip(grip, mode);
+    }
+  }
+
+  _wireGrip(grip, mode) {
     let drag = null;
     grip.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
-      const w = this.panel.getBoundingClientRect().width;
+      const body = this.panel.querySelector('#panel-body');
+      const w = this.panel.getBoundingClientRect().width, h = body?.getBoundingClientRect().height || 0;
       if (!w) return;
-      drag = { id: e.pointerId, x: e.clientX, w, s: this.scale, cap: this.cap(), now: this.scale };
+      drag = { id: e.pointerId, x: e.clientX, y: e.clientY, w, h, fit: this.fit(), baseW: this._baseW(), now: null };
       grip.setPointerCapture?.(e.pointerId);
-      this.panel.classList.add('ps-dragging');
+      this.panel.classList.add('ps-dragging', `ps-drag-${mode}`);
       e.preventDefault();
     });
     grip.addEventListener('pointermove', (e) => {
       if (!drag || e.pointerId !== drag.id) return;
-      // The panel's on-screen width grows with the scale, so the new width
-      // over the old one is the new scale over the old one.
-      const w = drag.w + (drag.x - e.clientX);
-      drag.now = clampScale(drag.s * (w / drag.w), drag.cap);
-      this.apply(drag.now);
+      // The right and bottom edges stay put: left grows the width, up the height.
+      const size = {
+        w: mode.includes('w') ? Math.round(drag.w + (drag.x - e.clientX)) : this.prefs.w,
+        h: mode.includes('h') ? Math.round(drag.h + (drag.y - e.clientY)) : this.prefs.h,
+      };
+      drag.now = size;
+      this.apply(resolvePanelSize(size, drag.fit, drag.baseW));
     });
     const end = (e) => {
       if (!drag || e.pointerId !== drag.id) return;
-      const s = snapScale(drag.now);
+      const { now, fit, baseW } = drag;
       drag = null;
-      this.panel.classList.remove('ps-dragging');
-      this.set(s);
+      this.panel.classList.remove('ps-dragging', `ps-drag-${mode}`);
+      if (now) this.set(snapSize(now, fit, baseW));
     };
     grip.addEventListener('pointerup', end);
     grip.addEventListener('pointercancel', end);
-    // A double-click puts it back to Normal.
-    grip.addEventListener('dblclick', () => this.set(1));
+    grip.addEventListener('dblclick', () => this.set({ w: 0, h: 0 }));
   }
+}
+
+/** A dragged size tidied: back to Normal's width near it, onto a step's width
+ *  or height near one, Full height at the top of the free room. Pure. */
+export function snapSize(size, fit, baseW = 320, near = 14) {
+  let w = size.w, h = size.h;
+  if (w && w <= baseW + near) w = 0;
+  for (const st of PANEL_STEPS) if (st.w && w && Math.abs(w - st.w) <= near) w = st.w;
+  if (h && h >= fit.h - near) h = PANEL_FULL;
+  else for (const st of PANEL_STEPS) if (st.h && st.h < PANEL_FULL && h && Math.abs(h - st.h) <= near) h = st.h;
+  // A step's width and height together are that step (its name shows).
+  const i = PANEL_STEPS.findIndex((st) => st.w === w && (st.h === h || (st.h === PANEL_FULL && h >= fit.h)));
+  if (i > 0) return { w: PANEL_STEPS[i].w, h: PANEL_STEPS[i].h };
+  return { w, h };
 }

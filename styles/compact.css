@@ -582,62 +582,67 @@ body.reduce-motion :is(#hover-text, #region-label, #notice-lane .nl-card, #rep-p
 #target-btn .gl-art { width: 28px; height: 28px; }
 
 /* ---------- Side panel size (src/ui/panelsize.js) ----------
-   With a mouse: Normal / Large / Extra large (Settings, or A− / A+ in the
-   header), or a free size from the grip on the panel's left edge, up to 1.6x.
-   The whole panel is zoomed by --ps, so the bag's cells, the text and the
-   icons grow together and clicks still land where they look. Zoom scales the
-   panel's own offsets and heights too, so those are divided by --ps to stay
-   where they were on screen; the panel grows up and to the left, stopping
-   under the minimap and the XP counter below it (272px) and, across, short
-   of the quick bar (panelsize.js panelScaleCap works out the largest that fits).
-   Touch screens (no zoom: iPhone Safari hit-tests a zoomed panel off) get
-   "Larger text in menus": bigger text and cells in the sheet. */
-.ps-btns, .ps-grip, #settings-panel .set-ps-desk { display: none; }
-/* Larger text only where it works: touch screens without a mouse. */
+   With a mouse: Normal / Large / Extra large / Full height (Settings, or − / +
+   in the header), or a free size from the grips: the panel's left edge drags
+   its width, its top edge its body's height, its top-left corner both. Only
+   the window grows: text, icons and the bag's cells keep their size and the
+   views reflow, so more fits without scrolling. panelsize.js sets --ps-w (the
+   width), --ps-h (the body's height) and --ps-dw (the width added to Normal's).
+   The panel grows up and to the left, stopping under the minimap, orbs and the
+   XP counter below them (272px, plus its 10px margin) and, across, short of
+   the quick bar (panelsize.js panelFit works out the largest that fits).
+   Touch screens keep the sheet; "Bigger menu text" there is a choice, off
+   unless picked. */
+.ps-btns, .ps-grip, .ps-grip-top, .ps-grip-corner, #settings-panel .set-ps-desk { display: none; }
+/* Bigger menu text only on touch screens without a mouse. */
 @media not all and (pointer: coarse), not all and (hover: none) { #settings-panel .set-ps-touch { display: none; } }
 @media (hover: hover) and (pointer: fine) { #settings-panel .set-ps-desk { display: flex; } }
-@supports (zoom: 2) {
-  @media (min-width: 900px) and (hover: hover) and (pointer: fine) {
-    #sidepanel.ps-big { zoom: var(--ps, 1); right: calc(10px / var(--ps, 1)); bottom: calc(10px / var(--ps, 1)); }
-    #sidepanel.ps-big:not(.collapsed) { grid-template-rows: auto minmax(0, 1fr); max-height: calc((100dvh - 282px) / var(--ps, 1)); }
-    #sidepanel:not(.collapsed) .ps-btns { display: inline-flex; gap: 4px; margin-left: auto; }
-    #sidepanel:not(.collapsed) .ps-grip { display: block; }
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  #sidepanel.ps-big:not(.collapsed) { width: var(--ps-w, var(--panel-w)); max-height: calc(100dvh - 282px); }
+  #sidepanel.ps-tall:not(.collapsed) #panel-body { height: min(var(--ps-h), calc(100dvh - 318px)); }
+  /* The bag's cells stay Normal's size (a quarter of Normal's row, less its
+     three 5px gaps), so a wider panel holds more columns, not bigger cells. */
+  #sidepanel.ps-big:not(.collapsed) #inventory-grid {
+    grid-template-columns: repeat(auto-fill, calc((100% - var(--ps-dw, 0px) - 15px) / 4));
   }
-  /* Shorter windows squeeze the tabs (their labels were cut off); a bigger
-     panel has the height for full tabs (the cap counts on them). */
-  @media (min-width: 900px) and (max-height: 759px) and (hover: hover) and (pointer: fine) {
-    #sidepanel.ps-big:not(.collapsed) #panel-tabs .tab-btn { flex: 0 0 auto; min-height: 52px; }
-  }
-  /* Tall windows: the body's 520px cap grows with the panel; it still ends
-     under the XP counter (276px plus the header, on screen). */
-  @media (min-width: 900px) and (min-height: 760px) and (hover: hover) and (pointer: fine) {
-    #sidepanel.ps-big:not(.collapsed) #panel-body {
-      height: calc(min(520px * var(--ps, 1), 100dvh - 276px - 36px * var(--ps, 1)) / var(--ps, 1));
-    }
-  }
+  #sidepanel:not(.collapsed) .ps-btns { display: inline-flex; gap: 4px; margin-left: auto; }
+  #sidepanel:not(.collapsed) :is(.ps-grip, .ps-grip-top, .ps-grip-corner) { display: block; }
+}
+/* Shorter windows squeeze the tabs (their labels were cut off); a taller
+   panel has the height for full tabs. */
+@media (min-width: 900px) and (max-height: 759px) and (hover: hover) and (pointer: fine) {
+  #sidepanel.ps-tall:not(.collapsed) #panel-tabs .tab-btn { flex: 0 0 auto; min-height: 52px; }
 }
 #panel-head .ps-btn {
   min-width: 26px; height: 22px; padding: 0 5px; cursor: var(--cur-pointer);
-  font: inherit; font-size: var(--fs-xs); font-weight: 900; line-height: 1; color: var(--aw-ink);
+  font: inherit; font-size: var(--fs-sm); font-weight: 900; line-height: 1; color: var(--aw-ink);
   background: var(--aw-white); border: 2px solid var(--aw-ink); border-radius: 999px;
   box-shadow: 0 2px 0 rgba(34,48,74,.16);
 }
 #panel-head .ps-btn:hover:not(:disabled) { background: var(--aw-sun-bg); }
 #panel-head .ps-btn:disabled { opacity: .35; cursor: default; }
 #panel-head .ps-btn:focus-visible { outline: 3px solid var(--aw-sun); outline-offset: 2px; }
-/* The grip: a thin strip down the left edge, a navy pill on hover or drag. */
+/* The grips: thin strips down the left edge and along the top, a navy pill
+   on hover or drag, and a small square at the top-left corner for both. */
 .ps-grip { position: absolute; top: 0; bottom: 0; left: 0; width: 7px; z-index: 4; cursor: ew-resize; touch-action: none; }
-.ps-grip::after {
-  content: ""; position: absolute; top: 50%; left: 1px; width: 4px; height: 44px; margin-top: -22px;
-  border-radius: 999px; background: var(--aw-ink); opacity: .18; transition: opacity .12s ease;
+.ps-grip-top { position: absolute; top: 0; left: 0; right: 0; height: 6px; z-index: 4; cursor: ns-resize; touch-action: none; }
+.ps-grip-corner { position: absolute; top: 0; left: 0; width: 14px; height: 14px; z-index: 5; cursor: nwse-resize; touch-action: none; }
+.ps-grip::after, .ps-grip-top::after {
+  content: ""; position: absolute; border-radius: 999px; background: var(--aw-ink); opacity: .18; transition: opacity .12s ease;
 }
-.ps-grip:hover::after, #sidepanel.ps-dragging .ps-grip::after { opacity: .7; }
+.ps-grip::after { top: 50%; left: 1px; width: 4px; height: 44px; margin-top: -22px; }
+.ps-grip-top::after { left: 50%; top: 1px; height: 4px; width: 44px; margin-left: -22px; }
+.ps-grip:hover::after, .ps-grip-top:hover::after,
+#sidepanel.ps-drag-w .ps-grip::after, #sidepanel.ps-drag-h .ps-grip-top::after,
+#sidepanel.ps-drag-wh :is(.ps-grip, .ps-grip-top)::after { opacity: .7; }
 #sidepanel.ps-dragging { user-select: none; }
-#sidepanel.ps-dragging, #sidepanel.ps-dragging * { cursor: ew-resize; }
+#sidepanel.ps-drag-w, #sidepanel.ps-drag-w * { cursor: ew-resize; }
+#sidepanel.ps-drag-h, #sidepanel.ps-drag-h * { cursor: ns-resize; }
+#sidepanel.ps-drag-wh, #sidepanel.ps-drag-wh * { cursor: nwse-resize; }
 @media (pointer: coarse) and (hover: none) {
-  /* Larger text in menus (the sheet on a phone, the docked panel on a
-     tablet): the text people read one or two px up, and bigger bag cells.
-     Only sizes change, so the sheet's snaps and drag are as they were. */
+  /* Bigger menu text (the sheet on a phone, the docked panel on a tablet):
+     the text people read one or two px up, and bigger bag cells. Off unless
+     chosen; only sizes change, so the sheet's snaps and drag are as they were. */
   #sidepanel.menu-big:not(.collapsed) #inventory-grid { grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); }
   #sidepanel.menu-big :is(.inv-slot .qty, .inv-tab, .subtab-btn, .q-chip, .set-section) { font-size: var(--fs-sm); }
   #sidepanel.menu-big :is(.skill-desc, .skill-perks, .skill-group, .st-eff, .cb-perkline, .q-desc, .q-desc .ency-link, .q-next, .set-val, .hint) { font-size: var(--fs-sm); }
