@@ -394,8 +394,10 @@ export function shrineGearSection(ui, body, st, rerender, hot = null) {
       + `<div class="gear-stats">${formatNumber(o.points)} point${o.points > 1 ? 's' : ''} for the next (${formatNumber(o.total)} for all) · ${qualityText(o.qualities)}</div></div>`;
     const btns = document.createElement('div');
     btns.className = 'qty-btns';
-    btns.appendChild(button('1', () => { askOffer(ui, st, o.id, 1); rerender(); }, 'small'));
-    if (o.count > 1) btns.appendChild(button('All', () => { askOffer(ui, st, o.id, o.count); rerender(); }, 'small'));
+    // One tap offers (shrinehot.js); without `hot`, the old confirmation.
+    const go = (n) => { if (hot) hot(o.id, n); else { askOffer(ui, st, o.id, n); rerender(); } };
+    btns.appendChild(button('Offer', () => go(1), 'small shrine-offer'));
+    if (o.count > 1) btns.appendChild(button('All', () => go(o.count), 'small'));
     row.appendChild(btns);
     list.appendChild(row);
   }

@@ -48,13 +48,15 @@ export function shrineGoodsSection(ui, body, st, rerender, hot = null) {
     const btns = document.createElement('div');
     btns.className = 'qty-btns';
     const keepBack = !GOODS_KINDS[o.kind].bulk;   // tools and enchanting supplies: always ask first
-    for (const [label, n] of [['1', 1], ['10', 10], ['All', o.count]]) {
+    for (const [label, n] of [['Offer', 1], ['10', 10], ['All', o.count]]) {
       if (label === '10' ? o.count <= 10 : label === 'All' && o.count === 1) continue;
       btns.appendChild(button(label, () => {
+        // One tap offers (shrinehot.js); without `hot`, the old rules.
+        if (hot) return hot(o.id, n);
         if (keepBack || label === 'All') askGoods(ui, st, o.id, n);
         else offerGoods(g, o.id, n);
         rerender();
-      }, 'small'));
+      }, 'small' + (n === 1 ? ' shrine-offer' : '')));
     }
     row.appendChild(btns);
     list.appendChild(row);
