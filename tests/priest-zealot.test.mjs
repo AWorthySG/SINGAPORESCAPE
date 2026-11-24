@@ -188,7 +188,7 @@ test('holy fire: a censer\'s every spell sets a burn that ticks once a second an
   assert.equal(WOUNDS.holyfire.share, HOLY_FIRE.share);
 });
 
-test('Burning Oath: 15% of the life you have, never at or under 20%, and auto battle leaves it be there', () => {
+test('Burning Oath: 15% of the life you have, never at or under the 1% floor, and auto battle leaves it be there', () => {
   const { g, t } = mk('zealot');
   g.skills.xp.hitpoints = 5e6;
   g.player.hp = g.maxHp(); g.adrenaline = 100;
