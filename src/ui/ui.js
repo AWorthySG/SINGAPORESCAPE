@@ -53,6 +53,7 @@ import { isSalvageable, sameKind, nearOfferingShrine } from '../game/salvage.js'
 import { QUALITY, qualityNameHTML } from '../game/loot.js';
 import { ranksCardHTML, openRanksGuide, masteryLine, masteryProgressText, qualityLine } from './ranksui.js';
 import { openSacrifice, openSacrificeFrom, openDismantle, shrineGearSection, askOffer, redraw } from './salvageui.js';
+import { hotOffer, HOT_HINT } from './shrinehot.js';
 import { shrineGoodsSection, askGoods, shrineMaxButton } from './shrineui.js';
 import { goodsKind } from '../game/offerings.js';
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT, holdRepeatDelay } from '../game/attributes.js';
@@ -843,7 +844,16 @@ export class UI {
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const n = KEYS[(e.key || '').toLowerCase()];
-      const over = mx >= 0 ? document.elementFromPoint(mx, my)?.closest?.('.hot') : null;
+      const at = n && mx >= 0 ? document.elementFromPoint(mx, my) : null;
+      const over = at?.closest?.('.hot');
+      // With the shrine open, an item in the bag takes the keys too (shrinehot.js).
+      const bag = !over && this.modal.kind === 'shrine' && typeof this.modal._hotItem === 'function' ? at?.closest?.('.inv-slot.filled') : null;
+      const slot = bag ? this.game.inventory.slotAt((this._invCells || []).indexOf(bag)) : null;
+      if (slot) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        this.modal._hotItem(slot.id, n);
+        return;
+      }
       if (!n || !over || typeof over._hot !== 'function') return;
       e.preventDefault(); e.stopImmediatePropagation();   // (not the game's own 1-5 tab keys)
       over._hot(n);
@@ -2052,7 +2062,8 @@ export class UI {
       const sh = g.shrine;
       body.innerHTML = '<div class="gear-intro"><p>Offer the materials your life skills gather (bars, ore, gems, logs, hides, herbs, fish and feathers), spare gear, or anything else, for '
         + '<b>shrine points</b> (a material gives a tenth of its value; gear and other items less). Spend them on <b>blessings</b>: permanent bonuses to your fighting that never run out. '
-        + `Each rank costs a little more than the last.</p><p class="shrine-points">Shrine points: <b>${formatNumber(sh.points)}</b></p></div>`;
+        + `Each rank costs a little more than the last.</p><p class="shrine-points">Shrine points: <b>${formatNumber(sh.points)}</b></p></div>`
+        + `<div class="modal-hint hotkey-hint">${HOT_HINT}</div>`;
       const tracks = document.createElement('div');
       tracks.className = 'gear-list shrine-tracks';
       for (const t of SHRINE_TRACK_IDS) {
@@ -2077,7 +2088,7 @@ export class UI {
         tracks.appendChild(row);
       }
       body.appendChild(tracks);
-      body.insertAdjacentHTML('beforeend', '<div class="ench-head shrine-head">Offer materials</div><div class="modal-hint hotkey-hint">Point at a material and press <kbd>1</kbd> <kbd>5</kbd> <kbd>X</kbd> (10) or <kbd>A</kbd> (all)</div>');
+      body.insertAdjacentHTML('beforeend', '<div class="ench-head shrine-head">Offer materials</div>');
       const list = document.createElement('div');
       list.className = 'gear-list feed-list';
       const opts = g.shrineDonatables();
@@ -2103,11 +2114,14 @@ export class UI {
         list.appendChild(row);
       }
       body.appendChild(list);
-      shrineGearSection(this, body, st, () => redraw(body, render));
-      shrineGoodsSection(this, body, stGoods, () => redraw(body, render));
+      shrineGearSection(this, body, st, () => redraw(body, render), hot);
+      shrineGoodsSection(this, body, stGoods, () => redraw(body, render), hot);
     };
+    // A hotkey on a gear or goods row, or on an item in the bag (shrinehot.js).
+    const hot = (id, n) => { hotOffer(this, st, stGoods, id, n); if (this.modal?.kind === 'shrine') redraw(this.el.modalBody, render); };
     this.openModal('Offering Shrine', render);
     this.modal.kind = 'shrine';
+    this.modal._hotItem = hot;
   }
 
   // ---------------- Gear guide ----------------

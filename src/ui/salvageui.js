@@ -355,8 +355,9 @@ export function askOffer(ui, st, id, qty) {
   };
 }
 
-/** Draw the gear section into `body`: its confirmation, "Offer all spare gear…", then the gear list. */
-export function shrineGearSection(ui, body, st, rerender) {
+/** Draw the gear section into `body`: its confirmation, "Offer all spare gear…", then the gear list.
+ *  `hot(id, n)`: what a hotkey on a row does (shrinehot.js). */
+export function shrineGearSection(ui, body, st, rerender, hot = null) {
   const g = ui.game;
   body.insertAdjacentHTML('beforeend', '<div class="ench-head shrine-head">Offer gear</div>'
     + `<div class="modal-hint">Spare gear of any class or slot, from your pack: higher level, better ranked and better quality pieces give more, boss uniques a great deal, and everything more as your combat level (${g.skills.combatLevel()}) grows. Plain copies go before quality ones.</div>`);
@@ -386,7 +387,8 @@ export function shrineGearSection(ui, body, st, rerender) {
   if (!opts.length) list.innerHTML = '<div class="modal-hint">You carry no spare gear. (Gear you wear, and gear in the bank, can\'t be offered.)</div>';
   for (const o of opts) {
     const row = document.createElement('div');
-    row.className = 'gear-row feed-row salvage-row';
+    row.className = 'gear-row feed-row salvage-row' + (hot ? ' hot' : '');
+    if (hot) row._hot = (n) => hot(o.id, n);
     row.innerHTML = `<span class="gear-ic">${itemIconSVG(o.id, 28)}</span>`
       + `<div class="gear-info"><div class="gear-name"><b>${name(o.id)}</b><span class="gear-tag">x${formatNumber(o.count)}</span>${o.warn ? '<span class="gear-tag lock">!</span>' : ''}</div>`
       + `<div class="gear-stats">${formatNumber(o.points)} point${o.points > 1 ? 's' : ''} for the next (${formatNumber(o.total)} for all) · ${qualityText(o.qualities)}</div></div>`;
