@@ -28,6 +28,7 @@ import { TERRAIN } from '../data/world.js';
 import { tileHash } from './terrainfx.js';
 import { fxImage, fxLoop, drawFx } from './fxart.js';
 import { plantLean, localWind } from './wind.js';
+import { applyRow } from './projection.js';
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -443,7 +444,7 @@ export class AmbientLife {
   }
 
   /** Over the objects they belong to: steam rising off hawker stalls and ranges. */
-  drawOver(ctx, objs, ox, oy, t) {
+  drawOver(ctx, objs, ox, oy, t, pj = null) {
     if (!this.on || !objs) return;
     let img = null;
     ctx.save();
@@ -454,6 +455,7 @@ export class AmbientLife {
       if (!img && !puff) break;
       const cx = o.x * TILE + TILE / 2 - ox + (o.objId === 'range' ? 0 : -6), cy = o.y * TILE + TILE / 2 - oy - (o.objId === 'range' ? 16 : 22);
       const h = tileHash(o.x, o.y, 3) * 10;
+      if (pj) applyRow(ctx, pj, o.y * TILE + 29 - oy);   // the depth view: at the stall's row
       // Three curls in turn, each rising, swaying, stretching and fading out.
       for (let i = 0; i < 3; i++) {
         const f = ((t * 0.00035 + i / 3 + h) % 1);

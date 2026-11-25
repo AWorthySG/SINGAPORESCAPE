@@ -2,6 +2,7 @@ import { SPELLS } from '../data/magic.js';
 import { RARITY } from '../game/loot.js';
 import { spawnElement } from './elementfx.js';
 import { fxImage } from './fxart.js';
+import { applyRow } from './projection.js';
 
 // Combat "feel" effects: an impact for each kind of weapon (slash arcs, blunt
 // rings and dust, arrow punctures, bullet tracers, elemental spell bursts, a
@@ -447,11 +448,12 @@ export class CombatFx {
   clear() { this.live = 0; this.pulseT = 0; }
 
   // ---------------- Drawing ----------------
-  draw(ctx, ox, oy) {
+  draw(ctx, ox, oy, pj = null) {
     if (!this.live) return;
     for (let i = 0; i < this.live; i++) {
       const s = this.slots[i];
       if (s.delay > 0) continue;
+      if (pj) applyRow(ctx, pj, s.y - oy);   // the depth view: at its row (the caller puts it back)
       const t = 1 - s.life / s.max, fade = 1 - t;
       const x = s.x - ox, y = s.y - oy;
       ctx.globalCompositeOperation = s.add ? 'lighter' : 'source-over';

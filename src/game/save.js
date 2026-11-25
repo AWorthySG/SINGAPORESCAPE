@@ -102,7 +102,7 @@ export function snapshot(game) {
     settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather, gatherPicks: [...(game.gatherPicks || [])], knowledgeStrikes: game.knowledgeStrikes, minimalHud: !!game.minimalHud,
       worldLabels: game.worldLabels || 'smart', tips: game.tipsOn !== false, tipsSeen: [...(game.tipsSeen || [])],
       colourBlind: !!game.colourBlind, reduceMotion: !!game.reduceMotion, screenShake: game.screenShake !== false, xpDisplay: game.xpDisplay || 'combined',
-      tapClose: game.tapClose !== false },
+      tapClose: game.tapClose !== false, depthView: game.depthView !== false },
     // The windows' remembered tabs and filters (ui/windowease.js); optional on load.
     uiMemory: game.uiMemory && typeof game.uiMemory === 'object' ? game.uiMemory : null,
     jobClass: game.jobClass,
@@ -447,6 +447,7 @@ function loadFields(game, data) {
   game.reduceMotion = data.settings?.reduceMotion === true;
   game.screenShake = data.settings?.screenShake !== false;   // on unless turned off (older saves: on)
   game.tapClose = data.settings?.tapClose !== false;   // Settings > Tap outside a window to close it (older saves: on)
+  game.depthView = data.settings?.depthView !== false;   // Settings > Depth view (older saves: on)
   // The windows' remembered tabs and filters (older saves: none; windowease.js checks each value).
   game.uiMemory = data.uiMemory && typeof data.uiMemory === 'object' && !Array.isArray(data.uiMemory) ? data.uiMemory : null;
   // Settings > XP display (xpdisplay.js); older saves: Combined.

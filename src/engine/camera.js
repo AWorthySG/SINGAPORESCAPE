@@ -1,4 +1,5 @@
 import { TILE } from '../config.js';
+import { makeProjection, worldToScreen as tiltToScreen, screenToWorld as tiltToWorld } from '../render/projection.js';
 
 // Camera centred on a world pixel point, with smooth follow.
 const FRAME_MS = 1000 / 60;   // the follow's `smoothing` is per frame at this rate
@@ -22,6 +23,18 @@ export class Camera {
     this.baseZoom = 1;
     this.zoomMul = 1;
     this.dpr = 1;      // canvas pixels per CSS pixel, for the renderer's transform
+    // The depth view's tilt (0 flat; the renderer eases it, see depthview.js).
+    // Taps and the hover tile go through the same projection the world is drawn with.
+    this.tilt = 0;
+    this._pj = { tilt: -1 };
+  }
+
+  /** The tilted view's projection (render/projection.js), or null while flat. */
+  proj() {
+    if (!(this.tilt > 0)) return null;
+    const pj = this._pj;
+    if (pj.tilt !== this.tilt || pj.vw !== this.viewW || pj.vh !== this.viewH) makeProjection(this.tilt, this.viewW, this.viewH, pj);
+    return pj;
   }
 
   /** Size the view to a screen of w x h CSS pixels at the given zoom: the view
@@ -101,10 +114,14 @@ export class Camera {
   get originY() { return this.cy - this.viewH / 2; }
 
   worldToScreen(wx, wy) {
+    const pj = this.proj();
+    if (pj) { const p = tiltToScreen(pj, wx, wy, this.cx, this.cy); return { x: p.x * this.zoom, y: p.y * this.zoom }; }
     return { x: (wx - this.originX) * this.zoom, y: (wy - this.originY) * this.zoom };
   }
 
   screenToWorld(sx, sy) {
+    const pj = this.proj();
+    if (pj) { const w = tiltToWorld(pj, sx / this.zoom, sy / this.zoom, this.cx, this.cy); return { x: w.x, y: w.y }; }
     return { x: sx / this.zoom + this.originX, y: sy / this.zoom + this.originY };
   }
 

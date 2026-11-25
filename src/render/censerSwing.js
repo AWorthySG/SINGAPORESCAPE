@@ -287,6 +287,10 @@ export function censerBolt(e, t, game, now, ox, oy) {
     const from = e._cz === SHOT.swing && SHOT.rel && k > 0;
     e._czT = Math.min(0.9, t);
     e._czX = from ? SHOT.rx / k + ox : e.x; e._czY = from ? SHOT.ry / k + oy : e.y;
+    if (from && game.camera.tilt > 0) {   // the depth view: back through its projection (projection.js)
+      const w = game.camera.screenToWorld(SHOT.rx / game.camera.dpr, SHOT.ry / game.camera.dpr);
+      e._czX = w.x; e._czY = w.y;
+    }
   }
   const b = Object.assign(_bolt.e, e);
   b.x = e._czX; b.y = e._czY;
