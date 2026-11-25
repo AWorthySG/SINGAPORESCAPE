@@ -80,7 +80,7 @@ test('life perks: gear-style stats (crit damage, pierce, crit, Attack/Magic %, l
   const before = game.equipment.bonuses();
   for (const s of LIFE_PERK_SKILLS) setLevel(game, s, LIFE_PERK_FULL_LEVEL);
   const after = game.equipment.bonuses();
-  assert.equal(after.critDmg - before.critDmg, 60, 'Mining: crit damage');
+  assert.equal(after.critDmg - before.critDmg, 60 + 30, 'Mining and Archaeology: crit damage');
   assert.equal(after.pierce - before.pierce, 15, 'Smithing: armour pierce');
   assert.equal(after.crit - before.crit, 15, 'Crafting: crit chance');
   assert.equal(after.magPct - before.magPct, 15 + 10 + 10, 'Firemaking: Magic bonus, and Fishing and Diving: damage for every style');
@@ -89,7 +89,7 @@ test('life perks: gear-style stats (crit damage, pierce, crit, Attack/Magic %, l
   assert.equal(after.bossDmg - before.bossDmg, 20, 'Hunter: boss damage');
   assert.equal(after.strength - before.strength, 0, 'no flat power any more (Fishing is a percentage)');
   // Halfway-ish levels give part of it.
-  setLevel(game, 'mining', 99);
+  setLevel(game, 'mining', 99); setLevel(game, 'archaeology', 1);   // (Archaeology shares the stat)
   assert.ok(game.equipment.bonuses().critDmg - before.critDmg > 25 && game.equipment.bonuses().critDmg - before.critDmg < 35);
 });
 
