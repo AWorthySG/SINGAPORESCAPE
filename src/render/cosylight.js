@@ -133,9 +133,11 @@ export class CosyLight {
    * vw x vh). `lights` is the light pass (for its gathered lights), `night`
    * the renderer's darkness (0 noon .. 1 midnight). False when it can't run.
    */
-  draw(ctx, game, lights, night, ox, oy, vw, vh, t) {
+  draw(ctx, game, lights, night, ox, oy, vw, vh, t, pj = null) {
     this.blooms = 0;
     if (!this.ok) return false;
+    const fvw = vw, fvh = vh;   // the depth view's flat rectangle (pj), for finding the lamps
+    if (pj) { vw = pj.vw; vh = pj.vh; }
     const gr = cosyGrade(game.dayPhase ? game.dayPhase() : 0.5, this._grade);
     ctx.save();
     if (gr.a > 0.02) {
@@ -157,7 +159,7 @@ export class CosyLight {
     }
     const bk = bloomStrength(night);
     if (bk > 0.02 && lights && lights.gather) {
-      const list = lights._lights && lights.count ? lights._lights : lights.gather(game, ox, oy, vw, vh, t);
+      const list = lights._lights && lights.count ? lights._lights : lights.gather(game, ox, oy, fvw, fvh, t, pj);
       ctx.globalCompositeOperation = 'lighter';
       for (const L of list) {
         if (this.blooms >= MAX_BLOOMS) break;

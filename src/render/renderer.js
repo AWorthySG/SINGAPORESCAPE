@@ -59,6 +59,8 @@ import { drawClassShot, drawClassEffect, drawClassAuras } from './classfx.js';  
 import { censerBolt } from './censerSwing.js';   // a Zealot's bolt leaves the swinging censer
 import { namePill, drawPill, pillRes, PILL_ROW } from './namepill.js';
 import { foeThreat } from '../ui/bossbar.js';
+import { applyRow, applyScreen } from './projection.js';
+import { DepthView, depthTarget, easeTilt, slowGiveUp } from './depthview.js';
 
 // Gathering actions that show a progress ring over the node, and its colour.
 const GATHER_RING = { woodcut: '#4fa04f', mine: '#8a8fa0', fish: '#3a8fd8', hunt: '#d08a3a' };
@@ -188,6 +190,8 @@ export class Renderer {
     this._critEnv = { world: null, zone: '', night: 0, px: 0, py: 0, low: false };
     this._lastT = 0;
     this.groundTex = this._loadGroundTextures();
+    this.depth = new DepthView();    // the depth view: tilted ground, cast shadows, haze (depthview.js)
+    this._pj = null;                 // this frame's projection while tilted (projection.js), else null
   }
 
   /** Start loading the painted ground; once every texture is in, re-bake the
@@ -232,7 +236,10 @@ export class Renderer {
   }
 
   render(timeMs) {
-    const { ctx, game } = this;
+    const { game } = this;
+    if (this._ctxMain && this.ctx === this.depth.g) this.ctx = this._ctxMain;   // a frame that failed mid-ground
+    const main = this._ctxMain = this.ctx;
+    let ctx = main;
     const cam = game.camera;
     const fdt = this._lastT ? Math.max(0, Math.min(100, timeMs - this._lastT)) : 16;
     this._lastT = timeMs;
@@ -254,8 +261,25 @@ export class Renderer {
     // Snap to *device* pixels (not CSS pixels) so on 2x/3x screens the world
     // and the sub-pixel sprites move together without a 1px shimmer.
     const dpr = (ctx.getTransform ? ctx.getTransform().a : 1) || 1;
-    const ox = Math.round((cam.originX + shx) * dpr) / dpr, oy = Math.round((cam.originY + shy) * dpr) / dpr;
-    const vw = cam.viewW, vh = cam.viewH;
+    let ox = Math.round((cam.originX + shx) * dpr) / dpr, oy = Math.round((cam.originY + shy) * dpr) / dpr;
+    let vw = cam.viewW, vh = cam.viewH;
+    // The depth view (depthview.js): the tilt eases toward the setting's (flat
+    // in low graphics; still with Reduce motion). While tilted, the world is
+    // drawn over the wider flat rectangle the tilted screen sees (ox, oy, vw,
+    // vh from here on), and the screen's own size and origin are kept apart.
+    const svw = vw, svh = vh, fox = ox, foy = oy;
+    cam.tilt = easeTilt(cam.tilt || 0, depthTarget(game, cam, !!this.terrainCanvas && !!cam.screenW), fdt, !motionOK(game) || !!game.lowFx);
+    let pj = cam.screenW ? cam.proj() : null;
+    if (pj) {
+      pj = Object.assign(this._pjFrame || (this._pjFrame = {}), pj);
+      const dx = Math.floor(pj.fx0 * dpr) / dpr, dy = Math.floor(pj.fy0 * dpr) / dpr;
+      ox += dx; oy += dy; vw = pj.fw; vh = pj.fh;
+      pj.fcx = svw / 2 - dx; pj.fcy = svh / 2 - dy;   // the flat centre, as this frame draws it
+      pj.D = dpr;
+    }
+    this._pj = pj;
+    this._vw = vw; this._vh = vh;
+    slowGiveUp(game, this._giveUp || (this._giveUp = {}), !!pj, fdt);   // a device that can't keep up goes flat
     const night = 1 - game.daylightFactor(); // 0 (noon) .. 1 (midnight) — lights, fireflies
     // Shadows lean and stretch with the sun (shadows.js); low graphics keeps the plain ones.
     const sun = sunShadow(game.dayPhase(), this._sun || (this._sun = {}));
@@ -265,8 +289,14 @@ export class Renderer {
     const trim = !!(game.lowFx || game.fxTrim);
 
     // Opaque canvas: paint, don't clear (one fill: a second, paler one under it was never seen).
-    ctx.fillStyle = '#16241a';
-    ctx.fillRect(0, 0, vw, vh);
+    // Tilted, the ground is drawn flat into the depth view's canvas first (warped on below).
+    const ground = pj ? this.depth.begin(pj, dpr, '#16241a', !!game.fxTrim) : null;
+    if (ground) ctx = this.ctx = ground;
+    else if (pj) { pj = this._pj = null; cam.tilt = 0; ox = fox; oy = foy; vw = svw; vh = svh; this._vw = vw; this._vh = vh; }   // no canvas for it: flat, taps too
+    if (!ground) {
+      ctx.fillStyle = '#16241a';
+      ctx.fillRect(0, 0, vw, vh);
+    }
 
     const x0 = Math.max(0, Math.floor(ox / TILE) - 1);
     const y0 = Math.max(0, Math.floor(oy / TILE) - 1);
@@ -315,6 +345,10 @@ export class Renderer {
     const W = game.world;
     if (W.objectsIn) W.objectsIn(x0 - 1, y0 - 1, x1 + 1, y1 + 1, visObjs);
     else { visObjs.length = 0; for (const o of W.objects) if (!(o.x < x0 - 1 || o.x > x1 + 1 || o.y < y0 - 1 || o.y > y1 + 1)) visObjs.push(o); }
+    // Tilted: trees, buildings and landmarks cast their outlines across the ground with the sun.
+    if (ground && !trim) this.depth.castShadows(ctx, visObjs, W.landmarks, ox, oy, vw, vh, game.dayPhase(), timeMs, this.depth.G);
+    // Tilted, trees and landmarks stand a touch taller than flat (see the drawables loop).
+    const riseTree = pj ? 0.05 * pj.tilt : 0, riseMark = pj ? 0.08 * pj.tilt : 0;
     for (const o of visObjs) {
       if (o.def.footprint) continue;   // landmarks: below, by their own list
       // Harvest judder: a struck tree/rock wobbles briefly as the resource pops.
@@ -324,7 +358,7 @@ export class Renderer {
       const fade = this.react.alpha(o), lean = this.react.skew(o, timeMs) + this.amb.lean(o, timeMs);   // brushed, or in the breeze (ambient.js)
       // A spot's fish stops leaping while a school swirls there (fishCalm keeps when).
       const still = o.def.type === 'fishing' && fishCalm(o, game.fishSchools?.at(o), timeMs);
-      drawables.push({ sortY: o.y + (o.def.overhead ? 0.9 : 0.4), z: 1, draw: () => {   // (a hanging lantern goes over your head)
+      drawables.push({ sortY: o.y + (o.def.overhead ? 0.9 : 0.4), z: 1, rise: o.def.type === 'tree' ? riseTree : 0, draw: () => {   // (a hanging lantern goes over your head)
         if (lit) {
           // A warm light pool blooms outward after dark — fires, furnaces,
           // ranges and street lamps become the island's night-time glow.
@@ -350,7 +384,7 @@ export class Renderer {
       const left = o.x * TILE - TILE, right = (o.x + fw + 1) * TILE, base = (o.y + 1) * TILE;
       if (right < ox || left > ox + vw || base < oy || base - fw * TILE * 1.6 - 2 * TILE > oy + vh) continue;
       const cx = o.x * TILE + fw * TILE / 2 - ox, cy = o.y * TILE + TILE / 2 - oy, fade = this.react.alpha(o);
-      drawables.push({ sortY: o.y + 0.4, z: 1, draw: () => {
+      drawables.push({ sortY: o.y + 0.4, z: 1, rise: riseMark, draw: () => {
         if (fade < 1) { ctx.save(); ctx.globalAlpha = fade; drawObjectSprite(ctx, o, cx, cy, timeMs); ctx.restore(); }
         else drawObjectSprite(ctx, o, cx, cy, timeMs);
       } });
@@ -542,40 +576,61 @@ export class Renderer {
         if (al?.halo || al?.eyes) this._auraFront(cx + off.x, cy + off.y, al, timeMs);
       } });
     }
-    { const pet = petDrawable(game, ctx, ox, oy, vw, vh, timeMs); if (pet) drawables.push(pet); }   // your pet (petsprite.js)
+    { const pet = petDrawable(game, main, ox, oy, vw, vh, timeMs); if (pet) drawables.push(pet); }   // your pet (petsprite.js)
     this._holdForStrike(timeMs);
     // A melee blow's impact waits for the weapon to land, like its hitsplat.
     { const clk = strikeClock(game); game.cfx.armFresh(clk && timeMs - clk.blowAt < 60 ? clk.hitTimes[0] - timeMs : this._foeWait); }
     this.amb.drawGround(ctx, visObjs, ox, oy, timeMs);   // glints, flock shadows, cats, town birds (ambient.js)
+    if (ground) {
+      // The flat ground onto the screen, row by row at each row's distance (depthview.js).
+      ctx = this.ctx = main;
+      this.depth.warp(main, pj, dpr, this.canvas.width, this.canvas.height);
+      applyScreen(main, pj);
+    }
     drawables.sort((a, b) => (a.sortY - b.sortY) || (a.z - b.z));
-    for (const d of drawables) d.draw();
-    this.amb.drawOver(ctx, visObjs, ox, oy, timeMs);     // steam off the hawker stalls
+    // Tilted, each stands at its row's scale about its feet (projection.js applyRow).
+    if (pj) { for (const d of drawables) { applyRow(ctx, pj, d.sortY * TILE + 12 - oy, d.rise); d.draw(); } }
+    else for (const d of drawables) d.draw();
+    this.amb.drawOver(ctx, visObjs, ox, oy, timeMs, pj);     // steam off the hawker stalls
+    if (pj) {
+      applyScreen(ctx, pj);
+      // The far edge fades into the sky's haze, with wisps drifting over it.
+      this.depth.haze(ctx, pj, game.dayPhase(), this._mood, cam.cx, timeMs, !motionOK(game), trim);
+    }
 
     this._drawClueMarker(ox, oy, vw, vh, timeMs);
+    // Things drifting in the air are drawn as they are about you (the row you stand on).
+    if (pj) applyRow(ctx, pj, pj.fcy);
     this.amb.drawAir(ctx, ox, oy, timeMs);   // leaves, petals and birds, under the grade
     this.motes.drawLow(ctx, ox, oy);          // blown sand and sea spray, under it too
+    if (pj) applyScreen(ctx, pj);
     // The light pass (lighting.js) paints the grade and the night's darkness
     // with lamps, fires and spells cut out of it, then the weather in the air;
     // low graphics (and headless runs) keep the old flat fill.
-    if (game.lowFx || !this.lights.ok || !this.lights.draw(ctx, game, this.atmos.crisp(this._blendMood(fdt), game.dayPhase(), this.weather.state.gloom), night, this.weather.state, ox, oy, vw, vh, timeMs)) this._drawDayNight(vw, vh, night, fdt);
-    else if (!game.fxTrim) this.cosy.draw(ctx, game, this.lights, night, ox, oy, vw, vh, timeMs);   // golden hour and lantern glow (cosylight.js)
-    this.weather.drawAir(ctx, ox, oy, vw, vh, timeMs, fdt, trim);
+    if (game.lowFx || !this.lights.ok || !this.lights.draw(ctx, game, this.atmos.crisp(this._blendMood(fdt), game.dayPhase(), this.weather.state.gloom), night, this.weather.state, ox, oy, vw, vh, timeMs, pj)) this._drawDayNight(svw, svh, night, fdt);
+    else if (!game.fxTrim) this.cosy.draw(ctx, game, this.lights, night, ox, oy, vw, vh, timeMs, pj);   // golden hour and lantern glow (cosylight.js)
+    this.weather.drawAir(ctx, fox, foy, svw, svh, timeMs, fdt, trim);
     // Frames running slow (governor.js) also skip these two full-screen layers:
     // the golden hour's soft-light grade and the vignette are the costliest
     // things left to paint on a phone that can't keep up.
-    if (!game.fxTrim) this._drawVignette(vw, vh, night);
+    if (!game.fxTrim) this._drawVignette(svw, svh, night);
+    if (pj) applyRow(ctx, pj, pj.fcy);
     this.critters.drawAir(ctx, ox, oy, timeMs);
     this.motes.drawGlow(ctx, ox, oy, timeMs);   // sunlit motes and glow-flies, over the night
+    if (pj) applyScreen(ctx, pj);
     this._drawParticles(ox, oy);
     this._drawProjectiles(ox, oy);
-    drawClassAuras(ctx, game, ox, oy, timeMs);   // a Grace ward, stored Wrath, Holy Fire's brands
+    drawClassAuras(ctx, game, ox, oy, timeMs, pj);   // a Grace ward, stored Wrath, Holy Fire's brands
+    if (pj) applyScreen(ctx, pj);
     // Impacts, crit stars, death poofs, coin sparkles, level-up light (combatfx.js).
     game.cfx.update(game.hitStop > 0 ? fdt * 0.12 : fdt);
-    game.cfx.draw(ctx, ox, oy);
+    game.cfx.draw(ctx, ox, oy, pj);
+    if (pj) applyScreen(ctx, pj);
     this._drawOverheads(ox, oy, visObjs);
-    this._drawHurtFlash(vw, vh);
-    if (!game.reduceMotion) game.cfx.drawPulse(ctx, vw, vh);
-    this._drawCinematics(vw, vh);
+    if (pj) applyScreen(ctx, pj);
+    this._drawHurtFlash(svw, svh);
+    if (!game.reduceMotion) game.cfx.drawPulse(ctx, svw, svh);
+    this._drawCinematics(svw, svh);
   }
 
   // The whole colour grade in ONE full-screen fill: the region's mood (eased
@@ -845,6 +900,7 @@ export class Renderer {
     const y = spot.y * TILE + TILE / 2 - oy;
     if (x < -40 || y < -40 || x > vw + 40 || y > vh + 40) return;
     const { ctx } = this;
+    if (this._pj) applyRow(ctx, this._pj, y);
     const pulse = 0.4 + Math.sin(t * 0.005) * 0.18;
     const bob = Math.sin(t * 0.005) * 4;
     ctx.save();
@@ -856,6 +912,7 @@ export class Renderer {
     ctx.font = '800 18px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
     ctx.strokeStyle = '#22304A'; ctx.lineWidth = 4; ctx.strokeText('✕', x, y - 18 - bob);
     ctx.fillStyle = '#ffe88a'; ctx.fillText('✕', x, y - 18 - bob);
+    if (this._pj) applyScreen(ctx, this._pj);
   }
 
   /** A melee cleave, drawn the way its weapon moves (see CLEAVE_STYLE in game.js). */
@@ -1003,8 +1060,10 @@ export class Renderer {
 
   _drawProjectiles(ox, oy) {
     const { ctx, game } = this;
+    const pj = this._pj;
     for (const e of game.effects) {
       if (e._showAt > this._now) continue;   // waiting for the weapon to land
+      if (pj) applyRow(ctx, pj, this._fxRow(e, oy, pj));   // tilted: at the row it is over
       if (e.type === 'classfx') { drawClassEffect(ctx, e, ox, oy); continue; }   // brands bursting, cinders, a ward forming
       if (e.type === 'slash' && e.thrust) {
         // A spear's thrust: a bright straight streak driving through the target
@@ -1278,11 +1337,24 @@ export class Renderer {
     }
   }
 
+  /** The flat row an effect is drawn at while tilted: the foe or hero it is
+   *  on, or where a shot (or a whip's middle) has got to. */
+  _fxRow(e, oy, pj) {
+    if (e.entity?.renderCenter && e.type !== 'projectile') return e.entity.renderCenter().y + 12 - oy;
+    if (e.ey !== undefined && e.y !== undefined) {
+      const t = e.type === 'lash' ? 0.5 : Math.max(0, Math.min(1, 1 - e.life / e.maxLife));
+      return e.y + (e.ey - e.y) * t - oy;
+    }
+    return e.y !== undefined ? e.y - oy : pj.fcy;
+  }
+
   _drawParticles(ox, oy) {
     const { ctx, game } = this;
     if (!game.particles || !game.particles.length) return;
+    const pj = this._pj;
     for (const p of game.particles) {
       if (p._showAt > this._now) continue;   // waiting for the weapon to land
+      if (pj) applyRow(ctx, pj, p.y - oy);
       const a = Math.max(0, Math.min(1, p.life / p.maxLife));
       ctx.globalAlpha = a;
       if (p.add) ctx.globalCompositeOperation = 'lighter';
@@ -1319,6 +1391,7 @@ export class Renderer {
       if (p.add) ctx.globalCompositeOperation = 'source-over';
     }
     ctx.globalAlpha = 1;
+    if (pj) applyScreen(ctx, pj);
   }
 
   // Bake all static terrain (everything but the animated water surface) to a
@@ -1803,7 +1876,7 @@ export class Renderer {
   // ---------------- Overhead UI (bars, hitsplats, name) ----------------
   _drawNodeLabels(ox, oy, objs = this.game.world.objects) {
     const { ctx, game } = this;
-    const vw = game.camera.viewW, vh = game.camera.viewH;
+    const vw = this._vw || game.camera.viewW, vh = this._vh || game.camera.viewH, pj = this._pj;
     ctx.font = '10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     // Settings > World labels: in Smart mode only the hovered, worked and
     // nearest workable nodes get a pill (see worldlabels.js); Off draws none.
@@ -1817,6 +1890,7 @@ export class Renderer {
       if (cx < -30 || cx > vw + 30 || cy < -20 || cy > vh + 20) continue;
       const alpha = objectLabelAlpha(game, o, mode);
       if (alpha <= 0) continue;
+      if (pj) applyRow(ctx, pj, cy + 13);
       ctx.globalAlpha = alpha;
       const yy = cy - (t === 'tree' ? 30 : t === 'rock' ? 18 : 16);
       const label = o.def.label;
@@ -1839,6 +1913,7 @@ export class Renderer {
       if (!o.sign) continue;
       const cx = o.x * TILE + TILE / 2 - ox, cy = o.y * TILE + TILE / 2 - oy;
       if (cx < -40 || cx > vw + 40 || cy < -20 || cy > vh + 20) continue;
+      if (pj) applyRow(ctx, pj, cy + 13);
       const yy = cy - 16;
       const wpx = ctx.measureText(o.sign).width + 14, x0 = cx - wpx / 2, y0 = yy - 12;
       const plate = (dx, dy) => { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x0 + dx, y0 + dy, wpx, 17, 8.5); else ctx.rect(x0 + dx, y0 + dy, wpx, 17); };
@@ -1903,7 +1978,10 @@ export class Renderer {
   _drawOverheads(ox, oy, objs) {
     const { ctx, game } = this;
     this._drawNodeLabels(ox, oy, objs);
-    const vw = game.camera.viewW, vh = game.camera.viewH;
+    const vw = this._vw || game.camera.viewW, vh = this._vh || game.camera.viewH, pj = this._pj;
+    // Tilted, each name and bar is drawn at its owner's row (projection.js);
+    // the spacing checks below stay in flat terms, near enough at these sizes.
+    if (pj) { const sh = game.waves?.active && game.waves.shrine; applyRow(ctx, pj, sh ? sh.y * TILE + 29 - oy : pj.fcy); }
     drawGateShrine(ctx, game, ox, oy, vw, vh);   // the Endless Gate's shrine: its bar and hit flash
     const mode = labelMode(game);
     // Labels drawn so far this frame (names, tags, your status), to keep them apart.
@@ -1951,6 +2029,7 @@ export class Renderer {
       if (c.x - ox < -90 || c.x - ox > vw + 90 || c.y - oy < -90 || c.y - oy > vh + 60) continue;
       const sc = n.def.scale || 1;
       const yo = -(20 * sc) - 6;
+      if (pj) applyRow(ctx, pj, c.y - oy + 12);
       if (n.chatTimer > 0 && n.chatText) {
         const px = c.x - ox, py = c.y - oy + yo - 14;
         ctx.font = '800 10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
@@ -2040,6 +2119,7 @@ export class Renderer {
     if (game.player.alive) {
       const c = game.player.renderCenter();
       const px = c.x - ox, py = c.y - oy;
+      if (pj) applyRow(ctx, pj, py + 12);
       // Your own bar, in a fight or while hurt (not only with a target), with
       // a drain trail on each loss (playerhp.js). A foe's blow still on its
       // way leaves the bar as it was until the blow lands, like your flinch.
@@ -2064,6 +2144,7 @@ export class Renderer {
     for (const e of game.effects) {
       if (e.type !== 'hitsplat' || e._showAt > this._now) continue;
       const c = e.entity.renderCenter ? e.entity.renderCenter() : { x: e.entity.x * TILE, y: e.entity.y * TILE };
+      if (this._pj) applyRow(ctx, this._pj, c.y - oy + 12);
       const age = e.maxLife - e.life;
       // Rise from above the head and fan out sideways so rapid hits don't stack
       // into one blob over the face. Back-to-back numbers also alternate
@@ -2172,6 +2253,7 @@ export class Renderer {
     const t = Math.max(0, Math.min(1, game.tickAcc / TICK_MS));
     const cx = o.x * TILE + TILE / 2 - ox, cy = o.y * TILE - oy - (o.def.type === 'tree' ? 26 : 4);
     ctx.save();
+    if (this._pj) applyRow(ctx, this._pj, o.y * TILE + 29 - oy);
     ctx.lineCap = 'round';
     ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(cx, cy, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();

@@ -1,6 +1,7 @@
 import { TILE } from '../config.js';
 import { composeWashes, buildVignette } from './ambience.js';
 import { timeGrade, moonDark } from './atmosphere.js';
+import { projectFlat } from './projection.js';
 
 // The light pass: after dark the scene is covered by a darkness layer with
 // soft pools of light cut out of it around lamps, fires, furnaces, glowing
@@ -171,8 +172,10 @@ export class LightPass {
     return this._index;
   }
 
-  /** Collect this frame's lights in view (screen px). Pure apart from the scan. */
-  gather(game, ox, oy, vw, vh, t) {
+  /** Collect this frame's lights in view (screen px). Pure apart from the scan.
+   *  With the depth view's projection `pj`, ox..vh are its flat rectangle and
+   *  each light is moved to where it lands on the tilted screen. */
+  gather(game, ox, oy, vw, vh, t, pj = null) {
     const out = this._lights; out.length = 0;
     const add = (x, y, r, rgb, k) => { if (out.length < MAX_LIGHTS) out.push({ x, y, r, rgb, k }); };
     const inView = (x, y, r) => x > -r && y > -r && x < vw + r && y < vh + r;
@@ -214,6 +217,7 @@ export class LightPass {
       const x = c.x - ox, y = c.y - 10 - oy;
       if (inView(x, y, r)) add(x, y, r, hexRgb(n.def.color, [230, 90, 120]), 0.85 + Math.sin(t * 0.004) * 0.1);
     }
+    if (pj) for (const L of out) { const p = projectFlat(pj, L.x, L.y, this._pp || (this._pp = {})); L.x = p.x; L.y = p.y; L.r *= p.s; }
     return out;
   }
 
@@ -264,10 +268,13 @@ export class LightPass {
    * Paint the grade and the night onto `ctx` (screen space, vw x vh). `mood`
    * is the renderer's eased region mood, `night` its darkness level (0..1),
    * `wx` the weather's state (weather.js). Returns false when it can't (no DOM),
-   * so the caller keeps its flat fill.
+   * so the caller keeps its flat fill. With the depth view's projection `pj`,
+   * ox..vh are its flat rectangle; the layer still covers the screen.
    */
-  draw(ctx, game, mood, night, wx, ox, oy, vw, vh, t) {
+  draw(ctx, game, mood, night, wx, ox, oy, vw, vh, t, pj = null) {
     if (!this.ok) return false;
+    const fvw = vw, fvh = vh;
+    if (pj) { vw = pj.vw; vh = pj.vh; }
     const phase = game.dayPhase ? game.dayPhase() : 0.5;
     const sky = skyWashes(phase, this._sky);
     moonDark(timeGrade(phase, 0, this._tg).moon, this._dark);
@@ -315,7 +322,7 @@ export class LightPass {
     g.fillStyle = `rgb(${m[0] | 0},${m[1] | 0},${m[2] | 0})`; g.fillRect(0, 0, lw, lh);
     g.globalCompositeOperation = 'source-over';
     if (clouds) wx.cloudsInto(g, ox, oy, vw, vh, t, sx);
-    const lights = this.gather(game, ox, oy, vw, vh, t);
+    const lights = this.gather(game, ox, oy, fvw, fvh, t, pj);
     // How strongly lights win against the dark: none by day, nearly fully at night.
     const strength = Math.min(1, dark * 2.4);
     // Each pool paints its light's (lifted) colour into the map: warm under

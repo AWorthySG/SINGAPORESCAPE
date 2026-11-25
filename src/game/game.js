@@ -500,6 +500,7 @@ export class Game {
     this.cine = new Cinematics();   // camera lead/push-in, boss entrances, region title cards
     this.minimalHud = false;        // Settings > Minimal HUD (saved with the settings)
     this.colourBlind = false; this.reduceMotion = false;   // Settings > Accessibility (saved too)
+    this.depthView = true;   // Settings > Depth view: the tilted 2.5D camera (render/depthview.js; saved)
     this.screenShake = true;   // ...and Screen shake (render/juice.js)
     this.worldLabels = 'smart';     // Settings > World labels: smart / all / off (render/worldlabels.js)
     this.tipsOn = true;             // Settings > Tips: On / Off

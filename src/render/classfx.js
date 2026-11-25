@@ -17,6 +17,7 @@
 // trails and motes, and Reduce motion keeps everything steady (no flicker).
 // No religious symbols anywhere: beams, blades, circles, flames and sparks.
 import { ELEMENTS } from '../data/magic.js';
+import { applyRow } from './projection.js';
 
 const INK = '#22304A';
 const TAU = Math.PI * 2;
@@ -247,11 +248,12 @@ export function drawClassEffect(ctx, e, ox, oy) {
 }
 
 /** The lasting looks: the ward round you, stored Wrath, and brands on foes. */
-export function drawClassAuras(ctx, game, ox, oy, timeMs = 0) {
+export function drawClassAuras(ctx, game, ox, oy, timeMs = 0, pj = null) {
   const p = game.player;
   if (!p?.alive) return;
   const calm = !!game.reduceMotion;
   const c = p.renderCenter(), x = c.x - ox, y = c.y - oy;
+  if (pj) applyRow(ctx, pj, y + 12);   // the depth view: at your row (the caller puts it back)
   // Grace's ward: a soft golden bubble, fuller the more it holds.
   if (p.ward > 0) {
     const cap = Math.max(1, game.maxHp() * ELEMENTS.grace.ward.cap), f = Math.min(1, p.ward / cap);
@@ -286,12 +288,13 @@ export function drawClassAuras(ctx, game, ox, oy, timeMs = 0) {
   }
   // Holy Fire's brands: one flame pip each over the foe's life bar.
   if (game.jobClass !== 'zealot') return;
-  const t = game.tickCount, vw = game.camera?.viewW || 1e4, vh = game.camera?.viewH || 1e4;
+  const t = game.tickCount, vw = pj ? pj.fw : game.camera?.viewW || 1e4, vh = pj ? pj.fh : game.camera?.viewH || 1e4;
   for (const n of game.nearbyNpcs ? game.nearbyNpcs() : []) {
     const b = n.brand;
     if (!b || !(b.until > t) || !n.alive) continue;
     const nc = n.renderCenter(), nx = nc.x - ox, ny = nc.y - oy - (20 * (n.def.scale || 1)) - 14;
     if (nx < -40 || nx > vw + 40 || ny < -40 || ny > vh + 40) continue;
+    if (pj) applyRow(ctx, pj, nc.y - oy + 12 * (n.def.scale || 1));
     ctx.save();
     for (let i = 0; i < b.n; i++) {
       const px = nx + (i - (b.n - 1) / 2) * 9, fl = calm ? 0 : Math.sin(timeMs * 0.02 + i) * 0.8;

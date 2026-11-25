@@ -2706,6 +2706,16 @@ function worldImage(key) {
   return img;
 }
 export const worldArt = () => new Set(Object.keys(WORLD_ART));
+/** A world object's painted picture fitted to its box ({ img, w, h, foot }),
+ *  for the depth view's cast shadows (depthview.js); null while it loads or headless. */
+export function worldArtBox(obj, time = 0, out = {}) {
+  const key = worldArtKey(obj, time), img = key && worldImage(key);
+  if (!img || !img.complete || !img.naturalWidth) return null;
+  const [mw, mh, foot] = WORLD_ART[key];
+  const s = Math.min(mw / img.naturalWidth, mh / img.naturalHeight);
+  out.img = img; out.w = img.naturalWidth * s; out.h = img.naturalHeight * s; out.foot = foot;
+  return out;
+}
 /** Draw a world picture by its key, standing on (cx, footY), fitted to its box.
  *  False while it is still loading (or headless), so the caller draws its own. */
 export function drawWorldPicture(ctx, key, cx, footY) {

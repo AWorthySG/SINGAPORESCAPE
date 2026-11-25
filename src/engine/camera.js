@@ -1,4 +1,5 @@
 import { TILE } from '../config.js';
+import { makeProjection, worldToScreen as tiltToScreen, screenToWorld as tiltToWorld } from '../render/projection.js';
 
 // Camera centred on a world pixel point, with smooth follow.
 const FRAME_MS = 1000 / 60;   // the follow's `smoothing` is per frame at this rate
@@ -22,6 +23,18 @@ export class Camera {
     this.baseZoom = 1;
     this.zoomMul = 1;
     this.dpr = 1;      // canvas pixels per CSS pixel, for the renderer's transform
+    // The depth view's tilt (0 flat; the renderer eases it, see depthview.js).
+    // Taps and the hover tile go through the same projection the world is drawn with.
+    this.tilt = 0;
+    this._pj = { tilt: -1 };
+  }
+
+  /** The tilted view's projection (render/projection.js), or null while flat. */
+  proj() {
+    if (!(this.tilt > 0)) return null;
+    const pj = this._pj;
+    if (pj.tilt !== this.tilt || pj.vw !== this.viewW || pj.vh !== this.viewH) makeProjection(this.tilt, this.viewW, this.viewH, pj);
+    return pj;
   }
 
   /** Size the view to a screen of w x h CSS pixels at the given zoom: the view
@@ -88,12 +101,16 @@ export class Camera {
     }
     this._tx = targetX; this._ty = targetY;
     if (clampRect) {
-      const halfW = this.viewW / 2, halfH = this.viewH / 2;
+      // Tilted, the view reaches further up (and wider at the top) than down:
+      // keep that whole shape inside the world (render/projection.js).
+      const pj = this.proj();
+      const halfW = pj ? pj.fw / 2 : this.viewW / 2, up = pj ? this.viewH / 2 - pj.fy0 : this.viewH / 2;
+      const down = pj ? pj.fy0 + pj.fh - this.viewH / 2 : this.viewH / 2;
       const worldW = clampRect.width * TILE, worldH = clampRect.height * TILE;
       // Only clamp if the world is larger than the viewport on that axis
       // (held against an edge, the spring stops rather than winding up).
-      if (worldW > this.viewW) { const c = Math.max(halfW, Math.min(worldW - halfW, this.cx)); if (c !== this.cx) { this.cx = c; this.vx = 0; } }
-      if (worldH > this.viewH) { const c = Math.max(halfH, Math.min(worldH - halfH, this.cy)); if (c !== this.cy) { this.cy = c; this.vy = 0; } }
+      if (worldW > halfW * 2) { const c = Math.max(halfW, Math.min(worldW - halfW, this.cx)); if (c !== this.cx) { this.cx = c; this.vx = 0; } }
+      if (worldH > up + down) { const c = Math.max(up, Math.min(worldH - down, this.cy)); if (c !== this.cy) { this.cy = c; this.vy = 0; } }
     }
   }
 
@@ -101,10 +118,14 @@ export class Camera {
   get originY() { return this.cy - this.viewH / 2; }
 
   worldToScreen(wx, wy) {
+    const pj = this.proj();
+    if (pj) { const p = tiltToScreen(pj, wx, wy, this.cx, this.cy); return { x: p.x * this.zoom, y: p.y * this.zoom }; }
     return { x: (wx - this.originX) * this.zoom, y: (wy - this.originY) * this.zoom };
   }
 
   screenToWorld(sx, sy) {
+    const pj = this.proj();
+    if (pj) { const w = tiltToWorld(pj, sx / this.zoom, sy / this.zoom, this.cx, this.cy); return { x: w.x, y: w.y }; }
     return { x: sx / this.zoom + this.originX, y: sy / this.zoom + this.originY };
   }
 
