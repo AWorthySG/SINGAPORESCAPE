@@ -52,7 +52,7 @@ export const SKILL_GUIDES = {
   ranged: { use: 'Bow, gun and crossbow damage. Every 20 levels unlocks a passive perk, and higher levels unlock better bows and hide armour.', combat: true },
   magic: { use: 'Spell power. Every 20 levels unlocks a passive perk, and higher levels unlock better staves and robes.', combat: true },
   hitpoints: { use: 'Your life. It rises as you deal damage in any style. Eat food to heal: the better the food, the more it heals.', combat: true },
-  prayer: { use: `Unlocks Blessings (always-on, in slots that grow with your level) and powers the Prayer Burst. Bury bones anywhere, or offer them at an A-Worthy Monument for ${ALTAR_XP_MULT}x XP.`, combat: true, where: ['shrine'] },
+  prayer: { use: `Unlocks Blessings (always-on, in slots that grow with your level) and powers the Faith Burst. Bury bones anywhere, or offer them at an A-Worthy Monument for ${ALTAR_XP_MULT}x XP.`, combat: true, where: ['shrine'] },
   slayer: { use: 'Tasks from Slayer Master Rajan. On task you hit harder and sometimes get a second helping of loot; points buy rewards.', combat: true },
 };
 export const GUIDE_SKILLS = Object.keys(SKILL_GUIDES);

@@ -3,7 +3,7 @@
 // It grants a combat multiplier (str/def/ranged/magic as a fraction), extra crit
 // chance (`crit`, a fraction, for every fighting style) or `protect` (fraction of
 // incoming damage prevented). `slots` is how many blessing slots it takes (1 unless
-// given). Faith, the bar that fills as you fight, powers the Prayer Burst (see
+// given). Faith, the bar that fills as you fight, powers the Faith Burst (see
 // game/blessings.js).
 // The Attack prayers (Clarity, Reflexes) once raised accuracy, but player hits
 // always land now, so they grant crit chance instead.
@@ -74,7 +74,7 @@ export const blessingCost = (p) => p?.slots || 1;
 export const FAITH_BASE = 20;
 export const FAITH_GAIN = { hit: 0.03, hurt: 0.02, kill: 0.05 };
 
-// The Prayer Burst, for a full bar of Faith: a heal, a ward that stops every
+// The Faith Burst, for a full bar of Faith: a heal, a ward that stops every
 // blow for BURST_WARD_TICKS (3s) and zeal (extra damage) for BURST_ZEAL_TICKS (about 8s).
 export const BURST_WARD_TICKS = 5;
 export const BURST_ZEAL_TICKS = 13;

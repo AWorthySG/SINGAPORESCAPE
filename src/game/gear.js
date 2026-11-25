@@ -8,7 +8,7 @@ export const STAT_LABELS = {
   attack: 'Attack', strength: 'Melee power', defence: 'Defence', ranged: 'Ranged',
   magic: 'Magic', magicStr: 'Magic dmg', dance: 'Dance', crit: 'Crit %', hp: 'Bonus HP',
   pierce: 'Armour pierce %', critDmg: 'Crit damage %', haste: 'Attack speed %', lifesteal: 'Lifesteal %', bossDmg: 'Boss damage %',
-  atkPct: 'Physical damage bonus %', magPct: 'Magic bonus %', prayer: 'Prayer',
+  atkPct: 'Physical damage bonus %', magPct: 'Magic bonus %', prayer: 'Faith',
 };
 const STAT_KEYS = Object.keys(STAT_LABELS);
 
@@ -26,7 +26,7 @@ export const STAT_HELP = [
   ['Magic bonus', 'more damage from spells (staves, wands, robes)'],
   ['Lifesteal', 'heals you by a share of the damage you deal (dancewear)'],
   ['Boss damage', 'extra damage against bosses and champions'],
-  ['Prayer', 'Faith fills faster as you fight: +30 doubles it (prayer accessories)'],
+  ['Faith', 'your Faith bar fills faster as you fight: +30 doubles it (prayer accessories)'],
 ];
 
 /** Weapon style: 'melee' | 'ranged' | 'magic' | 'dance'. */

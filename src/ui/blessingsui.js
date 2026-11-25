@@ -1,5 +1,5 @@
 // The Prayer panel as a Blessings loadout (game/blessings.js): the Faith bar
-// and the Prayer Burst button, the slot strip (tap a slot to take that blessing
+// and the Faith Burst button, the slot strip (tap a slot to take that blessing
 // off), the loadout's combined bonus, and every blessing with its level (tap to
 // equip or take off; a row says when it would stack or swap). Also the
 // Faith orb on the minimap, which fires the Burst when the bar is full.
@@ -90,7 +90,7 @@ export function blessingsPanelHTML(game) {
   const open = game.blessingSlots(), used = [...game.activePrayers].reduce((n, id) => n + blessingCost(PRAYER_BY_ID[id]), 0);
   return '<div class="bl-head">'
     + '<div class="bl-faith" title="Faith fills as you fight (hits landed and taken, kills), from bones and at a Monument."><div class="bl-faith-bar"><i></i></div><span class="bl-faith-text"></span></div>'
-    + `<button type="button" class="bl-burst" title="Prayer Burst (${BURST_KEY}): spend a full bar of Faith">${uiIconHTML('prayer-burst', 24, 'bl-burst-ic')}Burst <kbd>${BURST_KEY}</kbd></button>`
+    + `<button type="button" class="bl-burst" title="Faith Burst (${BURST_KEY}): spend a full bar of Faith">${uiIconHTML('prayer-burst', 24, 'bl-burst-ic')}Burst <kbd>${BURST_KEY}</kbd></button>`
     + '</div>'
     + `<div class="bl-burst-info">${esc(burstText(game.skills.prayer))}</div>`
     + `<div class="bl-slots-label">Blessings <b>${used} / ${open}</b> slots · always on, no drain</div>`
@@ -156,5 +156,5 @@ export function renderFaithOrb(ui) {
   orb.style.setProperty('--fill', frac.toFixed(3));
   orb.classList.toggle('ready', full);
   orb.classList.toggle('active', !!game.burstActive?.());
-  orb.title = full ? `Faith full: click (or press ${BURST_KEY}) for a Prayer Burst` : `Faith ${Math.floor(frac * 100)}%: it fills as you fight. Full, it powers a Prayer Burst (${BURST_KEY})`;
+  orb.title = full ? `Faith full: click (or press ${BURST_KEY}) for a Faith Burst` : `Faith ${Math.floor(frac * 100)}%: it fills as you fight. Full, it powers a Faith Burst (${BURST_KEY})`;
 }

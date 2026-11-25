@@ -56,7 +56,7 @@ test('renderer.render runs without throwing (with combat/effects state)', () => 
   // A worn shield should flow from Equipment through the renderer to drawPlayer.
   game.equipment.set('shield', 'wooden_shield');
   assert.ok(game.equipment.get('shield'), 'shield equipped');
-  // A running Prayer Burst should flow through to the player's golden halo too.
+  // A running Faith Burst should flow through to the player's golden halo too.
   game.activePrayers.add('thick_skin');
   game.burstWard = 3;
 
