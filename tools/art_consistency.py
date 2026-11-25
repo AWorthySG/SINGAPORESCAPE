@@ -1,6 +1,6 @@
 # Bring painted art into the house style without redrawing it (see the style
 # rules in tests/artstyle.test.mjs and the art-consistency PR):
-#   ink   recolour near-black ink lines to the navy ink (#22304A): the outline
+#   ink   recolour near-black ink lines to painted navy ink: the outline
 #         band fully, and inside the picture only the near-neutral, very dark
 #         ink (so painted black cloth or fur keeps its colour)
 #   rim   give an icon without a white die-cut border the shared sticker rim
@@ -18,6 +18,10 @@ from PIL import Image, ImageEnhance
 from scipy import ndimage as ndi
 
 NAVY = np.array([34, 48, 74], float)
+# The core of a painted navy line: the median of the ~500 navy-lined pictures'
+# outlines. Painted ink sits a little darker than the flat #22304A the code draws,
+# and black lines recoloured to this keep their weight.
+PAINT = np.array([24, 37, 62], float)
 
 
 def _lum(rgb):
@@ -37,7 +41,7 @@ def ink(A):
     w_band = np.clip((95 - L) / 50, 0, 1) * band
     w_in = np.clip((50 - L) / 30, 0, 1) * (chroma < 26) * m
     w = np.maximum(w_band, w_in)[..., None]
-    A[..., :3] = rgb * (1 - w) + NAVY * w
+    A[..., :3] = rgb * (1 - w) + PAINT * w
     return np.clip(A, 0, 255).astype(np.uint8)
 
 

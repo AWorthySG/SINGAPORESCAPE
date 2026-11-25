@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 
 import { drawShadow, SHADOW_RGB } from '../src/render/sprites.js';
+import { rimLight } from '../src/render/herolight.js';
 
 const NAVY = [34, 48, 74];
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -83,4 +84,18 @@ test('canvas text is set in the one typeface (Nunito)', () => {
     for (const m of src.matchAll(/\.font\s*=\s*(['"])([^'"]+)\1/g)) if (!/Nunito/.test(m[2])) bad.push(`${f}: ${m[2]}`);
   }
   assert.deepEqual(bad, [], bad.join('\n'));
+});
+
+test("the hero's rim light leaves a navy ink line crisp, as it does a black one", () => {
+  // A square figure: a 4px painted-navy outline round a dark teal cloth.
+  const W = 40, LINE = [24, 37, 62, 255], CLOTH = [24, 60, 72, 255];
+  const px = new Uint8ClampedArray(W * W * 4);
+  for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) {
+    const r = Math.max(Math.abs(x - 19.5), Math.abs(y - 19.5));
+    px.set(r > 18 ? [0, 0, 0, 0] : r > 14 ? LINE : CLOTH, (y * W + x) * 4);
+  }
+  rimLight(px, W, W);
+  const at = (x, y) => [...px.slice((y * W + x) * 4, (y * W + x) * 4 + 4)];
+  assert.deepEqual(at(20, 3), LINE, 'the ink on the lit side is not lifted');
+  assert.notDeepEqual(at(20, 7), CLOTH, 'the cloth just inside it is');
 });
