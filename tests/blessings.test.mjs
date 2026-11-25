@@ -68,12 +68,14 @@ test('equipping: level locks, slot limits, a type swaps when the slots are full,
   assert.equal(blessingCost(PRAYER_BY_ID.worthy_spirit), 2);
   for (const id of ['clarity', 'superhuman', 'rock_skin', 'eagle_eye']) assert.ok(h.toggleBlessing(id), id);
   assert.equal(slotsUsed(h.activePrayers), 4);
-  assert.deepEqual(blessingAction(h, 'worthy_spirit'), { kind: 'swap', out: ['clarity'], with: ['rock_skin', 'superhuman'] });
+  // (Its damage counts for every style, so Eagle Eye stacks with it too.)
+  assert.deepEqual(blessingAction(h, 'worthy_spirit'), { kind: 'swap', out: ['clarity'], with: ['rock_skin', 'superhuman', 'eagle_eye'] });
   assert.ok(h.toggleBlessing('worthy_spirit'), 'Clarity comes off, so it fits');
   assert.deepEqual([...h.activePrayers].sort(), ['eagle_eye', 'rock_skin', 'superhuman', 'worthy_spirit']);
   assert.equal(slotsUsed(h.activePrayers), 5);
-  assert.equal(h.toggleBlessing('mystic_lore'), false, 'full, and nothing of its type to swap');
-  assert.equal(blessingAction(h, 'mystic_lore').kind, 'full');
+  // (Mystic Lore would now swap with the Spirit, a magic blessing too: Protect from Melee has no type.)
+  assert.equal(h.toggleBlessing('protect_melee'), false, 'full, and nothing of its type to swap');
+  assert.equal(blessingAction(h, 'protect_melee').kind, 'full');
   assert.equal(h.toggleBlessing('deadeye'), true, 'Deadeye replaces Eagle Eye (same type, slots full)');
   assert.ok(!h.activePrayers.has('eagle_eye'));
   assert.equal(blessingAction(newGame(40), 'worthy_spirit').kind, 'locked');
@@ -297,4 +299,16 @@ test('blessings of the same type stack when the slots allow: the strongest in fu
   assert.match(blessingsPanelHTML(g), /In all: <b>\+33% Str<\/b> · same type stacks at 75%/);
   const fx = activeEffects(g).find((e) => e.name === 'Burst of Strength');
   assert.match(fx.detail, /stacked/);
+});
+
+test('Spirit of the Worthy raises damage for every style, not melee alone', async () => {
+  const { blessingBonus } = await import('../src/game/blessings.js');
+  const b = blessingBonus(['worthy_spirit']);
+  assert.equal(b.str, 0.6);
+  assert.equal(b.ranged, b.str, 'Ranged gets the same damage as Strength');
+  assert.equal(b.magic, b.str, 'Magic gets the same damage as Strength');
+  // It stacks with each style's own top blessing, as it does with Ultimate Strength.
+  for (const [top, k] of [['ultimate_strength', 'str'], ['deadeye', 'ranged'], ['mystic_might', 'magic']]) {
+    assert.ok(blessingBonus(['worthy_spirit', top])[k] > blessingBonus([top])[k], `${top} + Spirit stacks`);
+  }
 });
