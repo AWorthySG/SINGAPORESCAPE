@@ -846,7 +846,7 @@ export class Renderer {
     ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
     ctx.font = '800 18px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 4; ctx.strokeText('✕', x, y - 18 - bob);
+    ctx.strokeStyle = '#22304A'; ctx.lineWidth = 4; ctx.strokeText('✕', x, y - 18 - bob);
     ctx.fillStyle = '#ffe88a'; ctx.fillText('✕', x, y - 18 - bob);
   }
 
@@ -1958,7 +1958,7 @@ export class Renderer {
       if (n.telegraph > 0) {
         const px = c.x - ox, py = c.y - oy + yo - 12;
         ctx.font = '800 18px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
-        ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 4; ctx.strokeText('!', px, py);
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 4; ctx.strokeText('!', px, py);
         ctx.fillStyle = '#ff5a5a'; ctx.fillText('!', px, py);
       }
       if (named && (boss || n.champion)) {
@@ -2165,8 +2165,8 @@ export class Renderer {
     const w = boss ? 60 : 30, h = boss ? 6 : 5;
     frac = Math.max(0, Math.min(1, frac));
     const x = cx - w / 2;
-    // frame
-    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x - 1, cy - 1, w + 2, h + 2);
+    // frame (the navy ink, as every outline)
+    ctx.fillStyle = 'rgba(34,48,74,0.75)'; ctx.fillRect(x - 1, cy - 1, w + 2, h + 2);
     // empty track + filled portion (green→amber→red by remaining health)
     ctx.fillStyle = '#5a1212'; ctx.fillRect(x, cy, w, h);
     const hue = Math.round(120 * frac); // 120 green -> 0 red
@@ -2174,10 +2174,10 @@ export class Renderer {
     ctx.fillRect(x, cy, w * frac, h);
     // top gloss + a darker base line for a rounded look
     ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(x, cy, w * frac, 1.5);
-    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(x, cy + h - 1, w, 1);
+    ctx.fillStyle = 'rgba(34,48,74,0.3)'; ctx.fillRect(x, cy + h - 1, w, 1);
     // boss bars get segment ticks
     if (boss) {
-      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillStyle = 'rgba(34,48,74,0.45)';
       for (let i = 1; i < 4; i++) ctx.fillRect(x + (w / 4) * i, cy, 1, h);
     }
   }

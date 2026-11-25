@@ -433,7 +433,7 @@ export class AmbientLife {
       if (!asleep) {
         // The tail, swishing slowly.
         const sw = Math.sin(t * 0.0026 + h * 9) * 5;
-        ctx.strokeStyle = '#2b3350'; ctx.lineWidth = 4.2; ctx.lineCap = 'round';
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 4.2; ctx.lineCap = 'round';
         ctx.beginPath(); ctx.moveTo(x + 6, y - 2); ctx.quadraticCurveTo(x + 15, y - 3, x + 13 + sw * 0.6, y - 12 - Math.abs(sw) * 0.3); ctx.stroke();
         ctx.strokeStyle = CAT_COATS[coat][0]; ctx.lineWidth = 2.4;
         ctx.stroke();
@@ -539,7 +539,7 @@ const CAT_COATS = {
 function drawCat(g, x, y, name) {
   const [, coat, pose] = name.split('-');
   const [fur, patch, belly] = CAT_COATS[coat] || CAT_COATS.ginger;
-  const ink = '#2b3350';
+  const ink = '#22304A';
   g.lineJoin = 'round';
   const shape = (fn, fill) => {
     g.beginPath(); fn();
@@ -580,7 +580,7 @@ function drawBirdShape(ctx, x, y, face, peck) {
 
 // A bird in flight as a pair of wing strokes.
 function drawWings(ctx, x, y, up, s) {
-  ctx.strokeStyle = '#2b3350'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+  ctx.strokeStyle = '#22304A'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(x - s, y + (up ? -s * 0.5 : s * 0.3)); ctx.quadraticCurveTo(x - s * 0.4, y - (up ? s * 0.4 : 0), x, y);
   ctx.quadraticCurveTo(x + s * 0.4, y - (up ? s * 0.4 : 0), x + s, y + (up ? -s * 0.5 : s * 0.3));

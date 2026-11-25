@@ -149,7 +149,7 @@ body.photo-on #game-root > :not(#game-canvas) { visibility: hidden !important; }
 #photo-mode.previewing .pm-preview { display: flex; }
 .pm-img {
   display: block; max-width: min(100%, 980px); max-height: calc(100% - 90px); width: auto; height: auto;
-  border-radius: 14px; box-shadow: 0 0 0 3px var(--aw-white), 0 12px 30px rgba(0,0,0,0.35);
+  border-radius: 14px; box-shadow: 0 0 0 3px var(--aw-white), 0 12px 30px rgba(34,48,74,0.35);
   transform: rotate(-1.5deg); animation: pmIn .45s cubic-bezier(.2,.9,.3,1.2) both;
 }
 @keyframes pmIn { from { opacity: 0; transform: rotate(-6deg) scale(.9) translateY(18px); } to { opacity: 1; transform: rotate(-1.5deg); } }
