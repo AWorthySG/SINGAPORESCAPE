@@ -51,7 +51,17 @@ export class Bank {
     if (!Array.isArray(data)) return;
     this.items = [];
     // (Quality came later: optional. Entries are merged so each quality has one.)
-    for (const e of data) if (e && e.id && e.qty > 0 && safe(e.id)) this.deposit(e.id, e.qty, e.q);
+    // All at once, as deposit() would one by one (same merging, same order),
+    // but with one search per entry and one change at the end: a full bank
+    // deposited item by item told everyone listening about every one of them.
+    const at = new Map();
+    for (const e of data) {
+      if (!(e && e.id && e.qty > 0 && safe(e.id))) continue;
+      const q = validQuality(e.q), key = `${e.id}|${q || ''}`;
+      const have = at.get(key);
+      if (have) have.qty += e.qty;
+      else { const x = q ? { id: e.id, qty: e.qty, q } : { id: e.id, qty: e.qty }; at.set(key, x); this.items.push(x); }
+    }
     this._changed();
   }
 }

@@ -419,3 +419,18 @@ test('the stylesheet is well formed: no merge leftovers, every block closed', as
     assert.equal(depth, 0, `${f}: every { is closed`);
   }
 });
+
+test('the pinch guard listens to touchmove only on WebKit, so other browsers never wait on it to scroll', async () => {
+  const { guardTouchZoom } = await import('../src/engine/input.js');
+  const listen = (win) => {
+    const on = {};
+    guardTouchZoom({ defaultView: win, addEventListener: (type, fn, opts) => { on[type] = opts; } });
+    return on;
+  };
+  const chrome = listen({});
+  assert.equal(chrome.touchmove, undefined, 'no page-wide touchmove listener without gesture events');
+  assert.equal(chrome.touchend?.passive, false, 'the double-tap guard stays');
+  assert.equal(chrome.gesturestart?.passive, false);
+  const safari = listen({ ongesturestart: null });
+  assert.equal(safari.touchmove?.passive, false, 'Safari still has its pinch guard');
+});
