@@ -163,3 +163,23 @@ test('an aggressive monster only asks your fight level when close enough to care
   far._combatAI(g);
   assert.equal(far.target, p, 'one strong enough comes for you');
 });
+
+test('monsters keep one shape: what a fight hangs on them later is declared when they are made', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  const fresh = new Set(Object.keys(new NPC('feral_rat', 1, 1)));
+  for (const k of ['wounds', 'slowTicks', '_baseStepMul', '_bossBase', '_bossScaledDef', '_bossScale', 'mech', 'mechHealer', 'life', 'artId', 'wave', 'worldEvent', '_greetedAt', '_remarkAt'])
+    assert.ok(fresh.has(k), `${k} is made with the monster`);
+  // A fight with Water's slows, open wounds and auto battle, then a look at every monster near you.
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('wizard');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  for (const k of ['magic', 'defence', 'hitpoints']) g.skills.xp[k] = 2e6;
+  const p = g.player; p.x = p.tx = 49; p.y = p.ty = 87;
+  g.toggleAutoBattle(true);
+  for (let i = 0; i < 80 * 36; i++) { g.update(1000 / 60); if (p.alive) p.hp = g.maxHp(); }
+  for (const n of g.nearbyNpcs()) {
+    if (n.ally) continue;   // a Merchant's hirelings carry their own orders
+    const added = Object.keys(n).filter((k) => !fresh.has(k));
+    assert.deepEqual(added, [], `${n.npcId} gained ${added.join(', ')} after it was made`);
+  }
+});

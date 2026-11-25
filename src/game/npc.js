@@ -102,6 +102,15 @@ export class NPC extends Character {
     this._weakTag = undefined;    // the one hit number on it that wears "weak!" (renderer.js)
     this.stopFrom = undefined; this.stopUntil = undefined; this.squashK = undefined; this.squashDir = undefined;
     this.deathT = undefined; this.spawnT = undefined; this.castT = undefined; this.castCol = undefined;
+    // ...and what other parts of the game hang on some of them later (wounds,
+    // a boss's scaling and mechanic, a Water slow, a resident's or event's
+    // marks, greetings), so the crowd stays one shape for the loops that read
+    // hundreds of them a tick. Left undefined: every check reads them as absent.
+    this.wounds = undefined; this.slowTicks = undefined; this._baseStepMul = undefined; this._runesSpent = undefined;
+    this._bossBase = undefined; this._bossScaledDef = undefined; this._bossScale = undefined;
+    this.mech = undefined; this.mechHealer = undefined; this._mechCd = undefined; this._mechN = undefined;
+    this.ally = undefined; this.wave = undefined; this.worldEvent = undefined; this.life = undefined; this.artId = undefined;
+    this._greetedAt = undefined; this._remarkAt = undefined; this._holdUntil = undefined; this._heldWander = undefined;
     this.maybeChampion(false);
   }
 
