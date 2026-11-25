@@ -11,7 +11,7 @@
 // (the level-up burst, the sheet's slide away), in low graphics.
 //
 // The durations match the CSS motion tokens (--dur-1/2/3 in styles/compact.css).
-import { motionReduced } from './uifx.js';
+import { motionReduced, copyCanvases } from './uifx.js';
 import { skillIconSVG } from '../render/icons.js';
 
 export const DUR = { fast: 120, med: 180, slow: 260 };
@@ -123,7 +123,7 @@ export function sheetCloseGhost(panel, game) {
   const body = panel.querySelector?.('#panel-body');
   if (body) {
     const copy = body.cloneNode(false);
-    for (const v of body.children) if (!v.classList?.contains('hidden')) copy.appendChild(v.cloneNode(true));
+    for (const v of body.children) if (!v.classList?.contains('hidden')) { const c = v.cloneNode(true); copyCanvases(v, c); copy.appendChild(c); }
     // The body sits in its grid row; keep it in order among the copy's children.
     const at = [...panel.children].indexOf(body);
     ghost.insertBefore(copy, ghost.children[at] || null);

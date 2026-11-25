@@ -513,7 +513,32 @@ export const parallaxShift = (depth, p) => Math.round(-p * depth * PARALLAX_PX *
 
 // ---------------- The title screen (browser only) ----------------
 // The heroes posing on the title: a mix of melee, ranged, magic and the Dancer.
-const TITLE_HEROES = ['swordsman', 'wizard', 'ranger', 'samurai', 'dancer', 'pistoler'];
+export const TITLE_HEROES = ['swordsman', 'wizard', 'ranger', 'samurai', 'dancer', 'pistoler'];
+/** Where the title heroes stand on a stage `w` x `h` CSS px beside a card
+ *  `cardW` px wide: [[x, facing], ...], one per hero shown (no more than the
+ *  cast). Wide screens: three a side of the card. Narrow ones (or no card
+ *  measured): a row under it. */
+export function titleSpots(w, h, cardW = w) {
+  const free = (w - cardW) / 2;
+  const scale = h < 120 ? 1.55 : 1.9;
+  let spots;
+  if (free >= 240) {
+    const per = Math.min(3, Math.floor((free - 20) / (64 * scale)));
+    const gap = (free - 20) / per;
+    spots = [];
+    for (let i = 0; i < per; i++) spots.push([10 + gap * (i + 0.5), 1], [w - 10 - gap * (i + 0.5), -1]);
+  } else {
+    const n = Math.max(2, Math.min(4, Math.floor(w / 120)));
+    spots = Array.from({ length: n }, (_, i) => [w * (i + 0.5) / n, i < n / 2 ? 1 : -1]);
+  }
+  return spots.slice(0, TITLE_HEROES.length);
+}
+/** The title heroes a screen shows (a phone has room for three of the six):
+ *  only theirs are asked for while the loading bar runs. A screen that later
+ *  grows (turned sideways) draws the rest once they arrive (drawClassHero). */
+export function titleCast(w, h, cardW = w) {
+  return TITLE_HEROES.slice(0, titleSpots(w, h, cardW).length);
+}
 const PETALS = ['petal_pink', 'frangipani', 'leaf_green', 'leaf_lime', 'petal_pink', 'dust_m'];
 const LOAD_MIN_MS = 700;      // the bar never just flashes past
 const LOAD_MAX_MS = 12000;    // ...and never holds the player up for long
@@ -571,15 +596,17 @@ export class TitleScreen {
     if (!this.splash) return;
     const picking = game.pendingStyleChoice || game.pendingClassChoice;
     // The pictures the first view needs are asked for (and counted) now: the
-    // title's heroes, and your own hero, whom the camera comes back to.
-    for (const id of TITLE_HEROES) warmHero(id);
+    // title heroes this screen has room for, and your own hero, whom the
+    // camera comes back to.
+    const cast = this._cast();
+    for (const id of cast) warmHero(id);
     if (game.jobClass) warmHero(game.jobClass);
     // Once loading is done: every class's idle pictures for the class picker
     // (they arrive while the title plays), the title heroes' swings and
     // all of your own hero's pictures.
     this.later(() => {
       if (picking) for (const id of Object.keys(CLASS_BY_ID)) warmHero(id);
-      for (const id of TITLE_HEROES) swingArtReady(id);
+      for (const id of cast) swingArtReady(id);
       if (game.jobClass) warmHeroAnim(game.jobClass);
     });
     // The drifting petals (fxImage's own Image is counted like any other).
@@ -610,6 +637,14 @@ export class TitleScreen {
     if (mascot && titleArtSrc('loading-hero')) mascot.src = titleArtSrc('loading-hero');
   }
 
+  /** The title heroes this screen shows (all of them when it can't be measured). */
+  _cast() {
+    const c = this.el?.heroes, card = this.splash?.querySelector('.splash-inner');
+    const w = c?.clientWidth || globalThis.innerWidth || 0;
+    if (!w) return TITLE_HEROES;
+    return titleCast(w, c?.clientHeight || 150, card?.getBoundingClientRect?.().width || w);
+  }
+
   /** Called by the game loop after game.update: steer the camera and run the bar. */
   frame(dt) {
     if (!this.active || !this.game) return;
@@ -625,10 +660,12 @@ export class TitleScreen {
         this._preload++;
         return;
       }
-      // Loaded: glance at each later shot for two frames, still behind the
-      // cream and no longer counted, so their pictures start coming in.
+      // Loaded: glance at each later shot for a frame, still behind the
+      // cream and no longer counted, so their pictures start coming in. (One
+      // frame asks for them all; a second only held the button back on a slow
+      // phone, where each of these frames bakes a fresh patch of ground.)
       if (this._rest != null) {
-        const s = TITLE_SHOTS[1 + (this._rest >> 1)];
+        const s = TITLE_SHOTS[1 + this._rest];
         if (s) { cam.cx = s.from[0] * TILE; cam.cy = s.from[1] * TILE; this._rest++; return; }
         this._becomeReady();
       } else this._updateBar(dt);
@@ -688,7 +725,10 @@ export class TitleScreen {
     const st = this.tracker.status();
     const target = 0.1 + 0.9 * st.ratio;
     // Eases toward the real figure (at most the whole bar in ~0.6s), never back.
-    this.shown = Math.max(this.shown, Math.min(target, this.shown + Math.min(dt, 100) / 600));
+    // A slow phone's long loading frames count in full (only a stall such as a
+    // hidden tab is capped): capped at a tenth of a second, three frames a
+    // second held a finished bar back by a couple of seconds.
+    this.shown = Math.max(this.shown, Math.min(target, this.shown + Math.min(dt, 500) / 600));
     if (this.el.fill) this.el.fill.style.transform = `scaleX(${this.shown.toFixed(3)})`;
     this.el.bar?.setAttribute('aria-valuenow', String(Math.round(this.shown * 100)));
     if (this.el.status) this.el.status.textContent = st.total ? `Painting the island… ${st.loaded} / ${st.total}` : 'Painting the island…';
@@ -721,22 +761,10 @@ export class TitleScreen {
     const cast = TITLE_HEROES.map((classId, i) => ({ classId, phase: i * 677, fx: 1 }));
     let nextSwing = 1800, turn = 0;
     this.stage = new HeroStage(canvas, (w, h, now) => {
-      // Wide screens: three a side of the card. Narrow ones: a row under it.
       const card = this.splash.querySelector('.splash-inner')?.getBoundingClientRect();
-      const free = card ? (w - card.width) / 2 : 0;
       const scale = h < 120 ? 1.55 : 1.9;
       const feet = h - 16;
-      let spots;
-      if (free >= 240) {
-        const per = Math.min(3, Math.floor((free - 20) / (64 * scale)));
-        const gap = (free - 20) / per;
-        spots = [];
-        for (let i = 0; i < per; i++) spots.push([10 + gap * (i + 0.5), 1], [w - 10 - gap * (i + 0.5), -1]);
-      } else {
-        const n = Math.max(2, Math.min(4, Math.floor(w / 120)));
-        spots = Array.from({ length: n }, (_, i) => [w * (i + 0.5) / n, i < n / 2 ? 1 : -1]);
-      }
-      const out = spots.slice(0, cast.length).map(([x, fx], i) => { cast[i].fx = fx; return { actor: cast[i], x, y: feet, scale }; });
+      const out = titleSpots(w, h, card ? card.width : w).map(([x, fx], i) => { cast[i].fx = fx; return { actor: cast[i], x, y: feet, scale }; });
       // Now and then one of them shows off a swing.
       if (!this.still && now > nextSwing && out.length) {
         swingActor(out[turn++ % out.length].actor, now);

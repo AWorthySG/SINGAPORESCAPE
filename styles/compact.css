@@ -795,3 +795,61 @@ body.reduce-motion :is(#hover-text, #region-label, #notice-lane .nl-card, #rep-p
 body.reduce-motion :is(#modal-body .dialogue .dlg-words, #modal-body .dialogue .dlg-portrait, #modal-body .dialogue-option, #modal-body .dlg-foot,
   #cmd-search, #cmd-search .cs-box, .ui-bump, .ui-bump-big) { animation: none; }
 body.reduce-motion :is(#lvl-burst, .ui-ghost) { display: none !important; }
+
+/* ---------- Pop and fade: windows and the side panel ----------
+   Windows and the side panel pop open (a short rise, a touch of scale that
+   overshoots and settles, a fade) on the set's middle timing, and leave with
+   a quick fade. On phones this replaces the long slide from the screen's
+   foot (the sheets still rise from the bottom edge and still fold away
+   downwards, so a swipe down carries on as it was dragged). Transform and
+   opacity only, so the compositor does it all; reduced motion (the system's
+   or Settings') keeps them still. */
+@media (prefers-reduced-motion: no-preference) and (pointer: fine) {
+  #modal-window { animation-duration: var(--dur-2); }
+  #sidepanel:not(.collapsed) { animation: uiPanelPop var(--dur-2) var(--ease-pop); transform-origin: 100% 100%; }
+  .modal-ghost, .modal-ghost #modal-window { animation-duration: var(--dur-1); }
+}
+@media (max-width: 540px) and (pointer: coarse) {
+  #sidepanel:not(.collapsed), #sidepanel.wide:not(.collapsed),
+  #modal-window, #modal-window:has(.worldmap-canvas), #modal-window:has(.cx-head), #modal-window:has(.cx-entry) {
+    animation-name: uiSheetPop; animation-duration: var(--dur-2); animation-timing-function: var(--ease-std); transform-origin: 50% 100%;
+  }
+  .modal-ghost { animation-duration: var(--dur-1); }
+  .modal-ghost #modal-window, #sidepanel.ui-ghost.sheet-ghost { animation: uiSheetAway var(--dur-1) var(--ease-exit) forwards; }
+}
+@media (pointer: coarse) and (max-height: 500px) {
+  #sidepanel:not(.collapsed), #sidepanel.wide:not(.collapsed) {
+    animation-name: uiSideSheetPop; animation-duration: var(--dur-2); animation-timing-function: var(--ease-std); transform-origin: 100% 50%;
+  }
+  #sidepanel.ui-ghost.sheet-ghost { animation: uiSideSheetAway var(--dur-1) var(--ease-exit) forwards; }
+  .modal-ghost, .modal-ghost #modal-window { animation-duration: var(--dur-1); }
+}
+/* The overshoot is in the scale only (anchored at the edge the sheet stands
+   on), so a sheet never lifts off the bottom of the screen. */
+@keyframes uiSheetPop {
+  0% { opacity: 0; transform: translateY(32px) scale(.97); }
+  65% { opacity: 1; transform: translateY(0) scale(1.012); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes uiSideSheetPop {
+  0% { opacity: 0; transform: translateX(32px) scale(.97); }
+  65% { opacity: 1; transform: translateX(0) scale(1.012); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes uiPanelPop { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes uiSheetAway { to { opacity: 0; transform: translateY(100%); } }
+@keyframes uiSideSheetAway { to { opacity: 0; transform: translateX(100%); } }
+
+/* One press, not two: the panel's tabs, its Bag | Gear switch, the bag's
+   filters and the round fold buttons matched both the older pressed
+   transform (main.css) and the newer scale or nudge, so they sank twice as
+   far. They keep the newer look only. The objectives header and its "+N
+   more" had none. */
+:is(#panel-tabs .tab-btn, #panel-body .subtab-btn, #panel-body .inv-tab, .close-x):active:not(:disabled) { transform: none; }
+#quest-tracker :is(.trk-fold, .trk-more):active { scale: .96; }
+
+/* Stillness for the above. */
+@media (prefers-reduced-motion: reduce) {
+  :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #modal-window) { animation: none; }
+}
+body.reduce-motion :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #modal-window) { animation: none; }

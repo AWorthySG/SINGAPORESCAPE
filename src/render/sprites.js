@@ -2729,6 +2729,13 @@ export function worldArtBox(obj, time = 0, out = {}) {
   out.img = img; out.w = img.naturalWidth * s; out.h = img.naturalHeight * s; out.foot = foot;
   return out;
 }
+/** The box a world object's picture is fitted to ([w, h, foot], world px),
+ *  known before the picture loads, so the depth view can pass over one far
+ *  out of view without asking for it. Null when it has no picture. */
+export function worldArtMax(obj, time = 0) {
+  const key = worldArtKey(obj, time);
+  return (key && WORLD_ART[key]) || null;
+}
 /** Draw a world picture by its key, standing on (cx, footY), fitted to its box.
  *  False while it is still loading (or headless), so the caller draws its own. */
 export function drawWorldPicture(ctx, key, cx, footY) {
