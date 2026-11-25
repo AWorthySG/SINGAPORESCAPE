@@ -7440,3 +7440,21 @@ test('auto gather reaches ticked rocks anywhere in your region, but not in the n
   const other = g._nextGatherNode('runite_rock');
   assert.ok(!other || Math.max(Math.abs(other.x - found.x), Math.abs(other.y - found.y)) <= 30, 'nothing past 30 tiles outside your region');
 });
+
+test('a bleed pays XP in the style you fight with: a Ninja\'s Shadow Stars never level Melee', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start(); g.chooseClass('ninja');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  assert.equal(g.combatMode(), 'ranged');
+  const n = new NPC('goblin', g.player.x + 2, g.player.y, 0, {});
+  n.hp = n.maxHp = 999999; n.def = { ...n.def, aggressive: false, maxHit: 0 };
+  g.npcs = [n];
+  n.wounds = { bleed: [{ perSec: 50, left: 4 }] };   // as Shadow Stars' rider leaves it
+  const atk0 = g.skills.xp.attack, rng0 = g.skills.xp.ranged;
+  for (let i = 0; i < 10; i++) g._tickWounds();
+  assert.ok(n.hp < n.maxHp, 'the bleed hurt the foe');
+  assert.equal(g.skills.xp.attack, atk0, 'no Melee XP for a ranged fighter\'s bleed');
+  assert.ok(g.skills.xp.ranged > rng0, 'the bleed paid Ranged XP');
+});

@@ -3418,8 +3418,10 @@ export class Game {
   }
 
   /** Poisoned and bleeding foes near the player take their wounds' damage once
-   *  a second (melee XP, like the blow that caused it; Magic XP for holy fire,
-   *  a spell's burn) until the wounds run out. */
+   *  a second (XP in the style you fight with, like the blow that caused it;
+   *  Magic XP for holy fire, a spell's burn) until the wounds run out. A bleed
+   *  from a Ninja's Shadow Stars used to pay Melee XP, so a Ninja levelled
+   *  Melee now and then (the owner noticed, Nov 2026). */
   _tickWounds() {
     const p = this.player, m = this.combatXpMult();
     let xp = 0, mxp = 0;
@@ -3450,8 +3452,16 @@ export class Game {
       }
       if (n.wounds && !Object.keys(WOUNDS).some((k) => n.wounds[k]?.length)) n.wounds = null;
     }
-    if (xp) for (const x of combatXp(p.style, xp)) this.skills.addXp(x.skill, x.xp * m);
+    if (xp) for (const x of this._styleXp(xp)) this.skills.addXp(x.skill, x.xp * m);
     if (mxp) for (const x of magicXp(mxp)) this.skills.addXp(x.skill, x.xp * m);
+  }
+
+  /** Combat XP for `d` damage in the style you fight with now (a wound's
+   *  ticks, which have no blow of their own to go by). */
+  _styleXp(d) {
+    const mode = this.combatMode(), p = this.player;
+    return mode === 'ranged' ? combatXpRanged(p.style, d) : mode === 'magic' ? magicXp(d)
+      : mode === 'dance' ? combatXpDance(p.danceStyle, d) : combatXp(p.style, d);
   }
 
   /** Water's Chill: the foe moves and attacks slower for a few ticks (see
