@@ -841,20 +841,20 @@ export class TerrainFx {
           sg.globalCompositeOperation = 'destination-in';
           sg.drawImage(mrow.c, a, 0, sw, TILE, a, 0, sw, TILE);
           sg.globalCompositeOperation = 'source-over';
-          g.drawImage(strip.c, a, 0, sw, TILE, a, sy, sw, TILE);
-          // The seam along that edge, on grass tiles only.
+          // The seam along that edge (grass tiles only) goes onto the same strip, so it costs no extra copy.
           const sk = SEAM_K[t];
           if (sk) {
             for (const [x, p] of row) {
               if (p.t !== t || !SEAM_GRASS.has(world.terrainAt(x, y))) continue;
               const sm = this._mask(p.bits, p.v, 's');
               if (!sm) continue;
-              g.globalAlpha = Math.min(1, sk);
-              g.drawImage(sm, x * TILE - ox, sy);
-              if (sk > 1) { g.globalAlpha = sk - 1; g.drawImage(sm, x * TILE - ox, sy); }
+              sg.globalAlpha = Math.min(1, sk);
+              sg.drawImage(sm, x * TILE - ox, 0);
+              if (sk > 1) { sg.globalAlpha = sk - 1; sg.drawImage(sm, x * TILE - ox, 0); }
             }
-            g.globalAlpha = 1;
+            sg.globalAlpha = 1;
           }
+          g.drawImage(strip.c, a, 0, sw, TILE, a, sy, sw, TILE);
         }
         yield;
       }
