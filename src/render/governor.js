@@ -22,6 +22,15 @@ export function slowFrames(slowAvg) { return slowAvg > SLOW_FRAME_MS; }
  *  extras already trimmed (the picture's sharpness is the last thing to go). */
 export function shouldScaleDown(slowAvg, trimmed) { return slowAvg > 33 && trimmed; }
 
+/** How long after play starts before frames count toward the trim and the
+ *  resolution: the first area's ground, pictures and monster outlines are
+ *  still being made ready then (spread over frames, see BakeBudget below). */
+export const SETTLE_MS = 3000;
+/** Whether this frame should count toward the trim and the resolution: only
+ *  in play (not on the title, whose loading runs slow on any phone) and once
+ *  play has run for SETTLE_MS. */
+export function judgeFrames(playing, playMs) { return !!playing && playMs >= SETTLE_MS; }
+
 export const TRIM_ON_MS = 14;       // average work above this (ms) for TRIM_ON_HOLD: trim
 export const TRIM_OFF_MS = 9;       // ...below this for TRIM_OFF_HOLD: back to full
 export const TRIM_ON_HOLD = 1500;
@@ -44,3 +53,40 @@ export class FxGovernor {
     return this.trim;
   }
 }
+
+/**
+ * A time allowance a frame for one-off bakes that would otherwise all land in
+ * one frame: when a rigged monster's pictures arrive, every part gets its ink
+ * outline baked (rigink.js), and the depth view bakes a soft outline of each
+ * tree and landmark for its cast shadow (depthview.js). Entering an area (or
+ * starting the game) asked for all of them at once: most of a second in one
+ * frame on a phone. The renderer starts each frame with frame(); bakers ask
+ * ok() first and report what they spent. Once `ms` is used up nothing more is
+ * baked until the next frame (the first bake of a frame always may run, so
+ * each frame makes progress). Without frames (nothing drawing the world) the
+ * allowance comes back after `idle` ms. What isn't ready yet draws as it would
+ * before its pictures came: the monster's single sticker, or no cast shadow
+ * for that tree a moment longer.
+ */
+export class BakeBudget {
+  constructor(ms = 6, idle = 250, clock = () => performance.now()) {
+    this.ms = ms; this.idle = idle; this.clock = clock;
+    this.spent = 0; this.at = -Infinity;
+  }
+  /** A new frame: a fresh allowance. */
+  frame() { this.spent = 0; this.at = this.clock(); }
+  /** Whether a bake may run now. */
+  ok() {
+    if (this.spent >= this.ms && this.clock() - this.at >= this.idle) this.frame();
+    return this.spent < this.ms;
+  }
+  /** Note a bake that took `ms`. */
+  spend(ms) { this.spent += Math.max(0, ms); }
+  /** Run `bake()` and note its time. */
+  run(bake) {
+    const t0 = this.clock();
+    try { return bake(); } finally { this.spend(this.clock() - t0); }
+  }
+}
+/** The one allowance the renderer's bakes share (renderer.js starts its frames). */
+export const bakeBudget = new BakeBudget();

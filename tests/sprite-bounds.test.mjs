@@ -58,11 +58,15 @@ globalThis.document = { createElement: () => fakeCanvas() };
 
 const S = await import('../src/render/sprites.js');
 const { NPCS } = await import('../src/data/npcs.js');
+const { bakeBudget } = await import('../src/render/governor.js');
 
 const within = (b, o, slack = 1e-6) => b[0] >= o[0] - slack && b[1] >= o[1] - slack && b[2] <= o[2] + slack && b[3] <= o[3] + slack;
 
 test('a rigged monster\'s hit flash is coloured from a box that holds every posed layer', () => {
   let checked = 0;
+  // Ink outlines are baked a few a frame in the game (governor.js BakeBudget); here every rig is inked at once.
+  const was = bakeBudget.ms;
+  bakeBudget.ms = Infinity;
   for (const id of S.rigIds()) {
     const kind = S.rigKind(id);
     if (kind !== 'boss' && kind !== 'species') continue;
@@ -94,6 +98,7 @@ test('a rigged monster\'s hit flash is coloured from a box that holds every pose
       }
     }
   }
+  bakeBudget.ms = was;
   assert.ok(checked > 100, `checked ${checked} flashes`);
 });
 

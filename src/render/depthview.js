@@ -2,6 +2,7 @@ import { TILE } from '../config.js';
 import { DEPTH_TILT, relV, rowScaleRel } from './projection.js';
 import { worldArtBox, worldArtMax, SHADOW_RGB } from './sprites.js';
 import { clamp01, smooth } from './motionkit.js';
+import { bakeBudget } from './governor.js';
 
 // The depth view (Settings > Depth view, on by default): the flat world seen
 // by a camera leaning back a little, using the same 2D sticker art.
@@ -113,6 +114,7 @@ export class DepthView {
     this.ok = typeof document !== 'undefined' && !!document.createElement;
     this.buf = null; this.g = null;
     this._sil = new WeakMap();
+    this.budget = bakeBudget;   // shared with the monsters' ink outlines (governor.js)
     this._box = {};
     this._sv = {};
     this._hz = [0, 0, 0];
@@ -188,6 +190,11 @@ export class DepthView {
   _silhouette(img) {
     let s = this._sil.get(img);
     if (s !== undefined) return s;
+    // A few a frame (governor.js BakeBudget): entering an area asked for every
+    // tree's and landmark's at once. One not baked yet casts no shadow for a
+    // frame or two (they are asked for well before they come into view).
+    if (!this.budget.ok()) return null;
+    const t0 = this.budget.clock();
     s = null;
     try {
       const r = Math.min(1, SIL_MAX / img.naturalHeight), w = Math.max(2, Math.round(img.naturalWidth * r)), h = Math.max(2, Math.round(img.naturalHeight * r));
@@ -203,6 +210,7 @@ export class DepthView {
       gb.drawImage(a, pad, pad);
       s = { cv: b };
     } catch { s = null; }
+    this.budget.spend(this.budget.clock() - t0);
     this._sil.set(img, s);
     return s;
   }
@@ -271,11 +279,22 @@ export class DepthView {
     const col = hazeColour(phase, mood, this._hz);
     const night = phase < 0.24 || phase > 0.8;
     const a = (night ? 0.34 : 0.58) * Math.min(1, tilt);
-    const band = pj.vh * HAZE_TOP;
-    // One gradient fill (made again only when its colour or size moves on).
-    const key = `${col[0] >> 3},${col[1] >> 3},${col[2] >> 3},${Math.round(a * 40)},${band | 0}`;
-    if (key !== this._hazeKey) { this._hazeKey = key; this._hazePic = this._hazeFill(ctx, col, a, band); }
-    if (this._hazePic) { ctx.fillStyle = this._hazePic; ctx.fillRect(0, 0, pj.vw, band); }
+    const band = pj.vh * HAZE_TOP, D = pj.D || 1;
+    // The band is the same from side to side, so it is painted once (again
+    // only when its colour or size moves on) into a column one pixel wide at
+    // the screen's own pixels, and that column is drawn across the screen: a
+    // gradient worked out over a third of the screen every frame cost a phone
+    // a couple of milliseconds. (Its size in device px stays put through a
+    // fight's zoom: the view shrinks as the scale grows.)
+    const bandPx = band * D;
+    const key = `${col[0] >> 3},${col[1] >> 3},${col[2] >> 3},${Math.round(a * 40)},${Math.round(bandPx * 16)}`;
+    if (key !== this._hazeKey) { this._hazeKey = key; this._hazePic = this._hazeFill(ctx, col, a, band, bandPx); }
+    const hp = this._hazePic;
+    if (hp && hp.width) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(hp, 0, 0, 1, hp.height, 0, 0, pj.vw * D, hp.height);
+      ctx.setTransform(D, 0, 0, D, 0, 0);
+    } else if (hp) { ctx.fillStyle = hp; ctx.fillRect(0, 0, pj.vw, band); }
     if (trim) return;
     const wisp = this._wisp || (this._wisp = this._bakeWisp());
     if (!wisp) return;
@@ -291,14 +310,26 @@ export class DepthView {
     ctx.globalAlpha = 1;
   }
 
-  _hazeFill(ctx, col, a, band) {
-    if (!ctx.createLinearGradient) return null;
-    const gr = ctx.createLinearGradient(0, 0, 0, band);
-    const c = `${col[0] | 0},${col[1] | 0},${col[2] | 0}`;
-    gr.addColorStop(0, `rgba(${c},${a.toFixed(3)})`);
-    gr.addColorStop(0.35, `rgba(${c},${(a * 0.5).toFixed(3)})`);
-    gr.addColorStop(1, `rgba(${c},0)`);
-    return gr;
+  /** The haze band's column (1 x bandPx device px), or the gradient itself when no canvas can be made. */
+  _hazeFill(ctx, col, a, band, bandPx) {
+    const grad = (g, h) => {
+      const gr = g.createLinearGradient(0, 0, 0, h);
+      const c = `${col[0] | 0},${col[1] | 0},${col[2] | 0}`;
+      gr.addColorStop(0, `rgba(${c},${a.toFixed(3)})`);
+      gr.addColorStop(0.35, `rgba(${c},${(a * 0.5).toFixed(3)})`);
+      gr.addColorStop(1, `rgba(${c},0)`);
+      return gr;
+    };
+    try {
+      const cv = this._hazeCol || (this._hazeCol = document.createElement('canvas'));
+      const g = cv.getContext('2d'), h = Math.max(1, Math.ceil(bandPx));
+      if (g) {
+        if (cv.width !== 1 || cv.height !== h) { cv.width = 1; cv.height = h; } else g.clearRect(0, 0, 1, h);
+        g.fillStyle = grad(g, bandPx); g.fillRect(0, 0, 1, bandPx);
+        return cv;
+      }
+    } catch { /* no canvas: fill with the gradient */ }
+    return ctx.createLinearGradient ? grad(ctx, band) : null;
   }
 
   _bakeWisp() {
