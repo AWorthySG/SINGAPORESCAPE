@@ -177,13 +177,43 @@ export const RARITY_GLOW = {
 };
 export const lootGlow = (rarity) => RARITY_GLOW[rarity] || null;
 
-/** A drop's glow, beam and base ring, `ms` after it fell (the beam rises once
- *  it has landed). Low graphics keeps the glow and ring and skips the beam's halo. */
-export function drawLootGlow(ctx, rarity, cx, cy, ms, timeMs, low) {
+// The soft glow under a drop: a round pool of its rarity's colour, bright in the
+// middle and fading out, baked once per colour and stretched to size.
+const _glows = {};
+export function glowImage(col) {
+  if (_glows[col] !== undefined) return _glows[col];
+  let c = null;
+  try {
+    if (typeof document !== 'undefined' && document.createElement) {
+      c = document.createElement('canvas'); c.width = c.height = 48;
+      const g = c.getContext('2d');
+      const rg = g.createRadialGradient(24, 24, 0, 24, 24, 24);
+      rg.addColorStop(0, col + 'b0'); rg.addColorStop(0.45, col + '70'); rg.addColorStop(1, col + '00');
+      g.fillStyle = rg; g.fillRect(0, 0, 48, 48);
+    }
+  } catch { c = null; }
+  return (_glows[col] = c);
+}
+
+/** What a drop of `rarity` shows on the ground: { glow, beam, ring, pulse,
+ *  sparkle } (each true or false), or null for none. Rare and up glow and
+ *  stand in a beam of light; low graphics and slow frames (`low`) keep the
+ *  glow and ring but skip the beam; Reduce motion (`calm`) keeps everything
+ *  still: no pulsing, no ring spreading out, no glints circling. */
+export function lootLook(rarity, low = false, calm = false) {
   const L = lootGlow(rarity);
-  if (!L) return;
+  if (!L) return null;
+  return { glow: true, beam: !low && L.beam > 0, ring: true, pulse: !calm, sparkle: L.sparkle && !low };
+}
+
+/** A drop's glow, beam and base ring, `ms` after it fell (the beam rises once
+ *  it has landed). See lootLook for what low graphics and Reduce motion keep. */
+export function drawLootGlow(ctx, rarity, cx, cy, ms, timeMs, low, calm = false) {
+  const L = lootGlow(rarity), look = lootLook(rarity, low, calm);
+  if (!look) return;
+  const wave = (k, ph = 0) => (look.pulse ? Math.sin(timeMs * k + ph) : 0);
   ctx.save();
-  if (L.beam) {
+  if (look.beam) {
     const grow = Math.min(1, Math.max(0, ms - 300) / 260);
     const bh = L.beam * grow, bw = 4 + L.beam / 12;
     // The painted beam, tinted to the rarity (baked once per colour), else the plain column.
@@ -191,29 +221,30 @@ export function drawLootGlow(ctx, rarity, cx, cy, ms, timeMs, low) {
     const img = bh > 1 && !art ? columnImage(L.col) : null;
     if (art) {
       const h = bh * 1.2, w = h * 0.48;
-      ctx.globalAlpha = 0.62 + Math.sin(timeMs * 0.008) * 0.1;
+      ctx.globalAlpha = 0.62 + wave(0.008) * 0.1;
       ctx.drawImage(art, cx - w / 2, cy - h + 5, w, h);
     } else if (img) {
-      if (!low) { ctx.globalAlpha = 0.5 + Math.sin(timeMs * 0.006) * 0.12; ctx.drawImage(img, cx - bw * 2.4, cy - bh * 1.15, bw * 4.8, bh * 1.15 + 4); }
-      ctx.globalAlpha = 0.85 + Math.sin(timeMs * 0.012) * 0.12;
+      ctx.globalAlpha = 0.5 + wave(0.006) * 0.12; ctx.drawImage(img, cx - bw * 2.4, cy - bh * 1.15, bw * 4.8, bh * 1.15 + 4);
+      ctx.globalAlpha = 0.85 + wave(0.012) * 0.12;
       ctx.drawImage(img, cx - bw / 2, cy - bh, bw, bh + 2);
     }
   }
-  // A ring pulsing out from its base.
-  const ring = (timeMs % 900) / 900;
-  ctx.globalAlpha = 1 - ring;
+  // The soft glow underneath (a baked pool of colour; a plain disc headless).
+  const gl = glowImage(L.col), r = L.glow * 1.5;
+  ctx.globalAlpha = 0.6 + wave(0.005, cx * 0.1) * 0.1;
+  if (gl) ctx.drawImage(gl, cx - r, cy - r * 0.62 + 2, r * 2, r * 1.24);
+  else { ctx.globalAlpha *= 0.55; ctx.fillStyle = L.col; ctx.beginPath(); ctx.arc(cx, cy, L.glow, 0, 6.2832); ctx.fill(); }
+  // A ring at its base, spreading out and fading (held still under Reduce motion).
+  const ring = look.pulse ? (timeMs % 900) / 900 : 0.35;
+  ctx.globalAlpha = look.pulse ? 1 - ring : 0.55;
   ctx.strokeStyle = L.col; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.ellipse(cx, cy + 3, 6 + ring * 9, 3 + ring * 4.5, 0, 0, 6.2832); ctx.stroke();
-  // The soft glow underneath.
-  ctx.globalAlpha = 0.32 + Math.sin(timeMs * 0.005 + cx * 0.1) * 0.06;
-  ctx.fillStyle = L.col;
-  ctx.beginPath(); ctx.arc(cx, cy, L.glow, 0, 6.2832); ctx.fill();
-  if (L.sparkle) {
-    // Legendary: two glints circling the drop.
+  if (look.sparkle) {
+    // Legendary: two glints circling the drop (still, either side of it, under Reduce motion).
     ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1; ctx.fillStyle = '#fff6c8';
     for (let i = 0; i < 2; i++) {
-      const a = timeMs * 0.003 + i * Math.PI, r = 2.4 * (0.6 + 0.4 * Math.sin(timeMs * 0.01 + i * 2));
-      glint(ctx, cx + Math.cos(a) * 12, cy - 6 + Math.sin(a) * 5, r);
+      const a = (look.pulse ? timeMs * 0.003 : 0.4) + i * Math.PI, rr = 2.4 * (0.6 + 0.4 * (look.pulse ? Math.sin(timeMs * 0.01 + i * 2) : 0.5));
+      glint(ctx, cx + Math.cos(a) * 12, cy - 6 + Math.sin(a) * 5, rr);
     }
   }
   ctx.restore();

@@ -13,6 +13,7 @@ import { poseBlender } from './poseBlend.js';
 import { swingBeats, turnWidth, turnHop, lookAround, breath } from './motionkit.js';
 import { animSeed, animTempo, stepLift, stepRock, fidget, hitFlash, flinch, telegraphGlow, telegraphShake, telegraphCrouch, fidgetLand } from './creatureanim.js';
 import { CREATURE_RIGS, TOWN_IDLE, bossRig, stride, gaitPhase } from './creatureRigs.js';
+import { RIG_INK, rigSize, inkPart } from './rigink.js';
 import { REGION_GIVERS } from '../data/regionQuests.js';
 import { RESIDENTS } from '../data/consequences.js';
 import { PORTRAIT_CROPS } from '../data/portraitcrops.js';
@@ -540,6 +541,8 @@ function rigLayers(id, rig = RIGS[id]) {
 export const rigIds = () => Object.keys(RIGS);
 export const rigParts = (id) => RIGS[id] && [...rigFiles(RIGS[id])];
 export const rigKind = (id) => RIGS[id] && (RIGS[id].kind || 'boss');
+// A rig's drawn layers (back to front) and its fit against the still picture (for tests and tools).
+export const rigInfo = (id) => RIGS[id] && { kind: RIGS[id].kind || 'boss', fit: RIGS[id].fit || 1, order: [...RIGS[id].order] };
 // A part's joint (fraction of the layer canvas); an alternate picture turns about its part's joint.
 export const rigPivot = (id, n) => RIGS[id] && (RIGS[id].parts[n] || Object.values(RIGS[id].parts).find((p) => p.alt === n))?.piv;
 // Townsfolk with idle parts, and the layer files each one ships.
@@ -563,10 +566,19 @@ function growRigBox(box, x0, y0, w, h, px, py, a, s) {
   }
 }
 // Each layer, posed for this frame, onto `g` (the screen or the scratch canvas),
-// noting the area the posed layers cover in `box` when one is given.
-function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null) {
-  for (const n of rig.order) {
+// noting the area the posed layers cover in `box` when one is given. With
+// `res`, each layer's navy copy goes down first in the same pose, so the body
+// gets the stickers' ink line round its outside (rigink.js).
+function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null, res = 0) {
+  for (let pass = res > 0 ? 0 : 1; pass < 2; pass++) for (const n of rig.order) {
     const part = rig.parts[n];
+    // Some parts swap to another picture for a moment (a mouth opening to bite, a claw opening).
+    const img = part && part.alt && part.swap(opts) ? imgs[part.alt] : imgs[n];
+    const k = res > 0 ? inkPart(img, w, h, res) : null;
+    if (!pass && !k) continue;
+    // What this pass draws: the navy copy, the painted box of the layer, or the whole layer.
+    const dx = pass ? (k && k.sw > 0 ? x0 + k.ax : x0) : x0 + k.x, dy = pass ? (k && k.sw > 0 ? y0 + k.ay : y0) : y0 + k.y;
+    const dw = pass ? (k && k.sw > 0 ? k.aw : w) : k.w, dh = pass ? (k && k.sw > 0 ? k.ah : h) : k.h;
     g.save();
     if (part) {
       const px = x0 + part.piv[0] * w, py = y0 + part.piv[1] * h;
@@ -576,11 +588,11 @@ function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null) {
       if (part.swing) g.rotate(a);
       if (gr !== 1) g.scale(gr, gr);
       g.translate(-px, -py);
-      if (box) growRigBox(box, x0, y0, w, h, px, py, a, gr);
-    } else if (box) growRigBox(box, x0, y0, w, h, 0, 0, 0, 1);
-    // Some parts swap to another picture for a moment (a mouth opening to bite, a claw opening).
-    const img = part && part.alt && part.swap(opts) ? imgs[part.alt] : imgs[n];
-    g.drawImage(img, x0, y0, w, h);
+      if (box) growRigBox(box, dx, dy, dw, dh, px, py, a, gr);
+    } else if (box) growRigBox(box, dx, dy, dw, dh, 0, 0, 0, 1);
+    if (!pass) g.drawImage(k.cv, dx, dy, dw, dh);
+    else if (k && k.sw > 0) g.drawImage(img, k.sx, k.sy, k.sw, k.sh, dx, dy, dw, dh);   // just the painted part of the layer
+    else g.drawImage(img, dx, dy, dw, dh);
     g.restore();
   }
 }
@@ -590,7 +602,8 @@ function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null) {
 function drawRig(c, id, imgs, opts, t, flash, flashCol) {
   const rig = RIGS[id];
   const base = imgs[rig.order[0]];   // every layer shares one canvas size
-  const s = Math.min(34 / base.naturalHeight, 64 / base.naturalWidth) * (rig.fit || 1);
+  // Sized to cover the same area as the monster's single picture (rigink.js rigSize).
+  const s = Math.min(34 / base.naturalHeight, 64 / base.naturalWidth) * (rig.fit || 1) * rigSize(id);
   const w = base.naturalWidth * s, h = base.naturalHeight * s, x0 = -w / 2, y0 = 13.5 - h;
   const species = rig.kind === 'species', res = species ? SPECIES_RIG_RES : RIG_RES;
   // Most frames (no hit flash, fully opaque) the parts go straight onto the
@@ -602,7 +615,7 @@ function drawRig(c, id, imgs, opts, t, flash, flashCol) {
     c.save();
     const b0 = rig.body && rig.body(t, opts);
     if (b0) c.transform(b0.sx, 0, -b0.lean, b0.sy, 13.5 * b0.lean, 13.5 * (1 - b0.sy) + b0.dy);
-    drawRigParts(c, rig, imgs, opts, t, x0, y0, w, h);
+    drawRigParts(c, rig, imgs, opts, t, x0, y0, w, h, null, res);
     c.restore();
     return;
   }
@@ -619,7 +632,7 @@ function drawRig(c, id, imgs, opts, t, flash, flashCol) {
   if (b) g.transform(b.sx, 0, -b.lean, b.sy, 13.5 * b.lean, 13.5 * (1 - b.sy) + b.dy);
   const box = flash > 0.01 ? _rigBox : null;
   if (box) { box.x0 = box.y0 = Infinity; box.x1 = box.y1 = -Infinity; }
-  drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box);
+  drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box, res);
   // A tinted copy of this frame, for the hit flash. (Species rigs no longer get a
   // white border traced round them: monsters go without one, see MONSTER_BOX.)
   // Only the posed layers' box (through the body's sway, in scratch pixels, with
@@ -674,7 +687,7 @@ const ST_X0 = -40, ST_Y0 = -50, ST_W = 80, ST_H = 76;   // local box monster art
 const ST_RES = 2;                                       // offscreen pixels per local unit
 const ST_INK = '#22304A';
 // Monsters have no white die-cut border (the owner found it goofy in the world): just the navy ink line.
-const MONSTER_BOX = { x0: ST_X0, y0: ST_Y0, w: ST_W, h: ST_H, ink: 1.3, cut: 0 };
+const MONSTER_BOX = { x0: ST_X0, y0: ST_Y0, w: ST_W, h: ST_H, ink: RIG_INK, cut: 0 };   // (rigs draw the same line, rigink.js)
 const ITEM_BOX = { x0: -14, y0: -14, w: 28, h: 28, ink: 0.8, cut: 1.9 };
 const _stickers = new Map();
 const _stScratch = {};

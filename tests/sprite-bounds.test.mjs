@@ -81,7 +81,11 @@ test('a rigged monster\'s hit flash is coloured from a box that holds every pose
         const scratch = copy.o.img._ctx;
         const layers = scratch.ops.filter((o) => o.op === 'drawImage');
         assert.ok(layers.length >= 2, `${id}: its layers were composed`);
-        for (const l of layers) assert.ok(within(l.box, [sx, sy, sx + sw, sy + sh]), `${id} at ${t}: a layer at ${l.box.map((v) => v.toFixed(1))} lies outside the flash box ${[sx, sy, sx + sw, sy + sh]}`);
+        // (Only the part of a layer on the scratch canvas counts: the rest is cut off anyway. A whole
+        // layer's navy copy, as these stand-in pictures give, can reach past the canvas's edge.)
+        const cw = copy.o.img.width, ch = copy.o.img.height;
+        const onCanvas = (b) => [Math.max(0, b[0]), Math.max(0, b[1]), Math.min(cw, b[2]), Math.min(ch, b[3])];
+        for (const l of layers) assert.ok(within(onCanvas(l.box), [sx, sy, sx + sw, sy + sh]), `${id} at ${t}: a layer at ${l.box.map((v) => v.toFixed(1))} lies outside the flash box ${[sx, sy, sx + sw, sy + sh]}`);
         // ...and the colour goes on over that same box, and only there.
         const fill = copy.c.ops.find((o) => o.op === 'fillRect');
         assert.deepEqual(fill.args, [sx, sy, sw, sh]);

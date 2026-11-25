@@ -373,6 +373,17 @@ export class CombatFx {
     this._end(delay);
   }
 
+  /** A rare-or-better drop picked up: a little burst of twinkles in its
+   *  rarity's colour (more for the rarer), and a ring of light unless `calm`
+   *  (Reduce motion). */
+  lootSparkle(x, y, col, rank = 1, calm = false) {
+    this._begin();
+    this._burst(TWINKLE, x, y - 4, this._n(3 + rank * 2), calm ? 0.025 : 0.07, 520, col, { up: -0.05, size: 2.6 + rank * 0.3 });
+    this._burst(TWINKLE, x, y - 4, this._n(2), calm ? 0.02 : 0.05, 480, '#fff6c8', { up: -0.04, size: 2.4 });
+    if (!calm) this.ring(x, y + 2, 3, 12 + rank * 3, 300, col, 2, 0.5);
+    this._end(0);
+  }
+
   /** A milestone level: a ring of light, rays and twinkles (the game adds the
    *  confetti and the sound as for any level). */
   levelBurst(x, y) {
@@ -800,6 +811,17 @@ export function dropFx(game, gi, x, y, wait = 0) {
   if (!fx || gi.id !== 'coins') return;
   fx.low = lowOf(game);
   fx.coinSparkle(x, y, Math.max(0, wait) + DROP_ARC_MS);
+}
+
+/** A drop flying into your pack (the game's 'lootfly' effect, from the
+ *  renderer the first frame it is drawn): rare and better ones sparkle where
+ *  they lay. Commons pop up quietly as before. */
+export function pickupFx(game, e) {
+  const fx = game.cfx, rar = RARITY[e?.rarity];
+  if (!fx || !rar || rar.rank < RARITY.rare.rank) return false;
+  fx.low = lowOf(game);
+  fx.lootSparkle(e.x, e.y, rar.color, rar.rank, !!game.reduceMotion);
+  return true;
 }
 
 /** A monster has just come back (from the renderer, the first frame it is seen
