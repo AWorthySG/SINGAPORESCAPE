@@ -6,10 +6,12 @@
 // `piv` is each part's joint as a fraction of that canvas. The tables below
 // are measured from the sheets; the motions are shared by body plan.
 import { TICK_MS } from '../config.js';
+import { swingBeats } from './motionkit.js';
 
 const ease = (x) => 1 - (1 - x) * (1 - x);
-// Wind-up, strike and recovery of an attack swing (attackK runs 0..1).
-const atkPhase = (ak) => (ak < 0 ? null : ak < 0.35 ? { wind: ease(ak / 0.35), hit: 0 } : ak < 0.6 ? { wind: 1 - (ak - 0.35) / 0.25, hit: Math.sin(((ak - 0.35) / 0.25) * Math.PI / 2) } : { wind: 0, hit: 1 - ease((ak - 0.6) / 0.4) });
+// Wind-up, strike, hold and recovery of an attack swing (attackK runs 0..1),
+// on the shared beat (motionkit.js) so every limb lands with the body's lunge.
+const atkPhase = swingBeats;
 const walking = (o) => o.move ?? (o.moving ? 1 : 0);
 const cast = (o) => (o.castK > 0 ? Math.sin(o.castK * Math.PI) : 0);
 // Snarling, roaring or angry faces show while a blow lands or a signature move plays.

@@ -81,6 +81,22 @@ export function telegraphGlow(age) {
 }
 /** How much it trembles while charging (0..1): it starts still and shakes harder as the blow nears. */
 export const telegraphShake = (age) => (age >= 0 ? Math.min(1, age / 700) : 0);
+/** How far a charging creature has gathered itself (0..1): it sinks back
+ *  into a crouch over the first 600ms of the charge, and when the blow is
+ *  let go the crouch eases out over about 70ms (into the swing's own
+ *  wind-up) instead of vanishing in one frame. Kept on the creature
+ *  (`now` is the draw time); without one, the charge's own curve. */
+export const CROUCH_MS = 600, UNCROUCH_MS = 70;
+export function telegraphCrouch(n, charging, age, now) {
+  const want = charging && age >= 0 ? 1 - (1 - Math.min(1, age / CROUCH_MS)) ** 2 : charging ? 1 : 0;
+  if (!n || typeof n !== 'object') return want;
+  const v = n._crV || 0;
+  if (!(want > 0) && !(v > 0)) return 0;   // never charged: nothing kept on it
+  const dt = n._crT >= 0 && now >= n._crT ? now - n._crT : 0;
+  const out = want >= v ? want : want + (v - want) * Math.exp(-dt / UNCROUCH_MS);
+  n._crV = out < 1e-3 ? 0 : out; n._crT = now;
+  return n._crV;
+}
 
 // ---------------- Danger on the ground ----------------
 /** The pulse (0..1) of a boss's marked ground `age` ms into its `dur` ms
@@ -115,10 +131,14 @@ export function spawnPose(k, out = {}) {
 /** A felled creature `k` (0..1) of the way through its fall (420ms): a quick
  *  jolt upright as the blow lands, then it tips over faster and faster, bumps
  *  as it hits the ground and fades. `rot` is the share of a quarter turn,
- *  `sx`/`sy` a squash about the feet, `a` its opacity. */
+ *  `sx`/`sy` a squash about the feet, `a` its opacity, and `slide` (0..1)
+ *  how far it has been knocked back along the ground, easing to a stop as it
+ *  lands (the renderer tips it and slides it away from the killing blow). */
 export function deathPose(k, out = {}) {
   k = Math.max(0, Math.min(1, k));
   out.sx = 1; out.sy = 1;
+  const s = Math.min(1, k / 0.62);
+  out.slide = 1 - (1 - s) * (1 - s) * (1 - s);
   if (k < 0.14) {
     const j = Math.sin((k / 0.14) * Math.PI);
     out.rot = -0.05 * j; out.sx = 1 - 0.08 * j; out.sy = 1 + 0.1 * j;
@@ -126,7 +146,9 @@ export function deathPose(k, out = {}) {
     const f = (k - 0.14) / 0.46;
     out.rot = f * f;
   } else if (k < 0.8) {
-    out.rot = 1 - 0.09 * Math.sin(((k - 0.6) / 0.2) * Math.PI);
+    const b = Math.sin(((k - 0.6) / 0.2) * Math.PI);
+    out.rot = 1 - 0.09 * b;
+    out.sx = 1 + 0.06 * b; out.sy = 1 - 0.08 * b;   // flattened a touch as it thumps down
   } else out.rot = 1;
   const fade = Math.max(0, (k - 0.5) / 0.5);
   out.a = 1 - fade * fade;
