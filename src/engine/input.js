@@ -109,9 +109,16 @@ export function guardTouchZoom(doc = globalThis.document) {
   doc.addEventListener('gesturechange', stop, active);
   doc.addEventListener('dblclick', stop, active);
   // Safari reports a pinch's scale on touchmove; one-finger scrolls are untouched.
-  doc.addEventListener('touchmove', (e) => {
-    if (e.touches?.length > 1 && typeof e.scale === 'number' && e.scale !== 1) stop(e);
-  }, active);
+  // Only WebKit (which has gesture events) gives touchmove a scale: elsewhere
+  // the listener could never act, and a page-wide touchmove listener that may
+  // cancel makes the browser wait for the busy game thread before every list
+  // starts to scroll. (Chrome keeps pinches out with user-scalable=no.)
+  const win = doc.defaultView || globalThis.window;
+  if (win && ('GestureEvent' in win || 'ongesturestart' in win)) {
+    doc.addEventListener('touchmove', (e) => {
+      if (e.touches?.length > 1 && typeof e.scale === 'number' && e.scale !== 1) stop(e);
+    }, active);
+  }
   let lastEnd = -1e9;
   doc.addEventListener('touchend', (e) => {
     const quick = e.timeStamp - lastEnd < 300;

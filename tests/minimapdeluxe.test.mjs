@@ -11,6 +11,7 @@ import { TERRAIN as T } from '../src/data/world.js';
 import {
   ART_RGB, ART_INK, paintMinimapArt, minimapObjectBadge, minimapNpcBadge, BADGE, BADGE_ESSENTIAL,
   rimPoint, MinimapChunks, MM_CHUNK_CAP, MM_BAKES_PER_DRAW, bakeMinimapPatch, badgeSprite, minimapRing,
+  startMapBake, MAP_BAND_ROWS,
 } from '../src/render/minimapart.js';
 
 /** A little world from rows of terrain codes (outside it is water). */
@@ -211,4 +212,23 @@ test('the minimap stylesheet: linked before compact.css, the canvas carries the 
   const css = readFileSync(new URL('../styles/minimap.css', import.meta.url), 'utf8');
   assert.match(css, /#minimap-compass \{ display: none; \}/, 'the separate N badge gives way to the ring\'s own');
   assert.match(css, /#minimap-panel #minimap-region \{[^}]*margin-top: -14px/, 'the area name hangs off the ring');
+});
+
+test('the world map baked a band of rows at a time is the same picture as baked whole', () => {
+  const G = T.GRASS, Wt = T.WATER, P = T.PATH;
+  const rows = [];
+  for (let y = 0; y < 23; y++) rows.push([...Array(17)].map((_, x) => ((x - 8) ** 2 + (y - 11) ** 2 < 20 ? Wt : y % 6 === 0 ? P : G)));
+  const world = gridWorld(rows), R = 2, W = 17, H = 23, row = W * R * 4;
+  const whole = new Uint8ClampedArray(W * R * H * R * 4);
+  paintMinimapArt(world, whole, 0, 0, W, H, R);
+  for (const band of [1, 5, MAP_BAND_ROWS]) {
+    const joined = new Uint8ClampedArray(whole.length);
+    for (let y = 0; y < H; y += band) {
+      const n = Math.min(band, H - y), part = new Uint8ClampedArray(W * R * n * R * 4);
+      paintMinimapArt(world, part, 0, y, W, n, R);
+      joined.set(part, y * R * row);
+    }
+    assert.deepEqual(joined, whole, `bands of ${band} rows`);
+  }
+  assert.equal(startMapBake(world, W, H, R), null, 'headless: nothing to bake into');
 });

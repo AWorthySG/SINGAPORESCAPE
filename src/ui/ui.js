@@ -60,7 +60,7 @@ import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COS
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, effectiveRating, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED, TICK_MS } from '../config.js';
 import { zoneLevel } from '../data/world.js';
-import { paintMinimapTerrain, minimapNpcKind, MINIMAP_DOT, MinimapChunks, bakeMinimapPatch, minimapObjectBadge, minimapNpcBadge, BADGE_ESSENTIAL, badgeSprite, minimapRing, rimPoint } from '../render/minimapart.js';
+import { paintMinimapTerrain, minimapNpcKind, MINIMAP_DOT, MinimapChunks, bakeMinimapPatch, startMapBake, bakeInSpareTime, minimapObjectBadge, minimapNpcBadge, BADGE_ESSENTIAL, badgeSprite, minimapRing, rimPoint } from '../render/minimapart.js';
 import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../game/save.js';
 import { statSheet } from '../game/statsheet.js';
 import { statsPanelHTML } from './statspanel.js';
@@ -336,6 +336,7 @@ export class UI {
     this.lane ||= new NoticeLane(this);   // the one notification lane (noticelane.js)
     this.quickSlot = new QuickSlot(this);   // food / potion button beside Attack (hudease.js)
     this.bus.on('tick', () => this.lane.placeSoon());
+    this.bus.on('tick', () => this._warmWorldMap());
     this.xpHud = new XpDisplay(this);   // XP counter, progress ring and level-up toasts (xpdisplay.js)
     this.compactHud = new CompactHud(this);   // Auto caption, quiet chat, area name on arrival (compacthud.js)
     this.cmdSearch = new CmdSearch(this);   // the / or Ctrl+K search box (cmdsearch.js)
@@ -4665,7 +4666,8 @@ export class UI {
     // The terrain never changes, so paint it once (one pixel per tile) and scale it up.
     // It is the minimap's sticker map, at the two pixels per tile the map is
     // drawn at (minimapart.js), painted on first open.
-    if (!this._mapBase) this._mapBase = bakeMinimapPatch(game.world, 0, 0, W, H, 2);
+    // (Usually baked already, in spare moments: _warmWorldMap.)
+    if (!this._mapBase) this._mapBase = this._mapBake ? this._mapBake.finish() : bakeMinimapPatch(game.world, 0, 0, W, H, 2);
     if (!this._mapBase) {
       const b = document.createElement('canvas');
       b.width = W; b.height = H;
@@ -4842,6 +4844,19 @@ export class UI {
 
   // ---------------- Minimap ----------------
   /** The whole map's terrain at one pixel per tile, built once (terrain never changes). */
+  /** Once you're playing (the title gone, a few ticks in), bake the world
+   *  map's picture in spare moments, so its first opening is quick (minimapart.js). */
+  _warmWorldMap() {
+    if (this._mapBake !== undefined || this._mapBase || typeof document === 'undefined') return;
+    const sp = document.getElementById('splash');
+    if (sp && !sp.classList.contains('hidden')) return;
+    this._mapWarmAt ??= this.game.tickCount + 15;
+    if (this.game.tickCount < this._mapWarmAt) return;
+    const w = this.game.world;
+    this._mapBake = startMapBake(w, w.width, w.mapHeight || w.height, 2);
+    if (this._mapBake) bakeInSpareTime(this._mapBake, (cv) => { this._mapBase ||= cv; });
+  }
+
   _minimapTerrain() {
     if (this._miniTerr !== undefined) return this._miniTerr;
     const world = this.game.world, w = world.width, h = world.height;

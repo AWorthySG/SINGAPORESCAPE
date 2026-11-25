@@ -124,14 +124,7 @@ export function paintMinimapArt(world, d, x0, y0, tw, th, R) {
     colT[i] = tx - tx0; colQ[i] = fx < 0.5 ? -1 : 1; colC[i] = cx * cx;
   }
   const E = new Uint8Array(ew * eh);
-  for (let j = 0; j < eh; j++) {
-    const gy = gy0 + j, ty = Math.floor(gy / R), fy = (gy - ty * R + 0.5) / R, cy = fy - 0.5, cy2 = cy * cy;
-    const row = (ty - ty0) * tcw, nrow = (ty + (fy < 0.5 ? -1 : 1) - ty0) * tcw;
-    for (let i = 0; i < ew; i++) {
-      const c = colT[i], t = TT[row + c], a = TT[row + c + colQ[i]];
-      E[j * ew + i] = a === t || a !== TT[nrow + c] ? t : colC[i] + cy2 > 0.25 ? a : t;
-    }
-  }
+  for (let j = 0; j < eh; j++) kindRow(E, j, ew, gy0, R, ty0, tcw, TT, colT, colQ, colC);
   // Per column and per row of the picture: which tile column/row of `plain`.
   const pcol = new Int32Array(pw);
   for (let x = 0; x < pw; x++) pcol[x] = Math.floor((gx0 + M + x) / R) - x0 + 1;
@@ -140,46 +133,63 @@ export function paintMinimapArt(world, d, x0, y0, tw, th, R) {
   const grainR = R >= 4 ? 1 : 0.4, half = R >> 1;
   const rgb = [], edge = [];   // each kind's colour and hairline, looked up by kind
   for (let t = 0; t < 256; t++) { rgb.push(ART_RGB[t] || ART_RGB[T.GRASS]); edge.push(ART_EDGE[t] || null); }
-  for (let y = 0; y < ph; y++) {
-    const gy = gy0 + M + y, prow = Math.floor(gy / R) - y0 + 1;
-    const rowPlain = prow >= 0 && prow < th + 2 ? prow * (tw + 2) : -1;
-    const hy = Math.floor(gy / ns), rippleRow = R >= 4 && gy % R === half, rippleY = Math.floor(gy / R);
-    const planks = R >= 4 && gy % half === 0, pave = R >= 6 && gy % R === 0;
-    for (let x = 0; x < pw; x++) {
-      const ei = (y + M) * ew + x + M, t = E[ei], gx = gx0 + M + x;
-      // How far (in pixels, up to S) to the nearest other kind, and which kind.
-      let dist = 0, n = t;
-      const pc = pcol[x];
-      if (!(rowPlain >= 0 && pc >= 0 && pc < tw + 2 && plain[rowPlain + pc] === 1)) {
-        for (let k = 1; k <= S && !dist; k++) {
-          const l = E[ei - k], r = E[ei + k], u = E[ei - k * ew], b = E[ei + k * ew];
-          if (l !== t) { dist = k; n = l; } else if (r !== t) { dist = k; n = r; }
-          else if (u !== t) { dist = k; n = u; } else if (b !== t) { dist = k; n = b; }
-        }
+  const st = { d, E, R, M, ew, pw, gx0, gy0, x0, y0, tw, th, S, ink, foam, plain, pcol, ns, cw, cwOn, grainR, half, rgb, edge };
+  // (A row at a time: a small function the engine optimises after a few rows,
+  // where one long loop would run slowly until it was swapped mid-way.)
+  for (let y = 0; y < ph; y++) artRow(st, y);
+}
+
+/** Each pixel's kind along one row `j` of the margin-wide grid. */
+function kindRow(E, j, ew, gy0, R, ty0, tcw, TT, colT, colQ, colC) {
+  const gy = gy0 + j, ty = Math.floor(gy / R), fy = (gy - ty * R + 0.5) / R, cy = fy - 0.5, cy2 = cy * cy;
+  const row = (ty - ty0) * tcw, nrow = (ty + (fy < 0.5 ? -1 : 1) - ty0) * tcw, base = j * ew;
+  for (let i = 0; i < ew; i++) {
+    const c = colT[i], t = TT[row + c], a = TT[row + c + colQ[i]];
+    E[base + i] = a === t || a !== TT[nrow + c] ? t : colC[i] + cy2 > 0.25 ? a : t;
+  }
+}
+
+/** Paint row `y` of the picture (see paintMinimapArt). */
+function artRow(st, y) {
+  const { d, E, R, M, ew, pw, gx0, gy0, y0, tw, th, S, ink, foam, plain, pcol, ns, cw, cwOn, grainR, half, rgb, edge } = st;
+  const gy = gy0 + M + y, prow = Math.floor(gy / R) - y0 + 1;
+  const rowPlain = prow >= 0 && prow < th + 2 ? prow * (tw + 2) : -1;
+  const hy = Math.floor(gy / ns), rippleRow = R >= 4 && gy % R === half, rippleY = Math.floor(gy / R);
+  const planks = R >= 4 && gy % half === 0, pave = R >= 6 && gy % R === 0;
+  for (let x = 0; x < pw; x++) {
+    const ei = (y + M) * ew + x + M, t = E[ei], gx = gx0 + M + x;
+    // How far (in pixels, up to S) to the nearest other kind, and which kind.
+    let dist = 0, n = t;
+    const pc = pcol[x];
+    if (!(rowPlain >= 0 && pc >= 0 && pc < tw + 2 && plain[rowPlain + pc] === 1)) {
+      for (let k = 1; k <= S && !dist; k++) {
+        const l = E[ei - k], r = E[ei + k], u = E[ei - k * ew], b = E[ei + k * ew];
+        if (l !== t) { dist = k; n = l; } else if (r !== t) { dist = k; n = r; }
+        else if (u !== t) { dist = k; n = u; } else if (b !== t) { dist = k; n = b; }
       }
-      let c = rgb[t], k = 1;
-      const h = hash2(Math.floor(gx / ns), hy);
-      if (t === T.WATER) {
-        if (dist && n !== T.WATER && dist <= foam) c = FOAM;
-        else if (dist && n !== T.WATER) c = SHALLOW;
-        else {
-          // Little ripple dashes scattered over open water (too small to read on the world map).
-          if (rippleRow && hash2(Math.floor(gx / cw), rippleY) < 0.16 && gx % cw < cwOn) c = RIPPLE;
-        }
-      } else if (dist && n === T.WATER && dist <= ink) c = ART_INK;
-      else if (dist <= ink && dist && !GREEN(t) && GREEN(n) && edge[t]) c = edge[t];
-      else {
-        if (dist && dist <= ink && GREEN(t) && !GREEN(n) && n !== T.WATER) k = 0.9;   // a soft shade where the lawn meets a road
-        // (A small map, the world map, keeps the grain faint and leaves out tufts.)
-        k *= 1 + (h - 0.5) * (GREEN(t) ? 0.09 : 0.05) * grainR;
-        if (GREEN(t) && R >= 4 && h > 0.965) c = t === T.GRASS ? TUFT_LIGHT : TUFT_DARK;   // the odd tuft
-        else if (t === T.WOOD && planks) k *= 0.86;           // planks
-        else if (t === T.STONE && pave) k *= 0.96;   // paving
-        else if (t === T.STONE && R >= 6 && gx % R === 0) k *= 0.96;
-      }
-      const o = (y * pw + x) * 4;
-      d[o] = c[0] * k; d[o + 1] = c[1] * k; d[o + 2] = c[2] * k; d[o + 3] = 255;
     }
+    let c = rgb[t], k = 1;
+    const h = hash2(Math.floor(gx / ns), hy);
+    if (t === T.WATER) {
+      if (dist && n !== T.WATER && dist <= foam) c = FOAM;
+      else if (dist && n !== T.WATER) c = SHALLOW;
+      else {
+        // Little ripple dashes scattered over open water (too small to read on the world map).
+        if (rippleRow && hash2(Math.floor(gx / cw), rippleY) < 0.16 && gx % cw < cwOn) c = RIPPLE;
+      }
+    } else if (dist && n === T.WATER && dist <= ink) c = ART_INK;
+    else if (dist <= ink && dist && !GREEN(t) && GREEN(n) && edge[t]) c = edge[t];
+    else {
+      if (dist && dist <= ink && GREEN(t) && !GREEN(n) && n !== T.WATER) k = 0.9;   // a soft shade where the lawn meets a road
+      // (A small map, the world map, keeps the grain faint and leaves out tufts.)
+      k *= 1 + (h - 0.5) * (GREEN(t) ? 0.09 : 0.05) * grainR;
+      if (GREEN(t) && R >= 4 && h > 0.965) c = t === T.GRASS ? TUFT_LIGHT : TUFT_DARK;   // the odd tuft
+      else if (t === T.WOOD && planks) k *= 0.86;           // planks
+      else if (t === T.STONE && pave) k *= 0.96;   // paving
+      else if (t === T.STONE && R >= 6 && gx % R === 0) k *= 0.96;
+    }
+    const o = (y * pw + x) * 4;
+    d[o] = c[0] * k; d[o + 1] = c[1] * k; d[o + 2] = c[2] * k; d[o + 3] = 255;
   }
 }
 const TUFT_LIGHT = [184, 222, 136], TUFT_DARK = [92, 150, 72];
@@ -192,11 +202,17 @@ const ROOFS = ['#F6A7A0', '#9ED9C4', '#C7B5F0', '#FFD98A', '#9CCBF2'];
  *  building blocks with a navy outline, tree blobs, pebbles, fishing ripples. */
 export function drawMinimapDecor(c, world, x0, y0, tw, th, R) {
   if (!world.objectsIn) return;
-  const lw = Math.max(0.75, R / 8);
   const objs = world.objectsIn(x0 - 12, y0 - 1, x0 + tw + 1, y0 + th + 12);
   // Buildings first (landmarks, stalls), then trees and rocks over the ground.
-  for (const o of objs) {
-    const def = o.def, fp = def.footprint;
+  decorBuildings(c, objs, 0, objs.length, x0, y0, R);
+  decorNature(c, objs, 0, objs.length, x0, y0, tw, th, R);
+}
+
+/** drawMinimapDecor's buildings, for objs[from, to). */
+function decorBuildings(c, objs, from, to, x0, y0, R) {
+  const lw = Math.max(0.75, R / 8);
+  for (let i = from; i < to; i++) {
+    const o = objs[i], def = o.def, fp = def.footprint;
     if (!fp && def.type !== 'stall' && def.type !== 'bank') continue;
     const [fw, fd] = fp || [1, 1];
     const x = (o.x - x0) * R + R * 0.08, y = (o.y - fd + 1 - y0) * R + R * 0.08, w = fw * R - R * 0.16, h = fd * R - R * 0.16;
@@ -208,8 +224,13 @@ export function drawMinimapDecor(c, world, x0, y0, tw, th, R) {
     c.fillRect(x, y, w, Math.max(1, h * 0.42));
     if (R >= 4) { c.strokeStyle = '#22304A'; c.lineWidth = lw; c.strokeRect(x + lw / 2, y + lw / 2, w - lw, h - lw); }
   }
-  for (const o of objs) {
-    const type = o.def.type;
+}
+
+/** drawMinimapDecor's trees, rocks and fishing ripples, for objs[from, to). */
+function decorNature(c, objs, from, to, x0, y0, tw, th, R) {
+  const lw = Math.max(0.75, R / 8);
+  for (let i = from; i < to; i++) {
+    const o = objs[i], type = o.def.type;
     if (type !== 'tree' && type !== 'rock' && type !== 'fishing') continue;
     if (o.x < x0 - 1 || o.y < y0 - 1 || o.x > x0 + tw || o.y > y0 + th) continue;
     const cx = (o.x - x0 + 0.5) * R, cy = (o.y - y0 + 0.5) * R;
@@ -248,6 +269,66 @@ export function bakeMinimapPatch(world, x0, y0, tw, th, R, decor = true) {
   c.putImageData(img, 0, 0);
   if (decor) drawMinimapDecor(c, world, x0, y0, tw, th, R);
   return cv;
+}
+
+// The world map's picture (the whole map at two pixels a tile) took a phone
+// most of a second on its first opening. It is baked in spare moments while
+// you play instead, a band of rows at a time: the same picture, since a band
+// paints exactly as that part of the whole does (see the chunk test). Opening
+// the map before it is done just finishes the rest there and then.
+export const MAP_BAND_ROWS = 10, MAP_DECOR_STEP = 1500;
+
+/** A world map bake that can go a step at a time, or null with no DOM (tests).
+ *  The steps: bands of ground, then the buildings, trees and rocks over it
+ *  (a slice of them a step, in the order drawMinimapDecor draws them). */
+export function startMapBake(world, W, H, R) {
+  if (typeof document === 'undefined') return null;
+  const cv = document.createElement('canvas');
+  cv.width = W * R; cv.height = H * R;
+  const c = cv.getContext('2d');
+  if (!c) return null;
+  const objs = world.objectsIn ? [...world.objectsIn(-12, -1, W + 1, H + 12)] : [];
+  let row = 0, at = 0;   // at: how far through the buildings (then the trees: past objs.length)
+  const end = objs.length * 2;
+  return {
+    get done() { return row >= H && at >= end; },
+    /** Do the next step (`rows` rows of ground, or a slice of the decor); true once all is done. */
+    step(rows = MAP_BAND_ROWS, n = MAP_DECOR_STEP) {
+      if (row < H) {
+        const k = Math.min(rows, H - row), img = c.createImageData(W * R, k * R);
+        paintMinimapArt(world, img.data, 0, row, W, k, R);
+        c.putImageData(img, 0, row * R);
+        row += k;
+      } else if (at < objs.length) {
+        const to = Math.min(objs.length, at + n);
+        decorBuildings(c, objs, at, to, 0, 0, R);
+        at = to;
+      } else if (at < end) {
+        const to = Math.min(end, at + n);
+        decorNature(c, objs, at - objs.length, to - objs.length, 0, 0, W, H, R);
+        at = to;
+      }
+      return this.done;
+    },
+    /** The finished picture, doing whatever is left now. */
+    finish() {
+      while (!this.step(H, end)) { /* the rest at once */ }
+      return cv;
+    },
+  };
+}
+
+/** Run `bake` a band at a time when the page has a spare moment (or at the
+ *  latest every so often), then hand the picture to `done`. */
+export function bakeInSpareTime(bake, done) {
+  const later = typeof requestIdleCallback === 'function'
+    ? (fn) => requestIdleCallback(fn, { timeout: 1500 }) : (fn) => setTimeout(fn, 200);
+  const go = () => {
+    if (bake.done) return;
+    if (bake.step()) done(bake.finish());
+    else later(go);
+  };
+  later(go);
 }
 
 // The minimap's ground is baked in square chunks as you walk into them, a
