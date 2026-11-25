@@ -581,8 +581,10 @@ export function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null, re
   const order = rig.order, n = order.length, P = _rigPose;
   if (n > P.a.length) { P.m = new Float64Array(n * 6); P.gr = new Float64Array(n); P.a = new Float64Array(n); }
   const M = P.m;
-  const B = g.getTransform();   // the matrix the monster stands in
-  const ba = B.a, bb = B.b, bc = B.c, bd = B.d, be = B.e, bf = B.f;
+  // The matrix the monster stands in. (A context that can't say, as some
+  // tools' stand-ins can't, gets each part's own matrix applied over it.)
+  const B = g.getTransform ? g.getTransform() : null;
+  const ba = B ? B.a : 1, bb = B ? B.b : 0, bc = B ? B.c : 0, bd = B ? B.d : 1, be = B ? B.e : 0, bf = B ? B.f : 0;
   for (let i = 0; i < n; i++) {
     const name = order[i], part = rig.parts[name];
     // Some parts swap to another picture for a moment (a mouth opening to bite, a claw opening).
@@ -617,12 +619,14 @@ export function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null, re
       else growRigBox(box, dx, dy, dw, dh, 0, 0, 0, 1);
     }
     const o = i * 6;
-    g.setTransform(M[o], M[o + 1], M[o + 2], M[o + 3], M[o + 4], M[o + 5]);
+    if (B) g.setTransform(M[o], M[o + 1], M[o + 2], M[o + 3], M[o + 4], M[o + 5]);
+    else { g.save(); g.transform(M[o], M[o + 1], M[o + 2], M[o + 3], M[o + 4], M[o + 5]); }
     if (!pass) g.drawImage(k.cv, dx, dy, dw, dh);
     else if (k && k.sw > 0) g.drawImage(img, k.sx, k.sy, k.sw, k.sh, dx, dy, dw, dh);   // just the painted part of the layer
     else g.drawImage(img, dx, dy, dw, dh);
+    if (!B) g.restore();
   }
-  g.setTransform(ba, bb, bc, bd, be, bf);
+  if (B) g.setTransform(ba, bb, bc, bd, be, bf);
   P.img.length = 0; P.k.length = 0;   // (no pictures held between frames)
 }
 

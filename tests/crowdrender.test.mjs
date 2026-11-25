@@ -116,6 +116,19 @@ test('rig parts with their ink copies: navy copies first, then the parts, all at
   } finally { delete globalThis.document; }
 });
 
+test('rig parts on a context that cannot tell its transform: each part drawn over it at the same matrix', () => {
+  for (const base of BASES) {
+    const before = matrixCtx(base), now = matrixCtx(base);
+    now.getTransform = undefined;
+    now.transform = function (a, b, c, d, e, f) { this.calls++; this.setTransform(...mul(this.m, [a, b, c, d, e, f])); this.calls--; };
+    drawRigPartsBefore(before, BOSS, layers(BOSS), { attackK: 0.6 }, 4321, -20, -30, 40, 44, 0);
+    drawRigParts(now, BOSS, layers(BOSS), { attackK: 0.6 }, 4321, -20, -30, 40, 44, null, 0);
+    assert.equal(now.draws.length, before.draws.length);
+    now.draws.forEach((d, i) => close(d.m, before.draws[i].m, `draw ${i}`));
+    close(now.m, base, 'put back');
+  }
+});
+
 test('rig parts: the area noted for a hit flash covers every posed layer, and no more', () => {
   for (const rig of [QUAD, BOSS]) for (const opts of POSES) {
     const g = matrixCtx([1, 0, 0, 1, 0, 0]), box = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
