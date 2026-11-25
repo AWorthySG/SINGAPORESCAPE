@@ -1,4 +1,5 @@
 import { TOOL_TIERS, TOOL_BAR_XP, toolId } from './tooltiers.js';
+import { NAIL_SMITH } from './construction.js';
 
 // Smithing recipes.
 // SMELT: ore -> bar at a furnace. SMITH: bar -> item at an anvil (requires a hammer).
@@ -123,6 +124,11 @@ export const ROUNDS_PER_BAR = 20;
 for (const M of [..._SMETALS, ..._ENDGAME]) {
   SMITH.push({ result: `${M.k}_rounds`, qty: ROUNDS_PER_BAR, bar: `${M.k}_bar`, barCount: 1, level: M.base + 2, xp: M.xp });
 }
+
+// ---- Nails for Construction (construction.js): fifteen from a bar, at every bar tier ----
+// At the bar's own level, for four fifths of a bar's XP: a material for
+// Construction, never Smithing's best hour.
+SMITH.push(...NAIL_SMITH);
 
 // ---- Tiered gathering tools (tooltiers.js): axes, pickaxes, harpoons, fishing rods and snares ----
 // Two bars each, at the bar's smelting level plus a little, for the tier's XP

@@ -381,7 +381,8 @@ export function minimapObjectBadge(o) {
   const t = o.def.type;
   if (t === 'bank') return 'bank';
   if (t === 'transport') return 'mrt';
-  if (t === 'anvil' || t === 'furnace' || t === 'range' || t === 'craft' || t === 'fletch' || t === 'herblore') return 'smith';
+  if (t === 'anvil' || t === 'furnace' || t === 'range' || t === 'craft' || t === 'fletch' || t === 'herblore'
+    || t === 'saw' || t === 'kiln' || t === 'build' || t === 'homebench') return 'smith';   // (Construction's stations too)
   if (t === 'shrine' || t === 'offering' || t === 'gate_shrine') return 'shrine';
   if (t === 'gate') return 'gate';
   if (t === 'stall') return 'shop';

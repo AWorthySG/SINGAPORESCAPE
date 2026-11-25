@@ -12,6 +12,8 @@ import { SMELT, SMITH } from '../data/smithing.js';
 import { DISHES } from '../data/cooking.js';
 import { CRAFT } from '../data/crafting.js';
 import { CROPS, POTIONS, FLETCH, HUNT, HIDE_CRAFT, cropFor } from '../data/trades.js';
+import { CONSTRUCT } from '../data/construction.js';
+import { HOME_UPGRADES } from './home.js';
 import { SHOPS } from '../data/shops.js';
 import { CLUE_TIERS } from '../data/clues.js';
 import { SPELLS, spellsFor } from '../data/magic.js';
@@ -45,6 +47,7 @@ export const SKILL_GUIDES = {
   crafting: { use: 'Jewellery, pottery, leather armour, and refine scrolls and upgrade wards. From level 100 the endgame ores and bars make jewellery for every fighting style, and the Dancer\'s war fans and whips.', where: ['crafting_table'] },
   fletching: { use: 'Bows, arrows, staves and wands from logs (you need a knife). From level 100 the endgame logs make the obsidian to eternal bows, staves, wands, rifles and crossbows.', where: ['fletching_bench'] },
   herblore: { use: 'Potions that boost you in a fight for several minutes. From level 100, endgame crops, Hunter catches and ashes brew far stronger ones.', where: ['apothecary_table'] },
+  construction: { use: 'Saw logs into planks at a sawmill, fire clay into bricks at a kiln, and build furniture from planks, nails (hammered from bars with Smithing) and bricks at a workbench. All three stand at the lumber yards in Kampong Glam and by Kranji Village. Then build up your kampong home room by room in its Build window: each build pays a lump of Construction XP and gives your home a perk. From level 100 the endgame logs and bars make the finest furniture.', where: ['sawmill', 'kiln', 'workbench'] },
   firemaking: { use: 'Light a fire anywhere to cook on (use logs from your bag; you need a tinderbox). The endgame logs leave ashes, which Herblore and the Offering Shrine take.' },
   thieving: { use: 'Coins, food and gems, stolen from market stalls (and pockets). From level 100, rich marks and then locked chests in the far regions.' },
   agility: { use: 'Obstacle courses for XP and Marks of grace; powers the Dancer. From level 100, six long courses in the far regions.' },
@@ -59,7 +62,7 @@ export const SKILL_GUIDES = {
 };
 export const GUIDE_SKILLS = Object.keys(SKILL_GUIDES);
 export const GATHER_SKILLS = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'farming', 'thieving', 'agility'];
-export const MAKE_SKILLS = ['smithing', 'cooking', 'crafting', 'fletching', 'herblore', 'firemaking'];
+export const MAKE_SKILLS = ['smithing', 'cooking', 'crafting', 'fletching', 'herblore', 'firemaking', 'construction'];
 export const COMBAT_SKILLS = ['attack', 'defence', 'ranged', 'magic', 'hitpoints', 'prayer', 'slayer'];
 
 // Tool tags, as the gathering and making code checks them (game.hasTool).
@@ -128,7 +131,8 @@ export function gatherSources() {
 
 // ---------------- Recipes ----------------
 
-const STATION = { smelt: ['furnace'], smith: ['anvil'], cook: ['range', 'fire'], craft: ['crafting_table'], fletch: ['fletching_bench'], brew: ['apothecary_table'], farm: ['farm_patch'], burn: [], bury: [] };
+const STATION = { smelt: ['furnace'], smith: ['anvil'], cook: ['range', 'fire'], craft: ['crafting_table'], fletch: ['fletching_bench'], brew: ['apothecary_table'], farm: ['farm_patch'], burn: [], bury: [],
+  saw: ['sawmill', 'home_workbench'], kiln: ['kiln'], build: ['workbench', 'home_workbench'] };
 let _recipes = null;
 /** Every recipe in the game, in one shape: { key, skill, kind, label, output:
  *  { id, qty } | null, outputs (several, for crops), inputs: [{ id, qty }],
@@ -148,6 +152,7 @@ export function allRecipes() {
   // CRAFT already holds the hide recipes; add any that ever drift out of it.
   for (const r of [...CRAFT, ...HIDE_CRAFT.filter((h) => !CRAFT.includes(h))]) add({ skill: 'crafting', kind: 'craft', output: { id: r.result, qty: r.qty || 1 }, inputs: r.inputs.map((i) => ({ id: i.id, qty: i.qty })), level: r.level, xp: r.xp, tool: r.tool || null });
   for (const r of FLETCH) add({ skill: 'fletching', kind: 'fletch', output: { id: r.result, qty: r.qty || 1 }, inputs: r.inputs.map(([id, qty]) => ({ id, qty })), level: r.level, xp: r.xp, tool: r.tool || null });
+  for (const r of CONSTRUCT) add({ skill: 'construction', kind: r.at[0], output: { id: r.result, qty: r.qty || 1 }, inputs: r.inputs.map(([id, qty]) => ({ id, qty })), level: r.level, xp: r.xp, tool: r.tool || null });
   for (const [id, p] of Object.entries(POTIONS)) add({ skill: 'herblore', kind: 'brew', output: { id, qty: 1 }, inputs: p.inputs.map(([i, qty]) => ({ id: i, qty })), level: p.level, xp: p.xp, label: p.name });
   for (const c of CROPS.map((x) => cropFor(x[0]))) add({ skill: 'farming', kind: 'farm', output: { id: c.id, qty: c.yield[0], max: c.yield[1] }, inputs: [{ id: c.seed, qty: 1 }], level: c.level, xp: c.plantXp, harvestXp: c.harvestXp, label: c.name,
     note: `grows in ${Math.round(c.grow * TICK_S / 60 * 10) / 10} min, ${c.yield[0]}-${c.yield[1]} a harvest` });   // the harvest XP shows as a badge (skillguideui.js)
@@ -160,7 +165,8 @@ export function allRecipes() {
 export const recipeLabel = (r) => r.label || `${r.output?.qty > 1 ? `${r.output.qty} ` : ''}${name(r.output?.id)}`;
 /** Recipes for one skill, by level. */
 export const recipesFor = (skill) => allRecipes().filter((r) => r.skill === skill).sort((a, b) => a.level - b.level || recipeLabel(a).localeCompare(recipeLabel(b)));
-const KIND_TITLE = { smelt: 'Smelting', smith: 'Smithing', cook: 'Cooking', dish: 'Hawker dishes', craft: 'Crafting', fletch: 'Fletching', brew: 'Herblore', farm: 'Farming', burn: 'Firemaking', bury: 'Prayer' };
+const KIND_TITLE = { smelt: 'Smelting', smith: 'Smithing', cook: 'Cooking', dish: 'Hawker dishes', craft: 'Crafting', fletch: 'Fletching', brew: 'Herblore', farm: 'Farming', burn: 'Firemaking', bury: 'Prayer',
+  saw: 'Sawmill', kiln: 'Kiln', build: 'Workbench' };
 export const recipeKindTitle = (k) => KIND_TITLE[k] || k;
 
 /** Can the player make it? { levelOk, inputs: [{ id, qty, bag, bank }], ok (level and every input in the bag),
@@ -206,6 +212,9 @@ export function guideEntries(skill) {
       else if (r.kind === 'dish') detail = `Dish: ${r.inputs.map((i) => name(i.id)).join(', ')}`;
       else if (r.kind === 'smelt') detail = `Smelt ${ins}`;
       else if (r.kind === 'smith') detail = `Forge from ${ins}`;
+      else if (r.kind === 'saw') detail = `Saw ${ins}`;
+      else if (r.kind === 'kiln') detail = `Fire ${ins}`;
+      else if (r.kind === 'build') detail = `Build from ${ins}`;
       else if (r.kind === 'burn') detail = `Burn for ${r.xp} xp${r.output ? `, leaves ${name(r.output.id)}` : ''}`;
       else if (r.kind === 'bury') detail = `Bury for ${r.xp} xp; ${r.note}`;
       else detail = `From ${ins}`;
@@ -374,7 +383,7 @@ export function itemOtherUses(id) {
     add('wear', `Wear (${it.equip.slot}${req ? `, needs ${req}` : ''})`);
   }
   if (it.tool) {
-    const skills = { axe: 'Woodcutting', pickaxe: 'Mining', hammer: 'Smithing at an anvil', knife: 'Fletching', chisel: 'Crafting gems', tinderbox: 'Firemaking', snare: 'Hunter', divegear: 'Diving (more breath)' }[it.tool] || 'Fishing';
+    const skills = { axe: 'Woodcutting', pickaxe: 'Mining', hammer: 'Smithing at an anvil, and Construction', knife: 'Fletching', chisel: 'Crafting gems', tinderbox: 'Firemaking', snare: 'Hunter', divegear: 'Diving (more breath)' }[it.tool] || 'Fishing';
     add('tool', `Tool for ${skills}`);
   }
   const spells = SPELLS.filter((s) => s.runes?.[id]);
@@ -393,6 +402,9 @@ export function itemOtherUses(id) {
     if (st) add('quest', `Quest: ${qname} asks for ${st.need.qty}`);
   }
   if (QUEST_ITEMS[id]) add('quest', `Quest: ${QUEST_ITEMS[id]}`);
+  // Construction's home builds (home.js): the first few that take it.
+  const builds = Object.values(HOME_UPGRADES).flatMap((u) => u.tiers.filter((t) => t.cost?.items?.[id] && t.level).map((t) => `${t.name} (Construction ${t.level})`));
+  if (builds.length) add('build', `Home build: ${builds.slice(0, 3).join(', ')}${builds.length > 3 ? ` and ${builds.length - 3} more` : ''}`);
   // No number: boneXp is before the XP rate, and the bury row on the same page shows the real one.
   if (BONE_IDS.includes(id)) add('prayer', `Bury for Prayer XP, or offer at a monument for ${ALTAR_XP_MULT}x as much`);
   // The Offering Shrine: materials and goods for blessing points, gear by salvage.
@@ -425,7 +437,7 @@ export const RESOURCE_CATS = [
   { id: 'log', name: 'Logs' }, { id: 'raw', name: 'Raw fish and meat' }, { id: 'food', name: 'Food' },
   { id: 'herb', name: 'Herbs and crops' }, { id: 'seed', name: 'Seeds' }, { id: 'hide', name: 'Hides and trophies' },
   { id: 'potion', name: 'Potions' }, { id: 'gear', name: 'Gear' }, { id: 'ammo', name: 'Runes and ammo' },
-  { id: 'bone', name: 'Bones and ashes' }, { id: 'other', name: 'Other' },
+  { id: 'bone', name: 'Bones and ashes' }, { id: 'building', name: 'Building' }, { id: 'other', name: 'Other' },
 ];
 /** Which shelf of the index an item sits on. */
 export function resourceCat(id) {
@@ -442,6 +454,7 @@ export function resourceCat(id) {
   if (BONE_IDS.includes(id)) return 'bone';
   const tags = it.tags || [];
   if (tags.includes('rune') || tags.includes('ammo') || /_rune$|_arrow$|arrow_shaft/.test(id)) return 'ammo';
+  if (tags.includes('plank') || tags.includes('nails') || tags.includes('brick') || tags.includes('furniture')) return 'building';   // Construction
   return 'other';
 }
 

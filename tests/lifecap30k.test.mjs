@@ -80,7 +80,7 @@ const CHANCE = { levelHaulPct: 100, 'greenFingers.1': 1, 'greenFingers.300': 1, 
 
 test('level caps: life skills 30,000, Defence, Hitpoints, Prayer and Slayer 9999, Melee, Ranged and Magic 99,999', () => {
   assert.equal(LIFE_MAX_LEVEL, 30000);
-  assert.deepEqual(LIFE, ['mining', 'smithing', 'crafting', 'fishing', 'cooking', 'firemaking', 'woodcutting', 'thieving', 'agility', 'farming', 'hunter', 'herblore', 'fletching', 'diving']);
+  assert.deepEqual(LIFE, ['mining', 'smithing', 'crafting', 'fishing', 'cooking', 'firemaking', 'woodcutting', 'thieving', 'agility', 'farming', 'hunter', 'herblore', 'fletching', 'diving', 'construction']);
   for (const s of SKILLS) {
     const want = LIFE.includes(s.id) ? LIFE_MAX_LEVEL : ['attack', 'strength', 'ranged', 'magic'].includes(s.id) ? COMBAT_MAX_LEVEL : MAX_LEVEL;
     assert.equal(maxLevelFor(s.id), want, s.id);

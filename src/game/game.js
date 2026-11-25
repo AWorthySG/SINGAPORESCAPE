@@ -59,6 +59,7 @@ import {
 import { resolveDive } from './diving.js';
 import { installSkillUnlocks, runSkillAction, extraCrop, growTicks } from './skillunlocks.js';
 import { Home } from './home.js';
+import { placeLumberYards } from './construction.js';
 import { CROP_BY_SEED, cropFor, POTIONS, greenFingersChance } from '../data/trades.js';
 import { saveGame, loadGame, hasSave } from './save.js';
 import * as Play from './playbalance.js';
@@ -121,7 +122,8 @@ const AUTO_QUEST_ACTIONS = {
   ...RQ.REGION_AUTO_ACTIONS,
 };
 // Stations whose menu auto quest runs with "make everything" (autoprocess.js kinds).
-const AUTO_QUEST_STATION = { furnace: 'smelt', range: 'cook', fire: 'cook', anvil: 'smith', craft: 'craft', fletch: 'fletching', herblore: 'herblore' };
+const AUTO_QUEST_STATION = { furnace: 'smelt', range: 'cook', fire: 'cook', anvil: 'smith', craft: 'craft', fletch: 'fletching', herblore: 'herblore',
+  saw: 'saw', kiln: 'kiln', build: 'build', homebench: 'homebench' };
 
 // The hunting snare joined the kit late: traps did nothing without one, and new
 // players took the trap for broken. (Anyone without one gets it from the Kampong Guide.)
@@ -556,6 +558,7 @@ export class Game {
     this.story = new Story(this);     // the main story's chapters, lore pages, story events and scenes (story.js)
     installSkillUnlocks(this);        // life skill unlocks at 10/25/50/75/99 (skillunlocks.js)
     this.home = new Home(this);       // the kampong home plot in Kranji (home.js)
+    this.lumberYards = placeLumberYards(this);   // Construction's sawmills, kilns and workbenches (construction.js)
     this.gathering = new Gathering(this);   // gathering streaks, lucky finds and daily skilling contracts (gathering.js)
     this.fishSchools = new FishSchools(this);   // a school of fish now and then at a spot near you (fishschool.js)
     this.teleports = new Teleports(this);   // the Town (K) and Grave (R) teleports (teleports.js)
@@ -956,14 +959,16 @@ export class Game {
   outsideBonuses() {
     const lp = this.lifePerks(), rev = this.shrine.rev, c = this._outsideCache;
     const kc = this.karmaCombat(), kKey = `${kc.side}${kc.tier}`, rq = RQ.regionPerks(this), warm = this.warmth || 0;
-    if (c && c.lp === lp && c.rev === rev && c.kKey === kKey && c.rq === rq && c.warm === warm) return c.totals;
+    const trophy = this.home?.trophyBoss?.() || 0;   // the trophy hall's boss damage (home.js)
+    if (c && c.lp === lp && c.rev === rev && c.kKey === kKey && c.rq === rq && c.warm === warm && c.trophy === trophy) return c.totals;
     const totals = { ...lp };
+    if (trophy) totals.bossDmg = (totals.bossDmg || 0) + trophy;
     for (const [k, v] of Object.entries(warmthBonus(this) || {})) totals[k] = (totals[k] || 0) + v;   // a fire's warmth (bonfire.js)
     for (const [k, v] of Object.entries(this.shrine.bonuses())) totals[k] = (totals[k] || 0) + v;
     for (const [k, v] of Object.entries(rq)) totals[k] = (totals[k] || 0) + v;   // region quest perks
     // The Dark path's crit damage and lifesteal count like gear's.
     if (kc.side === 'dark') { totals.critDmg = (totals.critDmg || 0) + kc.critDmg; totals.lifesteal = (totals.lifesteal || 0) + kc.lifesteal; }
-    this._outsideCache = { lp, rev, kKey, rq, warm, totals };
+    this._outsideCache = { lp, rev, kKey, rq, warm, trophy, totals };
     return totals;
   }
 
@@ -1515,6 +1520,7 @@ export class Game {
       case 'dive': return this._tickContinuous(a, a.obj, () => resolveDive(this, a));   // with a pause for air (diving.js)
       case 'fletchmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('fletching', a.obj));
       case 'herbmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('herblore', a.obj));
+      case 'conmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('construction', a.obj));
       case 'farm': return this._tickArrival(a, a.obj, true, () => { this.tendPatch(a.obj, a.seed); if (this.autoGather) { this._autoLife = { kind: 'farm' }; this.autoGatherBest = null; } });
       // One-shot arrival actions (open a UI / talk).
       case 'cookmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openCookMenu(a.obj));
@@ -1527,10 +1533,11 @@ export class Game {
         this.prayerPoints = this.maxPrayer();
         this.bus.emit('hp'); this.bus.emit('prayer');
         this.spawnSparkle(this.player, '#9adcff', 16);
-        this.msg('You kneel at the A-Worthy Monument. Your health and Faith are restored.', 'system');
-        if (this.inventory.slots.some((x) => x && isBone(x.id))) this.msg('You could offer your bones here for 2.5x Prayer XP (right-click them).', 'system');
+        const home = a.obj?.def?.homeAltar;   // your own altar (a Construction build, home.js)
+        this.msg(home ? 'You kneel at your home altar. Your health and Faith are restored.' : 'You kneel at the A-Worthy Monument. Your health and Faith are restored.', 'system');
+        if (this.inventory.slots.some((x) => x && isBone(x.id))) this.msg(`You could offer your bones here for ${home ? this.home.altarMult() : ALTAR_XP_MULT}x Prayer XP (right-click them).`, 'system');
         this.addGood(1); // devotion is a small good
-        this.markPillar('monument');
+        if (!home) this.markPillar('monument');
       });
       case 'rest': return this._tickArrival(a, a.obj, true, () => {
         this.player.hp = this.maxHp();
@@ -1547,7 +1554,7 @@ export class Game {
       // The Endless Gate asks first (its panel shows your best wave); its exit portal just takes you out.
       case 'gate': return this._tickArrival(a, a.target, true, () => (a.obj.objId === 'wave_exit' ? this.waves.leave() : this.ui ? this.ui.openWaveGate?.(a.obj) : this.waves.enter()));
       case 'openbank': return this._tickArrival(a, a.target, true, () => this.ui?.openBank());
-      case 'homemenu': return this._tickArrival(a, a.target, true, () => this.bus.emit('homeopen', a.obj.def.homeTab));   // homeui.js
+      case 'homemenu': return this._tickArrival(a, a.target, true, () => this.bus.emit('homeopen', a.obj.def.room ? `${a.obj.def.homeTab}:${a.obj.def.room}` : a.obj.def.homeTab));   // homeui.js (a piece of furniture opens its room)
       case 'openshop': return this._tickArrival(a, a.target, true, () => this.ui?.openShop(a.shop));
       case 'talk': return this._tickArrival(a, a.target, true, () => this.ui?.openDialogue(a.npc));
       case 'storyobj': return this._tickArrival(a, a.target, true, () => this.story.useObject(a.obj));
@@ -4440,7 +4447,7 @@ export class Game {
     if (altar && !this.nearShrine()) { this.msg('You need to be at an A-Worthy Monument to offer bones.'); return 0; }
     const it = getItem(s.id), n = Math.min(s.qty, count);
     this.inventory.removeAt(index, n);
-    this.skills.addXp('prayer', boneXp(s.id) * n * (altar ? ALTAR_XP_MULT : 1));
+    this.skills.addXp('prayer', boneXp(s.id) * n * (altar ? this.altarMult() : 1));
     // Only the first few bones of a click restore Faith, so a big stack can't stand in for a monument mid-fight.
     this.prayerPoints = Math.min(this.maxPrayer(), this.prayerPoints + (it.prayerRestore || 1) * Math.min(n, BURY_RESTORE_CAP));
     this.bus.emit('prayer');
@@ -4461,6 +4468,12 @@ export class Game {
   }
   /** Close enough to an A-Worthy Monument to offer bones there. */
   nearShrine() { const p = this.player; return this.world.objects.some((o) => o.def.type === 'shrine' && chebyshev(p.x, p.y, o.x, o.y) <= ALTAR_RANGE); }
+  /** What offering bones pays here: ALTAR_XP_MULT at a monument, less at a home altar (home.js) until its top tier. */
+  altarMult() {
+    const p = this.player;
+    const near = this.world.objects.filter((o) => o.def.type === 'shrine' && chebyshev(p.x, p.y, o.x, o.y) <= ALTAR_RANGE);
+    return near.some((o) => !o.def.homeAltar) || !near.length ? ALTAR_XP_MULT : this.home.altarMult();
+  }
 
   startPickpocket(npc) {
     if (!npc.def.role || npc.def.moral) { this.msg("You can't pickpocket that."); return; }   // an encounter is a choice, not a mark
@@ -6246,6 +6259,7 @@ export class Game {
       case 'dive': return this.beginAction({ type: 'dive', obj }, tgt, true);
       case 'fletch': return this.beginAction({ type: 'fletchmenu', obj, target: tgt }, tgt, true);
       case 'herblore': return this.beginAction({ type: 'herbmenu', obj, target: tgt }, tgt, true);
+      case 'saw': case 'kiln': case 'build': case 'homebench': return this.beginAction({ type: 'conmenu', obj, target: tgt }, tgt, true);
       case 'farm': return this.beginAction({ type: 'farm', obj, target: tgt }, tgt, true);
       case 'bank': return this.beginAction({ type: 'openbank', target: tgt }, tgt, true);
       case 'shrine': return this.beginAction({ type: 'pray', obj }, tgt, true);
@@ -7248,7 +7262,7 @@ export class Game {
         const met = st.need.item ? inv(st.need.item) >= st.need.qty : (this.skills.xp[st.skill] || 0) - (q.base || 0) >= st.need.xp;
         if (met) return npc(giver, 'Hand in to');
         const SOURCE = { logs: 'tree', oak_logs: 'oak', copper_ore: 'copper_rock', iron_ore: 'iron_rock', bronze_bar: 'furnace', steel_bar: 'furnace',
-          raw_anchovy: 'fishing_spot', raw_trout: 'rod_spot', anchovy: 'range', trout: 'range', chilli: 'farm_patch', attack_potion: 'apothecary_table', arrow_shaft: 'fletching_bench' };
+          raw_anchovy: 'fishing_spot', raw_trout: 'rod_spot', anchovy: 'range', trout: 'range', chilli: 'farm_patch', attack_potion: 'apothecary_table', arrow_shaft: 'fletching_bench', plank: 'sawmill' };
         const buy = (item, what) => ({ ...npc('farmer', `${st.name}: buy ${what} from`), buy: { item, qty: 1 } });
         // Chillies come from a patch: harvest one that is ripe, wait for one
         // that is growing (other crops don't count), else plant or buy a seed.
@@ -7286,6 +7300,7 @@ export class Game {
               if (!this.hasTool('knife')) return buy('knife', 'a knife');
               if (!inv('logs')) return obj('tree', `${st.name}: chop some logs first`);
               break;
+            case 'plank': if (short('logs')) return obj('tree', `${st.name}: chop logs (${inv('logs')}/${left})`); break;
           }
           return obj(SOURCE[st.need.item] || 'tree', lesson);
         }

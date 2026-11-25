@@ -67,7 +67,7 @@ export function goSkill(game, skill) {
 // you, the Slayer master for a task. Thieving and Agility walk to their best
 // spot, like their Go.
 export const LIFE_SHORTCUTS = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'farming', 'cooking', 'smithing',
-  'crafting', 'fletching', 'herblore', 'firemaking', 'thieving', 'agility', 'slayer'];
+  'crafting', 'fletching', 'herblore', 'construction', 'firemaking', 'thieving', 'agility', 'slayer'];
 const GATHERING = new Set(['woodcutting', 'mining', 'fishing', 'hunter', 'diving']);
 // Each making skill's "Do all" (autoprocess.js nextJob) and where it is done,
 // first choice first: ore goes to the furnace before bars go to the anvil.
@@ -77,6 +77,8 @@ const MAKING = {
   crafting: [['craft', ['crafting_table']]],
   fletching: [['fletching', ['fletching_bench']]],
   herblore: [['herblore', ['apothecary_table']]],
+  // Furniture first (planks you carry are its input), then planks from logs, then bricks.
+  construction: [['build', ['workbench', 'home_workbench']], ['saw', ['sawmill', 'home_workbench']], ['kiln', ['kiln']]],
 };
 const NOTHING_TO_MAKE = {
   cooking: 'You have nothing you can cook: catch some fish or buy something raw first.',
@@ -84,6 +86,7 @@ const NOTHING_TO_MAKE = {
   crafting: 'You have nothing you can craft yet: gather its materials (gems, bars, hides or clay) first.',
   fletching: 'You have nothing you can fletch: chop some logs first (and carry a knife).',
   herblore: 'You have nothing you can brew: farm or forage some herbs first.',
+  construction: 'You have nothing to build with: bring logs to the sawmill, clay to the kiln, or planks and nails (and a hammer) to a workbench.',
 };
 
 /** The making job a shortcut would start, and where: { kind, where } or null. */

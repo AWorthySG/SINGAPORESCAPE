@@ -3911,3 +3911,32 @@ input[type="range"]:focus-visible { outline: 3px solid var(--aw-sun); outline-of
 .eq-bestbar .eq-best { margin: 0; }
 .eq-bestbar .eq-best-n { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 900; background: var(--aw-grass); color: var(--aw-white); }
 @media (max-width: 540px) { .eq-bestbar { top: -7px; margin: -7px -7px 6px; padding: 7px 7px 5px; } }
+
+/* ---- Kampong home: the Build window (homeui.js, Construction) ----
+   Room chips (a dot on rooms with something to build now), then the room's
+   hotspots as cards in the guide cards' look: what stands there, and the next
+   build with its level, XP, perk and materials (have/need). */
+.bld-rooms .sgx-chip { position: relative; min-height: 36px; }
+.bld-rooms .sgx-chip.can::after { content: ''; position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%;
+  background: #6cc46a; border: 1.5px solid var(--aw-ink); }
+.bld-room { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.bld-spot { padding: 8px; border: 1.5px solid var(--aw-ink-faint); border-radius: 10px; background: rgba(255,255,255,.55); min-width: 0; }
+.bld-now b { display: block; font-size: var(--fs-sm); font-weight: 900; }
+.bld-now small, .bld-perk { display: block; font-size: var(--fs-xs); color: var(--aw-text-sec); }
+.bld-done { margin-top: 6px; font-size: var(--fs-xs); font-weight: 800; color: #3a8a3a; }
+.bld-next { margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(34,48,74,.18); }
+.bld-next-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: var(--fs-sm); }
+.bld-next-head > span:first-child { flex: 1; min-width: 0; }
+.bld-lv, .bld-xp { font-size: var(--fs-cap); font-weight: 900; padding: 0 6px; line-height: 18px; border-radius: 999px; border: 1.5px solid var(--aw-ink); background: var(--aw-locked); white-space: nowrap; }
+.bld-lv.ok { background: #d9f3cf; }
+.bld-xp { background: #fff1c2; }
+.bld-mats { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.bld-mat { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px 2px 3px; border-radius: 8px; background: #f6d6cf; font-size: var(--fs-xs); font-weight: 800; }
+.bld-mat.ok { background: #d9f3cf; }
+.bld-go { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bld-go small { font-size: var(--fs-xs); color: var(--aw-text-sec); }
+.bld-go .wm-go { min-height: 40px; min-width: 72px; flex: none; }
+.bld-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.bld-head > svg, .bld-head > img { flex: none; }
+.bld-go .wm-go:disabled, .home-row .wm-go:disabled { opacity: .45; filter: grayscale(.6); cursor: var(--cur-default); }
+.bld-mat i { font-style: normal; font-weight: 700; color: var(--aw-text-sec); }

@@ -1,24 +1,29 @@
 // "Do all" at a crafting station: work through every recipe you can make there,
 // best (highest level) first, one after another, until nothing is left you can
 // make. Smelt all your ore, cook all your fish, fletch all your logs, brew all
-// your herbs, smith all your bars, craft all your gems and clay.
+// your herbs, smith all your bars, craft all your gems and clay, and saw,
+// fire and build all your Construction materials (one kind of station each).
 import { COOKING } from './skilling.js';
 import { DISHES } from '../data/cooking.js';
 import { SMELT, SMITH } from '../data/smithing.js';
 import { CRAFT } from '../data/crafting.js';
 import { POTIONS, FLETCH } from '../data/trades.js';
+import { CONSTRUCT, CON_STATIONS, conRecipes } from '../data/construction.js';
 import { getItem } from '../data/items.js';
 import { flushUnlockNews } from './skillunlocks.js';
 
 /** The station kinds a "Do all" can run at. */
-export const AUTO_KINDS = ['cook', 'smelt', 'smith', 'craft', 'fletching', 'herblore'];
+export const AUTO_KINDS = ['cook', 'smelt', 'smith', 'craft', 'fletching', 'herblore', ...CON_STATIONS];
+// Construction's kinds are its station types (construction.js): a sawmill, a kiln, a workbench and the home workbench.
+const CON_KINDS = new Set(CON_STATIONS);
 
 const has = (game, id, n) => game.inventory.has(id, n);
 const best = (list) => list.sort((a, b) => b.level - a.level)[0] || null;
 const key = (job) => `${job.type}:${job.rawId || job.recipe?.result || ''}`;
 
-/** Fletching or Herblore recipes in one shape ({ result, qty, inputs: [[id, n]], level, xp, tool }). */
+/** Fletching, Herblore or Construction recipes in one shape ({ result, qty, inputs: [[id, n]], level, xp, tool }). */
 export function tradeRecipes(skill) {
+  if (skill === 'construction') return CONSTRUCT;
   return skill === 'herblore'
     ? Object.entries(POTIONS).map(([id, p]) => ({ result: id, qty: 1, inputs: p.inputs, level: p.level, xp: p.xp }))
     : FLETCH;
@@ -51,6 +56,12 @@ export function nextJob(game, kind, skip = new Set()) {
     const r = best(tradeRecipes(kind).filter((x) => !x.upgrade && (!x.tool || game.hasTool(x.tool)) && lvl(kind) >= x.level
       && x.inputs.every(([id, n]) => has(game, id, n)) && !skip.has(`recipe:${x.result}`)));
     job = r && { type: 'recipe', skill: kind, recipe: r };
+  } else if (CON_KINDS.has(kind)) {
+    // A workbench builds furniture; the home workbench saws planks too:
+    // furniture first, as the best (highest level) make, then planks.
+    const r = best(conRecipes(kind).filter((x) => (!x.tool || game.hasTool(x.tool)) && lvl('construction') >= x.level
+      && x.inputs.every(([id, n]) => has(game, id, n)) && !skip.has(`recipe:${x.result}`)));
+    job = r && { type: 'recipe', skill: 'construction', recipe: r };
   }
   return ok(job) ? job : null;
 }
@@ -66,7 +77,7 @@ export const jobKey = key;
 // so the odds and the XP are what one-at-a-time making gave; only the waiting
 // and the chat line per item are gone.
 
-const VERB = { cook: 'cook', cookdish: 'prepare', smith: 'smith', craft: 'craft', fletching: 'fletch', herblore: 'brew' };
+const VERB = { cook: 'cook', cookdish: 'prepare', smith: 'smith', craft: 'craft', fletching: 'fletch', herblore: 'brew', construction: 'make' };
 const BONUS = { cook: 'perfectly cooked', smith: 'extra from flawless work' };
 const plural = (name, n) => (n === 1 || name.endsWith('s') ? name : `${name}s`);
 

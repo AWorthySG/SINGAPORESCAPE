@@ -227,7 +227,7 @@ test('a boss meal boosts boss damage; brews, lures and decoys boost gathering', 
 
 // ---------------- Kampong home ----------------
 
-test('the home plot is bought, upgraded with coins and materials, and its chest stores items', () => {
+test('the home plot is bought, built up with Construction (coins and materials), and its chest stores items', () => {
   const g = newGame();
   const h = g.home;
   assert.ok(h.origin, 'a plot was found in Kranji');
@@ -241,14 +241,17 @@ test('the home plot is bought, upgraded with coins and materials, and its chest 
   const at = (id) => g.world.objects.filter((o) => o.objId === id && chebyshev(o.x, o.y, h.origin.x + 4, h.origin.y + 4) <= 6);
   for (const id of ['home_chest', 'range', 'fire', 'home_trophy']) assert.equal(at(id).length, 1, id);
   assert.equal(at('farm_patch').length, 2);
-  // Storage: 24 kinds, then the teak chest (materials can come from the bank).
+  // Storage: 24 kinds, then the teak chest (materials can come from the bank),
+  // a Construction build: it needs the level and a hammer (tests/construction.test.mjs has the rest).
   assert.equal(h.capacity, 24);
   const cost = HOME_UPGRADES.storage.tiers[1].cost;
   g.inventory.add('coins', cost.coins);
-  g.bank.deposit('teak_logs', 40); g.bank.deposit('iron_bar', 20);
+  for (const [id, n] of Object.entries(cost.items)) g.bank.deposit(id, n);
+  g.skills.xp.construction = xpForLevel(HOME_UPGRADES.storage.tiers[1].level);
+  g.inventory.add('hammer', 1);
   assert.equal(h.upgrade('storage'), true);
   assert.equal(h.capacity, 48);
-  assert.equal(g.bank.count('teak_logs'), 0);
+  for (const id of Object.keys(cost.items)) assert.equal(g.bank.count(id), 0, id);
   // Deposit and withdraw.
   g.inventory.add('oak_logs', 5);
   assert.equal(h.deposit('oak_logs'), 5);
@@ -257,7 +260,8 @@ test('the home plot is bought, upgraded with coins and materials, and its chest 
   assert.equal(h.withdraw('oak_logs', 2), 2);
   assert.equal(h.count('oak_logs'), 3);
   // More patches, and the better range lends its bonus.
-  g.inventory.add('coins', 100000); g.inventory.add('oak_logs', 30); g.inventory.add('clay', 50); g.inventory.add('iron_bar', 10);
+  g.inventory.add('coins', 100000);
+  for (const k of ['patches', 'range']) for (const [id, n] of Object.entries(HOME_UPGRADES[k].tiers[1].cost.items)) g.inventory.add(id, n);
   assert.ok(h.upgrade('patches'));
   assert.equal(at('farm_patch').length, 4);
   assert.ok(h.upgrade('range'));
@@ -285,8 +289,10 @@ test('the home, its chest, tiers and crops survive a save', () => {
   const h = g.home;
   g.inventory.add('coins', HOME_PRICE + 8000);
   h.buy();
-  g.inventory.add('oak_logs', 30);
-  h.upgrade('patches');
+  for (const [id, n] of Object.entries(HOME_UPGRADES.patches.tiers[1].cost.items)) g.inventory.add(id, n);
+  g.skills.xp.construction = xpForLevel(HOME_UPGRADES.patches.tiers[1].level);
+  if (!g.hasTool('hammer')) g.inventory.add('hammer', 1);
+  assert.ok(h.upgrade('patches'));
   g.inventory.add('pearl', 4);
   h.deposit('pearl');
   const patch = g.world.objects.filter((o) => o.objId === 'farm_patch' && o.home)[3];

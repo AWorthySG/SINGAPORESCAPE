@@ -16,6 +16,7 @@ import { SHOPS, getShop } from '../data/shops.js';
 import { SMELT, SMITH, smithToolRows } from '../data/smithing.js';
 import { CRAFT } from '../data/crafting.js';
 import { POTIONS, FLETCH, CROP_BY_SEED } from '../data/trades.js';
+import { conRecipes } from '../data/construction.js';
 import { COOKING, makeXp } from '../game/skilling.js';
 import { DISHES } from '../data/cooking.js';
 import { SKILLS, SKILL_GROUPS } from '../data/skills.js';
@@ -4390,18 +4391,23 @@ export class UI {
     this.modal.kind = 'craft';
   }
 
-  // Fletching and Herblore ---------------------------------------------
+  // Fletching, Herblore and Construction ---------------------------------
   openRecipeMenu(skill, obj) {
     const g = this.game;
-    const recipes = skill === 'herblore'
+    // Construction: what this station works (a sawmill, kiln, workbench or the home workbench).
+    const con = skill === 'construction' ? obj?.def?.type : null;
+    const recipes = con ? conRecipes(con) : skill === 'herblore'
       ? Object.entries(POTIONS).map(([id, p]) => ({ result: id, qty: 1, inputs: p.inputs, level: p.level, xp: p.xp }))
       : FLETCH;
+    const CON_HINT = { saw: 'Saw logs into planks for building.', kiln: 'Fire clay into bricks for building.',
+      build: 'Build furniture from planks, nails and bricks (you need a hammer). Sell it, or use it in your home builds.',
+      homebench: 'Saw logs into planks, and build furniture from planks, nails and bricks (you need a hammer).' };
     const render = (body) => {
-      body.innerHTML = `<div class="modal-hint">${skill === 'herblore'
+      body.innerHTML = `<div class="modal-hint">${con ? CON_HINT[con] || CON_HINT.build : skill === 'herblore'
         ? 'Brew farmed herbs into potions. Drink one from your pack for a boost in battle.'
         : 'Carve logs with a knife, and tip arrow shafts with feathers and a metal bar.'}</div>`;
       const list = document.createElement('div');
-      list.appendChild(this._doAllRow(skill, obj, skill === 'herblore' ? 'Brew all' : 'Fletch all'));
+      list.appendChild(this._doAllRow(con || skill, obj, con ? { saw: 'Saw all', kiln: 'Fire all' }[con] || 'Build all' : skill === 'herblore' ? 'Brew all' : 'Fletch all'));
       list.appendChild(this._makeQtyRow());
       for (const r of recipes) {
         const hasTool = !r.tool || g.hasTool(r.tool);
@@ -4410,13 +4416,13 @@ export class UI {
         row.className = 'dialogue-option';
         row.style.opacity = can ? '1' : '0.5';
         const needs = r.inputs.map(([id, n]) => `${n} ${getItem(id).name}`).join(' + ');
-        row.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${r.qty > 1 ? r.qty + ' ' : ''}${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${needs}${r.tool ? ', knife' : ''})</span>${makePill(g, maxMakes(g, 'recipe', r))}`;
+        row.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${r.qty > 1 ? r.qty + ' ' : ''}${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${needs}${r.tool ? `, ${r.tool}` : ''})</span>${makePill(g, maxMakes(g, 'recipe', r))}`;
         row.addEventListener('click', () => { g.startRecipe(skill, r, obj); this.closeModal(); });
         list.appendChild(row);
       }
       body.appendChild(list);
     };
-    this.openModal(skill === 'herblore' ? 'Herblore' : 'Fletching', render);
+    this.openModal(con ? obj.def.name : skill === 'herblore' ? 'Herblore' : 'Fletching', render);
     this.modal.kind = skill;
   }
 

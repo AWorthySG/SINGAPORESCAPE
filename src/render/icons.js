@@ -9,6 +9,7 @@ import { CROPS, POTIONS } from '../data/trades.js';
 import { ABILITY_BY_ID } from '../data/abilities.js';
 import { ITEMS } from '../data/items.js';
 import { BESTIARY_BOSSES } from '../data/bestiary.js';
+import { CON_TIERS, CON_WOOD } from '../data/construction.js';
   const OL = '#22304A';                 // A-Worthy navy ink outline
   // palettes
   const C = {
@@ -630,6 +631,26 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
     <path d="M18.5 15 L18.5 4.5 C18.5 3 20.5 3 20.5 4.5" fill="none" stroke="${OL}" stroke-width="2.6" stroke-linecap="round"/><path d="M18.5 15 L18.5 4.5 C18.5 3 20.5 3 20.5 4.5" fill="none" stroke="#5ac8a0" stroke-width="1.4" stroke-linecap="round"/>
     <circle cx="6.4" cy="9.6" r="0.8" fill="#ffffff"/><circle cx="11.6" cy="9.6" r="0.8" fill="#ffffff"/>
     <circle cx="21" cy="1.8" r="0.9" fill="#ffffff" stroke="${OL}" stroke-width="0.5"/>`;
+  // ---- Construction (construction.js): stickered vectors until the painted stickers arrive ----
+  S.construction = `<path d="M3 16.5 L16 8.5 L18.6 11.8 L5.4 19.4 Z" fill="${C.iron}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M5.4 19.4 L6 21 L7.4 18.6 L8.2 20 L9.4 17.4 L10.2 18.8 L11.4 16.2 L12.2 17.6 L13.4 15 L14.2 16.4 L15.4 13.8 L16.2 15.2 L18.6 11.8" fill="none" stroke="${OL}" stroke-width="0.9" stroke-linejoin="round"/><path d="M4.6 16.6 L15.8 9.8" stroke="${C.ironHi}" stroke-width="0.9"/><path d="M16 8.5 L19.8 4.6 C21.8 5.2 22.6 8.4 21.4 10.4 L18.6 11.8 Z" fill="${C.wood}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="19.6" cy="8" rx="1.1" ry="1.4" fill="${C.woodDk}"/>`;
+  const plankIcon = (c, hi) => [0, 5].map((d) => `<g stroke="${OL}" stroke-width="1" stroke-linejoin="round"><path d="M3 ${11 + d} L16 ${5 + d} L21 ${7 + d} L8 ${13 + d} Z" fill="${hi}"/><path d="M8 ${13 + d} L21 ${7 + d} L21 ${9.4 + d} L8 ${15.4 + d} Z" fill="${c}"/><path d="M3 ${11 + d} L8 ${13 + d} L8 ${15.4 + d} L3 ${13.4 + d} Z" fill="${c}"/></g><path d="M6 ${10.8 + d} L16.4 ${6 + d}" stroke="${c}" stroke-width="0.6"/>`).reverse().join('');
+  const nailsIcon = (c, hi) => [[7, 4, -12], [12, 3, 4], [17, 5, 16]].map(([x, y, r]) => `<g transform="rotate(${r} ${x} ${y + 8})"><rect x="${x - 0.9}" y="${y + 1}" width="1.8" height="15" rx="0.6" fill="${c}" stroke="${OL}" stroke-width="0.9"/><path d="M${x - 0.9} ${y + 16} L${x} ${y + 18.4} L${x + 0.9} ${y + 16} Z" fill="${c}" stroke="${OL}" stroke-width="0.8" stroke-linejoin="round"/><ellipse cx="${x}" cy="${y + 1}" rx="2.8" ry="1.2" fill="${hi}" stroke="${OL}" stroke-width="0.9"/></g>`).join('');
+  I.brick = `<g stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"><path d="M3 10 L14 6 L21 9 L10 13 Z" fill="#e8866a"/><path d="M10 13 L21 9 L21 14 L10 18 Z" fill="#c8583e"/><path d="M3 10 L10 13 L10 18 L3 15 Z" fill="#d86a4e"/></g><path d="M5.6 9.4 L12 7.2 M8 10.8 L14.6 8.4" stroke="#f4a88e" stroke-width="0.7"/>`;
+  // Furniture: a chair, a table, a cabinet or a lantern stand, in its tier's wood.
+  const chairIcon = (c, hi) => `<g stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"><rect x="7" y="3" width="10" height="9" rx="1.6" fill="${hi}"/><rect x="5.5" y="11.5" width="13" height="3" rx="1" fill="${c}"/><path d="M7 14.5 L6.4 21 M17 14.5 L17.6 21" stroke="${OL}" stroke-width="2.6" stroke-linecap="round"/><path d="M7 14.5 L6.4 21 M17 14.5 L17.6 21" stroke="${c}" stroke-width="1.2" stroke-linecap="round"/></g><path d="M9.4 5.6 L14.6 5.6 M9.4 8.4 L14.6 8.4" stroke="${c}" stroke-width="0.8"/>`;
+  const tableIcon = (c, hi) => `<g stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"><path d="M2.5 10 L21.5 10 L20 13 L4 13 Z" fill="${hi}"/><path d="M5.5 13 L5 21 M18.5 13 L19 21 M9 13 L9 18 M15 13 L15 18" stroke="${OL}" stroke-width="2.6" stroke-linecap="round"/><path d="M5.5 13 L5 21 M18.5 13 L19 21 M9 13 L9 18 M15 13 L15 18" stroke="${c}" stroke-width="1.2" stroke-linecap="round"/></g><path d="M5 11.4 L19 11.4" stroke="${c}" stroke-width="0.7"/>`;
+  const cabinetIcon = (c, hi) => `<g stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="18" rx="1.4" fill="${c}"/><rect x="6.6" y="4.2" width="5" height="14.6" rx="0.8" fill="${hi}"/><rect x="12.4" y="4.2" width="5" height="14.6" rx="0.8" fill="${hi}"/></g><circle cx="11" cy="11.6" r="0.7" fill="${OL}"/><circle cx="13" cy="11.6" r="0.7" fill="${OL}"/><path d="M6 20.5 L6 22 M18 20.5 L18 22" stroke="${OL}" stroke-width="1.6" stroke-linecap="round"/>`;
+  const lanternIcon = (c, hi) => `<path d="M12 8 L12 21 M7 21 L17 21" stroke="${OL}" stroke-width="2.8" stroke-linecap="round"/><path d="M12 8 L12 21 M7 21 L17 21" stroke="${c}" stroke-width="1.4" stroke-linecap="round"/><path d="M8.5 3 L15.5 3 L16.5 8 L7.5 8 Z" fill="#ffe38a" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M9.5 4.4 L14.5 4.4" stroke="${hi}" stroke-width="0.9"/>${glint(14, 5.2, 0.6)}`;
+  const FURNITURE_LOOK = { wooden_stool: chairIcon, oak_chair: chairIcon, teak_table: tableIcon, mahogany_cabinet: cabinetIcon, yew_bookcase: cabinetIcon,
+    magic_wardrobe: cabinetIcon, seraya_daybed: tableIcon, meranti_screen: cabinetIcon, tok_panjang_table: tableIcon, starwood_lantern_stand: lanternIcon,
+    moonwood_wayang_stage: cabinetIcon, heartwood_rocking_chair: chairIcon };
+  for (const t of CON_TIERS) {
+    const [c, hi] = CON_WOOD[t.plank];
+    I[t.plank] = plankIcon(c, hi);
+    const metal = t.nails.replace(/_nails$/, '');
+    I[t.nails] = nailsIcon(...(METAL_PAL[metal] || [C.iron, C.ironHi]));
+    I[t.furniture] = (FURNITURE_LOOK[t.furniture] || chairIcon)(c, hi);
+  }
   T.prayer = S.prayer;
   T.quests = `<path d="M6 3 L18 3 L18 21 L6 21 Z" fill="${C.cream}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M8 7 L16 7 M8 10 L16 10 M8 13 L14 13" stroke="${C.stoneDk}" stroke-width="1"/><circle cx="17" cy="18" r="3" fill="${C.gold}" stroke="${OL}" stroke-width="1"/>`;
   // Stats tab: a pentagon stat chart (no painted art yet, so this SVG is what shows).
@@ -916,6 +937,19 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   for (const r of ROUNDS) I[`${r}_rounds`] ||= I[`${r}_bar`] || I.steel_bar || I.coins;
   // Items that name a sticker to borrow (`artFrom: [from, tint]`, e.g. the skill-chain goods) borrow it, tinted.
   for (const [id, it] of Object.entries(ITEMS)) if (it.artFrom && !ITEM_ART.has(id)) { BORROW_ID[id] = it.artFrom[0]; BORROW_TINT[id] = it.artFrom[1]; I[id] ||= I[it.artFrom[0]] || I.coins; }
+  // Construction's goods borrow a sticker until their own arrive (their vectors,
+  // drawn above, stay as the fallback): planks the arrow shafts' bundle of
+  // sticks and furniture the woven lobster pot, both in their tier's wood; nails
+  // the barbed hooks in their bar's metal; a brick the lump of clay, fired red.
+  const woodTint = (hex) => { const { h, s: sat } = hueOf(hex); return `sepia(.7) hue-rotate(${Math.round(h - 38)}deg) saturate(${(1 + sat).toFixed(2)})`; };
+  for (const t of CON_TIERS) {
+    const tint = woodTint(CON_WOOD[t.plank][0]);
+    if (!ITEM_ART.has(t.plank)) { BORROW_ID[t.plank] = 'arrow_shaft'; BORROW_TINT[t.plank] = tint; }
+    if (!ITEM_ART.has(t.furniture)) { BORROW_ID[t.furniture] = t.furniture.endsWith('_lantern_stand') ? 'lantern' : 'lobster_pot'; BORROW_TINT[t.furniture] = t.furniture.endsWith('_lantern_stand') ? 'none' : tint; }
+    const metal = t.nails.replace(/_nails$/, '');
+    if (!ITEM_ART.has(t.nails) && METAL_PAL[metal]) { BORROW_ID[t.nails] = 'barbed_hooks'; BORROW_TINT[t.nails] = metalTint(metal); }
+  }
+  if (!ITEM_ART.has('brick')) { BORROW_ID.brick = 'clay'; BORROW_TINT.brick = 'hue-rotate(-14deg) saturate(1.6) brightness(.95)'; }
   // Tiered gathering tools (tooltiers.js) have their own stickers (ITEM_ART); their tier-1 tool's vector is the fallback.
   for (const [id, it] of Object.entries(ITEMS)) if (it.toolTier) I[id] ||= I[it.toolBase] || I.coins;
   // Boss signature weapons have painted stickers (ITEM_ART); their base weapon's vector is the fallback.
@@ -940,7 +974,7 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   }
   const SKILL_ART = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic', 'prayer', 'slayer',
     'woodcutting', 'mining', 'fishing', 'firemaking', 'cooking', 'smithing', 'crafting', 'thieving', 'agility',
-    'farming', 'hunter', 'herblore', 'fletching']);
+    'farming', 'hunter', 'herblore', 'fletching']);   // (Construction waits on its painted icon: its vector, S.construction, shows)
   export const skillIconSVG = (id, size = 20, cls) => (SKILL_ART.has(id) ? artImg(`skill-${id}`, size, cls) : svg(S[id] || S.attack, size, cls));
   /** Prayer and spell icons (assets/icons/prayer-<id>.webp, spell-<id>.webp). */
   export const prayerIconHTML = (id, size = 28, cls, tint) => artImg(`prayer-${id}`, size, cls, tint);

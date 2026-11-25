@@ -3689,7 +3689,7 @@ test('hunter, fletching and herblore: traps catch, benches make, potions brew, b
   assert.ok(game.player.hp > 1);
 });
 
-test('Trades of the Wild: Cikgu Surya teaches the four new skills and pays out at the end', () => {
+test('Trades of the Wild: Cikgu Surya teaches the newer skills and pays out at the end', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
@@ -3700,6 +3700,7 @@ test('Trades of the Wild: Cikgu Surya teaches the four new skills and pays out a
   game.inventory.add('attack_potion', 1); game.advanceLife('life_skills_wild');
   game.inventory.add('arrow_shaft', 15); game.advanceLife('life_skills_wild');
   game.skills.addXp('hunter', 200); game.advanceLife('life_skills_wild');
+  game.inventory.add('plank', 5); game.advanceLife('life_skills_wild');   // Construction joined at the end
   assert.equal(game.quests.life_skills_wild.state, 'done');
 });
 
