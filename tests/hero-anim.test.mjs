@@ -22,7 +22,7 @@ const ACTIONS = [
   { type: 'woodcut', obj: {} }, { type: 'mine', obj: {} },
   ...['net', 'rod', 'lobster_pot', 'harpoon'].map((tool) => ({ type: 'fish', obj: { def: { tool } } })),
   { type: 'cook', rawId: 'raw_barramundi' }, { type: 'cookdish' }, { type: 'smelt', recipe: { inputs: [{ id: 'copper_ore', qty: 1 }] } },
-  { type: 'smith' }, { type: 'craft', recipe: { tool: 'chisel' } }, { type: 'hunt' },
+  { type: 'smith' }, { type: 'craft', recipe: { tool: 'chisel' } }, { type: 'hunt' }, { type: 'dive' },
   { type: 'recipe', skill: 'fletching', recipe: { inputs: [['logs', 1]] } }, { type: 'recipe', skill: 'herblore', recipe: { inputs: [['vial', 1]] } },
   { type: 'firemake' }, { type: 'farm', obj: {} }, { type: 'farm', seed: 'durian_seed', obj: {} }, { type: 'farm', obj: { crop: 'x', growLeft: 0 } },
   { type: 'thieve' }, { type: 'stall' },

@@ -26,7 +26,7 @@ export const LEVEL_HAUL_CAP_LEVEL = 1 + LEVEL_HAUL_CAP / LEVEL_HAUL_PER;
 export const LEVEL_HAUL_TOP = 75;    // ...then a straight line on to this % at level 9999...
 // ...and on at the same pace until it is certain, at this level (19,747).
 export const LEVEL_HAUL_SURE = Math.ceil(LEVEL_HAUL_CAP_LEVEL + (100 - LEVEL_HAUL_CAP) / (LEVEL_HAUL_TOP - LEVEL_HAUL_CAP) * (MAX_LEVEL - LEVEL_HAUL_CAP_LEVEL));
-export const HAUL_SKILL = { woodcut: 'woodcutting', mine: 'mining', fish: 'fishing', hunt: 'hunter' };
+export const HAUL_SKILL = { woodcut: 'woodcutting', mine: 'mining', fish: 'fishing', hunt: 'hunter', dive: 'diving' };
 let roll = mulberry32((Date.now() ^ 0x27d4eb2f) >>> 0);
 /** Swap the generator (tests). */
 export function setHaulRand(fn) { roll = fn; }

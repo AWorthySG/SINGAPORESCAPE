@@ -54,6 +54,13 @@ export const SKILL_UNLOCKS = {
     { level: 75, name: 'Quick snares', desc: '5% chance to work a trap twice, +5% second catches', fx: { quick: 0.05, double: 0.05 } },
     { level: 99, name: 'Apex hunter', desc: '+15% traps that stay set, +10% second catches', fx: { keep: 0.15, double: 0.10 } },
   ],
+  diving: [
+    { level: 10, name: 'Deep breath', desc: '+5% chance of a double catch', fx: { double: 0.05 } },
+    { level: 25, name: 'Quick fingers', desc: '5% chance to bring up two finds in one dive', fx: { quick: 0.05 } },
+    { level: 50, name: 'Jetty teleport', desc: 'Teleport to the Sentosa Beach dive jetty', teleport: 'sentosa' },
+    { level: 75, name: 'Reef sense', desc: '+10% chance of a double catch', fx: { double: 0.10 } },
+    { level: 99, name: 'Pearl legend', desc: '10% more quick dives', fx: { quick: 0.10 } },
+  ],
   farming: [
     { level: 10, name: 'Green thumb', desc: '10% chance of an extra crop each harvest', fx: { double: 0.10 } },
     { level: 25, name: 'Rich soil', desc: 'Crops grow 10% faster', fx: { grow: 0.10 } },
@@ -115,11 +122,11 @@ export const UNLOCK_SKILLS = Object.keys(SKILL_UNLOCKS);
 
 // Which skill each continuous player action trains ('recipe' says itself).
 export const ACTION_SKILL = {
-  woodcut: 'woodcutting', mine: 'mining', fish: 'fishing', hunt: 'hunter', stall: 'thieving',
+  woodcut: 'woodcutting', mine: 'mining', fish: 'fishing', hunt: 'hunter', dive: 'diving', stall: 'thieving',
   cook: 'cooking', cookdish: 'cooking', smith: 'smithing', smelt: 'smithing', craft: 'crafting',
 };
 // Actions that gather (a double yield applies) and actions that make (inputs can be kept).
-export const GATHER_KINDS = new Set(['woodcut', 'mine', 'fish', 'hunt', 'stall']);
+export const GATHER_KINDS = new Set(['woodcut', 'mine', 'fish', 'hunt', 'dive', 'stall']);
 export const MAKE_KINDS = new Set(['cook', 'cookdish', 'smith', 'craft', 'recipe']);
 
 // Consumables carried in the pack that boost a gathering skill: each use of the

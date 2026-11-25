@@ -623,6 +623,13 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   S.herblore = potionIcon('#5fd08a');
   S.fletching = `<path d="M4 20 L18 6" stroke="${OL}" stroke-width="2.8" stroke-linecap="round"/><path d="M4 20 L18 6" stroke="#d8b878" stroke-width="1.4" stroke-linecap="round"/><path d="M17 4 L21 3 L20 7 L18 6 Z" fill="${C.iron}" stroke="${OL}" stroke-width="0.9" stroke-linejoin="round"/><path d="M4 20 L3 15 L7 17 Z M4 20 L9 21 L7 17 Z" fill="#e04a2a" stroke="${OL}" stroke-width="0.8" stroke-linejoin="round"/>`;
   S.hunter = `<ellipse cx="12" cy="15" rx="8" ry="5" fill="none" stroke="#c8a870" stroke-width="2.2"/>${[[5, 16], [19, 16], [12, 20]].map(([x, y]) => `<rect x="${x - 1.1}" y="${y - 5}" width="2.2" height="7" rx="0.9" fill="${C.wood}" stroke="${OL}" stroke-width="0.8"/>`).join('')}<path d="M9 7 C9 4 15 4 15 7 C15 9 12 11 12 11 C12 11 9 9 9 7 Z" fill="${C.coral}" stroke="${OL}" stroke-width="0.9"/>`;
+  // Diving: a pastel dive mask and snorkel over a wave, with bubbles (no painted icon yet).
+  S.diving = `<path d="M2.5 19 C5 17 7 21 9.5 19 C12 17 14 21 16.5 19 C19 17 20.5 20.5 21.5 19.5 L21.5 22 L2.5 22 Z" fill="#8fd6ff" stroke="${OL}" stroke-width="0.9" stroke-linejoin="round"/>
+    <rect x="3.5" y="7" width="13" height="8" rx="3.6" fill="#ffb86b" stroke="${OL}" stroke-width="1.1"/>
+    <rect x="5.3" y="8.6" width="4.2" height="4.8" rx="1.6" fill="#c8f0ff" stroke="${OL}" stroke-width="0.8"/><rect x="10.5" y="8.6" width="4.2" height="4.8" rx="1.6" fill="#c8f0ff" stroke="${OL}" stroke-width="0.8"/>
+    <path d="M18.5 15 L18.5 4.5 C18.5 3 20.5 3 20.5 4.5" fill="none" stroke="${OL}" stroke-width="2.6" stroke-linecap="round"/><path d="M18.5 15 L18.5 4.5 C18.5 3 20.5 3 20.5 4.5" fill="none" stroke="#5ac8a0" stroke-width="1.4" stroke-linecap="round"/>
+    <circle cx="6.4" cy="9.6" r="0.8" fill="#ffffff"/><circle cx="11.6" cy="9.6" r="0.8" fill="#ffffff"/>
+    <circle cx="21" cy="1.8" r="0.9" fill="#ffffff" stroke="${OL}" stroke-width="0.5"/>`;
   T.prayer = S.prayer;
   T.quests = `<path d="M6 3 L18 3 L18 21 L6 21 Z" fill="${C.cream}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M8 7 L16 7 M8 10 L16 10 M8 13 L14 13" stroke="${C.stoneDk}" stroke-width="1"/><circle cx="17" cy="18" r="3" fill="${C.gold}" stroke="${OL}" stroke-width="1"/>`;
   // Stats tab: a pentagon stat chart (no painted art yet, so this SVG is what shows).

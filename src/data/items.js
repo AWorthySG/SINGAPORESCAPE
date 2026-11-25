@@ -14,6 +14,7 @@
 import { CROPS, POTIONS } from './trades.js';
 import { signatureWeapons } from './bossWeapons.js';
 import { TOOL_KINDS, TOOL_TIERS, toolId, toolBonusText } from './tooltiers.js';
+import { diveItems, PEARL_JEWELLERY } from './diving.js';
 
 import { aOrAn, AOrAn } from '../core/utils.js';
 const RAW = {
@@ -1258,6 +1259,16 @@ export const ENDGAME_JEWELLERY = [
 for (const [id, name, slot, lvl, P, extra, value, examine] of ENDGAME_JEWELLERY) {
   RAW[id] = { name, icon: slot === 'ring' ? '💍' : '📿', value, examine,
     equip: { slot, req: { defence: lvl }, bonuses: { ...accessoryStats('melee', P), ...accessoryStats('ranged', P), ...accessoryStats('magic', P), ...extra } } };
+}
+
+// ---- Diving (diving.js): catches, pearls, dive gear and pearl jewellery ----
+// The jewellery is magic-style, like the pearl ring and amulet: power P on the
+// same ladder as the gem pieces of its band. Crafted only, never dropped, so it
+// stays out of ACCESSORY_STYLE and the loot tables.
+Object.assign(RAW, diveItems());
+for (const [id, name, slot, P, value, , , , art, tint, examine] of PEARL_JEWELLERY) {
+  RAW[id] = { name, icon: slot === 'ring' ? '💍' : '📿', value, examine, artFrom: [art, tint],
+    equip: { slot, req: {}, style: 'magic', bonuses: accessoryStats('magic', P) } };
 }
 
 // ---- Prayer accessories: no fighting stats, but Faith fills faster (bonus `prayer`, see blessings.js gainFaith) ----

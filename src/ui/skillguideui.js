@@ -33,18 +33,19 @@ import { xpRate, actionXp } from '../game/xprate.js';
 import { makeXp } from '../game/skilling.js';
 import {
   SKILL_GUIDES, GATHER_SKILLS, COMBAT_SKILLS, TOOL_NAMES, gatherSources, recipesFor, recipeLabel, recipeKindTitle, canMake,
-  regionsOf, nearestObject, groveList, fishSpotList, itemEntry, searchResources, RESOURCE_CATS, resourceIndex, perkLadder, gearTiers, trainingSpots, bestSpotsFor, combatExtras,
+  regionsOf, nearestObject, groveList, fishSpotList, diveSpotList, itemEntry, searchResources, RESOURCE_CATS, resourceIndex, perkLadder, gearTiers, trainingSpots, bestSpotsFor, combatExtras,
 } from '../game/skillguide.js';
 
 export const PAGE = 30;
 // Mining, Woodcutting and Fishing: tick the kinds you want and auto gather
 // works through exactly those, taking turns between them.
-const PICK_SKILLS = new Set(['mining', 'woodcutting', 'fishing']);
+const PICK_SKILLS = new Set(['mining', 'woodcutting', 'fishing', 'diving']);
 const AUTO_TEXT = {
   woodcutting: 'when a tree, rock or spot runs dry, move on to the next one nearby. Gather more than one kind (say copper and tin) and it takes turns between them',
   mining: 'when a tree, rock or spot runs dry, move on to the next one nearby. Gather more than one kind (say copper and tin) and it takes turns between them',
   fishing: 'when a tree, rock or spot runs dry, move on to the next one nearby. Gather more than one kind (say copper and tin) and it takes turns between them',
   hunter: 'when a trap or trail runs dry, move on to the next one nearby',
+  diving: 'keep diving the reef you start on, coming up for air between dives (a reef never runs dry). Tick a reef below and Start walks you to the nearest one',
   farming: 'harvest ripe patches and replant with your best seed, patch after patch',
   thieving: 'keep picking the same pocket after each try',
 };
@@ -101,11 +102,12 @@ const XPH_COUNTS = {
   mining: 'whole seams, gems, bonus hauls, lucky finds and streaks, and the walk between rocks and waiting for them to grow back',
   fishing: 'big catches, trophies, whole schools and passing schools, bonus hauls, lucky finds and streaks',
   hunter: 'whole flocks, bonus hauls, lucky finds and streaks, and the walk between traps and waiting for them to reset',
+  diving: 'whole reef beds, bonus hauls, lucky finds and streaks, and the pauses to come up for air',
   thieving: 'how often you get away with it, the stalls restocking and the stuns (pockets: one a tick)',
   agility: 'a lone obstacle crossed every tick (a course shows none: a lap is mostly running between obstacles)',
 };
 export function xpHourNote(skill) {
-  const tooled = ['woodcutting', 'mining', 'fishing', 'hunter'].includes(skill);
+  const tooled = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving'].includes(skill);
   return `<div class="modal-hint sgx-xph-note"><b>≈ xp/hr</b>: about what an hour there pays you now${tooled ? ', with auto gather and the best tool you carry' : ''}.`
     + `${XPH_COUNTS[skill] ? ` It counts ${XPH_COUNTS[skill]}.` : ''} Golden hours${tooled ? `, rested XP${skill === 'fishing' || skill === 'hunter' ? ', bait' : ''} and night bonuses` : ' and rested XP'} come on top.</div>`;
 }
@@ -194,6 +196,12 @@ export function placeCards(game, skill) {
         go: `data-grove="${esc(g.id)}"`, map: `data-gmap="${esc(g.id)}"` });
     }
   }
+  if (skill === 'diving') {
+    for (const f of diveSpotList(game)) {
+      cards.push({ icon: OBJECTS[f.objId]?.catches?.[0]?.id || null, name: f.name, level: f.level, sub: `${esc(f.catch)} · ${regionsText(f.regions, 2)}`,
+        go: `data-go="${esc(f.objId)}"`, map: `data-map="${esc(f.objId)}" data-label="${esc(f.name)}"` });
+    }
+  }
   if (skill === 'fishing') {
     for (const f of fishSpotList(game)) {
       cards.push({ icon: OBJECTS[f.objId]?.catches?.[0]?.id || null, name: f.name, level: f.level, sub: `${esc(f.tool)} · ${regionsText(f.regions, 2)}`,
@@ -210,7 +218,7 @@ export function placesHTML(game, skill, fold = {}) {
   const cards = placeCards(game, skill);
   if (!cards.length) return '';
   const lvl = game.skills.level(skill);
-  const title = skill === 'fishing' ? 'Fishing spots' : skill === 'woodcutting' ? 'Groves' : skill === 'mining' ? 'Quarries' : 'Where to go';
+  const title = skill === 'fishing' ? 'Fishing spots' : skill === 'diving' ? 'Reefs' : skill === 'woodcutting' ? 'Groves' : skill === 'mining' ? 'Quarries' : 'Where to go';
   const html = '<div class="sgx-spots">' + cards.map((c) => {
     const locked = c.level > lvl;
     return `<div class="sgx-spot${locked ? ' locked' : ''}">`
@@ -268,6 +276,10 @@ export function toolLadderHTML(game, skill) {
 // How to start Hunter: the snare, where to get another, the first traps and bait.
 const HUNTER_START = '<div class="sgx-howto"><b>How to start:</b> you begin with a hunting snare (a spare costs 10 coins at the Kampong General Store or Kranji Farm Supplies). '
   + 'The first traps are the bird snares just north of Kampong Glam. Carry hunter bait for more XP and a chance of double catches.</div>';
+
+// How to start Diving: no gear needed, where the first reef is, and the breath meter.
+const DIVING_START = '<div class="sgx-howto"><b>How to start:</b> walk to the shell shallows on Sentosa Beach and tap the reef: you can free-dive with no gear. '
+  + 'Each dive lasts your breath (the blue bar over your head), then you come up for air. A snorkel, dive mask, fins and the rest (the Kampong General Store sells the first five) let you stay down longer.</div>';
 
 /** Firemaking's own start button: light a fire right here, best logs first
  *  (game.startFiremaking), with what you'd burn and what you're missing. */
@@ -475,6 +487,7 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
     const fold = ui._sgxFold || (ui._sgxFold = {});   // which sections are folded, kept while the game runs
     body.insertAdjacentHTML('beforeend', headHTML(game, sk));
     if (sk === 'hunter') body.insertAdjacentHTML('beforeend', HUNTER_START);
+    if (sk === 'diving') body.insertAdjacentHTML('beforeend', DIVING_START);
     if (sk === 'firemaking') body.insertAdjacentHTML('beforeend', fireStartHTML(game));
     // The unlock and tool ladders fold away (closed at first): the owner found the
     // gathering guides a long wall to scroll past before the spots and nodes.

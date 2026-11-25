@@ -139,7 +139,7 @@ test('a skilling contract names the XP it really adds: Cikgu Surya\'s board, the
   assert.equal(num(contractLine().match(/ and ([\d,]+) \w+ XP\.$/)[1]), shown);
 
   // Played out, rested and on a streak: the line counts both.
-  const TYPE = { woodcutting: 'woodcut', mining: 'mine', fishing: 'fish', hunter: 'hunt' };
+  const TYPE = { woodcutting: 'woodcut', mining: 'mine', fishing: 'fish', hunter: 'hunt', diving: 'dive' };
   const k2 = list[1];
   g.play.rested = RESTED;
   const obj = g.world.objects.find((o) => o.objId === k2.objId);

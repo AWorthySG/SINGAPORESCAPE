@@ -14,6 +14,7 @@ import { ITEMS, getItem } from '../data/items.js';
 import { CLUE_TIERS } from '../data/clues.js';
 import { SLAYER_REWARDS } from '../data/slayer.js';
 import { HUNT } from '../data/trades.js';
+import { PEARL_GRADES } from '../data/diving.js';
 import { OBJECTS } from '../data/objects.js';
 import { RARE_BOSS_BONES } from '../data/bones.js';
 import { sigDropsFor } from '../data/bossWeapons.js';
@@ -65,12 +66,13 @@ export const RARE_FINDS = {
   mining: uniq(GEM_TABLE.map((g) => g.id)),
   fishing: uniq(['pearl']),
   hunter: uniq(Object.values(HUNT).flatMap((h) => h.gives.filter((g) => (g.chance ?? 1) <= 0.2).map((g) => g.id))),
+  diving: uniq(PEARL_GRADES.filter((id) => id !== 'pearl')),   // (a plain pearl is Fishing's)
   thieving: uniq(thievingFinds()),
 };
 const FIND_SKILL = new Map();
 for (const [skill, ids] of Object.entries(RARE_FINDS)) for (const id of ids) if (!FIND_SKILL.has(id)) FIND_SKILL.set(id, skill);
 // What each gathering action trains, for onGather.
-const ACTION_SKILL = { woodcut: 'woodcutting', mine: 'mining', fish: 'fishing', hunt: 'hunter', stall: 'thieving', thieve: 'thieving' };
+const ACTION_SKILL = { woodcut: 'woodcutting', mine: 'mining', fish: 'fishing', hunt: 'hunter', dive: 'diving', stall: 'thieving', thieve: 'thieving' };
 
 const item = (id) => ({ kind: 'item', id });
 const pet = (id) => ({ kind: 'pet', id });

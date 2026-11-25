@@ -205,7 +205,7 @@ test('a contract counts gathers at its node, pays coins and XP when done, and a 
   g.gathering.rand = () => 0.99;
   const list = g.gathering.ensureContracts();
   assert.equal(list.length, 3);
-  const TYPE = { woodcutting: 'woodcut', mining: 'mine', fishing: 'fish', hunter: 'hunt' };
+  const TYPE = { woodcutting: 'woodcut', mining: 'mine', fishing: 'fish', hunter: 'hunt', diving: 'dive' };
   const coins0 = g.inventory.count('coins');
   for (const k of list) {
     const obj = g.world.objects.find((o) => o.objId === k.objId);

@@ -55,6 +55,7 @@ import { smooth, seg, arc as arcUp } from './motionkit.js';
 import { drawGrave } from './grave.js';
 import { drawFishSchool } from './fishschoolfx.js';
 import { playerBarVisible, drawPlayerHp } from './playerhp.js';
+import { drawBreathBar } from './diveart.js';   // Diving's breath meter
 import { drawClassShot, drawClassEffect, drawClassAuras } from './classfx.js';   // the Priest's and the Zealot's own elements
 import { censerBolt } from './censerSwing.js';   // a Zealot's bolt leaves the swinging censer
 import { namePill, drawPill, pillRes, PILL_ROW } from './namepill.js';
@@ -2146,7 +2147,9 @@ export class Renderer {
       // way leaves the bar as it was until the blow lands, like your flinch.
       const hpf = game.player.hp / game.maxHp();
       if (!(game.player.strikeWait > 0) || !(this._hpShown >= 0)) this._hpShown = hpf;
-      if (playerBarVisible(game)) drawPlayerHp(ctx, px, py - 48, this._hpShown, this._hpTrail || (this._hpTrail = {}), this._now || 0, game.colourBlind);
+      const hpBar = playerBarVisible(game);
+      if (hpBar) drawPlayerHp(ctx, px, py - 48, this._hpShown, this._hpTrail || (this._hpTrail = {}), this._now || 0, game.colourBlind);
+      if (game.player.action?.type === 'dive') drawBreathBar(ctx, game, px + 4, py - (hpBar ? 58 : 48), this._now || 0);
       if (status) {
         ctx.font = '900 10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center';
         const tw = ctx.measureText(status[0]).width + 10;

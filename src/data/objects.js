@@ -9,6 +9,7 @@
 // depleteChance: probability the node is consumed after a successful gather.
 
 import { HUNT } from './trades.js';
+import { DIVE_SPOTS, DIVE_TAG } from './diving.js';
 
 export const OBJECTS = {
   // ---------------- Trees ----------------
@@ -893,6 +894,15 @@ for (const [kind, list] of Object.entries(FISH_SPOTS)) {
       skill: 'fishing', tool: k.tool, depleteChance: 0, respawn: 0,
       catches: [{ id: fish, level, xp, weight: 1 }], examine: `${examine} (Fishing ${level})` };
   }
+}
+
+// Diving's reefs (diving.js): each holds one catch, like a fishing spot, and
+// never runs dry. Their xp is fitted in diving.js, so no tuning below.
+for (const s of DIVE_SPOTS) {
+  OBJECTS[s.id] = { name: s.name, label: s.label, type: 'dive', verb: 'Dive', emoji: '🤿', blocking: false,
+    skill: 'diving', tool: DIVE_TAG, depleteChance: 0, respawn: 0, color: s.color, night: !!s.night,
+    ...(s.pearl ? { pearl: s.pearl } : {}), ...(s.chest ? { chest: s.chest } : {}),
+    catches: [{ id: s.gives, level: s.level, xp: s.xp, weight: 1 }], examine: `${s.examine} (Diving ${s.level})` };
 }
 
 // XP audit (Nov 2026): XP an hour at each node, at its own level, by auto gather.

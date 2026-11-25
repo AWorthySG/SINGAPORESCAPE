@@ -3,6 +3,11 @@
 // what it adds. Tools without a tier (hammer, chisel, net...) are always usable.
 import { ITEMS } from '../data/items.js';
 import { TOOL_TIERS, TOOL_KIND, TOOL_KINDS, toolId, toolBonusText } from '../data/tooltiers.js';
+import { DIVE_TAG, DIVE_GEAR } from '../data/diving.js';
+
+// A tool's tier: a gathering tool's, or a piece of dive gear's (diving.js: the
+// same twelve tiers, kept apart so the tool tables and their stickers aren't touched).
+const tierOf = (it) => it?.toolTier ?? it?.diveTier ?? 0;
 
 /** Can the player use tool `id` at their level? */
 export function canUseTool(game, id) {
@@ -24,7 +29,7 @@ function carried(game, tag) {
 export function bestTool(game, tag) {
   let best = null;
   for (const id of carried(game, tag)) {
-    if (canUseTool(game, id) && (!best || (ITEMS[id].toolTier || 0) > (ITEMS[best].toolTier || 0))) best = id;
+    if (canUseTool(game, id) && (!best || tierOf(ITEMS[id]) > tierOf(ITEMS[best]))) best = id;
   }
   return best;
 }
@@ -32,9 +37,9 @@ export function bestTool(game, tag) {
 /** What the tool in use gives: its tier's { speed, yield, find } (zero without a tiered one). */
 const NONE = { speed: 0, yield: 0, find: 0 };
 export function toolBonus(game, tag) {
-  if (!TOOL_KIND[tag]) return NONE;
+  if (!TOOL_KIND[tag] && tag !== DIVE_TAG) return NONE;
   const id = bestTool(game, tag);
-  return id ? TOOL_TIERS[ITEMS[id].toolTier || 0] : NONE;
+  return id ? TOOL_TIERS[tierOf(ITEMS[id])] : NONE;
 }
 
 /** The tool tag a gathering action works with ('axe' for chopping...), or null. */
@@ -44,6 +49,7 @@ export function actionToolTag(a) {
     case 'mine': return 'pickaxe';
     case 'fish': return a.obj?.def?.tool || 'net';
     case 'hunt': return 'snare';
+    case 'dive': return DIVE_TAG;
     default: return null;
   }
 }
@@ -68,6 +74,16 @@ export function toolTooHighMsg(game, tag) {
  *  first: { id, tag, tier, level, bonus, usable (level high enough), inUse }. */
 export function toolLadder(game, skill) {
   const rows = [];
+  if (skill === 'diving') {
+    // Dive gear: each piece also adds breath (diving.js).
+    const using = bestTool(game, DIVE_TAG);
+    for (const g of DIVE_GEAR) {
+      const more = toolBonusText(TOOL_TIERS[g.tier]);
+      rows.push({ id: g.id, tag: DIVE_TAG, tier: g.tier, level: g.level, bonus: `+${g.breath} breath${more ? `, ${more}` : ''}`,
+        usable: canUseTool(game, g.id), inUse: g.id === using });
+    }
+    return rows;
+  }
   for (const K of TOOL_KINDS) {
     if (K.skill !== skill) continue;
     const using = bestTool(game, K.tag);

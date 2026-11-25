@@ -27,6 +27,7 @@ export const SKILL_HOURS = {
   thieving:    { from: 21, to: 9,  when: 'Night',     why: 'pockets are easier picked in the dark' },
   mining:      { from: 22, to: 10,  when: 'Night',     why: 'the tunnels are cool at night' },
   herblore:    { from: 0,  to: 12,  when: 'Small hours', why: 'herbs are potent by moonlight' },
+  diving:      { from: 9,  to: 21,  when: 'Midday',    why: 'the sun lights the reef right to the bottom' },
 };
 
 /** Is `hour` (0-24, fractional) inside the window [from, to)? */
