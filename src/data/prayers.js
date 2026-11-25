@@ -12,7 +12,7 @@ export const PRAYERS = [
   // tier 2 = +25% (ranged/magic +35%), tier 3 = +50% (ranged/magic +60%, at
   // 175/225). Protect from Melee stopped 60% while it drained points; always on it
   // stops 30% (a full block comes from the Burst instead). The level-300 blessing
-  // raises all three melee stats at once, so it takes two slots.
+  // raises crits, Defence and damage at once, so it takes two slots.
   // `art` borrows another prayer's icon until a prayer gets its own.
   { id: 'thick_skin', name: 'Thick Skin', level: 1, def: 0.10 },
   { id: 'burst_strength', name: 'Burst of Strength', level: 5, str: 0.10 },
@@ -30,8 +30,10 @@ export const PRAYERS = [
   { id: 'ultimate_strength', name: 'Ultimate Strength', level: 200, str: 0.50 },
   { id: 'mystic_might', name: 'Mystic Might', level: 225, magic: 0.60 },
   { id: 'incredible_reflexes', name: 'Incredible Reflexes', level: 250, crit: 0.20 },
-  // The Worthy's blessing at 300: crit, Strength and Defence at once, a little stronger than the three tier-3 blessings and in two slots instead of three.
-  { id: 'worthy_spirit', name: 'Spirit of the Worthy', level: 300, slots: 2, crit: 0.25, str: 0.60, def: 0.60 },
+  // The Worthy's blessing at 300: crit, damage and Defence at once, a little stronger than the three tier-3 blessings and in two slots instead of three.
+  // Its damage works for every style (Strength, Ranged and Magic alike): it was Strength alone,
+  // so only melee got the top blessing's damage (the owner noticed, Nov 2026).
+  { id: 'worthy_spirit', name: 'Spirit of the Worthy', level: 300, slots: 2, crit: 0.25, str: 0.60, ranged: 0.60, magic: 0.60, def: 0.60 },
 ];
 
 export const PRAYER_BY_ID = Object.fromEntries(PRAYERS.map((p) => [p.id, p]));
@@ -45,8 +47,8 @@ export const PRAYER_GROUPS = {
   att: ['clarity', 'reflexes', 'incredible_reflexes', 'worthy_spirit'],
   str: ['burst_strength', 'superhuman', 'ultimate_strength', 'worthy_spirit'],
   def: ['thick_skin', 'rock_skin', 'steel_skin', 'worthy_spirit'],
-  ranged: ['sharp_eye', 'eagle_eye', 'deadeye'],
-  magic: ['mystic_will', 'mystic_lore', 'mystic_might'],
+  ranged: ['sharp_eye', 'eagle_eye', 'deadeye', 'worthy_spirit'],
+  magic: ['mystic_will', 'mystic_lore', 'mystic_might', 'worthy_spirit'],
 };
 
 /** The share of each stacked blessing's bonus after the strongest of its type. */
