@@ -10,6 +10,7 @@ import { getNpc } from '../data/npcs.js';
 import { getItem } from '../data/items.js';
 import { pageCount, spotTile, guardianKind } from '../game/lore.js';
 import { townArt, portraitFor } from '../render/sprites.js';
+import { choiceBadgeHTML, choiceLineHTML } from './pathui.js';   // each chapter's Good / Evil choice
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const chip = (state, text) => `<span class="q-chip ${state === 'done' ? 'done' : state === 'active' ? 'active' : 'todo'}">${esc(text)}</span>`;
@@ -48,18 +49,18 @@ export function storyPanelHTML(game) {
       .map((p) => `<button class="story-replay" type="button" data-replay="${c.id}:${p}" title="Replay the ${p}">${p === 'intro' ? '▶ Intro' : '▶ Ending'}</button>`).join('');
     if (open) {
       const next = s.nextStep();
-      html += `<div class="quest-row story-ch open"><div class="q-top"><b><span class="story-num">${i + 1}</span> ${esc(c.title)}</b>${chip('active', `${pr.have}/${pr.need}`)}</div>`
-        + `<span class="q-desc">${esc(c.summary)}</span>`
+      html += `<div class="quest-row story-ch open"><div class="q-top"><b><span class="story-num">${i + 1}</span> ${esc(c.title)}${choiceBadgeHTML(game, c.id)}</b>${chip('active', `${pr.have}/${pr.need}`)}</div>`
+        + `<span class="q-desc">${esc(c.summary)}</span>${choiceLineHTML(game, c.id)}`
         + `<ul class="story-quests">${pr.quests.map((q) => `<li class="${q.state}">${q.state === 'done' ? '✔' : q.state === 'active' ? '➤' : '○'} ${esc(q.name)}${q.region ? ` <small>${esc(q.region)}</small>` : ''}</li>`).join('')}</ul>`
         + (next ? `<div class="q-foot"><span class="q-next">${next.canGo ? '&#10148; ' : ''}${esc(next.text || next.name)}</span>`
           + (next.canGo ? `<button class="q-go" type="button" data-quest="${next.quest}" title="Walk there and start on it">Go</button>` : '') + '</div>' : '')
         + `<span class="q-desc story-reward">Reward: ${esc(rewardText(c.reward))} · ${c.reward.badge} badge</span>`
         + (replay ? `<div class="story-replays">${replay}</div>` : '') + '</div>';
     } else if (isDone) {
-      html += `<div class="quest-row story-ch done"><div class="q-top"><b><span class="story-num">${c.reward.badge}</span> ${esc(c.title)}</b>${chip('done', 'Done')}</div>`
-        + `<span class="q-desc">${esc(c.summary)}</span>${replay ? `<div class="story-replays">${replay}</div>` : ''}</div>`;
+      html += `<div class="quest-row story-ch done"><div class="q-top"><b><span class="story-num">${c.reward.badge}</span> ${esc(c.title)}${choiceBadgeHTML(game, c.id)}</b>${chip('done', 'Done')}</div>`
+        + `<span class="q-desc">${esc(c.summary)}</span>${choiceLineHTML(game, c.id)}${replay ? `<div class="story-replays">${replay}</div>` : ''}</div>`;
     } else {
-      html += `<div class="quest-row story-ch locked"><div class="q-top"><b><span class="story-num">${i + 1}</span> ${esc(c.title)}</b>${chip('todo', 'Later')}</div>`
+      html += `<div class="quest-row story-ch locked"><div class="q-top"><b><span class="story-num">${i + 1}</span> ${esc(c.title)}${choiceBadgeHTML(game, c.id)}</b>${chip('todo', 'Later')}</div>`
         + `<span class="q-desc">${esc(c.regions.join(', '))}</span></div>`;
     }
   });

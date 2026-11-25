@@ -70,3 +70,53 @@ body:has(.story-scene:not(.hidden)) #notice-lane .nl-tip { visibility: hidden; }
   .ss-line { font-size: var(--fs-md); }
   .ss-title { font-size: var(--fs-sm); }
 }
+
+/* ---- Your path: the Quest Journal's good / evil card, Crossroads and the
+   sun / moon marks on quests and chapters that hold a choice (pathui.js) ---- */
+.path-card { margin: 0 0 var(--sp-3); padding: 10px 12px; border-radius: 14px; border: 2px solid var(--aw-ink);
+  background: var(--aw-card); box-shadow: var(--shadow-sticker-sm); font-size: var(--fs-sm); }
+.path-card.path-good { background: linear-gradient(180deg, #fff6d6, var(--aw-card) 60%); }
+.path-card.path-evil { background: linear-gradient(180deg, #efe6fb, var(--aw-card) 60%); }
+.path-head { display: flex; align-items: center; gap: 8px; }
+.path-card b { font-size: inherit; }
+.path-head b { flex: 1; min-width: 0; font-size: var(--fs-md); }
+.path-icon { font-size: 22px; line-height: 1; }
+.path-good .path-title { color: var(--aw-sun-deep); }
+.path-evil .path-title { color: #7a3fb8; }
+.path-net { flex: none; padding: 2px 8px; border-radius: var(--r-pill); border: 1.5px solid var(--aw-ink); background: var(--aw-white);
+  font-weight: 800; font-size: var(--fs-xs); }
+.path-meter { position: relative; margin: 10px 4px 2px; }
+.pathm-bar { display: flex; height: 14px; border-radius: var(--r-pill); overflow: hidden; border: 2px solid var(--aw-ink); }
+.pathm-bar i { flex: 1; opacity: .55; }
+.pathm-bar i.on { opacity: 1; }
+.pathm-bar i + i { border-left: 1px solid var(--aw-white); }
+.pathm-villain { background: #ff5a6a; } .pathm-wicked { background: #c08af5; } .pathm-mischievous { background: #b9a3e0; }
+.pathm-neutral { background: #e9e4d8; } .pathm-kind { background: #f7e3a0; } .pathm-virtuous { background: #ffd24a; } .pathm-paragon { background: #ffe27a; }
+.pathm-pin { position: absolute; top: -5px; width: 10px; height: 24px; margin-left: -5px; border-radius: 5px;
+  background: var(--aw-white); border: 2px solid var(--aw-ink); box-shadow: var(--shadow-sticker-sm); }
+.pathm-ends { display: flex; justify-content: space-between; font-size: var(--fs-cap); color: var(--aw-text-sec); margin: 2px 2px 6px; }
+.path-fight { font-weight: 700; line-height: 1.35; }
+.path-next { margin-top: 4px; font-size: var(--fs-xs); line-height: 1.5; }
+.path-tally { margin-top: 4px; font-size: var(--fs-cap); color: var(--aw-text-sec); }
+.path-arcs { margin-top: 8px; border-top: 1px dashed var(--aw-ink-faint); padding-top: 6px; }
+.arc-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.arc-row.shut { opacity: .7; }
+.arc-text, .cr-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.arc-text b, .cr-text b { font-size: var(--fs-sm); }
+.arc-text small, .cr-text small { font-size: var(--fs-xs); color: var(--aw-text-sec); line-height: 1.35; }
+/* Choose / Go: finger-sized pills in the brand's rust. */
+.path-go { flex: none; min-height: 40px; min-width: 56px; padding: 4px 14px; font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-title);
+  cursor: var(--cur-pointer); border-radius: var(--r-pill); border: var(--stroke) solid var(--aw-ink);
+  background: var(--aw-accent); color: var(--aw-white); box-shadow: var(--shadow-primary); }
+.path-go:active { transform: translateY(3px); box-shadow: none; }
+.qc-badge { display: inline-block; margin-left: 4px; font-size: var(--fs-xs); letter-spacing: -2px; vertical-align: 1px; }
+.qc-line { display: flex; align-items: center; gap: 8px; margin-top: 6px; padding: 4px 8px; border-radius: 10px; font-size: var(--fs-xs); font-weight: 700; }
+.qc-line span { flex: 1; min-width: 0; }
+.qc-line.good { background: #fff3c4; color: #7a5a00; }
+.qc-line.evil { background: #efe3fb; color: #5d2f8e; }
+.qc-line.wait { background: var(--aw-sun-bg); border: 1.5px dashed var(--aw-ink); }
+.cross-card > summary { cursor: var(--cur-pointer); list-style: none; min-height: 32px; align-items: center; }
+.cross-card > summary::-webkit-details-marker { display: none; }
+.cross-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--aw-ink-faint); }
+.cr-ic { flex: none; width: 24px; text-align: center; font-size: var(--fs-md); }
+.cross-row.todo .cr-ic { color: var(--aw-text-sec); }

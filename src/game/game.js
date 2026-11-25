@@ -95,6 +95,7 @@ import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/q
 import { CLUE_TIERS, CLUE_SPOTS, clueTierForLevel } from '../data/clues.js';
 import * as RQ from './regionquests.js';   // region story quests
 import { Story } from './story.js';   // the main story, lore pages, story events and scenes
+import { payMoral, chooseQuest } from './questchoices.js';   // Good / Evil choices in the quest lines
 import * as Life from './npclife.js';   // living NPCs, region reputation, consequences (npclife.js)
 import { repPriceMult, repTitleText } from './reputation.js';
 import { consequencePriceMult } from './consequences.js';
@@ -3787,18 +3788,7 @@ export class Game {
       this.inventory.remove('coins', cost);
     }
     this.moral.choices[id] = side;
-    if (side === 'good') this.addGood(c.karma); else this.addEvil(c.karma);
-    const gains = [`${c.karma} ${side} karma`];
-    if (c.skill && c.xp) {
-      // A share of the XP to the skill's next level, so it matters at any level.
-      const lvl = this.skills.level(c.skill), need = xpForLevel(lvl + 1) - xpForLevel(lvl);
-      const xp = Math.max(1, Math.round(need * c.xp / XP_RATE / this.skills.lifeXpMult(c.skill)));
-      gains.push(`${xpText(this.skills.addXp(c.skill, xp))} ${SKILL_BY_ID[c.skill]?.name || c.skill} XP`);
-    }
-    if (c.coins) { const n = moralCoins(c.coins, fl); this.inventory.add('coins', n); gains.push(`${n} coins`); }
-    for (const [item, q] of c.items || []) { this.inventory.add(item, q); gains.push(`${q} ${getItem(item).name}`); }
-    if (c.shrine) { this.shrine.points += c.shrine; this.bus.emit('shrine'); gains.push(`${c.shrine} shrine points`); }
-    if (c.bless) { this.blessedMs = BLESS_MS; this.bus.emit('xpbonus'); gains.push(`Blessed (+${Math.round((BLESS_XP - 1) * 100)}% combat XP for ${BLESS_MS / 60000} minutes)`); }
+    const gains = payMoral(this, c, side);   // karma, then XP / shrine / Blessed or coins / loot (questchoices.js)
     this.msg(`${ev.name}: ${side === 'good' ? 'a good deed' : 'an evil deed'}. +${gains.join(', +')}.`, 'level');
     this.spawnSparkle(this.player, side === 'good' ? '#ffd24a' : '#9a5ad8', 14);
     this.bus.emit('sfx', side === 'good' ? 'level' : 'hurt');
@@ -7114,6 +7104,7 @@ export class Game {
     else if (action === 'corruptionRemind') this.remindCorruption();
     else if (action.startsWith('rq:')) RQ.regionAction(this, action);
     else if (action.startsWith('moral:')) { const [, id, side] = action.split(':'); this.moralChoose(id, side); }
+    else if (action.startsWith('qc:')) { const [, key, side] = action.split(':'); chooseQuest(this, key, side); }   // a quest line's Good / Evil choice
     this.bus.emit('quest');
   }
 

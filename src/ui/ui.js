@@ -6,6 +6,7 @@ import { unlockTipText } from '../game/skillunlocks.js';
 import { installHomeUI } from './homeui.js';
 import { installHawkerUI } from './hawkerui.js';
 import { installStoryUI, speakerArt } from './storyui.js';
+import { installPathUI, pathJournalHTML, choiceBadgeHTML, choiceLineHTML } from './pathui.js';   // your path, Crossroads, quest choices
 import { installReputationUI } from './reputationui.js';
 import { personalise } from '../game/memory.js';
 import * as Mercs from '../game/mercenary.js';
@@ -414,6 +415,7 @@ export class UI {
     installHomeUI(this);   // the kampong home's panel and its button by the map (homeui.js)
     installHawkerUI(this);   // your hawker stall's window (hawkerui.js)
     installStoryUI(this);  // the Journal's Story view and chapter scenes (storyui.js)
+    installPathUI(this);   // the Journal's "Your path" card, Crossroads and quest choices (pathui.js)
     installReputationUI(this, PANEL_TABS, SUBTAB_LABELS);   // the Journal's Regions view and the region pill (reputationui.js)
     installLifeSkillUI(this);   // Town / Grave teleports, skilling contracts (lifeskillui.js)
   }
@@ -3557,7 +3559,7 @@ export class UI {
     const done = QUESTS.filter((d) => game.quests[d.id]?.state === 'done').length;
     // "What next?": two or three goals with a Go each (whatnextui.js).
     const goals = this._wnGoals = whatNext(game);
-    let html = whatNextHTML(game, goals);
+    let html = pathJournalHTML(this) + whatNextHTML(game, goals);   // "Your path" and Crossroads first (pathui.js)
     const b = game.bounties;
     if (b && b.list.length) {
       const mult = Math.round((streakMult(b.streak) - 1) * 100);
@@ -3588,8 +3590,8 @@ export class UI {
       const canGo = guide.kind !== 'none';
       const tp = canRegionTeleport(game, d.id);   // a finished region quest's teleport
       const next = st !== 'done' && guide.text ? `<span class="q-next">${canGo ? '&#10148; ' : ''}${linkHTML(game, guide.text)}</span>` : '';
-      html += `<div class="quest-row${canGo ? ' can-go' : ''}" data-quest="${d.id}"><div class="q-top"><b>${escapeHtml(d.name)}</b>${status(st)}</div>` +
-        `<span class="q-desc">${linkHTML(game, d.desc)}${prog ? ` <span class="q-prog">(${escapeHtml(prog)})</span>` : ''}</span>` +
+      html += `<div class="quest-row${canGo ? ' can-go' : ''}" data-quest="${d.id}"><div class="q-top"><b>${escapeHtml(d.name)}${choiceBadgeHTML(game, d.id)}</b>${status(st)}</div>` +
+        `<span class="q-desc">${linkHTML(game, d.desc)}${prog ? ` <span class="q-prog">(${escapeHtml(prog)})</span>` : ''}</span>` + choiceLineHTML(game, d.id) +
         // The next step and its Go button share the card's foot, so Go never squeezes the text.
         (next || canGo || tp ? `<div class="q-foot">${next}` +
           (canGo ? `<button class="q-go" data-quest="${d.id}" title="Walk there and start on it">Go</button>` : '')
@@ -4590,12 +4592,12 @@ export class UI {
   }
 
   // Dialogue -----------------------------------------------------------
-  openDialogue(npc) {
+  openDialogue(npc, given = null) {   // `given`: a ready tree (a quest choice, pathui.js)
     if (npc.def.dialogue === 'slayer') return this.openSlayerMaster(npc);
     if (npc.def.dialogue === 'pest') return openPestOfficer(this, npc);   // Pest Control contracts (cullingui.js)
     if (npc.def.dialogue === 'museum') return openMuseum(this, npc);   // Archaeology's museum (museumui.js)
     if (npc.def.dialogue === 'story') return this.game.story?.talkTo(npc);   // a story messenger (story.js)
-    const tree = personalise(this.game, npc, npc.def.moral ? this._moralTree(npc.def.moral) : npc.def.dialogue === 'region' ? regionDialogue(this.game, npc) : getDialogue(npc.def.dialogue));   // memory.js
+    const tree = given || personalise(this.game, npc, npc.def.moral ? this._moralTree(npc.def.moral) : npc.def.dialogue === 'region' ? regionDialogue(this.game, npc) : getDialogue(npc.def.dialogue));   // memory.js
     if (!tree) { this.game.msg(`${npc.name} has nothing to say.`); return; }
     const show = (nodeId) => {
       const node = tree[nodeId];
