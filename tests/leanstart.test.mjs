@@ -40,10 +40,14 @@ test('the title asks only for the heroes its screen shows', () => {
   t.el.heroes.clientWidth = 1600; t.el.heroes.clientHeight = 150;
   t.splash = { querySelector: () => ({ getBoundingClientRect: () => ({ width: 560 }) }) };
   assert.deepEqual(t._cast(), TITLE_HEROES);
-  // attach() warms the measured cast and swings only theirs.
+  // warm() (before the game is built, or from attach()) asks for the measured
+  // cast; attach() swings only theirs.
   const src = readFileSync(new URL('../src/ui/title.js', import.meta.url), 'utf8');
+  const warm = src.slice(src.indexOf('  warm() {'), src.indexOf('  attach(game) {'));
+  assert.match(warm, /for \(const id of this\._cast\(\)\) warmHero\(id\);/);
+  assert.doesNotMatch(warm, /TITLE_HEROES/);
   const attach = src.slice(src.indexOf('  attach(game) {'), src.indexOf('  _cast() {'));
-  assert.match(attach, /const cast = this\._cast\(\);\n\s*for \(const id of cast\) warmHero\(id\);/);
+  assert.match(attach, /const cast = this\._cast\(\);\n\s*this\.warm\(\);/);
   assert.match(attach, /for \(const id of cast\) swingArtReady\(id\);/);
   assert.doesNotMatch(attach, /TITLE_HEROES/);
 });

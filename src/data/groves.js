@@ -78,6 +78,8 @@ const GAP = 4;   // open tiles kept between one grove and the next
 export function placeGroves(ctx, plan_ = GROVE_PLAN, kind = 'grove') {
   const { T, width: MW, height: MH, get, inB, placeObj, objects, npcSpawns, zones, resourceZones, stations, landmarks, towns, start } = ctx;
   const K = (x, y) => y * MW + x;
+  // The ground, a byte a tile (world.js hands over its own array; else read through `get`).
+  const ground = ctx.terrain || Uint8Array.from({ length: MW * MH }, (_, k) => get(k % MW, (k - k % MW) / MW));
   const zoneAt = (x, y) => zones.find((z) => x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1)?.name;
   // `bad`: tiles no part of a grove may cover. `taken`: tiles a tree can't
   // stand on (something stands there already, or something spawns there).
@@ -107,33 +109,40 @@ export function placeGroves(ctx, plan_ = GROVE_PLAN, kind = 'grove') {
   for (const [a, b, c, d] of towns) mark(a - 2, b - 2, c + 2, d + 2);
   mark(0, 0, MW - 1, 2); mark(0, MH - 3, MW - 1, MH - 1); mark(0, 0, 2, MH - 1); mark(MW - 3, 0, MW - 1, MH - 1);   // the border fence
 
-  // Every tile you can walk to from the start (before any grove).
+  // Every tile you can walk to from the start (before any grove). Steps are
+  // worked out on the tile index directly: this flood fill covers most of the map.
   const reach = new Uint8Array(MW * MH);
   {
-    const queue = new Int32Array(MW * MH);
+    const queue = new Int32Array(MW * MH), N = MW * MH, WATER = T.WATER;
     let head = 0, tail = 0;
+    const step = (nk) => {
+      if (reach[nk] || blocked[nk] || ground[nk] === WATER) return;
+      reach[nk] = 1; queue[tail++] = nk;
+    };
     queue[tail++] = K(start.x, start.y); reach[K(start.x, start.y)] = 1;
     while (head < tail) {
-      const k = queue[head++], x = k % MW, y = (k - x) / MW;
-      for (let i = 0; i < 4; i++) {
-        const nx = x + (i === 0 ? 1 : i === 1 ? -1 : 0), ny = y + (i === 2 ? 1 : i === 3 ? -1 : 0), nk = K(nx, ny);
-        if (!inB(nx, ny) || reach[nk] || blocked[nk] || get(nx, ny) === T.WATER) continue;
-        reach[nk] = 1; queue[tail++] = nk;
-      }
+      const k = queue[head++], x = k % MW;
+      if (x + 1 < MW) step(k + 1);
+      if (x > 0) step(k - 1);
+      if (k + MW < N) step(k + MW);
+      if (k >= MW) step(k - MW);
     }
   }
   // Open grass you can already walk to, off the roads (and two tiles back from them).
-  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
-    const t = get(x, y);
+  for (let y = 0; y < MH; y++) for (let x = 0, k = y * MW; x < MW; x++, k++) {
+    const t = ground[k];
     if (t === T.PATH || t === T.WOOD) mark(x - 2, y - 2, x + 2, y + 2);
-    else if ((t !== T.GRASS && t !== T.DARKGRASS) || !reach[K(x, y)]) bad[K(x, y)] = 1;
+    else if ((t !== T.GRASS && t !== T.DARKGRASS) || !reach[k]) bad[k] = 1;
   }
   // A running total of bad tiles, so a whole patch is checked in one look.
-  let sum;
-  const tally = () => {
-    sum = new Int32Array((MW + 1) * (MH + 1));
-    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
-      sum[(y + 1) * (MW + 1) + x + 1] = bad[K(x, y)] + sum[y * (MW + 1) + x + 1] + sum[(y + 1) * (MW + 1) + x] - sum[y * (MW + 1) + x];
+  // Rows above `from` keep their totals (a new mark only changes those below
+  // its top row), so a placed grove re-counts only from there down.
+  const sum = new Int32Array((MW + 1) * (MH + 1));
+  const tally = (from = 0) => {
+    const S = MW + 1;
+    for (let y = Math.max(0, from); y < MH; y++) {
+      const row = y * MW, up = y * S, at = up + S;
+      for (let x = 0; x < MW; x++) sum[at + x + 1] = bad[row + x] + sum[up + x + 1] + sum[at + x] - sum[up + x];
     }
   };
   const badIn = (x0, y0, x1, y1) => sum[(y1 + 1) * (MW + 1) + x1 + 1] - sum[y0 * (MW + 1) + x1 + 1] - sum[(y1 + 1) * (MW + 1) + x0] + sum[y0 * (MW + 1) + x0];
@@ -191,7 +200,7 @@ export function placeGroves(ctx, plan_ = GROVE_PLAN, kind = 'grove') {
       placed.push({ id: plan.id, name: plan.name, objId, kind, region: plan.region, cx, cy,
         x0: cx - (h - 1), y0: cy - (h - 1), x1: cx + (h - 1), y1: cy + (h - 1), count });
       mark(cx - h - GAP, cy - h - GAP, cx + h + GAP, cy + h + GAP);
-      tally();
+      tally(cy - h - GAP);
       break;
     }
   }

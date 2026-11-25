@@ -43,6 +43,8 @@ let lowGfx = false;
 try { lowGfx = localStorage.getItem('singaporescape:gfx') === 'low'; } catch { /* ignore */ }
 const title = new TitleScreen(document.getElementById('splash'), { lowFx: lowGfx });
 title.trackImages();
+// Its own pictures are asked for at once: the connection is free while the world is built.
+title.warm();
 // Signed in: settle the cloud save first (a newer one from another device loads
 // straight in). Gives up after a couple of seconds offline (see cloud.js).
 await cloud().boot();
@@ -216,7 +218,9 @@ function frame() {
     if (!title.active) game.playMs = (game.playMs || 0) + dt;   // time played (saved; shown when choosing a cloud save)
     title.frame(dt);   // on the title: tours the camera, runs the loading bar
     const p2 = ph ? now() : 0;
-    renderer.render(t);
+    // Behind the title's painted sky the world can't be seen: it isn't drawn
+    // then, so the title (its heroes, petals and Enter button) runs smoothly.
+    if (!title.worldHidden) renderer.render(t);
     const p3 = ph ? now() : 0;
     ui.renderMinimap();
     // Frames whose work keeps running long trim the decorative extras (governor.js).

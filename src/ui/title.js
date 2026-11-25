@@ -23,6 +23,7 @@ import { RANGED_HERO_CLASSES, RANGED_HERO_PARTS, rangedHeroSrc } from '../render
 import { ANIM_ART, IDLE_FACES, animArtSrc, swingArtReady, warmHeroAnim } from '../render/heroAnimArt.js';
 import { sampleHeroClip, blendHeroFrame, weaponClipId, HERO_CLIPS } from '../render/heroanim.js';
 import { fxImage } from '../render/fxart.js';
+import { depthTarget } from '../render/depthview.js';
 import { CLASS_BY_ID } from '../data/classes.js';
 import { starterOffhand } from '../game/equipment.js';
 import { TILE } from '../config.js';
@@ -542,6 +543,17 @@ export function titleCast(w, h, cardW = w) {
 const PETALS = ['petal_pink', 'frangipani', 'leaf_green', 'leaf_lime', 'petal_pink', 'dust_m'];
 const LOAD_MIN_MS = 700;      // the bar never just flashes past
 const LOAD_MAX_MS = 12000;    // ...and never holds the player up for long
+// How long after the Enter button shows the live world can still be glimpsed:
+// the cream paper fades out (1.1s after 0.1s) as the painted sky fades in
+// (1.1s after 0.15s, title.css). After that the sky covers it, with room to spare.
+export const SKY_IN_MS = 1800;
+/** Is the live world behind the title out of sight? It is once the painted
+ *  sky (an opaque picture over the whole screen) has loaded and faded in, until
+ *  the title hands the camera back to the player. Then the world need not be
+ *  drawn: the camera's tour behind the sky is never seen. */
+export function worldOutOfSight({ ready, skyIn, sinceReady, handedBack }) {
+  return !!(ready && skyIn && !handedBack && sinceReady >= SKY_IN_MS);
+}
 
 export class TitleScreen {
   /** `splash` is the #splash element; `opts.lowFx` trims the extras. */
@@ -560,6 +572,8 @@ export class TitleScreen {
     this._preload = 0;       // frames spent on the opening shot, so its pictures are asked for
     this._rest = null;       // then frames glancing at the other shots (see frame)
     this._later = [];        // jobs for once loading is done (later)
+    this._sinceReady = 0;    // ms since the Enter button showed (see worldHidden)
+    this._handedBack = false;   // the camera is back with the player (exit)
     this._tipStart = Math.floor(Math.random() * LOADING_TIPS.length);
     this._shot = -1;
     if (!splash) return;
@@ -590,6 +604,25 @@ export class TitleScreen {
     this._later.push(fn);
   }
 
+  /** Ask for the title's own pictures now, before the game is built: the
+   *  painted city, the title heroes this screen has room for and the petals.
+   *  They need nothing from the game, and the connection would otherwise sit
+   *  idle while the world is generated. (attach does this too, if no one has.) */
+  warm() {
+    if (!this.splash || this._titleArt) return;
+    for (const id of this._cast()) warmHero(id);
+    // The drifting petals (fxImage's own Image is counted like any other).
+    if (!this.still && !this.lowFx) for (const k of PETALS) fxImage(`particle-${k}`);
+    // The painted city: asked for now so the loading bar waits for it (the
+    // layers then use the same files from the cache).
+    this._titleArt = TITLE_START_ART.filter((s) => titleArtSrc(s) && !(s === 'clouds' && this.lowFx)).map((s) => {
+      if (typeof Image !== 'function') return null;
+      const img = new Image(); img.src = titleArtSrc(s);
+      if (s === 'sky') this._sky = img;
+      return img;
+    });
+  }
+
   /** The game is built: hook its camera, and warm up the heroes we'll need. */
   attach(game) {
     this.game = game;
@@ -599,7 +632,7 @@ export class TitleScreen {
     // title heroes this screen has room for, and your own hero, whom the
     // camera comes back to.
     const cast = this._cast();
-    for (const id of cast) warmHero(id);
+    this.warm();
     if (game.jobClass) warmHero(game.jobClass);
     // Once loading is done: every class's idle pictures for the class picker
     // (they arrive while the title plays), the title heroes' swings and
@@ -609,8 +642,6 @@ export class TitleScreen {
       for (const id of cast) swingArtReady(id);
       if (game.jobClass) warmHeroAnim(game.jobClass);
     });
-    // The drifting petals (fxImage's own Image is counted like any other).
-    if (!this.still && !this.lowFx) for (const k of PETALS) fxImage(`particle-${k}`);
     // The near band: the painted trees and Supertrees (art slot "skyline"), else
     // the cosy neighbourhood at golden hour (cosytitle.js). The city behind it is
     // drawn in layers that sway apart (the parallax).
@@ -619,13 +650,8 @@ export class TitleScreen {
       this.el.sky.classList.toggle('painted', !!titleArtSrc('skyline'));
     }
     dressTitle(this.splash, { lowFx: this.lowFx, still: this.still });
-    // The painted city: asked for now so the loading bar waits for it (the
-    // layers then use the same files from the cache). A painted sky hides the
-    // live world, so the place caption goes; the title sits on its ribbon.
-    this._titleArt = TITLE_START_ART.filter((s) => titleArtSrc(s) && !(s === 'clouds' && this.lowFx)).map((s) => {
-      if (typeof Image !== 'function') return null;
-      const img = new Image(); img.src = titleArtSrc(s); return img;
-    });
+    // A painted sky hides the live world, so the place caption goes; the
+    // title sits on its ribbon.
     this.splash.classList.toggle('title-painted', !!titleArtSrc('sky'));
     if (titleArtSrc('logo-banner')) { this.splash.classList.add('title-banner'); this.splash.style.setProperty('--title-banner', `url("${new URL(titleArtSrc('logo-banner'), document.baseURI).href}")`); }   // absolute: a url() in a custom property resolves against the stylesheet that uses it
     this._buildLayers();
@@ -635,6 +661,18 @@ export class TitleScreen {
     if (titleArtSrc('medallion')) this.splash.style.setProperty('--title-medallion', `url("${new URL(titleArtSrc('medallion'), document.baseURI).href}")`);
     const mascot = this.splash.querySelector('.splash-mascot');
     if (mascot && titleArtSrc('loading-hero')) mascot.src = titleArtSrc('loading-hero');
+  }
+
+  /** Has the painted sky arrived? (A missing picture leaves the world showing through.) */
+  _skyIn() {
+    const img = this._sky;
+    return !!(img && img.complete && img.naturalWidth > 0 && this.splash?.classList.contains('title-painted'));
+  }
+
+  /** True while the live world can't be seen behind the title (worldOutOfSight):
+   *  the game loop skips drawing it then. */
+  get worldHidden() {
+    return this.active && worldOutOfSight({ ready: this.ready, skyIn: this._skyIn(), sinceReady: this._sinceReady, handedBack: this._handedBack });
   }
 
   /** The title heroes this screen shows (all of them when it can't be measured). */
@@ -657,6 +695,13 @@ export class TitleScreen {
       if (this._preload < 2) {
         const s = TITLE_SHOTS[0];
         cam.cx = s.from[0] * TILE; cam.cy = s.from[1] * TILE;
+        // Framed as it will first be seen: at the shot's zoom, with the depth
+        // view's tilt already in place. (Eased in, the tilt took a dozen slow
+        // loading frames, each showing a little more ground, whose pictures
+        // were then asked for, and waited for, a frame at a time.)
+        const v = titleCameraAt(0, TITLE_SHOTS, this.still);
+        cam.setZoomMul?.(v.zoom);
+        cam.tilt = depthTarget(this.game, cam);
         this._preload++;
         return;
       }
@@ -664,12 +709,18 @@ export class TitleScreen {
       // cream and no longer counted, so their pictures start coming in. (One
       // frame asks for them all; a second only held the button back on a slow
       // phone, where each of these frames bakes a fresh patch of ground.)
+      // Not under the painted sky: it hides those shots, so they never need
+      // their pictures, and the button shows the moment the bar is full.
       if (this._rest != null) {
-        const s = TITLE_SHOTS[1 + this._rest];
+        const s = this._skyIn() ? null : TITLE_SHOTS[1 + this._rest];
         if (s) { cam.cx = s.from[0] * TILE; cam.cy = s.from[1] * TILE; this._rest++; return; }
         this._becomeReady();
-      } else this._updateBar(dt);
+      } else {
+        this._updateBar(dt);
+        if (this._rest != null && this._skyIn()) this._becomeReady();
+      }
     }
+    if (this.ready) this._sinceReady += dt;
     if (this.leaving) return;   // the camera returns to the player
     this.t += this.ready && !this.still ? dt : 0;
     if (this.ready) this._parallax(dt);
@@ -799,6 +850,7 @@ export class TitleScreen {
     const s = this.splash;
     s.style.pointerEvents = 'none';
     const swap = () => {
+      this._handedBack = true;   // the world is drawn again from here (worldHidden)
       if (this.game) { this.game.camera.snapped = false; this.game.camera.setZoomMul?.(1); }
       document.body.classList.remove('title-on');
       try { onIn?.(); } catch (e) { console.error(e); }
