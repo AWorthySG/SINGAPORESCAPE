@@ -29,6 +29,7 @@ import { NPC } from './npc.js';
 import { Camera } from '../engine/camera.js';
 import { Cinematics } from './cinematics.js';
 import { leafArt } from '../render/fxart.js';
+import { strikeLead } from '../render/motionkit.js';
 import { footFx } from './footfx.js';
 import { CombatFx, MAX_EFFECTS, keepLive, hitImpact, hitsplatFx, deathFx, isMilestoneLevel } from '../render/combatfx.js';
 import { juiceHit, juiceKill, juiceLevel, noteAbility, shakeAllowed, spriteDt } from '../render/juice.js';
@@ -507,6 +508,7 @@ export class Game {
     this.cfx = new CombatFx();      // pooled impact, crit, death and level-up effects (render/combatfx.js)
     // Screen-shake state (big hits, boss slams). Decays over shakeDur ms.
     this.shakeT = 0;
+    this._shakeHeld = null;   // a jolt waiting for a foe's blow to land (addShake)
     this.shakeDur = 1;
     this.shakeMag = 0;
     // Day/night clock: accumulated play time, wrapped into a repeating cycle
@@ -1040,6 +1042,8 @@ export class Game {
   /** Kick off a decaying screen shake (kept subtle; the strongest is a boss kill). */
   addShake(mag = 3, ms = 220) {
     if (!shakeAllowed(this)) return;   // Settings: Screen shake off, or Reduce motion
+    // A foe's blow on you still on its way: the jolt comes as it lands, with your flinch.
+    if (this.player?.strikeWait > 0) { if (!(this._shakeHeld?.mag >= mag)) this._shakeHeld = { mag, ms }; return; }
     if (mag >= this.shakeMag * (this.shakeT / this.shakeDur)) {
       this.shakeMag = Math.min(6, mag);
       this.shakeDur = ms;
@@ -1125,6 +1129,7 @@ export class Game {
     for (const e of this.effects) e.life -= adt;
     keepLive(this.effects, MAX_EFFECTS);   // in place, and capped
     if (this.shakeT > 0) this.shakeT = Math.max(0, this.shakeT - dt);
+    if (this._shakeHeld && !(this.player.strikeWait > 0)) { const h = this._shakeHeld; this._shakeHeld = null; this.addShake(h.mag, h.ms); }
     // Harvest-judder timers on world objects (trees/rocks being worked).
     this.world.tickShakes(dt);
 
@@ -3607,6 +3612,9 @@ export class Game {
     const p = this.player;
     if (!p.alive) return;
     this._swingToward(npc, p.x, p.y);
+    // Dealt now, but shown as the blow lands: your flinch, number and sparks
+    // wait for the foe's swing to reach you (visual only; motionkit.js).
+    p.strikeWait = strikeLead(npc.swingDur); p.strikeFresh = true;
     const heavy = !!opts.heavy;
     // Dancers slip blows entirely now and then.
     if (this.combatMode() === 'dance' && Math.random() < danceEvade(this.skills.agility, p.danceStyle) * (heavy ? 0.5 : 1)) {
@@ -6255,6 +6263,9 @@ export class Game {
     if (space <= 0) { this.msg("You don't have enough inventory space."); return; }
     const added = this.inventory.add(gi.id, Math.min(space, gi.qty), gi.q);
     gi.qty -= added;
+    // It hops up into your pack, as swept-up loot does, rather than vanishing (a look only).
+    const c = this.player.renderCenter();
+    this.effects.push({ type: 'lootfly', id: gi.id, rarity: gi.rarity, x: gi.x * TILE + TILE / 2 + (gi.ox || 0), y: gi.y * TILE + TILE * 0.62 + (gi.oy || 0), ex: c.x, ey: c.y - 10, life: 320, maxLife: 320 });
     this.msg(`You pick up ${added > 1 ? added + ' x ' : ''}${qualityName(gi.id, gi.q)}.`);
     this.bus.emit('sfx', 'pickup');
     if (gi.qty <= 0) this.world.removeGroundItem(gi);

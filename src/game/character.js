@@ -38,6 +38,11 @@ export class Character {
     this.knock = 0;      // ms of hit knockback left
     this.knockDX = 0;
     this.knockDY = 0;
+    // A blow dealt as a foe's swing starts lands on screen when the swing
+    // does: until then (ms) the flinch and knockback wait, unaged. Only the
+    // look waits; the damage was dealt on the game's own beat.
+    this.strikeWait = 0;
+    this.strikeFresh = false;   // set with it; the renderer holds what the blow spawned
     // Animation state for the renderer: walkPhase counts tiles walked (one
     // footstep each), animMove eases 0..1 as walking starts and stops, and
     // turnT runs down after the character turns to face the other way.
@@ -65,7 +70,7 @@ export class Character {
           : 5 * (1 - easeInOut((p - 0.42) / 0.58));                                          // settle back
       x += this.lungeDX * amp; y += this.lungeDY * amp;
     }
-    if (this.knock > 0) {           // pushed back by a hit, easing home
+    if (this.knock > 0 && !(this.strikeWait > 0)) {   // pushed back by a hit, easing home
       const k = this.knock / 160;
       x += this.knockDX * 4 * k * k; y += this.knockDY * 4 * k * k;
     }
@@ -148,9 +153,12 @@ export class Character {
 
   /** Combat-feel and animation timers, shared by every way of moving. */
   _tickTimers(dt) {
-    if (this.hurt > 0) this.hurt = Math.max(0, this.hurt - dt);
+    if (this.strikeWait > 0) this.strikeWait = Math.max(0, this.strikeWait - dt);   // the flash and knock hold till it ends
+    else {
+      if (this.hurt > 0) this.hurt = Math.max(0, this.hurt - dt);
+      if (this.knock > 0) this.knock = Math.max(0, this.knock - dt);
+    }
     if (this.swing > 0) this.swing = Math.max(0, this.swing - dt);
-    if (this.knock > 0) this.knock = Math.max(0, this.knock - dt);
     if (this.turnT > 0) this.turnT = Math.max(0, this.turnT - dt);
     // Ease the drawn lunge/knockback offset toward where it should be (~35ms lag).
     const r = this._rawOffset(_raw), k = easeK(dt);
@@ -171,7 +179,7 @@ export class Character {
     // weight settled at 0) a frame changes nothing, so skip it: most of the
     // monsters around you stand like this most of the time.
     if (!this.moving && this._offOn && this.animMove === 0 && this._offX === 0 && this._offY === 0 && !this.path.length
-      && !(this.hurt > 0) && !(this.swing > 0) && !(this.knock > 0) && !(this.turnT > 0)) return;
+      && !(this.hurt > 0) && !(this.swing > 0) && !(this.knock > 0) && !(this.turnT > 0) && !(this.strikeWait > 0)) return;
     this._tickTimers(dt);
     if (!this.moving) {
       if (this.path.length) this._beginStep();

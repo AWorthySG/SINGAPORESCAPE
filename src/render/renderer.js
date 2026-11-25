@@ -51,6 +51,7 @@ import { sunShadow, drawSunShadow, footfall } from './shadows.js';
 import { dropArc, dropFx, spawnFx } from './combatfx.js';
 import { applySquash, splatMotion, drawCritBurst, drawMissPuff, drawLootGlow, drawCoinGlint, motionOK } from './juice.js';
 import { spawnPose, deathPose, windupAge, hazardPulse, hazardIn } from './creatureanim.js';
+import { smooth, seg, arc as arcUp } from './motionkit.js';
 import { drawGrave } from './grave.js';
 import { drawFishSchool } from './fishschoolfx.js';
 import { playerBarVisible, drawPlayerHp } from './playerhp.js';
@@ -181,6 +182,8 @@ export class Renderer {
     this.motes = new AirMotes();     // motes, glow-flies, sea spray and blown sand on the wind (airmotes.js)
     this._moodOf = (z) => worldMood(this.game, z);
     this.postcards = new RegionPostcards();   // the arrival postcards (postcard.js)
+    this._foeWait = 0;   // ms a foe's blow on you still has to land (see _holdForStrike)
+    this._hpShown = -1;  // your overhead bar's share, held while that blow is on its way
     this.weather = new Weather();    // rain, snow, mist, embers (weather.js)
     this._critEnv = { world: null, zone: '', night: 0, px: 0, py: 0, low: false };
     this._lastT = 0;
@@ -416,15 +419,18 @@ export class Renderer {
         // Death animation: keel over about the feet while fading out.
         if (cx < -40 || cy < -40 || cx > vw + 40 || cy > vh + 40) continue;
         const k = 1 - n.deathT / 420; // 0 -> 1 over the fall
-        const dir = (n.faceX ?? ((n.facing && n.facing.dx < 0) ? -1 : 1)) < 0 ? -1 : 1;
+        // It falls away from the killing blow (the way it was knocked), or
+        // else backwards: toppling forward dropped it onto the hero's feet.
+        const face = (n.faceX ?? ((n.facing && n.facing.dx < 0) ? -1 : 1)) < 0 ? -1 : 1;
+        const dir = n.knockDX > 0.2 ? 1 : n.knockDX < -0.2 ? -1 : -face;
         // Topple like a falling body: a jolt as the blow lands, tipping faster
-        // and faster, a bump on the ground, then fade (creatureanim.js).
+        // and faster while it skids back, a thump on the ground, then fade (creatureanim.js).
         const d = deathPose(k, this._deathPose || (this._deathPose = {}));
-        const rot = d.rot, dsx = d.sx, dsy = d.sy, da = d.a;
+        const rot = d.rot, dsx = d.sx, dsy = d.sy, da = d.a, slide = calm ? 0 : dir * d.slide * 6 * sc;
         drawables.push({ sortY: c.y / TILE - 0.01, z: 1, draw: () => {
           ctx.save();
           ctx.globalAlpha = da;
-          ctx.translate(cx, cy + 11 * sc);
+          ctx.translate(cx + slide, cy + 11 * sc);
           ctx.rotate(dir * rot * Math.PI * 0.5);
           ctx.scale(dsx, dsy);
           ctx.translate(-cx, -(cy + 11 * sc));
@@ -508,6 +514,8 @@ export class Renderer {
       const al = game.alignmentStyle ? game.alignmentStyle() : null;
       // The hero's clip this frame (life skill, weapon swing, idle), blended.
       const anim = heroAnimFrame(game, timeMs);
+      // Struck by a foe whose swing hasn't landed yet: no flinch until it does.
+      const heroHurt = game.player.strikeWait > 0 ? 0 : game.player.hurt;
       // Fishing gear out on the water (line, bobber, net, pot, harpoon, the
       // fish flipping in) goes over the hero and over the spot, whichever is nearer.
       if (anim?.fish) {
@@ -521,7 +529,7 @@ export class Renderer {
         if (sk >= 0 && game.combatMode() === 'magic') this._castRing(cx, cy + 12, sk);
         drawPlayer(ctx, cx + off.x, cy - 2 + off.y, {
           anim,
-          time: timeMs, facing: game.player.facing, fx: game.player.faceX, entity: game.player, hurt: game.player.hurt,
+          time: timeMs, facing: game.player.facing, fx: game.player.faceX, entity: game.player, hurt: heroHurt,
           moving: game.player.isMoving, swingK: sk,
           hasBody: !!game.equipment.get('body'), hasWeapon: !!game.equipment.get('weapon'), weaponType: game.combatMode(),
           hasCape: !!game.equipment.get('cape'), hasHelm: !!game.equipment.get('head'),
@@ -530,14 +538,14 @@ export class Renderer {
           gait: { phase: game.player.walkPhase, move: game.player.animMove, run: game.player.running && game.player.isMoving,
             turn: game.player.turnT / TURN_MS },
         });
-        if (game.player.hurt > 0) this._hurtFlash(cx + off.x, cy - 2 + off.y, 1, game.player.hurt);
+        if (heroHurt > 0) this._hurtFlash(cx + off.x, cy - 2 + off.y, 1, heroHurt);
         if (al?.halo || al?.eyes) this._auraFront(cx + off.x, cy + off.y, al, timeMs);
       } });
     }
     { const pet = petDrawable(game, ctx, ox, oy, vw, vh, timeMs); if (pet) drawables.push(pet); }   // your pet (petsprite.js)
     this._holdForStrike(timeMs);
     // A melee blow's impact waits for the weapon to land, like its hitsplat.
-    { const clk = strikeClock(game); game.cfx.armFresh(clk && timeMs - clk.blowAt < 60 ? clk.hitTimes[0] - timeMs : 0); }
+    { const clk = strikeClock(game); game.cfx.armFresh(clk && timeMs - clk.blowAt < 60 ? clk.hitTimes[0] - timeMs : this._foeWait); }
     this.amb.drawGround(ctx, visObjs, ox, oy, timeMs);   // glints, flock shadows, cats, town birds (ambient.js)
     drawables.sort((a, b) => (a.sortY - b.sortY) || (a.z - b.z));
     for (const d of drawables) d.draw();
@@ -817,7 +825,7 @@ export class Renderer {
       ctx.fillStyle = lg;
       ctx.fillRect(0, 0, vw, vh);
     }
-    const h = game.player.hurt;
+    const h = game.player.strikeWait > 0 ? 0 : game.player.hurt;   // the screen flash waits for the blow too
     if (!h || !game.player.alive || game.reduceMotion) return;   // Reduce motion: no flashes
     const a = Math.min(0.45, (h / 200) * 0.45);
     const g = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.32, vw / 2, vh / 2, Math.max(vw, vh) * 0.72);
@@ -954,6 +962,11 @@ export class Renderer {
     // Only what appears with the blow itself (the game deals it as the swing starts).
     const fresh = !!clock && now - clock.blowAt < 60;
     const hits = clock && clock.hitTimes, last = hits ? hits.length - 1 : 0;
+    // A foe's blow on you likewise: your number and sparks, born with its
+    // swing, wait for the swing to land (Character.strikeWait, motionkit.js).
+    const pl = game.player, foeAt = pl.strikeFresh && pl.strikeWait > 0 ? now + pl.strikeWait : 0;
+    pl.strikeFresh = false;
+    this._foeWait = foeAt ? foeAt - now : 0;
     for (const e of game.effects) {
       if (e._showAt === undefined) {
         e._showAt = 0;
@@ -961,7 +974,7 @@ export class Renderer {
           const n = e.type === 'hitsplat' ? this._splatN++ : e.type === 'slash' ? this._slashN++ : 0;
           e._showAt = hits[Math.min(n, last)];
           e._life0 = e.life;
-        }
+        } else if (foeAt && e.entity === pl) { e._showAt = foeAt; e._life0 = e.life; }
       }
       if (e._showAt > now) e.life = e._life0;   // held: it doesn't age until shown
       // A blow folded into a number already up (game.js addHitsplat) pops it
@@ -969,13 +982,13 @@ export class Renderer {
       // own, which read as a miss.
       if (e.bumps !== e._bumpSeen) {
         e._bumpSeen = e.bumps;
-        e._bumpAt = fresh && e.type === 'hitsplat' && e.entity !== game.player ? hits[0] : now;
+        e._bumpAt = fresh && e.type === 'hitsplat' && e.entity !== game.player ? hits[0] : foeAt && e.entity === pl ? foeAt : now;
       }
     }
     for (const p of game.particles) {
       if (p._showAt === undefined) {
-        p._showAt = fresh ? hits[0] : 0;
-        if (fresh) { p._life0 = p.life; p._x0 = p.x; p._y0 = p.y; p._vy0 = p.vy; }
+        p._showAt = fresh ? hits[0] : foeAt;
+        if (p._showAt) { p._life0 = p.life; p._x0 = p.x; p._y0 = p.y; p._vy0 = p.vy; }
       }
       if (p._showAt > now) { p.life = p._life0; p.x = p._x0; p.y = p._y0; p.vy = p._vy0; }
     }
@@ -1116,13 +1129,17 @@ export class Renderer {
         continue;
       }
       if (e.type === 'lootfly') {
-        // Loot arcs up and into your pack, shrinking as it goes.
+        // Loot hops up off the ground (a quick pop, bigger for a moment), then
+        // arcs into your pack, shrinking as it goes. It homes on where you are
+        // now, so it never lands where you stood when you've walked on.
         const t = 1 - e.life / e.maxLife;
-        const ease = t * t * (3 - 2 * t);
-        const x = e.x + (e.ex - e.x) * ease - ox;
-        const y = e.y + (e.ey - e.y) * ease - oy - Math.sin(t * Math.PI) * 26;
+        const ease = smooth(t);
+        const pc = game.player.renderCenter();
+        const ex = pc.x, ey = pc.y - 10;
+        const x = e.x + (ex - e.x) * ease - ox;
+        const y = e.y + (ey - e.y) * ease - oy - arcUp(t) * 26;
         const img = itemIconImage(e.id);
-        const s = 20 * (1 - t * 0.55);
+        const s = 20 * (1 + 0.22 * arcUp(t / 0.36) - 0.55 * seg(t, 0.18, 1));
         const rar = RARITY[e.rarity];
         if (rar && rar.rank > 0) {
           ctx.save();
@@ -2024,8 +2041,11 @@ export class Renderer {
       const c = game.player.renderCenter();
       const px = c.x - ox, py = c.y - oy;
       // Your own bar, in a fight or while hurt (not only with a target), with
-      // a drain trail on each loss (playerhp.js).
-      if (playerBarVisible(game)) drawPlayerHp(ctx, px, py - 48, game.player.hp / game.maxHp(), this._hpTrail || (this._hpTrail = {}), this._now || 0, game.colourBlind);
+      // a drain trail on each loss (playerhp.js). A foe's blow still on its
+      // way leaves the bar as it was until the blow lands, like your flinch.
+      const hpf = game.player.hp / game.maxHp();
+      if (!(game.player.strikeWait > 0) || !(this._hpShown >= 0)) this._hpShown = hpf;
+      if (playerBarVisible(game)) drawPlayerHp(ctx, px, py - 48, this._hpShown, this._hpTrail || (this._hpTrail = {}), this._now || 0, game.colourBlind);
       if (status) {
         ctx.font = '900 10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center';
         const tw = ctx.measureText(status[0]).width + 10;

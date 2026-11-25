@@ -10,7 +10,8 @@ import { drawPictureTool, drawWeaponTrail } from './heroanim.js';
 import { drawHeroBack } from './heroAnimArt.js';
 import { heroLit, bakeRim } from './herolight.js';
 import { poseBlender } from './poseBlend.js';
-import { animSeed, animTempo, stepLift, stepRock, fidget, hitFlash, flinch, telegraphGlow, telegraphShake } from './creatureanim.js';
+import { swingBeats, turnWidth, turnHop, lookAround, breath } from './motionkit.js';
+import { animSeed, animTempo, stepLift, stepRock, fidget, hitFlash, flinch, telegraphGlow, telegraphShake, telegraphCrouch, fidgetLand } from './creatureanim.js';
 import { CREATURE_RIGS, TOWN_IDLE, bossRig, stride, gaitPhase } from './creatureRigs.js';
 import { REGION_GIVERS } from '../data/regionQuests.js';
 import { RESIDENTS } from '../data/consequences.js';
@@ -84,9 +85,10 @@ function staged(ctx, cx, cy, opts, draw) {
   }
   // Turning round: squash through edge-on rather than snapping to the mirror
   // image. A cosine, like a card spun about its edge: full width for longer,
-  // and only a moment edge-on.
+  // and only a moment edge-on, with a little hop so it reads as a step round
+  // (motionkit.js).
   const turn = g ? g.turn : opts.turn;
-  if (turn > 0) fx *= Math.max(0.12, Math.abs(Math.cos(Math.PI * turn))) * (turn > 0.5 ? -1 : 1);
+  if (turn > 0) { fx *= turnWidth(turn) * (turn > 0.5 ? -1 : 1); if (!opts.calm) bob -= turnHop(turn); }
   ctx.save();
   ctx.translate(cx, cy + bob);
   ctx.scale(fx * s, s);
@@ -299,19 +301,25 @@ function creaturePose(c, opts, t, seed) {
   // Standing about, now and then a little hop of its own (fliers already bob).
   const fg = !floats && ak < 0 && !opts.calm ? fidget(t, seed) * (1 - m) : 0;
   if (fg > 0) { dy -= fg * 1.8; sy += fg * 0.045; sx -= fg * 0.03; }
+  else if (!floats && ak < 0 && !opts.calm && m < 0.99) { const ld = fidgetLand(t, seed) * (1 - m); sy -= ld * 0.05; sx += ld * 0.035; }   // and squashes as it lands
   const a = _lunge;
   a.dx = 0; a.rot = 0; a.sx = 0; a.sy = 0;
-  if (ak >= 0) {
-    // Wind up (lean back and crouch), lunge into the strike, then recover.
-    const e = (x) => 1 - (1 - x) * (1 - x);
-    if (ak < 0.35) { const k = e(ak / 0.35); a.dx = -2.5 * k; a.rot = -0.09 * k; a.sy = -0.1 * k; a.sx = 0.06 * k; }
-    else if (ak < 0.6) { const k = Math.sin(((ak - 0.35) / 0.25) * Math.PI / 2); a.dx = -2.5 + 8 * k; a.rot = -0.09 + 0.2 * k; a.sy = -0.1 + 0.24 * k; a.sx = 0.06 - 0.14 * k; }
-    else { const k = e((ak - 0.6) / 0.4); a.dx = 5.5 * (1 - k); a.rot = 0.11 * (1 - k); a.sy = 0.14 * (1 - k); a.sx = -0.08 * (1 - k); }
+  const b = swingBeats(ak);
+  if (b) {
+    // Gather (lean back and crouch, squashed), whip into the blow (stretched
+    // long toward the foe), hold it a beat, then settle with a little bump.
+    // The strike peaks on the shared beat (motionkit.js), with the body's
+    // slide and the hero's flinch.
+    a.dx = -3 * b.wind + 6 * b.hit; a.rot = -0.11 * b.wind + 0.13 * b.hit;
+    a.sy = -0.12 * b.wind + 0.12 * b.hit - 0.05 * b.settle; a.sx = 0.08 * b.wind - 0.08 * b.hit + 0.04 * b.settle;
   }
   blendCreature(opts.entity, a, t, ak, CREATURE_BLEND);
   dx += a.dx; rot += a.rot; sx += a.sx; sy += a.sy;
-  // Trembling as a heavy blow charges, harder as it nears.
+  // Trembling as a heavy blow charges, harder as it nears, and sinking back
+  // into a crouch, gathering itself (eased back out as the blow is let go).
   if (opts.windup) dx += Math.sin(t * 0.09) * 0.9 * (opts.windAge >= 0 ? telegraphShake(opts.windAge) : 1);
+  const cr = telegraphCrouch(opts.entity, !!opts.windup, opts.windAge, t);
+  if (cr > 0) { dx -= 2.2 * cr; rot -= 0.07 * cr; sy -= 0.09 * cr; sx += 0.06 * cr; }
   if (opts.hurt > 0) {   // flinch when struck: a shudder and a stagger back, easing out
     const hk = flinch(opts.hurt);
     dx += Math.sin(t * 0.11) * hk * (opts.calm ? 0 : 2.6) - hk * 1.5; rot -= hk * 0.08;
@@ -352,7 +360,8 @@ function monsterTint(sticker, col) {
 // all on one shared 320px canvas) so their parts move on their own. `piv` is each
 // part's joint as a fraction of the canvas; `swing(t, o)` gives its angle in radians.
 const ease = (x) => 1 - (1 - x) * (1 - x);
-const atkPhase = (ak) => (ak < 0 ? null : ak < 0.35 ? { wind: ease(ak / 0.35), hit: 0 } : ak < 0.6 ? { wind: 1 - (ak - 0.35) / 0.25, hit: Math.sin(((ak - 0.35) / 0.25) * Math.PI / 2) } : { wind: 0, hit: 1 - ease((ak - 0.6) / 0.4) });
+// The shared beats of a blow (motionkit.js): every rig's limbs land together.
+const atkPhase = swingBeats;
 // Walking legs for four-legged species rigs: diagonal pairs swing together
 // (near-front with far-back), in step with the ground covered, settling as it stops (creatureRigs.js).
 const leg = (pair, amp = 0.42) => stride(pair, amp);
@@ -1068,11 +1077,24 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
   if (timg && timg.complete && timg.naturalWidth) {
     // Townsfolk with idle parts blink, breathe and now and then wave (not in low graphics).
     const idle = !opts.low && TOWN_IDLE[npcId] ? rigLayers(npcId, townRig(npcId)) : null;
+    // One picture and no parts: it breathes, and now and then glances the
+    // other way and back (motionkit.js), each on its own clock. Not while
+    // walking, in low graphics, under Reduce motion, or in a portrait (no entity).
+    const still = !idle && !!opts.entity && !opts.low && !opts.calm && !opts.moving && !(opts.move > 0.01) && !opts.pet;
+    const sd = animSeed(opts.entity, cx);
+    if (still && !(opts.turn > 0)) {
+      const lk = lookAround(opts.time || 0, sd);
+      if (lk.side < 0 || lk.turn > 0) {
+        opts.fx = (opts.fx ? (opts.fx < 0 ? -1 : 1) : (opts.facing && opts.facing.dx < 0) ? -1 : 1) * lk.side;
+        opts.turn = lk.turn;
+      }
+    }
     return staged(ctx, cx, cy, opts, (c) => {
       // Same footprint as the drawn mascot: feet on the tile, about mascot height.
       const s = Math.min(TOWN_ART_H / timg.naturalHeight, MASCOT_BOX.w / timg.naturalWidth);
       const w = timg.naturalWidth * s, h = timg.naturalHeight * s;
-      if (idle && drawTownIdle(c, npcId, idle, h, opts.time || 0, animSeed(opts.entity, cx))) return;
+      if (idle && drawTownIdle(c, npcId, idle, h, opts.time || 0, sd)) return;
+      if (still) { const b = breath(opts.time || 0, sd, animTempo(sd)); c.translate(0, TOWN_ART_FEET); c.scale(1 - b * 0.5, 1 + b); c.translate(0, -TOWN_ART_FEET); }
       // An A-Worthling is a mirror image of the Merchant, a little see-through.
       if (npcId === 'aworthling') c.globalAlpha *= 0.8;
       // A borrowed picture, recoloured (baked once, see tintedArt).
@@ -2155,10 +2177,13 @@ function heroPuppet(c, img, w, h, g, t) {
   const backLift = Math.max(0, sw) * m, frontLift = Math.max(0, -sw) * m;
   const land = 1 - Math.abs(sw);                       // 1 as a foot plants
   const breathe = (1 - m) * Math.sin(t * 0.0032) * 0.018;
+  // Standing, the weight shifts slowly from foot to foot (a sway about the
+  // feet, out of step with the breath), so a one-picture hero never stands frozen.
+  const sway = (1 - m) * (Math.sin(t * 0.0011) * 0.022 + Math.sin(t * 0.0029 + 1.3) * 0.006);
   c.save();
   // Lean into the walk (more when running) and squash slightly on each footfall.
   c.translate(0, HERO_ART_FEET);
-  c.rotate(m * (g.run ? 0.1 : 0.06));
+  c.rotate(m * (g.run ? 0.1 : 0.06) + sway);
   const sy = 1 + breathe - land * land * 0.035 * m, sx = 1 - breathe * 0.5 + land * land * 0.025 * m;
   c.scale(sx, sy);
   c.translate(0, -HERO_ART_FEET);
