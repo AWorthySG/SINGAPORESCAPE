@@ -149,18 +149,29 @@ export const RELIC_CHANCE = 0.04;
 export const RELIC_SET_BONUS = 0.02;   // +2% of the chance per finished set (modest: all twelve add a quarter)
 // Restoring: an encrusted relic and two of its site's material, at a
 // restoration bench, with a brush. Its XP is RESTORE_XP_MULT times the site's
-// dig XP over the relic chance, so restoring the relics an hour of digging
-// turns up pays about what that hour of digging paid in play (rich layers and
-// all), as the making skills do for the gathering ones (tools/balance/
-// productionxp.mjs): measured at 0.9-1.3x at levels 30, 99, 200 and 500
-// (tests/archaeology.test.mjs).
+// dig XP over the relic chance, times the site's RESTORE_TUNE, so restoring the
+// relics an hour of digging turns up pays what that hour of digging paid in
+// play (rich layers and all), as the making skills do for the gathering ones
+// (tools/balance/productionxp.mjs puts Smithing, Crafting and Fletching at
+// 0.99-1.01 of their gathering). The tune is measured, not guessed: at the
+// higher sites the better trowels' rare-find share turns up more relics an hour
+// (up to 60% more with an eternal trowel), so their relics each pay less. Each
+// site is fitted at its own level (the riverside godowns at 30, the kelong posts
+// at 99, the Palace of Temasek at 500, as tests/archaeology.test.mjs checks
+// them: 0.95-1.05 there).
 export const RESTORE_INPUT = 2;
 export const RESTORE_XP_MULT = 4.5;
+export const RESTORE_TUNE = {
+  kampong_ruins: 1.06, coastal_midden: 1.07, river_godowns: 1.07, ubin_dig: 1.07, fort_canning_dig: 1.08, kelong_dig: 1.08,
+  plantation_dig: 1.02, hermit_camp: 0.94, old_shipyard: 0.87, stargazer_terrace: 0.84, buried_courtyard: 0.79, temasek_palace_dig: 0.82,
+};
+/** A relic of site `s` restored: its XP as listed (before the rates). */
+export const restoreXp = (s) => Math.round(RESTORE_XP_MULT * s.xp / RELIC_CHANCE * (RESTORE_TUNE[s.id] || 1));
 
 // The museum's sets, one per site, lowest first. A finished set pays coins and
 // as much Archaeology XP as restoring five of its relics.
 export const MUSEUM_SETS = DIG_SITES.map((s) => ({ id: s.set, name: s.setName, title: s.title, site: s.id, level: s.level,
-  items: s.relics.map((r) => r.id), coins: Math.round(500 + s.level * s.level * 6), xp: Math.round(5 * RESTORE_XP_MULT * s.xp / RELIC_CHANCE) }));
+  items: s.relics.map((r) => r.id), coins: Math.round(500 + s.level * s.level * 6), xp: 5 * restoreXp(s) }));
 export const MUSEUM_SET_BY_ID = Object.fromEntries(MUSEUM_SETS.map((m) => [m.id, m]));
 export const museumPage = (setId) => `museum:${setId}`;
 
@@ -210,7 +221,7 @@ export function restoreRecipes() {
   for (const s of DIG_SITES) {
     for (const r of s.relics) {
       out.push({ result: r.id, qty: 1, inputs: [[r.encrusted, 1], [s.gives, RESTORE_INPUT]], level: r.level,
-        xp: Math.round(RESTORE_XP_MULT * s.xp / RELIC_CHANCE), tool: 'brush' });
+        xp: restoreXp(s), tool: 'brush' });
     }
   }
   return out.sort((a, b) => a.level - b.level);

@@ -285,7 +285,7 @@ test('digging pays about what Mining and Woodcutting do an hour, at levels 30, 9
   }
 });
 
-test('each site out-earns the one before it; restoring what an hour of digging finds pays about that hour again', () => {
+test('each site out-earns the one before it; restoring what an hour of digging finds pays that hour again (0.95-1.05)', () => {
   let prev = 0;
   for (const s of DIG_SITES) {
     const r = rate('archaeology', s.id, s.level, 120, SEED);
@@ -309,6 +309,7 @@ test('each site out-earns the one before it; restoring what an hour of digging f
     const perRelic = site.relics.reduce((a, x) => a + restore.get(x.id).xp * x.weight / w, 0);
     const restoring = digsAnHour * relicChance(g) * g.skills.xpAtLevel('archaeology', perRelic);
     const x = restoring / r.perHour;
-    assert.ok(x >= 0.7 && x <= 1.5, `level ${b.lvl}: restoring an hour's relics pays ${x.toFixed(2)}x the hour's digging`);
+    // Smithing, Crafting and Fletching pay 0.99-1.01 of their gathering hour (tools/balance/productionxp.mjs): restoring is held to 0.95-1.05.
+    assert.ok(x >= 0.95 && x <= 1.05, `level ${b.lvl}: restoring an hour's relics pays ${x.toFixed(3)}x the hour's digging`);
   }
 });
