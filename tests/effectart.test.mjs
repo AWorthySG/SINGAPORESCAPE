@@ -77,7 +77,7 @@ test('effects draw on the canvas while their pictures load or fail, and the pain
     // Crit star-burst, miss puff and a legendary drop's beam.
     let ctx = recCtx(); drawCritBurst(ctx, 18, 0.2, false); want('fx-crit-burst', ctx);
     ctx = recCtx(); drawMissPuff(ctx, 100); want('fx-miss-puff', ctx);
-    ctx = recCtx(); drawLootGlow(ctx, 'legendary', 50, 50, 2000, 1000, true); want('fx-loot-beam', ctx);
+    ctx = recCtx(); drawLootGlow(ctx, 'legendary', 50, 50, 2000, 1000, false); want('fx-loot-beam', ctx);
     // An ice hit: the painted shards with half the drawn ones, or all the drawn ones.
     let fx = new CombatFx();
     spawnElement(fx, 'ice', 100, 100);

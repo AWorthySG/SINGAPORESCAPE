@@ -48,7 +48,7 @@ import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, DARK_REGIONS } from './
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
 import { TerrainFx, growBox, tileHash, recolourGround } from './terrainfx.js';
 import { sunShadow, drawSunShadow, footfall } from './shadows.js';
-import { dropArc, dropFx, spawnFx } from './combatfx.js';
+import { dropArc, dropFx, spawnFx, pickupFx } from './combatfx.js';
 import { applySquash, splatMotion, drawCritBurst, drawMissPuff, drawLootGlow, drawCoinGlint, motionOK } from './juice.js';
 import { spawnPose, deathPose, windupAge, hazardPulse, hazardIn } from './creatureanim.js';
 import { smooth, seg, arc as arcUp } from './motionkit.js';
@@ -414,7 +414,7 @@ export class Renderer {
         const cx = g.x * TILE + TILE / 2 - ox + (g.ox || 0) * arc.k, cy = g.y * TILE + TILE * 0.62 - oy + (g.oy || 0) * arc.k - arc.h;
         // Uncommon and up glow in their rarity's colour; rare and up stand in a
         // beam of light once they've landed, legendary ones sparkle (juice.js).
-        drawLootGlow(ctx, g.rarity, cx, cy, ms, timeMs, !!(game.lowFx || game.fxTrim));
+        drawLootGlow(ctx, g.rarity, cx, cy, ms, timeMs, !!(game.lowFx || game.fxTrim), !motionOK(game));
         if (g.id === 'coins') drawCoinGlint(ctx, cx, cy, timeMs, g.x + g.y);   // coins catch the light now and then
         if (arc.land > 0) {   // a little squash as it touches down
           ctx.save(); ctx.translate(cx, cy + 6); ctx.scale(1 + arc.land * 0.22, 1 - arc.land * 0.22); ctx.translate(-cx, -(cy + 6));
@@ -1191,6 +1191,7 @@ export class Renderer {
         // Loot hops up off the ground (a quick pop, bigger for a moment), then
         // arcs into your pack, shrinking as it goes. It homes on where you are
         // now, so it never lands where you stood when you've walked on.
+        if (!e._fx) { e._fx = true; pickupFx(game, e); }   // rare and up sparkle where they lay (combatfx.js)
         const t = 1 - e.life / e.maxLife;
         const ease = smooth(t);
         const pc = game.player.renderCenter();

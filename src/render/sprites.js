@@ -13,7 +13,7 @@ import { poseBlender } from './poseBlend.js';
 import { swingBeats, turnWidth, turnHop, lookAround, breath } from './motionkit.js';
 import { animSeed, animTempo, stepLift, stepRock, fidget, hitFlash, flinch, telegraphGlow, telegraphShake, telegraphCrouch, fidgetLand } from './creatureanim.js';
 import { CREATURE_RIGS, TOWN_IDLE, bossRig, stride, gaitPhase } from './creatureRigs.js';
-import { RIG_INK, rigSize, inkRect, inkCopy } from './rigink.js';
+import { RIG_INK, rigSize, inkPart } from './rigink.js';
 import { REGION_GIVERS } from '../data/regionQuests.js';
 import { RESIDENTS } from '../data/consequences.js';
 import { PORTRAIT_CROPS } from '../data/portraitcrops.js';
@@ -569,7 +569,6 @@ function growRigBox(box, x0, y0, w, h, px, py, a, s) {
 // noting the area the posed layers cover in `box` when one is given. With
 // `res`, each layer's navy copy goes down first in the same pose, so the body
 // gets the stickers' ink line round its outside (rigink.js).
-const _ir = {};
 function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null, res = 0) {
   for (let pass = res > 0 ? 0 : 1; pass < 2; pass++) for (const n of rig.order) {
     const part = rig.parts[n];
@@ -586,8 +585,10 @@ function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null, res = 0) 
     } else if (box && pass) growRigBox(box, x0, y0, w, h, 0, 0, 0, 1);
     // Some parts swap to another picture for a moment (a mouth opening to bite, a claw opening).
     const img = part && part.alt && part.swap(opts) ? imgs[part.alt] : imgs[n];
-    if (pass) g.drawImage(img, x0, y0, w, h);
-    else { const k = inkCopy(img, w, h, res); if (k) { const r = inkRect(x0, y0, w, h, RIG_INK, _ir); g.drawImage(k, r.x, r.y, r.w, r.h); } }
+    const k = res > 0 ? inkPart(img, w, h, res) : null;
+    if (!pass) { if (k) g.drawImage(k.cv, x0 + k.x, y0 + k.y, k.w, k.h); }
+    else if (k && k.sw > 0) g.drawImage(img, k.sx, k.sy, k.sw, k.sh, x0 + k.ax, y0 + k.ay, k.aw, k.ah);   // just the painted part of the layer
+    else g.drawImage(img, x0, y0, w, h);
     g.restore();
   }
 }

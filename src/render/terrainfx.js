@@ -17,6 +17,7 @@
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
 import { drawObjectSprite, drawCreature, drawPlayer } from './sprites.js';
+import { GroundTouch } from './groundtouch.js';
 
 /** A stable 0..1 hash of a tile (and an optional salt). */
 export function tileHash(x, y, s = 0) {
@@ -144,6 +145,19 @@ function foamAlpha(a, frame) {
   return Math.min(1, Math.exp(-d * d) * 1.1);
 }
 
+// Where grass meets a road, sand or water, a soft navy seam runs along the
+// wavy line itself (where the neighbour's coverage is about half), a touch on
+// the grass side, so the grass reads as sitting a little above the ground
+// beside it. It follows the blend mask, so it is as wavy as the edge and never
+// shows the tile grid. SEAM_K is how dark it is beside each ground.
+export const SEAM_K = { [TERRAIN.PATH]: 1, [TERRAIN.SAND]: 0.75, [TERRAIN.WATER]: 1.2 };
+const SEAM_GRASS = new Set([TERRAIN.GRASS, TERRAIN.DARKGRASS]);
+export function seamAlpha(a) {
+  if (a <= 0.02 || a >= 0.98) return 0;
+  const d = (a - 0.42) / 0.2;
+  return 0.17 * Math.exp(-d * d);
+}
+
 // ---------------- Kerbs ----------------
 
 // Where town paving meets grass or sand it gets a sticker-style kerb: a cream
@@ -249,12 +263,12 @@ for (const id of RUG_IDS) GROUND_DETAILS[id] = [60, 60];
 export const DETAIL_ART = {};
 export const groundDetailArt = () => new Set(Object.keys(DETAIL_ART).map((id) => `detail-${id}`));
 
-const FOREST = new Set(['Bukit Timah', 'Jurong Forest', 'Mandai Rainforest', 'Coney Island', 'Sungei Buloh Wetlands']);
-const BEACH = new Set(['Sentosa Beach', 'Southern Islands', 'Changi Coast', 'Pulau Ubin', 'Coney Island']);
+export const FOREST = new Set(['Bukit Timah', 'Jurong Forest', 'Mandai Rainforest', 'Coney Island', 'Sungei Buloh Wetlands']);
+export const BEACH = new Set(['Sentosa Beach', 'Southern Islands', 'Changi Coast', 'Pulau Ubin', 'Coney Island']);
 const BLOOMS = new Set(['Kampong Glam', 'Gardens by the Bay', 'Kranji Farmlands', 'Chinatown', 'Marina Bay']);
-const BLEAK = new Set(['The Wilderness', 'The Shadow Rift', 'Tekong Badlands', 'Pulau Hantu', 'Temasek Ruins']);
+export const BLEAK = new Set(['The Wilderness', 'The Shadow Rift', 'Tekong Badlands', 'Pulau Hantu', 'Temasek Ruins']);
 // Fresh water, where lily pads and reeds grow (not the open sea).
-const FRESH = new Set(['MacRitchie Reservoir', 'Sungei Buloh Wetlands', 'Punggol Waterway', 'Kranji Farmlands',
+export const FRESH = new Set(['MacRitchie Reservoir', 'Sungei Buloh Wetlands', 'Punggol Waterway', 'Kranji Farmlands',
   'Gardens by the Bay', 'Mandai Rainforest', 'Pulau Hantu', 'Jurong Forest', 'Bukit Timah']);
 
 const FLOWERS = [['flower_pink', 1], ['flower_yellow', 1], ['flower_white', 1], ['flower_lilac', 0.6]];
@@ -653,8 +667,9 @@ export class TerrainFx {
       const a = blendMask(bits, v);
       const img = cv.g.createImageData(TILE, TILE);
       for (let i = 0; i < a.length; i++) {
-        const k = kind === 'b' ? a[i] : foamAlpha(a[i], kind === 'f0' ? 0 : 1);
-        img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = 255;
+        const k = kind === 'b' ? a[i] : kind === 's' ? seamAlpha(a[i]) : foamAlpha(a[i], kind === 'f0' ? 0 : 1);
+        if (kind === 's') { img.data[i * 4] = 34; img.data[i * 4 + 1] = 48; img.data[i * 4 + 2] = 74; }   // the seam is navy ink
+        else img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = 255;
         img.data[i * 4 + 3] = Math.round(k * 255);
       }
       cv.g.putImageData(img, 0, 0);
@@ -827,12 +842,29 @@ export class TerrainFx {
           sg.drawImage(mrow.c, a, 0, sw, TILE, a, 0, sw, TILE);
           sg.globalCompositeOperation = 'source-over';
           g.drawImage(strip.c, a, 0, sw, TILE, a, sy, sw, TILE);
+          // The seam along that edge, on grass tiles only.
+          const sk = SEAM_K[t];
+          if (sk) {
+            for (const [x, p] of row) {
+              if (p.t !== t || !SEAM_GRASS.has(world.terrainAt(x, y))) continue;
+              const sm = this._mask(p.bits, p.v, 's');
+              if (!sm) continue;
+              g.globalAlpha = Math.min(1, sk);
+              g.drawImage(sm, x * TILE - ox, sy);
+              if (sk > 1) { g.globalAlpha = sk - 1; g.drawImage(sm, x * TILE - ox, sy); }
+            }
+            g.globalAlpha = 1;
+          }
         }
         yield;
       }
     }
     // 1b. Kerbs round the town paving, over the soft edges.
     this._kerbs(g, world, tx0, ty0, tx1, ty1, fill);
+    // 1c. Where surfaces meet (seams, the foot of walls, worn earth by doors,
+    //     verges) and each region's small touches (groundtouch.js).
+    (this._touch || (this._touch = new GroundTouch(this.factory))).bake(g, world, tx0, ty0, tx1, ty1, opts);
+    yield;
     // 2. Small details on the ground.
     for (const d of scatterPlan(world, tx0, ty0, tx1, ty1, opts)) this._stamp(g, d, d.px - ox, d.py - oy);
     yield;
