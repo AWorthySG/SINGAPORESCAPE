@@ -29,6 +29,7 @@ export const SKILL_HOURS = {
   herblore:    { from: 0,  to: 12,  when: 'Small hours', why: 'herbs are potent by moonlight' },
   diving:      { from: 9,  to: 21,  when: 'Midday',    why: 'the sun lights the reef right to the bottom' },
   construction: { from: 7, to: 19,  when: 'Daytime',   why: 'good light, and the neighbours are awake anyway' },
+  hawkering:   { from: 11, to: 23,  when: 'Lunch to supper', why: 'the lunch crowd, then the supper crowd' },
 };
 
 /** Is `hour` (0-24, fractional) inside the window [from, to)? */

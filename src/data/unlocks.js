@@ -8,6 +8,7 @@
 //   keep    chance a tree, rock or trap you just used doesn't run dry
 //   grow    crops grow this share faster
 //   burn    fires you light burn this share longer
+//   tip     tips at your hawker stall are this share bigger (Hawkering)
 // A rung with `teleport` opens a teleport to the skill's best training area
 // (an MRT station, from the skill guide); a rung with `recipe` names the new
 // recipe that opens at that level (the recipe's own level gates it).
@@ -103,6 +104,13 @@ export const SKILL_UNLOCKS = {
     { level: 75, name: 'Sure hammer', desc: '+5% materials kept and 5% more double makes', fx: { save: 0.05, quick: 0.05 } },
     { level: 99, name: 'Master builder', desc: '+5% materials kept and 5% more double makes', fx: { save: 0.05, quick: 0.05 } },
   ],
+  hawkering: [
+    { level: 10, name: 'Friendly smile', desc: 'Tips are 10% bigger', fx: { tip: 0.10 } },
+    { level: 25, name: 'Quick hands', desc: '5% chance to serve two customers in one go', fx: { quick: 0.05 } },
+    { level: 50, name: 'Hawker centre teleport', desc: 'Teleport to Marina Bay, by the hawker centre', teleport: 'marina_bay' },
+    { level: 75, name: 'Wok hei', desc: '5% more double serves, tips 10% bigger', fx: { quick: 0.05, tip: 0.10 } },
+    { level: 99, name: 'Hawker legend', desc: '5% more double serves, tips 10% bigger', fx: { quick: 0.05, tip: 0.10 } },
+  ],
   herblore: [
     { level: 10, name: 'Steady pour', desc: '5% chance a brew keeps its herbs', fx: { save: 0.05 } },
     { level: 25, name: "New recipe: Angler's brew", desc: 'A brew for Fishing: more double catches', recipe: 'anglers_brew' },
@@ -130,7 +138,7 @@ export const UNLOCK_SKILLS = Object.keys(SKILL_UNLOCKS);
 // Which skill each continuous player action trains ('recipe' says itself).
 export const ACTION_SKILL = {
   woodcut: 'woodcutting', mine: 'mining', fish: 'fishing', hunt: 'hunter', dive: 'diving', stall: 'thieving',
-  cook: 'cooking', cookdish: 'cooking', smith: 'smithing', smelt: 'smithing', craft: 'crafting',
+  cook: 'cooking', cookdish: 'cooking', smith: 'smithing', smelt: 'smithing', craft: 'crafting', hawk: 'hawkering',
 };
 // Actions that gather (a double yield applies) and actions that make (inputs can be kept).
 export const GATHER_KINDS = new Set(['woodcut', 'mine', 'fish', 'hunt', 'dive', 'stall']);

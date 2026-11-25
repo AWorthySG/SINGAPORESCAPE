@@ -60,6 +60,7 @@ import { resolveDive } from './diving.js';
 import { installSkillUnlocks, runSkillAction, extraCrop, growTicks } from './skillunlocks.js';
 import { Home } from './home.js';
 import { placeLumberYards } from './construction.js';
+import { HawkerStall } from './hawkerstall.js';
 import { CROP_BY_SEED, cropFor, POTIONS, greenFingersChance } from '../data/trades.js';
 import { saveGame, loadGame, hasSave } from './save.js';
 import * as Play from './playbalance.js';
@@ -559,6 +560,7 @@ export class Game {
     installSkillUnlocks(this);        // life skill unlocks at 10/25/50/75/99 (skillunlocks.js)
     this.home = new Home(this);       // the kampong home plot in Kranji (home.js)
     this.lumberYards = placeLumberYards(this);   // Construction's sawmills, kilns and workbenches (construction.js)
+    this.hawker = new HawkerStall(this);   // your stall at the Marina Bay hawker centre: Hawkering (hawkerstall.js)
     this.gathering = new Gathering(this);   // gathering streaks, lucky finds and daily skilling contracts (gathering.js)
     this.fishSchools = new FishSchools(this);   // a school of fish now and then at a spot near you (fishschool.js)
     this.teleports = new Teleports(this);   // the Town (K) and Grave (R) teleports (teleports.js)
@@ -1521,6 +1523,9 @@ export class Game {
       case 'fletchmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('fletching', a.obj));
       case 'herbmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('herblore', a.obj));
       case 'conmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('construction', a.obj));
+      // Hawkering: walk up to your stall (open it, once rented), and run it while you stand there.
+      case 'hawkmenu': return this._tickArrival(a, a.obj, true, () => { if (this.hawker.rented) this.hawker.open(); this.bus.emit('hawkeropen'); });
+      case 'hawk': return this.hawker.tickAction(a);
       case 'farm': return this._tickArrival(a, a.obj, true, () => { this.tendPatch(a.obj, a.seed); if (this.autoGather) { this._autoLife = { kind: 'farm' }; this.autoGatherBest = null; } });
       // One-shot arrival actions (open a UI / talk).
       case 'cookmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openCookMenu(a.obj));
@@ -1877,6 +1882,7 @@ export class Game {
     if (a && GATHER_ACTIONS.has(a.type) && a.obj?.def) return a.obj.def.name;
     if (a?.type === 'farm' || this._autoLife?.kind === 'farm') return 'Farming';
     if (a?.type === 'thieve' || this._autoLife?.kind === 'thieve') return 'Pickpocketing';
+    if (a?.type === 'hawk') return 'Auto-serve';   // your hawker stall serves by itself (hawkerstall.js)
     return this._autoLife ? 'Waiting for regrowth' : 'Start gathering';
   }
 
@@ -6270,6 +6276,7 @@ export class Game {
       case 'fletch': return this.beginAction({ type: 'fletchmenu', obj, target: tgt }, tgt, true);
       case 'herblore': return this.beginAction({ type: 'herbmenu', obj, target: tgt }, tgt, true);
       case 'saw': case 'kiln': case 'build': case 'homebench': return this.beginAction({ type: 'conmenu', obj, target: tgt }, tgt, true);
+      case 'hawkstall': return this.beginAction({ type: 'hawkmenu', obj, target: tgt }, tgt, true);
       case 'farm': return this.beginAction({ type: 'farm', obj, target: tgt }, tgt, true);
       case 'bank': return this.beginAction({ type: 'openbank', target: tgt }, tgt, true);
       case 'shrine': return this.beginAction({ type: 'pray', obj }, tgt, true);

@@ -49,6 +49,8 @@ export const SKILLS = [
     group: 'gathering', desc: 'Dive reefs for shells, coral and pearls. Dive gear lets you stay down longer.' },
   { id: 'construction', name: 'Construction', icon: '🪚', color: '#b0703a',
     group: 'making', desc: 'Saw planks, fire bricks, build furniture and your kampong home. Needs a hammer.' },
+  { id: 'hawkering', name: 'Hawkering', icon: '🍜', color: '#d0583a',
+    group: 'making', desc: 'Run your own stall at the Marina Bay hawker centre. Serve dishes for coins.' },
 ];
 
 // Skills panel sections, in display order.

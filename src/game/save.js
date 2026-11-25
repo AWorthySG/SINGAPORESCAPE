@@ -109,6 +109,7 @@ export function snapshot(game) {
     potions: game.potions,
     farms: game.world.objects.filter((o) => o.def.type === 'farm' && o.crop).map((o) => ({ x: o.x, y: o.y, crop: o.crop, left: o.growLeft })),
     home: game.home?.serialize(),   // the kampong home (home.js)
+    hawker: game.hawker?.serialize(),   // your hawker stall: rented, reputation, totals (hawkerstall.js)
     snareGiven: !!game.snareGiven,  // the one-off Hunter snare for older saves (onboarding.js)
     bankKeep: serializeKeep(game),  // what the bank's Deposit loot leaves in the pack (bankkeep.js)
     quickbar: Array.isArray(game.quickbar) ? [...game.quickbar] : undefined,   // the quick bar's slots (quickbar.js)
@@ -395,6 +396,7 @@ function loadFields(game, data) {
   }
   // The kampong home goes up before the crops are put back: some of them grow in its patches.
   game.home?.load(data.home);
+  game.hawker?.load(data.hawker);   // older saves have none: no stall yet
   if (Array.isArray(data.farms)) {
     for (const f of data.farms) {
       const o = game.world.objectAt(f.x, f.y);

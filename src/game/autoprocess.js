@@ -9,11 +9,12 @@ import { SMELT, SMITH } from '../data/smithing.js';
 import { CRAFT } from '../data/crafting.js';
 import { POTIONS, FLETCH } from '../data/trades.js';
 import { CONSTRUCT, CON_STATIONS, conRecipes } from '../data/construction.js';
+import { SIGNATURE } from '../data/hawkering.js';
 import { getItem } from '../data/items.js';
 import { flushUnlockNews } from './skillunlocks.js';
 
 /** The station kinds a "Do all" can run at. */
-export const AUTO_KINDS = ['cook', 'smelt', 'smith', 'craft', 'fletching', 'herblore', ...CON_STATIONS];
+export const AUTO_KINDS = ['cook', 'smelt', 'smith', 'craft', 'fletching', 'herblore', 'hawkering', ...CON_STATIONS];
 // Construction's kinds are its station types (construction.js): a sawmill, a kiln, a workbench and the home workbench.
 const CON_KINDS = new Set(CON_STATIONS);
 
@@ -21,9 +22,10 @@ const has = (game, id, n) => game.inventory.has(id, n);
 const best = (list) => list.sort((a, b) => b.level - a.level)[0] || null;
 const key = (job) => `${job.type}:${job.rawId || job.recipe?.result || ''}`;
 
-/** Fletching, Herblore or Construction recipes in one shape ({ result, qty, inputs: [[id, n]], level, xp, tool }). */
+/** Fletching, Herblore, Construction or Hawkering (the stall's wok) recipes in one shape ({ result, qty, inputs: [[id, n]], level, xp, tool }). */
 export function tradeRecipes(skill) {
   if (skill === 'construction') return CONSTRUCT;
+  if (skill === 'hawkering') return SIGNATURE;
   return skill === 'herblore'
     ? Object.entries(POTIONS).map(([id, p]) => ({ result: id, qty: 1, inputs: p.inputs, level: p.level, xp: p.xp }))
     : FLETCH;
@@ -52,7 +54,7 @@ export function nextJob(game, kind, skip = new Set()) {
   } else if (kind === 'craft') {
     const r = best(CRAFT.filter((x) => !x.upgrade && (!x.tool || game.hasTool(x.tool)) && lvl('crafting') >= x.level && x.inputs.every((i) => has(game, i.id, i.qty)) && !skip.has(`craft:${x.result}`)));
     job = r && { type: 'craft', recipe: r };
-  } else if (kind === 'fletching' || kind === 'herblore') {
+  } else if (kind === 'fletching' || kind === 'herblore' || kind === 'hawkering') {
     const r = best(tradeRecipes(kind).filter((x) => !x.upgrade && (!x.tool || game.hasTool(x.tool)) && lvl(kind) >= x.level
       && x.inputs.every(([id, n]) => has(game, id, n)) && !skip.has(`recipe:${x.result}`)));
     job = r && { type: 'recipe', skill: kind, recipe: r };
@@ -77,7 +79,7 @@ export const jobKey = key;
 // so the odds and the XP are what one-at-a-time making gave; only the waiting
 // and the chat line per item are gone.
 
-const VERB = { cook: 'cook', cookdish: 'prepare', smith: 'smith', craft: 'craft', fletching: 'fletch', herblore: 'brew', construction: 'make' };
+const VERB = { cook: 'cook', cookdish: 'prepare', smith: 'smith', craft: 'craft', fletching: 'fletch', herblore: 'brew', construction: 'make', hawkering: 'cook' };
 const BONUS = { cook: 'perfectly cooked', smith: 'extra from flawless work' };
 const plural = (name, n) => (n === 1 || name.endsWith('s') ? name : `${name}s`);
 

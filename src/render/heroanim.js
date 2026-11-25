@@ -829,7 +829,8 @@ export function actionClipId(a) {
     case 'craft': return 'craft';
     case 'hunt': return 'hunt';
     case 'dive': return 'hunt';   // crouched at the water's edge, reaching down to the reef
-    case 'recipe': return a.skill === 'herblore' ? 'herb' : a.skill === 'construction' ? 'smith' : 'fletch';   // building: hammering
+    case 'recipe': return a.skill === 'herblore' ? 'herb' : a.skill === 'construction' ? 'smith' : a.skill === 'hawkering' ? 'stir' : 'fletch';   // building: hammering
+    case 'hawk': return 'stir';   // at your hawker stall's wok
     case 'firemake': return 'firemake';
     case 'farm': {
       const o = a.obj;
@@ -872,7 +873,8 @@ export function actionPropId(game, a) {
     case 'smith': return itemWithTool(game, 'hammer');
     case 'craft': return a.recipe?.tool ? itemWithTool(game, a.recipe.tool) : first(a.recipe);
     case 'hunt': return itemWithTool(game, 'snare');
-    case 'recipe': return a.skill === 'herblore' ? first(a.recipe) : itemWithTool(game, a.skill === 'construction' ? 'hammer' : 'knife');
+    case 'recipe': return a.skill === 'herblore' ? first(a.recipe) : a.skill === 'hawkering' ? 'pot' : itemWithTool(game, a.skill === 'construction' ? 'hammer' : 'knife');
+    case 'hawk': return 'pot';
     case 'firemake': return itemWithTool(game, 'tinderbox');
     case 'farm': return a.seed || null;
     case 'bury': case 'offer': return 'bones';
@@ -1147,7 +1149,7 @@ function faceWork(p, a) {
 // thins them out in low graphics); in low graphics these extras are skipped.
 const FX = {
   woodcutting: 'chips', mining: 'sparks', fishing: 'splash', cooking: 'puff', smithing: 'anvil', crafting: 'glint',
-  fletching: 'shavings', construction: 'shavings', firemaking: 'embers', farming: 'clods', herblore: 'leafbits', hunter: 'grass', thieving: 'coin', prayer: 'holy',
+  fletching: 'shavings', construction: 'shavings', hawkering: 'puff', firemaking: 'embers', farming: 'clods', herblore: 'leafbits', hunter: 'grass', thieving: 'coin', prayer: 'holy',
 };
 function beatFx(game, skillId, a) {
   if (game.lowFx || !game._pushParticle) return;

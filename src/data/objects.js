@@ -726,6 +726,12 @@ export const OBJECTS = {
     art: 'obj-furnace', tint: 'hue-rotate(-18deg) saturate(1.3) brightness(1.05)', examine: 'A brick kiln, warm to the touch. Fire clay into bricks here.' },
   workbench: { name: 'Workbench', type: 'build', verb: 'Build at', emoji: '🔨', blocking: true, skill: 'construction',
     art: 'obj-crafting_table', tint: 'sepia(0.5) saturate(1.4) hue-rotate(-15deg)', examine: 'A sturdy workbench for building furniture from planks, nails and bricks.' },
+
+  // ---------------- Hawkering (hawkerstall.js) ----------------
+  // Your stall at the Marina Bay hawker centre, placed at run time. It borrows
+  // the noodle stall's picture (`art`, recoloured by `tint`) until its own arrives.
+  hawker_counter: { name: 'Your hawker stall', label: 'Your stall', type: 'hawkstall', verb: 'Run', emoji: '🍜', blocking: true, skill: 'hawkering',
+    art: 'obj-hawker_stall_noodle', tint: 'hue-rotate(-25deg) saturate(1.2)', examine: 'A stall of your own, with a wok, a till and a queue of hungry townsfolk.' },
 };
 
 // ---------------- Landmarks and set dressing (landmarks.js places them) ----------------

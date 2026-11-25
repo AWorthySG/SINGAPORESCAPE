@@ -13,6 +13,7 @@
 
 import { CROPS, POTIONS } from './trades.js';
 import { conItems } from './construction.js';
+import { hawkerItems } from './hawkering.js';
 import { signatureWeapons } from './bossWeapons.js';
 import { TOOL_KINDS, TOOL_TIERS, toolId, toolBonusText } from './tooltiers.js';
 import { diveItems, PEARL_JEWELLERY } from './diving.js';
@@ -879,6 +880,9 @@ Object.assign(RAW, {
 
 // ---- Construction (see construction.js): planks, nails, bricks and furniture ----
 Object.assign(RAW, conItems((id) => RAW[id]?.value || 1));
+
+// ---- Hawkering (see hawkering.js): the stall's dry goods and its two new dishes ----
+Object.assign(RAW, hawkerItems());
 
 // ---- Weapons for the newer classes, one per metal tier ----
 // Pistols (Pistoler): dual wielded, need no ammo, light shots fired very fast.

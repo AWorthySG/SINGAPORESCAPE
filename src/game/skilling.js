@@ -657,7 +657,7 @@ export function resolveRecipe(game, action) {
   if (action.tally) return r.inputs.every(([id, n]) => game.inventory.has(id, n));   // a batch says it once (makeBatch)
   game.spawnSparkle(game.player, skill === 'herblore' ? '#7ad08a' : '#caa15a', 6);
   const name = getItem(r.result).name.toLowerCase();
-  game.msg(skill === 'herblore' ? `You brew ${aOrAn(name)}.` : skill === 'construction' ? `You make ${aOrAn(name)}.`
+  game.msg(skill === 'herblore' ? `You brew ${aOrAn(name)}.` : skill === 'hawkering' ? `You cook ${(r.qty || 1) > 1 ? `${r.qty} ${name}` : name} at your stall.` : skill === 'construction' ? `You make ${aOrAn(name)}.`
     : `You fletch ${(r.qty || 1) > 1 ? `${r.qty} ${name}s` : `${aOrAn(name)}`}.`);
   return r.inputs.every(([id, n]) => game.inventory.has(id, n));
 }
