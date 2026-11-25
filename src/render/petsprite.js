@@ -18,7 +18,7 @@ export const PET_ART = new Set(['pet_mining', 'pet_smithing', 'pet_crafting', 'p
 // Pets still waiting on a painted picture of their own: they wear their
 // creature's art until it arrives (then the id goes, as the file comes in:
 // tests/render.test.mjs keeps the two in step).
-export const PET_ART_PENDING = new Set(['pet_diving', 'pet_construction', 'pet_hawkering']);
+export const PET_ART_PENDING = new Set(['pet_diving', 'pet_construction', 'pet_hawkering', 'pet_archaeology']);
 export const petArtSrc = (id) => (PET_ART.has(id) ? `assets/creatures/pets/${id}.webp` : null);
 const _petImg = {};
 function petImage(id) {

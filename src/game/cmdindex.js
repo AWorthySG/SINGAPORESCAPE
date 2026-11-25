@@ -24,6 +24,7 @@ const SKILL_WORDS = {
   smithing: 'smelt smelting bars furnace anvil forge', mining: 'ore rocks pickaxe', woodcutting: 'chop trees logs axe',
   fishing: 'fish net rod', cooking: 'cook range food', firemaking: 'fire logs tinderbox', crafting: 'jewellery gems leather',
   fletching: 'bows arrows', hawkering: 'hawker stall serve customers food sell marina', construction: 'build home planks bricks nails furniture sawmill kiln workbench', herblore: 'potions brew herbs', farming: 'seeds crops patch', hunter: 'traps snare', diving: 'dive reef pearls shells coral snorkel swim',
+  archaeology: 'dig excavate relics museum restore trowel heritage',
   thieving: 'steal pickpocket stalls', agility: 'course marks', prayer: 'blessings bones faith altar', slayer: 'tasks',
   attack: 'melee', magic: 'spells', ranged: 'bow gun', hitpoints: 'hp life',
 };

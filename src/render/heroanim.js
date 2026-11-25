@@ -813,7 +813,7 @@ export const FISHING = {
 const FISH_WAIT_MAX = 2600;
 const AGILITY_CLIP = { agility_balance: 'agility_balance', agility_net: 'agility_climb', agility_rope: 'agility_rope', agility_ledge: 'agility_ledge', agility_zip: 'agility_zip' };
 // Every player action that is a life skill (the rest: walking, talking, shops).
-export const SKILL_ACTION_TYPES = ['woodcut', 'mine', 'fish', 'cook', 'cookdish', 'smelt', 'smith', 'craft', 'hunt', 'dive',
+export const SKILL_ACTION_TYPES = ['woodcut', 'mine', 'fish', 'cook', 'cookdish', 'smelt', 'smith', 'craft', 'hunt', 'dive', 'excavate',
   'recipe', 'firemake', 'farm', 'thieve', 'stall', 'agility', 'pray', 'rest', 'bury', 'offer'];
 /** The clip for a player action, or null for anything that isn't a life skill. */
 export function actionClipId(a) {
@@ -831,6 +831,7 @@ export function actionClipId(a) {
     case 'dive': return 'hunt';   // crouched at the water's edge, reaching down to the reef
     case 'recipe': return a.skill === 'herblore' ? 'herb' : a.skill === 'construction' ? 'smith' : a.skill === 'hawkering' ? 'stir' : 'fletch';   // building: hammering
     case 'hawk': return 'stir';   // at your hawker stall's wok
+    case 'excavate': return 'farm_dig';   // digging carefully with a trowel
     case 'firemake': return 'firemake';
     case 'farm': {
       const o = a.obj;
@@ -873,8 +874,9 @@ export function actionPropId(game, a) {
     case 'smith': return itemWithTool(game, 'hammer');
     case 'craft': return a.recipe?.tool ? itemWithTool(game, a.recipe.tool) : first(a.recipe);
     case 'hunt': return itemWithTool(game, 'snare');
-    case 'recipe': return a.skill === 'herblore' ? first(a.recipe) : a.skill === 'hawkering' ? 'pot' : itemWithTool(game, a.skill === 'construction' ? 'hammer' : 'knife');
+    case 'recipe': return a.skill === 'herblore' ? first(a.recipe) : a.skill === 'hawkering' ? 'pot' : itemWithTool(game, a.skill === 'construction' ? 'hammer' : a.skill === 'archaeology' ? 'brush' : 'knife');
     case 'hawk': return 'pot';
+    case 'excavate': return itemWithTool(game, 'trowel');
     case 'firemake': return itemWithTool(game, 'tinderbox');
     case 'farm': return a.seed || null;
     case 'bury': case 'offer': return 'bones';

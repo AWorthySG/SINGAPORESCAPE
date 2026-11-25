@@ -21,6 +21,7 @@ import { PORTRAIT_CROPS } from '../data/portraitcrops.js';
 import { BESTIARY_SPECIES, BESTIARY_BOSSES } from '../data/bestiary.js';
 import { OBJECTS } from '../data/objects.js';
 import { drawDiveSpot } from './diveart.js';
+import { drawDigSite, drawRestoreBench } from './digart.js';
 
 const CROP_COLORS = Object.fromEntries(CROPS.map((c) => [c[0], c[9]]));
 const CROP_GROW = Object.fromEntries(CROPS.map((c) => [c[0], c[3]]));
@@ -2636,7 +2637,7 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
 // ================= OBJECTS =================
 // Objects that never animate are cached as bitmaps; trees too, with their
 // sway applied as a gentle lean about the trunk base.
-const CACHED_OBJECTS = new Set(['tree', 'rock', 'anvil', 'craft', 'bank', 'rest', 'agility', 'stall', 'transport', 'scenery']);
+const CACHED_OBJECTS = new Set(['tree', 'rock', 'anvil', 'craft', 'bank', 'rest', 'agility', 'stall', 'transport', 'scenery', 'dig', 'restore']);
 
 // Painted world art (assets/world/<key>.webp): trees and their stumps, ore
 // rocks, stations, stalls, agility obstacles, scenery, fishing spots and Hunter
@@ -3055,6 +3056,8 @@ function drawObjectRaw(ctx, obj, cx, cy, time) {
     case 'fletch': return fletchingBench(ctx, cx, cy);
     case 'hunt': return huntTrap(ctx, obj, cx, cy);
     case 'dive': return drawDiveSpot(ctx, obj, cx, cy, time);   // a reef (diveart.js)
+    case 'dig': return drawDigSite(ctx, obj, cx, cy);   // a dig site (digart.js)
+    case 'restore': return drawRestoreBench(ctx, cx, cy);
     case 'bank': return bank(ctx, cx, cy);
     case 'shrine': case 'offering': case 'gate_shrine': return shrine(ctx, cx, cy, time);
     case 'rest': return mascotStatue(ctx, cx, cy);

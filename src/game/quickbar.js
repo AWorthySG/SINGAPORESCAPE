@@ -23,8 +23,8 @@ const skillName = (s) => SKILL_BY_ID[s]?.name || s;
 // Skills whose spots the bar can walk you to: the gathering ones (their best
 // source you can work, as the skill guide and "What next?" pick it) and the
 // making ones with a workstation (the guide's "where").
-export const GO_SKILLS = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'thieving', 'agility',
-  ...Object.keys(SKILL_GUIDES).filter((s) => SKILL_GUIDES[s].where?.length)];
+export const GO_SKILLS = [...new Set(['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'archaeology', 'thieving', 'agility',
+  ...Object.keys(SKILL_GUIDES).filter((s) => SKILL_GUIDES[s].where?.length)])];   // (Archaeology has both: its sites and its bench)
 
 /** The buff potion worth drinking now: one you carry whose kind (attack,
  *  strength...) isn't already running, strongest first; or, failing that, a
@@ -53,7 +53,7 @@ export function drinkBestPotion(game) {
 /** "Go" to a skill's spot, like the skill guide's own Go. */
 export function goSkill(game, skill) {
   const where = SKILL_GUIDES[skill]?.where;
-  if (where?.length) return game.goToNearest(where);
+  if (where?.length && !GATHERING.has(skill)) return game.goToNearest(where);   // (Archaeology's bench is for later: Go digs)
   const src = bestSource(game, skill);
   if (!src) { game.msg(`There's nothing for ${skillName(skill)} I can take you to right now.`, 'system'); return false; }
   return game.goToObject(src.obj);
@@ -66,9 +66,9 @@ export function goSkill(game, skill) {
 // can there (best first), a fire from your logs, the farm patch that needs
 // you, the Slayer master for a task. Thieving and Agility walk to their best
 // spot, like their Go.
-export const LIFE_SHORTCUTS = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'farming', 'cooking', 'smithing',
+export const LIFE_SHORTCUTS = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'archaeology', 'farming', 'cooking', 'smithing',
   'crafting', 'fletching', 'herblore', 'construction', 'firemaking', 'hawkering', 'thieving', 'agility', 'slayer'];
-const GATHERING = new Set(['woodcutting', 'mining', 'fishing', 'hunter', 'diving']);
+const GATHERING = new Set(['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'archaeology']);
 // Each making skill's "Do all" (autoprocess.js nextJob) and where it is done,
 // first choice first: ore goes to the furnace before bars go to the anvil.
 const MAKING = {

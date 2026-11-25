@@ -55,6 +55,8 @@ export const LIFE_PERKS = {
   construction: { stat: 'mobDmg', max: 15, label: 'damage vs normal monsters', unit: '%' },
   // Shares Fletching's stat (it adds to it): quick hands at the wok.
   hawkering: { stat: 'haste', max: 12, label: 'attack speed', unit: '%' },
+  // Archaeology: the patience of a dig, as a little more crit damage (Mining's stat: the two add up).
+  archaeology: { stat: 'critDmg', max: 30, label: 'crit damage', unit: '%' },
 };
 export const LIFE_PERK_SKILLS = Object.keys(LIFE_PERKS);
 // Life skill level-ups mention the perk on every multiple of this (of 50 past

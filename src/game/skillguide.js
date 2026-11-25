@@ -26,6 +26,7 @@ import { BONE_IDS, boneXp, ALTAR_XP_MULT } from '../data/bones.js';
 import { COOKING, GEM_TABLE, HERB_FORAGE, FISH_TOOL_NAME, TREE_LOGS_MIN, TREE_LOGS_MAX } from './skilling.js';
 import { CODEX_IDS, dropChances, codexHabitats } from './codex.js';
 import { DIVE_SPOT_BY_ID, PEARL_GRADES } from '../data/diving.js';
+import { DIG_SITE_BY_ID, RELIC_CHANCE, restoreRecipes } from '../data/archaeology.js';
 import { CULL_GOODS, TOKEN_SHOP } from './culling.js';
 import { materialKind, materialPoints, materialFeedXp } from './materials.js';
 import { goodsKind, goodsPoints } from './offerings.js';
@@ -42,6 +43,7 @@ export const SKILL_GUIDES = {
   fishing: { use: 'Raw fish are cooked into food that heals you in a fight. Each kind of spot holds one fish, so where you fish picks the fish: the list below says where each is. From level 100, rare spots in the far regions give the endgame fish. Now and then a school of fish (a dark swirl on the water) visits a spot near you for half a minute: fish there and you may net the whole school, 250 to 751 fish at once. And at any spot, about one catch in 20 turns out to be a smaller school of the fish you hooked: 10 to 140 at once.' },
   hunter: { use: 'Pelts, skins and hides become armour; meat is cooked into food. From level 100, hunting grounds in the far regions give the catches for the endgame brews. About one catch in 20 springs the trap on a whole flock, nest or herd at once: 10 to 140 catches, with XP for every one.' },
   diving: { use: 'Dive the reefs from the shore for shells, sea glass and coral (shops buy them), and pearls from the oyster beds for pearl jewellery. A dive lasts your breath, then you come up for air: your level and dive gear (a snorkel, a mask, fins and on up) let you stay down longer. From level 100, reefs in the far regions. About one dive in 20 finds a whole reef bed at once: 10 to 140 catches, with XP for each, and now and then a sunken chest.' },
+  archaeology: { use: 'Dig the island\'s heritage sites for pottery shards, old coins and other finds, and now and then an encrusted relic. Clean relics at the restoration bench in Chinatown (you need a soft brush), then give the restored pieces to Curator Siti beside it: each site\'s three pieces make a museum set, with coins, XP, a title, and relics a little likelier from then on. You can dig with your hands; a trowel makes you faster. Everyday and ancient things only. About one dig in 20 hits a rich layer: 10 to 140 finds at once.', where: ['restoration_bench'] },
   farming: { use: 'Crops are herbs for Herblore and ingredients for hawker dishes. The farm shop sells every seed, the endgame ones too; Gardens by the Bay has more patches. About one harvest in 20 is a record harvest: the patch gives 10 to 140 times its yield again, with XP for every crop.', where: ['farm_patch'] },
   cooking: { use: 'Food heals you in a fight; better food heals more. From level 100 the endgame fish cook into dishes that heal a share of your life, and some boost you too.', where: ['range', 'fire'] },
   smithing: { use: 'Smelt ore into bars at a furnace, then forge weapons, armour and upgrade stones at an anvil. From level 100 you can forge the obsidian to eternal gear.', where: ['furnace', 'anvil'] },
@@ -63,12 +65,12 @@ export const SKILL_GUIDES = {
   slayer: { use: 'Tasks from Slayer Master Rajan. On task you hit harder and sometimes get a second helping of loot; points buy rewards.', combat: true },
 };
 export const GUIDE_SKILLS = Object.keys(SKILL_GUIDES);
-export const GATHER_SKILLS = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'farming', 'thieving', 'agility'];
+export const GATHER_SKILLS = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'archaeology', 'farming', 'thieving', 'agility'];
 export const MAKE_SKILLS = ['smithing', 'cooking', 'crafting', 'fletching', 'herblore', 'firemaking', 'construction', 'hawkering'];
 export const COMBAT_SKILLS = ['attack', 'defence', 'ranged', 'magic', 'hitpoints', 'prayer', 'slayer'];
 
 // Tool tags, as the gathering and making code checks them (game.hasTool).
-export const TOOL_NAMES = { axe: 'an axe', pickaxe: 'a pickaxe', hammer: 'a hammer', knife: 'a knife', chisel: 'a chisel', tinderbox: 'a tinderbox', snare: 'a hunting snare', divegear: 'dive gear', ...Object.fromEntries(Object.entries(FISH_TOOL_NAME).map(([k, v]) => [k, `a ${v}`])) };
+export const TOOL_NAMES = { axe: 'an axe', pickaxe: 'a pickaxe', hammer: 'a hammer', knife: 'a knife', chisel: 'a chisel', tinderbox: 'a tinderbox', snare: 'a hunting snare', divegear: 'dive gear', trowel: 'a trowel', brush: 'a soft brush', ...Object.fromEntries(Object.entries(FISH_TOOL_NAME).map(([k, v]) => [k, `a ${v}`])) };
 // What a bird's nest holds (Game.openNest rolls the same table).
 const NEST_TABLE = [{ id: 'coins', weight: 50 }, { id: 'sapphire', weight: 18 }, { id: 'emerald', weight: 12 }, { id: 'ruby', weight: 7 }, { id: 'diamond', weight: 3 }];
 
@@ -107,6 +109,12 @@ export function gatherSources() {
       const pearls = p ? PEARL_GRADES.map((pid, i) => ({ id: pid, chance: p.chance * (p.w[i] || 0) / p.w.reduce((a, b) => a + b, 0), rare: true })).filter((g) => g.chance > 0) : [];
       add({ key: id, skill: 'diving', name: name(c.id), spot: d.name, level: c.level, xp: c.xp, respawn: 0, objIds: [id],   // (no tool needed: you can free-dive)
         gives: [{ id: c.id, chance: 1 }, ...pearls], note: `${d.name}${d.night ? ' (+25% XP at night)' : ''}` });
+    } else if (d.type === 'dig') {
+      // A site turns up one material, as a fishing spot one fish, and its relics now and then (archaeology.js).
+      const c = d.catches[0], site = DIG_SITE_BY_ID[d.site || id], w = site ? site.relics.reduce((a, r) => a + r.weight, 0) : 1;
+      add({ key: id, skill: 'archaeology', name: name(c.id), spot: d.name, level: c.level, xp: c.xp, respawn: 0, objIds: [id],   // (no tool needed: dig with your hands)
+        gives: [{ id: c.id, chance: 1 }, ...(site?.relics || []).map((r) => ({ id: r.encrusted, chance: RELIC_CHANCE * r.weight / w, rare: true }))],
+        note: `${d.name}: ${site?.setName || ''} set` });
     } else if (d.type === 'stall') {
       add({ key: id, skill: 'thieving', name: d.name, level: d.level, xp: d.xp, respawn: d.respawn, objIds: [id],
         gives: d.loot.map((l) => ({ id: l.id, min: l.min || 1, max: l.max || 1, chance: share(d.loot, l) })), note: d.sure ? `${Math.round(d.sure * 100)}% of tries succeed` : '' });
@@ -133,7 +141,7 @@ export function gatherSources() {
 
 // ---------------- Recipes ----------------
 
-const STATION = { smelt: ['furnace'], smith: ['anvil'], cook: ['range', 'fire'], craft: ['crafting_table'], fletch: ['fletching_bench'], brew: ['apothecary_table'], farm: ['farm_patch'], burn: [], bury: [],
+const STATION = { restore: ['restoration_bench'], smelt: ['furnace'], smith: ['anvil'], cook: ['range', 'fire'], craft: ['crafting_table'], fletch: ['fletching_bench'], brew: ['apothecary_table'], farm: ['farm_patch'], burn: [], bury: [],
   saw: ['sawmill', 'home_workbench'], kiln: ['kiln'], build: ['workbench', 'home_workbench'],
   wok: ['hawker_counter'] };
 let _recipes = null;
@@ -157,6 +165,7 @@ export function allRecipes() {
   for (const r of FLETCH) add({ skill: 'fletching', kind: 'fletch', output: { id: r.result, qty: r.qty || 1 }, inputs: r.inputs.map(([id, qty]) => ({ id, qty })), level: r.level, xp: r.xp, tool: r.tool || null });
   for (const r of CONSTRUCT) add({ skill: 'construction', kind: r.at[0], output: { id: r.result, qty: r.qty || 1 }, inputs: r.inputs.map(([id, qty]) => ({ id, qty })), level: r.level, xp: r.xp, tool: r.tool || null });
   for (const r of SIGNATURE) add({ skill: 'hawkering', kind: 'wok', output: { id: r.result, qty: r.qty || 1 }, inputs: r.inputs.map(([id, qty]) => ({ id, qty })), level: r.level, xp: r.xp, note: 'a signature dish, cooked at your stall' });
+  for (const r of restoreRecipes()) add({ skill: 'archaeology', kind: 'restore', output: { id: r.result, qty: 1 }, inputs: r.inputs.map(([id, qty]) => ({ id, qty })), level: r.level, xp: r.xp, tool: 'brush' });
   for (const [id, p] of Object.entries(POTIONS)) add({ skill: 'herblore', kind: 'brew', output: { id, qty: 1 }, inputs: p.inputs.map(([i, qty]) => ({ id: i, qty })), level: p.level, xp: p.xp, label: p.name });
   for (const c of CROPS.map((x) => cropFor(x[0]))) add({ skill: 'farming', kind: 'farm', output: { id: c.id, qty: c.yield[0], max: c.yield[1] }, inputs: [{ id: c.seed, qty: 1 }], level: c.level, xp: c.plantXp, harvestXp: c.harvestXp, label: c.name,
     note: `grows in ${Math.round(c.grow * TICK_S / 60 * 10) / 10} min, ${c.yield[0]}-${c.yield[1]} a harvest` });   // the harvest XP shows as a badge (skillguideui.js)
@@ -169,7 +178,7 @@ export function allRecipes() {
 export const recipeLabel = (r) => r.label || `${r.output?.qty > 1 ? `${r.output.qty} ` : ''}${name(r.output?.id)}`;
 /** Recipes for one skill, by level. */
 export const recipesFor = (skill) => allRecipes().filter((r) => r.skill === skill).sort((a, b) => a.level - b.level || recipeLabel(a).localeCompare(recipeLabel(b)));
-const KIND_TITLE = { smelt: 'Smelting', smith: 'Smithing', cook: 'Cooking', dish: 'Hawker dishes', craft: 'Crafting', fletch: 'Fletching', brew: 'Herblore', farm: 'Farming', burn: 'Firemaking', bury: 'Prayer',
+const KIND_TITLE = { restore: 'Restoring', smelt: 'Smelting', smith: 'Smithing', cook: 'Cooking', dish: 'Hawker dishes', craft: 'Crafting', fletch: 'Fletching', brew: 'Herblore', farm: 'Farming', burn: 'Firemaking', bury: 'Prayer',
   saw: 'Sawmill', kiln: 'Kiln', build: 'Workbench',
   wok: 'Stall wok' };
 export const recipeKindTitle = (k) => KIND_TITLE[k] || k;
@@ -196,7 +205,7 @@ export function guideEntries(skill) {
     for (const s of gatherSources()) {
       if (s.skill !== skill) continue;
       let detail;
-      if (skill === 'fishing' || skill === 'diving') detail = s.note;
+      if (skill === 'fishing' || skill === 'diving' || skill === 'archaeology') detail = s.note;
       else if (skill === 'agility') detail = s.note;
       else if (skill === 'thieving') detail = s.npcId ? `Pickpocket: ${s.gives.map((g) => name(g.id)).join(', ')}` : `Loot: ${[givesText(s.gives), 'coins'].filter(Boolean).join(', ')}`;
       else detail = `${skill === 'hunter' ? 'Catches' : 'Gives'} ${givesText(s.gives)}${s.note.includes('night') ? ' (+25% XP at night)' : ''}`;
@@ -287,6 +296,20 @@ export function diveSpotList(game) {
     const d = OBJECTS[objId], c = d.catches[0], regions = regionsOf(game, [objId]), what = name(c.id);
     return { objId, name: d.name, catch: what, level: c.level, regions, count: n,
       text: `${d.name}: ${what.toLowerCase()} (level ${c.level}), ${regions.join(', ')}` };
+  }).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+}
+/** The world's dig sites, one kind to each material (archaeology.js), lowest
+ *  first, for the Archaeology guide: [{ objId, name, find, set, level, regions, count, text }]. */
+export function digSiteList(game) {
+  const count = new Map();
+  for (const o of game?.world?.objects || []) {
+    if (o.worldEvent || OBJECTS[o.objId]?.type !== 'dig') continue;
+    count.set(o.objId, (count.get(o.objId) || 0) + 1);
+  }
+  return [...count].map(([objId, n]) => {
+    const d = OBJECTS[objId], c = d.catches[0], regions = regionsOf(game, [objId]), find = name(c.id), set = DIG_SITE_BY_ID[d.site || objId]?.setName || '';
+    return { objId, name: d.name, find, set, level: c.level, regions, count: n,
+      text: `${d.name}: ${find.toLowerCase()} (level ${c.level}), ${regions.join(', ')}` };
   }).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
 }
 /** Regions for several object kinds together, without repeats. */

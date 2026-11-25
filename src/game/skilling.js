@@ -647,7 +647,7 @@ export function resolveHunt(game, action) {
 export function resolveRecipe(game, action) {
   const { recipe: r, skill } = action;
   const sname = skill[0].toUpperCase() + skill.slice(1);
-  if (r.tool && !game.hasTool(r.tool)) { game.msg(`You need ${aOrAn(getItem(r.tool === 'knife' ? 'knife' : r.tool).name.toLowerCase())} for this.`); return false; }
+  if (r.tool && !game.hasTool(r.tool)) { game.msg(`You need ${aOrAn(getItem({ knife: 'knife', brush: 'soft_brush' }[r.tool] || r.tool).name.toLowerCase())} for this.`); return false; }
   if (game.skills.level(skill) < r.level) { game.msg(`You need ${aOrAn(sname)} level of ${r.level} to make this.`); return false; }
   if (!r.inputs.every(([id, n]) => game.inventory.has(id, n))) { game.msg('You have run out of materials.'); return false; }
   if (game.inventory.canAdd(r.result, r.qty || 1) <= 0) { game.msg('Your inventory is too full.'); return false; }
@@ -657,7 +657,7 @@ export function resolveRecipe(game, action) {
   if (action.tally) return r.inputs.every(([id, n]) => game.inventory.has(id, n));   // a batch says it once (makeBatch)
   game.spawnSparkle(game.player, skill === 'herblore' ? '#7ad08a' : '#caa15a', 6);
   const name = getItem(r.result).name.toLowerCase();
-  game.msg(skill === 'herblore' ? `You brew ${aOrAn(name)}.` : skill === 'hawkering' ? `You cook ${(r.qty || 1) > 1 ? `${r.qty} ${name}` : name} at your stall.` : skill === 'construction' ? `You make ${aOrAn(name)}.`
+  game.msg(skill === 'herblore' ? `You brew ${aOrAn(name)}.` : skill === 'hawkering' ? `You cook ${(r.qty || 1) > 1 ? `${r.qty} ${name}` : name} at your stall.` : skill === 'construction' ? `You make ${aOrAn(name)}.` : skill === 'archaeology' ? `You clean and restore ${aOrAn(name)}.`
     : `You fletch ${(r.qty || 1) > 1 ? `${r.qty} ${name}s` : `${aOrAn(name)}`}.`);
   return r.inputs.every(([id, n]) => game.inventory.has(id, n));
 }

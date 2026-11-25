@@ -319,7 +319,7 @@ export function xpRate(game, s) {
     const p = { rolls, whole, schools, haul: gatherTicks * haul * s.xp, finds: gatherTicks * st.lucky * findXp + gems };
     const raw = Object.values(p).reduce((a, b) => a + b, 0);
     const parts = Object.fromEntries(Object.entries(p).map(([k, v]) => [k, raw ? v / raw : 0]));
-    const counted = [whole && `whole ${s.skill === 'fishing' ? 'schools' : s.skill === 'mining' ? 'seams' : s.skill === 'hunter' ? 'flocks' : s.skill === 'diving' ? 'reef beds' : 'trees'} at once (${pct(parts.whole)} of it)`,
+    const counted = [whole && `whole ${s.skill === 'fishing' ? 'schools' : s.skill === 'mining' ? 'seams' : s.skill === 'hunter' ? 'flocks' : s.skill === 'diving' ? 'reef beds' : s.skill === 'archaeology' ? 'rich layers' : 'trees'} at once (${pct(parts.whole)} of it)`,
       schools && `passing schools (${pct(parts.schools)})`, ...also, haul && 'your level\'s bonus haul', gems && 'gems', st.lucky && 'lucky finds',
       st.mult > 1 && `a gathering streak (+${Math.round((st.mult - 1) * 100)}%)`].filter(Boolean);
     return { perHour: raw * st.mult * rate * TICKS_AN_HOUR, parts,
@@ -356,6 +356,16 @@ export function xpRate(game, s) {
     const reef = NODE_JACKPOT.on ? jackpotBase(lvl) * SEAM_MULT * (HUNT_STOCK[0] + HUNT_STOCK[1]) / 2 : 0;
     return gathered({ rolls: per * x, whole: per * x * reef, gatherTicks: up },
       `${t.id ? t.text : 'free-diving (no dive gear)'}, at your level: dives of ${breath} ticks with ${SURFACE_TICKS} up for air between, about ${fmt(per * TICKS_AN_HOUR)} finds an hour`);
+  }
+  if (s.skill === 'archaeology' && def) {
+    // resolveExcavate: a find every roll (a better trowel's second one pays no
+    // XP), and now and then a whole rich layer at once (10-140 finds, each paid).
+    // The relics are XP later, at the bench: not counted here.
+    const t = toolFor(game, 'trowel');
+    const per = 1 + quickly(t.extra);
+    const layer = NODE_JACKPOT.on ? jackpotBase(lvl) * SEAM_MULT * (HUNT_STOCK[0] + HUNT_STOCK[1]) / 2 : 0;
+    return gathered({ rolls: per * x, whole: per * x * layer, gatherTicks: 1 },
+      `${t.id ? t.text : 'digging with your hands (no trowel)'}, at your level: about ${fmt(per * TICKS_AN_HOUR)} digs an hour`);
   }
   if ((s.skill === 'woodcutting' || s.skill === 'mining') && def) {
     const t = toolFor(game, s.tool);
@@ -408,7 +418,7 @@ export function xpRate(game, s) {
 // What the figure leaves out, for its hover text.
 const onTop = (s, def) => `Golden hours and rested XP come on top${GATHERING.has(s.skill)
   ? `, as do ${list([def?.night && 'night bonuses', (s.skill === 'fishing' || s.skill === 'hunter') && 'bait', 'daily contracts'].filter(Boolean))}` : ''}.`;
-const GATHERING = new Set(['woodcutting', 'mining', 'fishing', 'hunter', 'diving']);
+const GATHERING = new Set(['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'archaeology']);
 
 const cap = (t) => t[0].toUpperCase() + t.slice(1);
 const list = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0] || '');

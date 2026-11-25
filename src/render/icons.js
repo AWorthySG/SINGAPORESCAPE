@@ -653,6 +653,12 @@ import { CON_TIERS, CON_WOOD } from '../data/construction.js';
   }
   // Hawkering: a wok over a flame (a stickered vector until its painted icon arrives).
   S.hawkering = `<path d="M7 19 Q12 22 17 19" stroke="#e8762a" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M3 10 L21 10 C21 15 17 18 12 18 C7 18 3 15 3 10 Z" fill="#3a3f4a" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M5 11.4 C7 14.4 9.6 15.6 12 15.6" stroke="#6a7080" stroke-width="1" fill="none"/><path d="M21 10 L23 8.6" stroke="${OL}" stroke-width="2.4" stroke-linecap="round"/><path d="M9 9.6 C9 7 11 7 11 5 M13 9.6 C13 7.6 15 7.4 14.6 5.2" stroke="#e8e2d8" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M7 9 C8 8 9.6 8 10.6 9 M12 9 C13.6 8 15 8.2 16 9" stroke="#f0c04a" stroke-width="1.6" fill="none" stroke-linecap="round"/>`;
+  // Archaeology: a clay pot half dug up, with a little trowel (no painted icon yet).
+  S.archaeology = `<path d="M2 18 C6 16 18 16 22 18 L22 22 L2 22 Z" fill="#c8a070" stroke="${OL}" stroke-width="0.9" stroke-linejoin="round"/>
+    <path d="M7 17 C5.5 13 6.5 9.5 9 8.5 L9 6.5 L14 6.5 L14 8.5 C16.5 9.5 17.5 13 16 17 Z" fill="#e88a5a" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
+    <path d="M8 12 L15 12" stroke="#fff1d8" stroke-width="1.2" stroke-linecap="round"/><path d="M8.6 14.5 L14.4 14.5" stroke="#b85a3a" stroke-width="0.9"/>
+    <path d="M17.5 4 L21 7.5 L19.3 9.2 L15.8 5.7 Z" fill="${C.iron}" stroke="${OL}" stroke-width="0.9" stroke-linejoin="round"/>
+    <path d="M15.8 5.7 L13 2.9" stroke="${OL}" stroke-width="2.4" stroke-linecap="round"/><path d="M15.8 5.7 L13 2.9" stroke="#d8b070" stroke-width="1.2" stroke-linecap="round"/>`;
   T.prayer = S.prayer;
   T.quests = `<path d="M6 3 L18 3 L18 21 L6 21 Z" fill="${C.cream}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M8 7 L16 7 M8 10 L16 10 M8 13 L14 13" stroke="${C.stoneDk}" stroke-width="1"/><circle cx="17" cy="18" r="3" fill="${C.gold}" stroke="${OL}" stroke-width="1"/>`;
   // Stats tab: a pentagon stat chart (no painted art yet, so this SVG is what shows).
