@@ -2,6 +2,7 @@ import { TILE } from '../config.js';
 import { DEPTH_TILT, relV, rowScaleRel } from './projection.js';
 import { worldArtBox, worldArtMax, SHADOW_RGB } from './sprites.js';
 import { clamp01, smooth } from './motionkit.js';
+import { bakeBudget } from './governor.js';
 
 // The depth view (Settings > Depth view, on by default): the flat world seen
 // by a camera leaning back a little, using the same 2D sticker art.
@@ -113,6 +114,7 @@ export class DepthView {
     this.ok = typeof document !== 'undefined' && !!document.createElement;
     this.buf = null; this.g = null;
     this._sil = new WeakMap();
+    this.budget = bakeBudget;   // shared with the monsters' ink outlines (governor.js)
     this._box = {};
     this._sv = {};
     this._hz = [0, 0, 0];
@@ -188,6 +190,11 @@ export class DepthView {
   _silhouette(img) {
     let s = this._sil.get(img);
     if (s !== undefined) return s;
+    // A few a frame (governor.js BakeBudget): entering an area asked for every
+    // tree's and landmark's at once. One not baked yet casts no shadow for a
+    // frame or two (they are asked for well before they come into view).
+    if (!this.budget.ok()) return null;
+    const t0 = this.budget.clock();
     s = null;
     try {
       const r = Math.min(1, SIL_MAX / img.naturalHeight), w = Math.max(2, Math.round(img.naturalWidth * r)), h = Math.max(2, Math.round(img.naturalHeight * r));
@@ -203,6 +210,7 @@ export class DepthView {
       gb.drawImage(a, pad, pad);
       s = { cv: b };
     } catch { s = null; }
+    this.budget.spend(this.budget.clock() - t0);
     this._sil.set(img, s);
     return s;
   }

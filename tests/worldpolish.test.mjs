@@ -12,6 +12,7 @@ import { buildWorld, TERRAIN } from '../src/data/world.js';
 import { World } from '../src/game/world.js';
 import { TILE } from '../src/config.js';
 import { RIG_INK, RIG_SIZE, rigSize, inkRect, inkPart } from '../src/render/rigink.js';
+import { bakeBudget } from '../src/render/governor.js';
 import { rigIds, rigInfo } from '../src/render/sprites.js';
 import { touchPlan, TOUCH_DETAILS, GroundTouch } from '../src/render/groundtouch.js';
 import { seamAlpha, SEAM_K, TerrainFx, FOREST, BEACH } from '../src/render/terrainfx.js';
@@ -95,8 +96,10 @@ test('a rigged monster lays its navy copies down first, in the same pose, then i
     const order = S.rigInfo('wild_boar').order;
     const screen = make(800, 600).getContext('2d');
     const opts = { time: 1000, sprite: 'beast', color: '#7a5a3a', family: 'wild_boar', scale: 1, still: true };
-    S.drawCreature(screen, 'wild_boar', 100, 100, opts);   // loads the layers
+    // Loads the layers; their ink outlines are baked a few a frame (governor.js BakeBudget).
+    for (let i = 0; i < 30; i++) { bakeBudget.frame(); S.drawCreature(screen, 'wild_boar', 100, 100, opts); }
     log.length = 0;
+    bakeBudget.frame();
     S.drawCreature(screen, 'wild_boar', 100, 100, opts);
     const draws = log.filter((c) => c[0] === 'drawImage');
     const art = draws.filter((c) => c[1] === 'object'), first = draws.indexOf(art[0]);

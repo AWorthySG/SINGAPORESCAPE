@@ -95,6 +95,33 @@ export function inkPart(img, w, h, res, ink = RIG_INK, factory = null) {
   return out;
 }
 
+const _rigDone = new WeakMap();   // a rig's pictures -> the size they were all inked at
+
+/**
+ * Whether every picture of a rig (`imgs`, by name; `files` the names) has its
+ * navy copy for parts drawn `w` x `h` units at `res`, inking more of them
+ * while `budget` (governor.js BakeBudget) allows. Inking is a few image copies
+ * and a read-back per part, so a fresh rig costs a phone tens of milliseconds,
+ * and entering an area brought every rig in view at once: one frame of most
+ * of a second. Spread this way, a rig is ready a frame or a few later, and
+ * until then the monster draws as its single sticker, which looks the same.
+ * Once a rig is done the answer is kept, so it costs one lookup a frame.
+ */
+export function inkRig(imgs, files, w, h, res, budget, ink = RIG_INK, factory = null) {
+  const key = `${w},${h},${res},${ink}`;
+  if (_rigDone.get(imgs) === key) return true;
+  for (const n of files) {
+    const img = imgs[n];
+    const e = img && _ink.get(img);
+    if (e && e.pw === w && e.ph === h && e.res === res && e.ink === ink) continue;
+    if (budget && !budget.ok()) return false;
+    if (budget) budget.run(() => inkPart(img, w, h, res, ink, factory));
+    else inkPart(img, w, h, res, ink, factory);
+  }
+  _rigDone.set(imgs, key);
+  return true;
+}
+
 // The box of pixels holding any paint in a canvas: [x0, y0, x1, y1), or null if it can't be read.
 function paintBox(g, W, H) {
   let d;

@@ -61,6 +61,7 @@ import { namePill, drawPill, pillRes, PILL_ROW } from './namepill.js';
 import { foeThreat } from '../ui/bossbar.js';
 import { applyRow, applyScreen } from './projection.js';
 import { DepthView, depthTarget, easeTilt, slowGiveUp } from './depthview.js';
+import { bakeBudget } from './governor.js';
 
 // Gathering actions that show a progress ring over the node, and its colour.
 const GATHER_RING = { woodcut: '#4fa04f', mine: '#8a8fa0', fish: '#3a8fd8', hunt: '#d08a3a' };
@@ -240,6 +241,7 @@ export class Renderer {
     if (this._ctxMain && this.ctx === this.depth.g) this.ctx = this._ctxMain;   // a frame that failed mid-ground
     const main = this._ctxMain = this.ctx;
     let ctx = main;
+    bakeBudget.frame();   // this frame's allowance for one-off bakes (governor.js)
     const cam = game.camera;
     const fdt = this._lastT ? Math.max(0, Math.min(100, timeMs - this._lastT)) : 16;
     this._lastT = timeMs;

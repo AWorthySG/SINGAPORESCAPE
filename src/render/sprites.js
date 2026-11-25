@@ -13,7 +13,8 @@ import { poseBlender } from './poseBlend.js';
 import { swingBeats, turnWidth, turnHop, lookAround, breath } from './motionkit.js';
 import { animSeed, animTempo, stepLift, stepRock, fidget, hitFlash, flinch, telegraphGlow, telegraphShake, telegraphCrouch, fidgetLand } from './creatureanim.js';
 import { CREATURE_RIGS, TOWN_IDLE, bossRig, stride, gaitPhase } from './creatureRigs.js';
-import { RIG_INK, rigSize, inkPart } from './rigink.js';
+import { RIG_INK, rigSize, inkPart, inkRig } from './rigink.js';
+import { bakeBudget } from './governor.js';
 import { REGION_GIVERS } from '../data/regionQuests.js';
 import { RESIDENTS } from '../data/consequences.js';
 import { PORTRAIT_CROPS } from '../data/portraitcrops.js';
@@ -597,15 +598,32 @@ function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null, res = 0) 
   }
 }
 
-// Draw the layers (posed for this frame): straight onto the screen, or composed
-// on a scratch canvas first when the frame needs a hit flash or see-through.
-function drawRig(c, id, imgs, opts, t, flash, flashCol) {
+// A rig's drawn size (local units) and its parts' drawing resolution.
+const _fits = new WeakMap();   // a rig's (loaded) pictures -> their fit, worked out once
+function rigFit(id, imgs) {
+  let f = _fits.get(imgs);
+  if (f) return f;
   const rig = RIGS[id];
   const base = imgs[rig.order[0]];   // every layer shares one canvas size
   // Sized to cover the same area as the monster's single picture (rigink.js rigSize).
   const s = Math.min(34 / base.naturalHeight, 64 / base.naturalWidth) * (rig.fit || 1) * rigSize(id);
-  const w = base.naturalWidth * s, h = base.naturalHeight * s, x0 = -w / 2, y0 = 13.5 - h;
-  const species = rig.kind === 'species', res = species ? SPECIES_RIG_RES : RIG_RES;
+  f = { w: base.naturalWidth * s, h: base.naturalHeight * s, res: rig.kind === 'species' ? SPECIES_RIG_RES : RIG_RES };
+  _fits.set(imgs, f);
+  return f;
+}
+// The rig's pictures once all their ink outlines are baked (a few a frame, rigink.js inkRig), else null.
+function rigInked(id, imgs) {
+  if (!imgs) return null;
+  const f = rigFit(id, imgs);
+  return inkRig(imgs, rigFiles(RIGS[id]), f.w, f.h, f.res, bakeBudget) ? imgs : null;
+}
+
+// Draw the layers (posed for this frame): straight onto the screen, or composed
+// on a scratch canvas first when the frame needs a hit flash or see-through.
+function drawRig(c, id, imgs, opts, t, flash, flashCol) {
+  const rig = RIGS[id];
+  const { w, h, res } = rigFit(id, imgs), x0 = -w / 2, y0 = 13.5 - h;
+  const species = rig.kind === 'species';
   // Most frames (no hit flash, fully opaque) the parts go straight onto the
   // screen: composing them on a scratch canvas first cost a clear and an extra
   // full copy per monster per frame. The scratch canvas is kept for a flash
@@ -1027,7 +1045,8 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       // Low graphics keeps monster packs on the cheaper single-sticker path, and
       // so do slow frames (each pack member's parts are composed afresh every frame).
       const rigId = opts.boss ? (RIGS[npcId] ? npcId : null) : (!opts.low && !opts.trim && RIGS[opts.family]?.kind === 'species' ? opts.family : null);
-      const rig = rigId ? rigLayers(rigId) : null;
+      // (Its parts' ink outlines are baked a few a frame: until they all are, the sticker.)
+      const rig = rigId ? rigInked(rigId, rigLayers(rigId)) : null;
       // A species rig's parts run on the clock, so each member of a pack runs a few
       // seconds apart from the next and they never swing in lock-step.
       if (rig) { drawRig(c, rigId, rig, opts, opts.boss ? t : t + sd * 7, flash, flashCol); return; }
