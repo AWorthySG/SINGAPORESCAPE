@@ -86,19 +86,14 @@ function hash2(x, y) {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
-/** The ground kind under one pixel of a map painted `R` pixels per tile:
- *  the tile's own, except in a corner where both neighbours towards it are
- *  another kind, which is rounded off (so coasts and lawns curve). */
-function artTerrainAt(world, gx, gy, R) {
-  const tx = Math.floor(gx / R), ty = Math.floor(gy / R);
-  const t = world.terrainAt(tx, ty);
-  const fx = (gx - tx * R + 0.5) / R, fy = (gy - ty * R + 0.5) / R;
-  const qx = fx < 0.5 ? -1 : 1, qy = fy < 0.5 ? -1 : 1;
-  const a = world.terrainAt(tx + qx, ty);
-  if (a === t || a !== world.terrainAt(tx, ty + qy)) return t;
-  const cx = fx - 0.5, cy = fy - 0.5;
-  return cx * cx + cy * cy > 0.25 ? a : t;   // outside the quarter circle: the neighbours' kind
-}
+// The painter below runs over every pixel of the world map (a few hundred
+// thousand on its first opening) and of each minimap chunk baked as you walk,
+// so it works from flat arrays: each tile's ground read once, per-column and
+// per-row facts worked out once, no calls per pixel. The rules are the
+// original ones (a tile's own kind, a rounded-off corner where both
+// neighbours towards it are another kind, the ink, foam and hairlines up to a
+// few pixels from an edge, a little grain), and so is the arithmetic, so the
+// picture comes out the same to the last bit (tests/minimapdeluxe.test.mjs).
 
 /** Paint the sticker map's ground for tiles [x0, x0+tw) x [y0, y0+th) at `R`
  *  pixels per tile into `d` (RGBA, tw*R by th*R). Pure: no canvas needed. */
@@ -106,61 +101,88 @@ export function paintMinimapArt(world, d, x0, y0, tw, th, R) {
   const ink = Math.max(1, Math.round(R / 5)), foam = Math.max(1, Math.round(R * 0.3)), S = foam * 2;
   const M = S, pw = tw * R, ph = th * R, ew = pw + 2 * M, eh = ph + 2 * M;
   const gx0 = x0 * R - M, gy0 = y0 * R - M;
+  // The ground of every tile the pixels (with their margin) can look at, and one more all round.
+  const tx0 = Math.floor(gx0 / R) - 1, ty0 = Math.floor(gy0 / R) - 1;
+  const tcw = Math.floor((gx0 + ew - 1) / R) + 1 - tx0 + 1, tch = Math.floor((gy0 + eh - 1) / R) + 1 - ty0 + 1;
+  const TT = new Uint8Array(tcw * tch);
+  for (let j = 0; j < tch; j++) for (let i = 0; i < tcw; i++) TT[j * tcw + i] = world.terrainAt(tx0 + i, ty0 + j);
+  const tAt = (X, Y) => TT[(Y - ty0) * tcw + X - tx0];
   // A tile whose neighbours are all its own kind is plain inside: its pixels
   // need no corner rounding or edge search (most of the map), only grain.
   const plain = new Uint8Array((tw + 2) * (th + 2));
   for (let ty = -1; ty <= th; ty++) for (let tx = -1; tx <= tw; tx++) {
-    const X = x0 + tx, Y = y0 + ty, t = world.terrainAt(X, Y);
+    const X = x0 + tx, Y = y0 + ty, t = tAt(X, Y);
     let same = 1;
-    for (let j = -1; j <= 1 && same; j++) for (let i = -1; i <= 1; i++) if (world.terrainAt(X + i, Y + j) !== t) { same = 0; break; }
+    for (let j = -1; j <= 1 && same; j++) for (let i = -1; i <= 1; i++) if (tAt(X + i, Y + j) !== t) { same = 0; break; }
     plain[(ty + 1) * (tw + 2) + tx + 1] = same;
   }
-  const isPlain = (gx, gy) => {
-    const tx = Math.floor(gx / R) - x0 + 1, ty = Math.floor(gy / R) - y0 + 1;
-    return tx >= 0 && ty >= 0 && tx < tw + 2 && ty < th + 2 && plain[ty * (tw + 2) + tx] === 1;
-  };
-  // Each pixel's kind, with a margin so edges can look across a chunk's border.
-  const E = new Uint8Array(ew * eh);
-  for (let j = 0; j < eh; j++) for (let i = 0; i < ew; i++) {
-    const gx = gx0 + i, gy = gy0 + j;
-    E[j * ew + i] = isPlain(gx, gy) ? world.terrainAt(Math.floor(gx / R), Math.floor(gy / R)) : artTerrainAt(world, gx, gy, R);
+  // Each pixel's kind, with a margin so edges can look across a chunk's
+  // border: its tile's, or in a rounded-off corner its neighbours'.
+  const colT = new Int32Array(ew), colQ = new Int32Array(ew), colC = new Float64Array(ew);
+  for (let i = 0; i < ew; i++) {
+    const gx = gx0 + i, tx = Math.floor(gx / R), fx = (gx - tx * R + 0.5) / R, cx = fx - 0.5;
+    colT[i] = tx - tx0; colQ[i] = fx < 0.5 ? -1 : 1; colC[i] = cx * cx;
   }
+  const E = new Uint8Array(ew * eh);
+  for (let j = 0; j < eh; j++) {
+    const gy = gy0 + j, ty = Math.floor(gy / R), fy = (gy - ty * R + 0.5) / R, cy = fy - 0.5, cy2 = cy * cy;
+    const row = (ty - ty0) * tcw, nrow = (ty + (fy < 0.5 ? -1 : 1) - ty0) * tcw;
+    for (let i = 0; i < ew; i++) {
+      const c = colT[i], t = TT[row + c], a = TT[row + c + colQ[i]];
+      E[j * ew + i] = a === t || a !== TT[nrow + c] ? t : colC[i] + cy2 > 0.25 ? a : t;
+    }
+  }
+  // Per column and per row of the picture: which tile column/row of `plain`.
+  const pcol = new Int32Array(pw);
+  for (let x = 0; x < pw; x++) pcol[x] = Math.floor((gx0 + M + x) / R) - x0 + 1;
   const ns = Math.max(1, R >> 2);   // paper grain: blocks of this many pixels
-  for (let y = 0; y < ph; y++) for (let x = 0; x < pw; x++) {
-    const ei = (y + M) * ew + x + M, t = E[ei], gx = gx0 + M + x, gy = gy0 + M + y;
-    // How far (in pixels, up to S) to the nearest other kind, and which kind.
-    let dist = 0, n = t;
-    if (!isPlain(gx, gy)) {
-      for (let k = 1; k <= S && !dist; k++) {
-        const l = E[ei - k], r = E[ei + k], u = E[ei - k * ew], b = E[ei + k * ew];
-        if (l !== t) { dist = k; n = l; } else if (r !== t) { dist = k; n = r; }
-        else if (u !== t) { dist = k; n = u; } else if (b !== t) { dist = k; n = b; }
+  const cw = Math.max(3, Math.round(R * 1.5)), cwOn = Math.max(1, Math.round(cw * 0.45));
+  const grainR = R >= 4 ? 1 : 0.4, half = R >> 1;
+  const rgb = [], edge = [];   // each kind's colour and hairline, looked up by kind
+  for (let t = 0; t < 256; t++) { rgb.push(ART_RGB[t] || ART_RGB[T.GRASS]); edge.push(ART_EDGE[t] || null); }
+  for (let y = 0; y < ph; y++) {
+    const gy = gy0 + M + y, prow = Math.floor(gy / R) - y0 + 1;
+    const rowPlain = prow >= 0 && prow < th + 2 ? prow * (tw + 2) : -1;
+    const hy = Math.floor(gy / ns), rippleRow = R >= 4 && gy % R === half, rippleY = Math.floor(gy / R);
+    const planks = R >= 4 && gy % half === 0, pave = R >= 6 && gy % R === 0;
+    for (let x = 0; x < pw; x++) {
+      const ei = (y + M) * ew + x + M, t = E[ei], gx = gx0 + M + x;
+      // How far (in pixels, up to S) to the nearest other kind, and which kind.
+      let dist = 0, n = t;
+      const pc = pcol[x];
+      if (!(rowPlain >= 0 && pc >= 0 && pc < tw + 2 && plain[rowPlain + pc] === 1)) {
+        for (let k = 1; k <= S && !dist; k++) {
+          const l = E[ei - k], r = E[ei + k], u = E[ei - k * ew], b = E[ei + k * ew];
+          if (l !== t) { dist = k; n = l; } else if (r !== t) { dist = k; n = r; }
+          else if (u !== t) { dist = k; n = u; } else if (b !== t) { dist = k; n = b; }
+        }
       }
-    }
-    let c = ART_RGB[t] || ART_RGB[T.GRASS], k = 1;
-    const h = hash2(Math.floor(gx / ns), Math.floor(gy / ns));
-    if (t === T.WATER) {
-      if (dist && n !== T.WATER && dist <= foam) c = FOAM;
-      else if (dist && n !== T.WATER) c = SHALLOW;
+      let c = rgb[t], k = 1;
+      const h = hash2(Math.floor(gx / ns), hy);
+      if (t === T.WATER) {
+        if (dist && n !== T.WATER && dist <= foam) c = FOAM;
+        else if (dist && n !== T.WATER) c = SHALLOW;
+        else {
+          // Little ripple dashes scattered over open water (too small to read on the world map).
+          if (rippleRow && hash2(Math.floor(gx / cw), rippleY) < 0.16 && gx % cw < cwOn) c = RIPPLE;
+        }
+      } else if (dist && n === T.WATER && dist <= ink) c = ART_INK;
+      else if (dist <= ink && dist && !GREEN(t) && GREEN(n) && edge[t]) c = edge[t];
       else {
-        // Little ripple dashes scattered over open water (too small to read on the world map).
-        const cw = Math.max(3, Math.round(R * 1.5));
-        if (R >= 4 && hash2(Math.floor(gx / cw), Math.floor(gy / R)) < 0.16 && gy % R === (R >> 1) && gx % cw < Math.max(1, Math.round(cw * 0.45))) c = RIPPLE;
+        if (dist && dist <= ink && GREEN(t) && !GREEN(n) && n !== T.WATER) k = 0.9;   // a soft shade where the lawn meets a road
+        // (A small map, the world map, keeps the grain faint and leaves out tufts.)
+        k *= 1 + (h - 0.5) * (GREEN(t) ? 0.09 : 0.05) * grainR;
+        if (GREEN(t) && R >= 4 && h > 0.965) c = t === T.GRASS ? TUFT_LIGHT : TUFT_DARK;   // the odd tuft
+        else if (t === T.WOOD && planks) k *= 0.86;           // planks
+        else if (t === T.STONE && pave) k *= 0.96;   // paving
+        else if (t === T.STONE && R >= 6 && gx % R === 0) k *= 0.96;
       }
-    } else if (dist && n === T.WATER && dist <= ink) c = ART_INK;
-    else if (dist <= ink && dist && !GREEN(t) && GREEN(n) && ART_EDGE[t]) c = ART_EDGE[t];
-    else {
-      if (dist && dist <= ink && GREEN(t) && !GREEN(n) && n !== T.WATER) k = 0.9;   // a soft shade where the lawn meets a road
-      // (A small map, the world map, keeps the grain faint and leaves out tufts.)
-      k *= 1 + (h - 0.5) * (GREEN(t) ? 0.09 : 0.05) * (R >= 4 ? 1 : 0.4);
-      if (GREEN(t) && R >= 4 && h > 0.965) c = t === T.GRASS ? [184, 222, 136] : [92, 150, 72];   // the odd tuft
-      else if (t === T.WOOD && R >= 4 && gy % (R >> 1) === 0) k *= 0.86;           // planks
-      else if (t === T.STONE && R >= 6 && (gx % R === 0 || gy % R === 0)) k *= 0.96;   // paving
+      const o = (y * pw + x) * 4;
+      d[o] = c[0] * k; d[o + 1] = c[1] * k; d[o + 2] = c[2] * k; d[o + 3] = 255;
     }
-    const o = (y * pw + x) * 4;
-    d[o] = c[0] * k; d[o + 1] = c[1] * k; d[o + 2] = c[2] * k; d[o + 3] = 255;
   }
 }
+const TUFT_LIGHT = [184, 222, 136], TUFT_DARK = [92, 150, 72];
 
 // Building roofs: a pastel picked per building, like the painted shophouses.
 const ROOFS = ['#F6A7A0', '#9ED9C4', '#C7B5F0', '#FFD98A', '#9CCBF2'];

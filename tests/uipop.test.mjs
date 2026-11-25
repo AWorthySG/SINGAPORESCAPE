@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { copyCanvases } from '../src/ui/uifx.js';
+import { copyCanvases, ghostCopy } from '../src/ui/uifx.js';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const strip = (css) => css.replace(/\/\*[^]*?\*\//g, '');
@@ -84,6 +84,73 @@ test('a closing copy keeps its canvases\' pictures (cloneNode copies none)', () 
   const bad = canvas(5, 5); bad.getContext = () => { throw new Error('tainted'); };
   assert.equal(copyCanvases(holder([canvas(5, 5)]), holder([bad])), 0);
   // Both exits use it.
-  assert.match(read('src/ui/uifx.js'), /copyCanvases\(overlay, ghost\);\n\s*overlay\.after\(ghost\);/);
+  assert.match(read('src/ui/uifx.js'), /copyCanvases\(el, all\);/);
+  assert.match(read('src/ui/uifx.js'), /copyCanvases\(a, b, GHOST_CANVASES - n\)/);
   assert.match(read('src/ui/motion.js'), /const c = v\.cloneNode\(true\); copyCanvases\(v, c\);/);
+});
+
+// A stand-in DOM, just enough for the closing copy: boxes stacked top to
+// bottom at fixed heights, inside a scroller that shows its first `view` px.
+function fakeDom() {
+  let y = 0;
+  const node = (tag, { h = 0, kids = [], canvas = null } = {}) => {
+    const el = { tagName: tag, nodeType: 1, childNodes: kids, style: { props: {}, setProperty(k, v) { this.props[k] = v; } }, canvas,
+      _h: h, querySelectorAll: (s) => (s === 'canvas' ? all(el).filter((n) => n.tagName === 'CANVAS') : []) };
+    el.children = kids;
+    el.firstElementChild = kids[0] || null;
+    el.contains = (o) => o === el || kids.some((k) => k.contains(o));
+    el.cloneNode = (deep) => {
+      const c = node(tag, { h, kids: deep ? kids.map((k) => k.cloneNode(true)) : [] });
+      c.copyOf = el; c.width = el.width; c.height = el.height;
+      c.getContext = () => ({ drawImage: (src) => { c.drawnFrom = src; } });
+      c.appendChild = (k) => { c.childNodes.push(k); c.firstElementChild ||= k; };
+      return c;
+    };
+    if (tag === 'CANVAS') { el.width = 40; el.height = 20; }
+    return el;
+  };
+  const all = (el) => el.children.flatMap((k) => [k, ...all(k)]);
+  // Lay it out: each leaf takes its height, boxes wrap their children.
+  const place = (el, top) => {
+    let t = top;
+    if (el.children.length) for (const k of el.children) t = place(k, t); else t += el._h;
+    el.rect = { top, bottom: t, width: 100, height: t - top };
+    el.getBoundingClientRect = () => el.rect;
+    return t;
+  };
+  const rows = Array.from({ length: 50 }, (_, i) => node('DIV', { h: 20, kids: i === 1 ? [node('CANVAS', { h: 20 })] : [] }));
+  const list = node('DIV', { kids: rows });
+  const head = node('DIV', { h: 30 });
+  const body = node('DIV', { kids: [head, list] });
+  const win = node('DIV', { kids: [node('DIV', { h: 40 }), body] });
+  const overlay = node('DIV', { kids: [win] });
+  place(overlay, y);
+  // The scroller shows 100px of its contents (from y = 40).
+  body.rect = { ...body.rect, bottom: 140, height: 100 };
+  body.scrollTop = 0;
+  return { overlay, body, list, rows };
+}
+
+test('a closing copy leaves out the rows at the end of a long list that are out of sight', () => {
+  const { overlay, body, list, rows } = fakeDom();
+  globalThis.getComputedStyle = () => ({ height: '1000px', alignContent: 'normal', position: 'static' });
+  try {
+    const cut = ghostCopy(overlay, body);
+    assert.ok(cut.trimmed);
+    const gbody = cut.copy.children[0].children[1], glist = gbody.children[1];
+    assert.equal(gbody.children.length, 2, 'the scroller keeps its heading and the list');
+    // Rows from y = 70 (40 + the 30px heading), 20px each: the first four start
+    // above y = 141 (the bottom edge, plus a pixel); a hidden stand-in follows.
+    assert.equal(glist.children.length, 5);
+    assert.deepEqual(glist.children.slice(0, 4).map((c) => c.copyOf), rows.slice(0, 4));
+    assert.equal(glist.children[4].style.props.display, 'none');
+    assert.equal(glist.style.props.height, '1000px', 'the trimmed list keeps its height');
+    assert.equal(glist.style.props['align-content'], 'start');
+    assert.deepEqual(cut.checks.map((c) => c[2]), [3], 'the last row kept is checked against the original');
+    assert.equal(glist.children[1].children[0].drawnFrom, rows[1].children[0], 'a kept row\'s canvas keeps its picture');
+    // Without a scroller the copy is whole, as before.
+    const whole = ghostCopy(overlay, null);
+    assert.equal(whole.trimmed, false);
+    assert.equal(whole.copy.children[0].children[1].children[1].children.length, 50);
+  } finally { delete globalThis.getComputedStyle; }
 });

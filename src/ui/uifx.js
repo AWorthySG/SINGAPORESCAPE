@@ -78,15 +78,127 @@ export function copyCanvases(from, to, max = 24) {
 export function playCloseGhost(overlay) {
   if (!overlay || motionReduced() || !overlay.isConnected || typeof overlay.cloneNode !== 'function') return;
   if (overlay.classList.contains('hidden')) return;
-  const ghost = overlay.cloneNode(true);
-  ghost.removeAttribute('id');
-  ghost.className = 'modal-ghost';
-  ghost.setAttribute('aria-hidden', 'true');
-  ghost.inert = true;
-  copyCanvases(overlay, ghost);
-  overlay.after(ghost);
+  const body = overlay.querySelector?.('#modal-body') || null;
+  const show = (g) => {
+    g.removeAttribute('id');
+    g.className = 'modal-ghost';
+    g.setAttribute('aria-hidden', 'true');
+    g.inert = true;
+    overlay.after(g);
+    return g;
+  };
+  const cut = ghostCopy(overlay, body);
+  let ghost = show(cut.copy);
+  // The trimmed copy must look just like the whole one: if anything it kept
+  // sits differently (a row laid out against the ones left out), copy it whole.
+  if (cut.trimmed && !ghostMatches(body, ghost, cut.checks)) { ghost.remove(); ghost = show(ghostCopy(overlay, null).copy); }
   ghost.addEventListener('animationend', (e) => { if (e.target === ghost) ghost.remove(); });
   setTimeout(() => ghost.remove(), 400);   // in case the animation never runs
+}
+
+// A copy shows its scroller at the top (cloneNode keeps no scroll), and a long
+// list's rows below that are never seen as it fades. Copying, styling, laying
+// out and painting all of them (a full bank, a skill guide's every spot) made
+// closing a big window cost more than opening it on a phone, so the copy
+// leaves out the rows at the end of a list that would start below the
+// window's bottom edge, going down into a list that runs past it. The boxes
+// it goes into keep their height, so borders and backgrounds are unchanged.
+const GHOST_DEPTH = 8;
+const GHOST_CANVASES = 24;
+
+/** The closing copy of `el` ({ copy, trimmed, checks }): deep, except that
+ *  inside the scroller `body` the rows at the end that would sit out of sight
+ *  are left out (none when `body` is null). Canvases keep their pictures
+ *  (copyCanvases), the first GHOST_CANVASES of them. */
+export function ghostCopy(el, body) {
+  if (!body || typeof body.getBoundingClientRect !== 'function' || !el.contains?.(body)) {
+    const all = el.cloneNode(true);
+    copyCanvases(el, all);
+    return { copy: all, trimmed: false, checks: [] };
+  }
+  // The copy's scroller is at its top: what lies below its bottom edge is out of sight.
+  const bottom = body.getBoundingClientRect().bottom - (body.scrollTop || 0) + 1;
+  const st = { bottom, scrolled: !!body.scrollTop, pairs: [], checks: [], trimmed: false };
+  const copy = copyTowards(el, body, st);
+  let n = 0;
+  for (const [a, b] of st.pairs) if (n < GHOST_CANVASES) n += copyCanvases(a, b, GHOST_CANVASES - n);
+  return { copy, trimmed: st.trimmed, checks: st.checks };
+}
+
+function copyTowards(el, body, st) {
+  if (el === body) return copyAbove(el, st, GHOST_DEPTH);
+  if (!el.contains(body)) { const c = el.cloneNode(true); st.pairs.push([wrap(el), wrap(c)]); return c; }
+  const copy = el.cloneNode(false);
+  for (const c of el.childNodes) copy.appendChild(c.nodeType === 1 ? copyTowards(c, body, st) : c.cloneNode(true));
+  return copy;
+}
+
+/** `el` without its trailing children that start below the bottom edge, going
+ *  down into the one that runs past it. */
+function copyAbove(el, st, depth) {
+  const kids = [...el.children];
+  const below = kids.map((c) => {
+    const r = c.getBoundingClientRect();
+    // (Scrolled, a sticky row shows where it is stuck, not where the copy has it: kept.)
+    return r.top >= st.bottom && (r.width || r.height) && !(st.scrolled && getComputedStyle(c).position === 'sticky') ? 1 : r.bottom > st.bottom ? 2 : 0;
+  });
+  let last = below.length - 1;   // the last child kept: only the ones after it go
+  while (last >= 0 && below[last] === 1) last--;
+  const copy = el.cloneNode(false);
+  if (last < kids.length - 1) {
+    st.trimmed = true;
+    // As tall as before, its rows packed at the top as they were (a grid or a
+    // wrapping row would otherwise share the room the left-out rows had).
+    const cs = getComputedStyle(el);
+    copy.style.setProperty('height', cs.height, 'important');
+    if (cs.alignContent === 'normal' || cs.alignContent === 'stretch') copy.style.setProperty('align-content', 'start', 'important');
+    if (last >= 0) st.checks.push([kids[last], copy, last]);
+  }
+  let i = -1;
+  for (const c of el.childNodes) {
+    if (c.nodeType !== 1) { copy.appendChild(c.cloneNode(true)); continue; }
+    i++;
+    if (i > last) {
+      // One hidden stand-in for what was left out, so the rows kept match the
+      // same rules as before (a :last-child or a "+" rule sees one after them).
+      if (i === last + 1) { const s = c.cloneNode(false); s.style.setProperty('display', 'none', 'important'); copy.appendChild(s); }
+      continue;
+    }
+    const deeper = below[i] === 2 && depth > 0 && !!c.firstElementChild && c.tagName !== 'CANVAS';
+    const k = deeper ? copyAbove(c, st, depth - 1) : c.cloneNode(true);
+    if (!deeper) st.pairs.push([wrap(c), wrap(k)]);
+    copy.appendChild(k);
+  }
+  return copy;
+}
+
+/** A canvas itself, or an element's canvases, as copyCanvases takes them. */
+function wrap(el) {
+  return el.tagName === 'CANVAS' ? { querySelectorAll: () => [el] } : el;
+}
+
+/** Does the trimmed copy sit as the whole one would? The last row kept in
+ *  each trimmed box is in the same place (allowing for the window's scroll),
+ *  and the window scrolls as far: a blank block at the end of its scroller
+ *  makes up for what was left out, so the scrollbar looks the same too. */
+function ghostMatches(body, ghost, checks) {
+  const gb = ghost.querySelector?.('#modal-body');
+  if (!gb) return false;
+  const missing = body.scrollHeight - gb.scrollHeight;
+  if (missing > 0) {
+    const pad = document.createElement('div');
+    pad.style.height = `${missing}px`;
+    gb.appendChild(pad);
+  }
+  const a0 = body.getBoundingClientRect(), b0 = gb.getBoundingClientRect(), sc = body.scrollTop || 0;
+  for (const [orig, box, idx] of checks) {
+    const twin = box.children[idx];
+    if (!twin) return false;
+    const a = orig.getBoundingClientRect(), b = twin.getBoundingClientRect();
+    if (Math.abs((a.top - a0.top + sc) - (b.top - b0.top)) > 0.5 || Math.abs((a.left - a0.left) - (b.left - b0.left)) > 0.5
+      || Math.abs(a.width - b.width) > 0.5 || Math.abs(a.height - b.height) > 0.5) return false;
+  }
+  return Math.abs(body.scrollHeight - gb.scrollHeight) <= 1;
 }
 
 /** A painted or SVG icon set inline in a line of text (icons.js returns block
