@@ -268,7 +268,7 @@ export class Renderer {
     // drawn over the wider flat rectangle the tilted screen sees (ox, oy, vw,
     // vh from here on), and the screen's own size and origin are kept apart.
     const svw = vw, svh = vh, fox = ox, foy = oy;
-    cam.tilt = easeTilt(cam.tilt || 0, depthTarget(game, cam, !!this.terrainCanvas && !!cam.screenW), fdt, !motionOK(game));
+    cam.tilt = easeTilt(cam.tilt || 0, depthTarget(game, cam, !!this.terrainCanvas && !!cam.screenW), fdt, !motionOK(game) || !!game.lowFx);
     let pj = cam.screenW ? cam.proj() : null;
     if (pj) {
       pj = Object.assign(this._pjFrame || (this._pjFrame = {}), pj);
@@ -289,9 +289,9 @@ export class Renderer {
 
     // Opaque canvas: paint, don't clear (one fill: a second, paler one under it was never seen).
     // Tilted, the ground is drawn flat into the depth view's canvas first (warped on below).
-    const ground = pj ? this.depth.begin(pj, dpr, '#16241a') : null;
+    const ground = pj ? this.depth.begin(pj, dpr, '#16241a', !!game.fxTrim) : null;
     if (ground) ctx = this.ctx = ground;
-    else if (pj) { pj = this._pj = null; ox = fox; oy = foy; vw = svw; vh = svh; this._vw = vw; this._vh = vh; }
+    else if (pj) { pj = this._pj = null; cam.tilt = 0; ox = fox; oy = foy; vw = svw; vh = svh; this._vw = vw; this._vh = vh; }   // no canvas for it: flat, taps too
     if (!ground) {
       ctx.fillStyle = '#16241a';
       ctx.fillRect(0, 0, vw, vh);
@@ -345,7 +345,7 @@ export class Renderer {
     if (W.objectsIn) W.objectsIn(x0 - 1, y0 - 1, x1 + 1, y1 + 1, visObjs);
     else { visObjs.length = 0; for (const o of W.objects) if (!(o.x < x0 - 1 || o.x > x1 + 1 || o.y < y0 - 1 || o.y > y1 + 1)) visObjs.push(o); }
     // Tilted: trees, buildings and landmarks cast their outlines across the ground with the sun.
-    if (ground && !trim) this.depth.castShadows(ctx, visObjs, W.landmarks, ox, oy, vw, vh, game.dayPhase(), timeMs, dpr);
+    if (ground && !trim) this.depth.castShadows(ctx, visObjs, W.landmarks, ox, oy, vw, vh, game.dayPhase(), timeMs, this.depth.G);
     // Tilted, trees and landmarks stand a touch taller than flat (see the drawables loop).
     const riseTree = pj ? 0.05 * pj.tilt : 0, riseMark = pj ? 0.08 * pj.tilt : 0;
     for (const o of visObjs) {

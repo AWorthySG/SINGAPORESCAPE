@@ -101,12 +101,16 @@ export class Camera {
     }
     this._tx = targetX; this._ty = targetY;
     if (clampRect) {
-      const halfW = this.viewW / 2, halfH = this.viewH / 2;
+      // Tilted, the view reaches further up (and wider at the top) than down:
+      // keep that whole shape inside the world (render/projection.js).
+      const pj = this.proj();
+      const halfW = pj ? pj.fw / 2 : this.viewW / 2, up = pj ? this.viewH / 2 - pj.fy0 : this.viewH / 2;
+      const down = pj ? pj.fy0 + pj.fh - this.viewH / 2 : this.viewH / 2;
       const worldW = clampRect.width * TILE, worldH = clampRect.height * TILE;
       // Only clamp if the world is larger than the viewport on that axis
       // (held against an edge, the spring stops rather than winding up).
-      if (worldW > this.viewW) { const c = Math.max(halfW, Math.min(worldW - halfW, this.cx)); if (c !== this.cx) { this.cx = c; this.vx = 0; } }
-      if (worldH > this.viewH) { const c = Math.max(halfH, Math.min(worldH - halfH, this.cy)); if (c !== this.cy) { this.cy = c; this.vy = 0; } }
+      if (worldW > halfW * 2) { const c = Math.max(halfW, Math.min(worldW - halfW, this.cx)); if (c !== this.cx) { this.cx = c; this.vx = 0; } }
+      if (worldH > up + down) { const c = Math.max(up, Math.min(worldH - down, this.cy)); if (c !== this.cy) { this.cy = c; this.vy = 0; } }
     }
   }
 

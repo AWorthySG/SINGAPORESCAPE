@@ -23,7 +23,7 @@
 
 /** The default tilt, and how each part of the look grows with it. */
 export const DEPTH_TILT = 1;
-const RECEDE = 0.3;     // k at tilt 1, per screen height: the top row is about 0.83x, the bottom about 1.13x
+const RECEDE = 0.34;    // k at tilt 1, per screen height: the top row is about 0.8x, the bottom about 1.17x
 const SQUASH = 0.09;    // the ground is this much flatter than flat at tilt 1
 const LOWER = 0.05;     // the camera's centre (you) sits this far below the middle of the screen at tilt 1
 const MARGIN = 2;       // world px of ground drawn past the screen's edge, so the warp never samples outside it

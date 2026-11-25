@@ -24,9 +24,13 @@ import { clamp01, smooth } from './motionkit.js';
 const EASE_MS = 260;       // the tilt eases in and out over about this long
 const LEAN_K = 2.5;        // a fight's camera push-in (zoomMul 1.06) leans the tilt a touch further
 const LEAN_MAX = 0.18;
-const STRIP_JUMP = 1.4;    // device px: the most a vertical line may step between two warp rows
+const STRIP_JUMP = 1.8;    // device px: the most a vertical line may step between two warp rows
 const STRIP_MIN = 3, STRIP_MAX = 24;   // device px per warp row
-const HAZE_TOP = 0.3;      // the haze reaches this far down the screen
+// The ground canvas's resolution against the screen's. Its far rows are drawn
+// smaller than flat anyway; the soft painted ground loses little, and the
+// canvas (a fifth again bigger than the screen) costs no more to paint than flat.
+const GROUND_RES = 0.85, GROUND_RES_TRIM = 0.7;   // (the second while frames run slow, governor.js)
+const HAZE_TOP = 0.34;     // the haze reaches this far down the screen
 const SHADOW_MIN_H = 40;   // world px: shorter pictures (flowers, bushes, rocks) keep their contact shadow only
 const SIL_MAX = 112;       // px: outlines are baked at most this tall (they are soft anyway)
 const SIL_PAD = 4;         // px of blur margin round a baked outline
@@ -62,21 +66,19 @@ export function shadowVec(phase, out = {}) {
   const elev = Math.sin(a);
   const day = smooth((elev + 0.04) / 0.22);
   const low = 1 - clamp01(elev);
-  const len = 0.24 + 0.95 * low * low;      // short with the sun high, long near the horizon
-  const dx = -Math.cos(a), dy = -0.5;
-  const n = Math.hypot(dx, dy) || 1;
+  const len = 0.28 + 0.9 * low * low;       // short with the sun high, long near the horizon
   out.on = day > 0.02;
-  out.kx = (dx / n) * len;
-  out.ky = (dy / n) * len * 0.8;
+  out.kx = -Math.cos(a) * len;              // away from the sun as it crosses from east to west
+  out.ky = -0.5 * len;                      // ...and up the screen, away from the southern sun
   out.len = len;
-  out.alpha = 0.24 * day;
+  out.alpha = 0.36 * day;
   return out;
 }
 
 /** The haze colour for a day phase, nudged toward the region's mood. */
 const SKY = [
-  [0.0, [64, 78, 128]], [0.22, [96, 104, 160]], [0.28, [255, 200, 176]], [0.36, [214, 232, 248]],
-  [0.5, [228, 240, 250]], [0.64, [240, 234, 218]], [0.72, [255, 186, 150]], [0.78, [150, 128, 186]],
+  [0.0, [64, 78, 128]], [0.22, [96, 104, 160]], [0.28, [255, 200, 176]], [0.36, [206, 226, 246]],
+  [0.5, [214, 232, 250]], [0.64, [234, 230, 220]], [0.72, [255, 186, 150]], [0.78, [150, 128, 186]],
   [0.86, [72, 84, 136]], [1.0, [64, 78, 128]],
 ];
 export function hazeColour(phase, mood = null, out = [0, 0, 0]) {
@@ -104,19 +106,26 @@ export class DepthView {
   }
 
   /** The offscreen ground canvas for this frame, sized to the projection's
-   *  flat rectangle at `D` device px per world px; its context is returned
-   *  scaled, cleared to `bg`. Null when it can't be made. */
-  begin(pj, D, bg) {
+   *  flat rectangle at GROUND_RES of `D` device px per world px; its context
+   *  is returned scaled, cleared to `bg` and clipped to the part the screen
+   *  shows (a trapezoid: the near rows are narrower). Null when it can't be made. */
+  begin(pj, D, bg, trim = false) {
     if (!this.ok) return null;
     if (!this.buf) {
       try { this.buf = document.createElement('canvas'); this.g = this.buf.getContext('2d', { alpha: false }); } catch { this.g = null; }
       if (!this.g) { this.ok = false; return null; }
     }
-    const w = Math.ceil(pj.fw * D), h = Math.ceil(pj.fh * D);
+    const G = this.G = D * (trim ? GROUND_RES_TRIM : GROUND_RES);
+    const w = Math.ceil(pj.fw * G), h = Math.ceil(pj.fh * G);
     if (this.buf.width !== w || this.buf.height !== h) { this.buf.width = w; this.buf.height = h; }
     const g = this.g;
-    g.setTransform(D, 0, 0, D, 0, 0);
+    if (this._clip) { g.restore(); this._clip = false; }   // (a frame that failed mid-ground)
+    g.setTransform(G, 0, 0, G, 0, 0);
     g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+    // Nothing outside the trapezoid is ever copied to the screen: don't paint it.
+    const hb = pj.scx / pj.sBot + 4;
+    g.save(); this._clip = true;
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(pj.fw, 0); g.lineTo(pj.fcx + hb, pj.fh); g.lineTo(pj.fcx - hb, pj.fh); g.closePath(); g.clip();
     g.fillStyle = bg; g.fillRect(0, 0, pj.fw, pj.fh);
     return g;
   }
@@ -128,8 +137,9 @@ export class DepthView {
    * STRIP_JUMP device px from one to the next.
    */
   warp(ctx, pj, D, W, H) {
-    const buf = this.buf;
+    const buf = this.buf, G = this.G || D;
     if (!buf) return;
+    if (this._clip) { this.g.restore(); this._clip = false; }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     const bw = buf.width, bh = buf.height;
     // From the projection: a vertical line at the screen's edge moves
@@ -144,8 +154,8 @@ export class DepthView {
       const y1 = Math.min(H, y0 + step);
       const vb = relV(pj, y1 / D), s = rowScaleRel(pj, relV(pj, (y0 + y1) / 2 / D));
       const hw = pj.scx / s;
-      let sx = (pj.fcx - hw) * D, sw = 2 * hw * D;
-      let sy = (pj.fcy + va) * D, sh = (vb - va) * D;
+      let sx = (pj.fcx - hw) * G, sw = 2 * hw * G;
+      let sy = (pj.fcy + va) * G, sh = (vb - va) * G;
       // Keep the source inside the canvas (Safari draws nothing otherwise).
       if (sx < 0) { sw += sx; sx = 0; }
       if (sx + sw > bw) sw = bw - sx;
@@ -204,7 +214,7 @@ export class DepthView {
       if (!sil) return;
       // Picture space: x across from the base's middle, y up (negative) from the base.
       // On the ground: x' = x - kx y, y' = -ky y (ky < 0 lays it up the screen).
-      g.setTransform(D, 0, -sv.kx * D, -sv.ky * D, bx * D, by * D);
+      g.setTransform(D, 0, -sv.kx * D, -sv.ky * D, bx * D, by * D);   // (D: the ground canvas's px per world px)
       // The baked outline carries a blur margin: map its inner box onto the picture's.
       const pw = sil.cv.width, ph = sil.cv.height, ix = b.w / (pw - 2 * SIL_PAD), iy = b.h / (ph - 2 * SIL_PAD);
       g.drawImage(sil.cv, -b.w / 2 - SIL_PAD * ix, -b.h - SIL_PAD * iy, pw * ix, ph * iy);
@@ -235,11 +245,12 @@ export class DepthView {
     if (!(tilt > 0.01)) return;
     const col = hazeColour(phase, mood, this._hz);
     const night = phase < 0.24 || phase > 0.8;
-    const a = (night ? 0.3 : 0.46) * Math.min(1, tilt);
-    const key = `${col[0] >> 3},${col[1] >> 3},${col[2] >> 3},${Math.round(a * 40)}`;
-    if (key !== this._hazeKey) { this._hazeKey = key; this._hazePic = this._bakeHaze(col, a); }
+    const a = (night ? 0.34 : 0.58) * Math.min(1, tilt);
     const band = pj.vh * HAZE_TOP;
-    if (this._hazePic) ctx.drawImage(this._hazePic, 0, 0, pj.vw, band);
+    // One gradient fill (made again only when its colour or size moves on).
+    const key = `${col[0] >> 3},${col[1] >> 3},${col[2] >> 3},${Math.round(a * 40)},${band | 0}`;
+    if (key !== this._hazeKey) { this._hazeKey = key; this._hazePic = this._hazeFill(ctx, col, a, band); }
+    if (this._hazePic) { ctx.fillStyle = this._hazePic; ctx.fillRect(0, 0, pj.vw, band); }
     if (trim) return;
     const wisp = this._wisp || (this._wisp = this._bakeWisp());
     if (!wisp) return;
@@ -255,18 +266,14 @@ export class DepthView {
     ctx.globalAlpha = 1;
   }
 
-  _bakeHaze(col, a) {
-    try {
-      const cv = document.createElement('canvas'); cv.width = 2; cv.height = 64;
-      const g = cv.getContext('2d');
-      const gr = g.createLinearGradient(0, 0, 0, 64);
-      const c = `${col[0] | 0},${col[1] | 0},${col[2] | 0}`;
-      gr.addColorStop(0, `rgba(${c},${a.toFixed(3)})`);
-      gr.addColorStop(0.35, `rgba(${c},${(a * 0.5).toFixed(3)})`);
-      gr.addColorStop(1, `rgba(${c},0)`);
-      g.fillStyle = gr; g.fillRect(0, 0, 2, 64);
-      return cv;
-    } catch { return null; }
+  _hazeFill(ctx, col, a, band) {
+    if (!ctx.createLinearGradient) return null;
+    const gr = ctx.createLinearGradient(0, 0, 0, band);
+    const c = `${col[0] | 0},${col[1] | 0},${col[2] | 0}`;
+    gr.addColorStop(0, `rgba(${c},${a.toFixed(3)})`);
+    gr.addColorStop(0.35, `rgba(${c},${(a * 0.5).toFixed(3)})`);
+    gr.addColorStop(1, `rgba(${c},0)`);
+    return gr;
   }
 
   _bakeWisp() {
