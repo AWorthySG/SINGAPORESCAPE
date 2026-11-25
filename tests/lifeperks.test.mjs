@@ -83,8 +83,8 @@ test('life perks: gear-style stats (crit damage, pierce, crit, Attack/Magic %, l
   assert.equal(after.critDmg - before.critDmg, 60, 'Mining: crit damage');
   assert.equal(after.pierce - before.pierce, 15, 'Smithing: armour pierce');
   assert.equal(after.crit - before.crit, 15, 'Crafting: crit chance');
-  assert.equal(after.magPct - before.magPct, 15 + 10, 'Firemaking: Magic bonus, and Fishing: damage for every style');
-  assert.equal(after.atkPct - before.atkPct, 15 + 10, 'Woodcutting: Physical bonus, and Fishing: damage for every style');
+  assert.equal(after.magPct - before.magPct, 15 + 10 + 10, 'Firemaking: Magic bonus, and Fishing and Diving: damage for every style');
+  assert.equal(after.atkPct - before.atkPct, 15 + 10 + 10, 'Woodcutting: Physical bonus, and Fishing and Diving: damage for every style');
   assert.equal(after.lifesteal - before.lifesteal, 8, 'Herblore: lifesteal');
   assert.equal(after.bossDmg - before.bossDmg, 20, 'Hunter: boss damage');
   assert.equal(after.strength - before.strength, 0, 'no flat power any more (Fishing is a percentage)');

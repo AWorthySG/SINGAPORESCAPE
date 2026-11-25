@@ -977,10 +977,10 @@ export const CHAPTERS = [
         id: 'lucky-finds', title: 'Lucky finds',
         summary: `About 1 gather in ${num(LUCKY_RATE)} turns up a little cache.`,
         body: [
-          `Any Woodcutting, Mining, Fishing or Hunter gather has a 1 in ${num(LUCKY_RATE)} chance of a **lucky find**, ${pct(LUCKY_STREAK_BONUS)} likelier for each step of your [[gathering-streaks|streak]].`,
+          `Any Woodcutting, Mining, Fishing, Hunter or Diving gather has a 1 in ${num(LUCKY_RATE)} chance of a **lucky find**, ${pct(LUCKY_STREAK_BONUS)} likelier for each step of your [[gathering-streaks|streak]].`,
           { list: [
             'Coins (more at higher-level nodes).',
-            "The skill's own rare find: a bird's nest from trees, a gem from rocks, a pearl from fishing, a bundle of feathers from Hunter.",
+            "The skill's own rare find: a bird's nest from trees, a gem from rocks, a pearl from fishing, a bundle of feathers from Hunter, a seed pearl or two from Diving.",
             'A burst of XP, about five gathers\' worth.',
           ] },
           'A sparkle and a banner tell you when one turns up.',

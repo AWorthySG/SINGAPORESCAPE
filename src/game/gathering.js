@@ -44,7 +44,7 @@ export const CONTRACT_STREAK_STEP = 0.1;   // each full day in a row: +10% contr
 
 // Which skill each gathering action trains.
 export const GATHER_SKILL = { woodcut: 'woodcutting', mine: 'mining', fish: 'fishing', hunt: 'hunter', dive: 'diving' };
-export const CONTRACT_SKILLS = ['woodcutting', 'mining', 'fishing', 'hunter'];
+export const CONTRACT_SKILLS = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving'];
 const VERB = { woodcutting: 'Chop', mining: 'Mine', fishing: 'Fish', hunter: 'Check', diving: 'Dive' };
 const skillName = (id) => SKILL_BY_ID[id]?.name || id;
 
@@ -83,7 +83,7 @@ export function makeContracts(day, levels, present) {
   for (const skill of skills) {
     if (out.length >= CONTRACT_COUNT) break;
     const nodes = Object.entries(OBJECTS)
-      .filter(([id, d]) => d.skill === skill && ['tree', 'rock', 'fishing', 'hunt'].includes(d.type) && present.has(id) && nodeLevel(d) <= lv(skill))
+      .filter(([id, d]) => d.skill === skill && ['tree', 'rock', 'fishing', 'hunt', 'dive'].includes(d.type) && present.has(id) && nodeLevel(d) <= lv(skill))
       .sort((a, b) => nodeLevel(b[1]) - nodeLevel(a[1]));
     if (!nodes.length) continue;
     const [objId, def] = nodes[Math.floor(rnd() * Math.min(3, nodes.length))];

@@ -641,7 +641,7 @@ test('gameplay art pack: items, world objects, quest givers, pets and gameplay i
   const { fileURLToPath } = await import('node:url');
   const { itemIconSVG, PLAY_ICONS, playIconHTML, EVENT_ICON, mechIcon } = await import('../src/render/icons.js');
   const { worldArt, townArt } = await import('../src/render/sprites.js');
-  const { PET_ART, petArtSrc } = await import('../src/render/petsprite.js');
+  const { PET_ART, PET_ART_PENDING, petArtSrc } = await import('../src/render/petsprite.js');
   const { SKILL_PETS } = await import('../src/game/pets.js');
   const { REGION_GIVERS } = await import('../src/data/regionQuests.js');
   const { EVENT_KINDS } = await import('../src/data/worldevents.js');
@@ -678,7 +678,8 @@ test('gameplay art pack: items, world objects, quest givers, pets and gameplay i
   // Pets: every life-skill pet has its own picture, in lock-step with assets/creatures/pets/.
   const pets = new Set(readdirSync(dir('creatures/pets')).filter((f) => f.endsWith('.webp')).map((f) => f.slice(0, -5)));
   assert.deepEqual([...pets].sort(), [...PET_ART].sort());
-  for (const p of Object.values(SKILL_PETS)) assert.equal(petArtSrc(p.id), `assets/creatures/pets/${p.id}.webp`);
+  for (const p of Object.values(SKILL_PETS)) assert.equal(petArtSrc(p.id), PET_ART_PENDING.has(p.id) ? null : `assets/creatures/pets/${p.id}.webp`);
+  for (const id of PET_ART_PENDING) assert.ok(!pets.has(id), `${id}'s picture has arrived: take it off PET_ART_PENDING`);
   // Gameplay icons stay in lock-step with assets/icons/{mech,event,quality,ui}-*.webp, and each is used.
   const icons = readdirSync(dir('icons')).filter((f) => /^(mech|event|quality|ui)-/.test(f)).map((f) => f.slice(0, -5))
     .filter((n) => n !== 'ui-lockon' && n !== 'ui-cancel');   // older HUD art, loaded directly

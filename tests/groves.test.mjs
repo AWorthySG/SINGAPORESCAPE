@@ -121,8 +121,10 @@ test('nothing placed before the groves moved: the world without them is the same
   assert.deepEqual(data.landmarks, bare.landmarks);
   assert.deepEqual(data.resourceZones, bare.resourceZones);
   assert.deepEqual(data.objects.slice(0, bare.objects.length), bare.objects, 'every earlier object where it was, in the same order');
-  const added = data.objects.slice(bare.objects.length);
+  // (Diving's reefs come after the groves and quarries, in the water: divereefs.js.)
+  const added = data.objects.slice(bare.objects.length).filter((o) => OBJECTS[o.objId]?.type !== 'dive');
   assert.equal(added.length, data.groves.reduce((s, g) => s + g.count, 0), 'only the groves\' trees were added');
+  assert.ok(data.objects.slice(bare.objects.length + added.length).every((o) => OBJECTS[o.objId]?.type === 'dive'), 'and the reefs after them');
   assert.deepEqual(bare.groves, []);
 });
 
