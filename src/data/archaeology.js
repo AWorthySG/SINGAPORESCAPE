@@ -141,11 +141,6 @@ export const DIG_SITES = SITES.map(([id, name, label, level, gives, xp, region, 
 }));
 export const DIG_SITE_BY_ID = Object.fromEntries(DIG_SITES.map((s) => [s.id, s]));
 export const DIG_SITE_SIZE = 5;   // dig spots a site holds, together
-// The museum's sets, one per site, lowest first.
-export const MUSEUM_SETS = DIG_SITES.map((s) => ({ id: s.set, name: s.setName, title: s.title, site: s.id, level: s.level,
-  items: s.relics.map((r) => r.id), coins: Math.round(500 + s.level * s.level * 6), xp: Math.round(400 + s.level * 40) }));
-export const MUSEUM_SET_BY_ID = Object.fromEntries(MUSEUM_SETS.map((m) => [m.id, m]));
-export const museumPage = (setId) => `museum:${setId}`;
 
 // ---------------- Relics ----------------
 // A dig's chance of an encrusted relic (more with a better trowel's rare-find
@@ -161,6 +156,13 @@ export const RELIC_SET_BONUS = 0.02;   // +2% of the chance per finished set (mo
 // (tests/archaeology.test.mjs).
 export const RESTORE_INPUT = 2;
 export const RESTORE_XP_MULT = 4.5;
+
+// The museum's sets, one per site, lowest first. A finished set pays coins and
+// as much Archaeology XP as restoring five of its relics.
+export const MUSEUM_SETS = DIG_SITES.map((s) => ({ id: s.set, name: s.setName, title: s.title, site: s.id, level: s.level,
+  items: s.relics.map((r) => r.id), coins: Math.round(500 + s.level * s.level * 6), xp: Math.round(5 * RESTORE_XP_MULT * s.xp / RELIC_CHANCE) }));
+export const MUSEUM_SET_BY_ID = Object.fromEntries(MUSEUM_SETS.map((m) => [m.id, m]));
+export const museumPage = (setId) => `museum:${setId}`;
 
 // ---------------- Items ----------------
 const MATERIALS = {
