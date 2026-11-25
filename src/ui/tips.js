@@ -41,6 +41,10 @@ export function nextTip(game) {
   const p = game.player;
   const want = (id, cond) => !seen.has(id) && cond();
   if (want('dodge', () => game.hazards.length > 0)) return 'dodge';
+  // The others wait while a region's title card or a boss's entrance banner is
+  // up (game.cine, cinematics.js): the owner asked for the tip to give way, as
+  // both sit in the same place at the top of the screen.
+  if (game.cine?.title || game.cine?.intro) return null;
   if (want('move', () => game.tickCount > 3)) return 'move';
   if (want('champion', () => game.npcs.some((n) => n.alive && n.champion && Math.abs(n.x - p.x) <= 10 && Math.abs(n.y - p.y) <= 10))) return 'champion';
   if (want('auto', () => game.totalKills >= 1)) return 'auto';

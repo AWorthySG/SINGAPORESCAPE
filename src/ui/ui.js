@@ -167,7 +167,7 @@ export const PANEL_TABS = {
   quests: ['quests', 'achievements', 'story'],
   settings: ['settings'],
 };
-const SUBTAB_LABELS = { inventory: 'Bag', equipment: 'Gear', combat: 'Combat', prayer: 'Prayer', stats: 'Stats', quests: 'Quests', achievements: 'Awards', story: 'Story' };
+const SUBTAB_LABELS = { inventory: 'Bag', equipment: 'Gear', combat: 'Combat', prayer: 'Blessings', stats: 'Stats', quests: 'Quests', achievements: 'Awards', story: 'Story' };
 /** The tab that holds a view ('prayer' -> 'combat'). */
 export const tabOfView = (view) => Object.keys(PANEL_TABS).find((t) => PANEL_TABS[t].includes(view)) || null;
 

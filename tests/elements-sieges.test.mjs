@@ -396,7 +396,7 @@ test('a spell\'s max hit counts its attunement, and the Stats tab agrees with th
   const m = maxHitNow(g);
   const base = playerMagicVsNpc(g.skills, g.equipment, sp, {}).max;
   assert.ok(m.max >= Math.round(base * 1.6 * 0.99), `the blessing shows in the Stats max hit (${m.max} vs ${base})`);
-  assert.ok(m.parts.some(([l]) => l === 'Prayer'));
+  assert.ok(m.parts.some(([l]) => l === 'Blessings'));
 });
 
 test('an Endless Gate boss keeps the wave\'s life, so its rewards are not a siege\'s', async () => {

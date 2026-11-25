@@ -6,7 +6,7 @@
 // the stat sheet and the renderer read it as before.
 //
 // Faith (`game.prayerPoints`, the old field, kept for saves) fills as you fight,
-// bury bones or kneel at a Monument. A full bar pays for the Prayer Burst: a
+// bury bones or kneel at a Monument. A full bar pays for the Faith Burst: a
 // heal, a short ward that stops every blow, and a few seconds of extra damage.
 import {
   PRAYER_BY_ID, PRAYER_GROUPS, BLESSING_SLOT_LADDER, blessingCost, FAITH_GAIN,
@@ -154,7 +154,7 @@ export const faithGain = (game, kind) => gainFaith(game, FAITH_GAIN[kind] || 0);
 /** Is Faith full enough for a Burst? (A hair under, so float sums still count.) */
 export const faithFull = (game) => game.prayerPoints >= game.maxPrayer() - 1e-6;
 
-/** The Prayer Burst: spends a full bar of Faith. Returns true when it went off. */
+/** The Faith Burst: spends a full bar of Faith. Returns true when it went off. */
 export function prayerBurst(game) {
   const p = game.player;
   if (!p.alive) return false;
@@ -168,10 +168,10 @@ export function prayerBurst(game) {
   p.hp = Math.min(game.maxHp(), p.hp + heal);
   game.burstWard = BURST_WARD_TICKS;
   game.burstZeal = BURST_ZEAL_TICKS;
-  game.addHitsplat?.(p, 0, { text: 'Prayer Burst' });
+  game.addHitsplat?.(p, 0, { text: 'Faith Burst' });
   game.spawnSparkle?.(p, '#ffe89a', 22);
   game.bus.emit('sfx', 'spec');
-  game.msg(`Prayer Burst! You heal ${heal}, a ward stops every blow for 3s, and you deal +${Math.round(pow.zeal * 100)}% damage for 8s.`, 'combat');
+  game.msg(`Faith Burst! You heal ${heal}, a ward stops every blow for 3s, and you deal +${Math.round(pow.zeal * 100)}% damage for 8s.`, 'combat');
   game.bus.emit('hp'); game.bus.emit('prayer');
   return true;
 }

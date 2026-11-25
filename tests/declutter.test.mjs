@@ -246,6 +246,7 @@ test('tiny hits from one source merge over a longer window; crits keep their own
 test('each tip shows once per save, and Tips: Off stops them', () => {
   const g = freshGame();
   g.tickCount = 10;
+  g.cine.title = null;   // the arrival title card has had its turn (tips wait for it: see below)
   assert.equal(g.tipsOn, true, 'on by default');
   const first = nextTip(g);
   assert.equal(first, 'move', 'the first tip is how to move');
@@ -273,4 +274,18 @@ test('each tip shows once per save, and Tips: Off stops them', () => {
   // A new character starts with every tip unseen.
   const fresh = freshGame();
   assert.equal(fresh.tipsSeen.size, 0);
+});
+
+test('a tip waits while a region title card or a boss entrance is up (only the boss-marker tip cuts in)', () => {
+  const g = freshGame();
+  g.tickCount = 10;
+  g.cine.title = { name: 'Kampong Glam', sub: '', t: 0 };
+  assert.equal(nextTip(g), null, 'the move tip waits for the title card');
+  g.hazards.push({ x: 0, y: 0 });
+  assert.equal(nextTip(g), 'dodge', 'the boss marker tip is urgent');
+  g.hazards.length = 0;
+  g.cine.title = null; g.cine.intro = { name: 'Boss', level: 1, t: 0 };
+  assert.equal(nextTip(g), null, 'and for a boss entrance banner');
+  g.cine.intro = null;
+  assert.equal(nextTip(g), 'move', 'then it shows');
 });

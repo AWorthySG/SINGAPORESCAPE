@@ -76,7 +76,7 @@ export const EXECUTE_BELOW = 0.35;
 export const SUNDER_TICKS = 10;
 // More fields for the classes that came later (Game.activateAbility and friends):
 //   chi       a Monk's Chi gained when the skill is used (monk.js; 10 makes it overflow)
-//   faith     that share of the Faith bar at once (a full bar fires the Prayer Burst by itself)
+//   faith     that share of the Faith bar at once (a full bar fires the Faith Burst by itself)
 //   bless     (in a buff) every blessing's bonus counts that share more: Strength, Magic,
 //             crit, Protect... (Game.prayerMult, prayerCrit, protectFactor)
 //   unholy    that much more damage against undead, spirits and demons

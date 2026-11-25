@@ -155,12 +155,12 @@ export function maxHitNow(game, { npc = null, boss = false, rhythm = 0 } = {}) {
   const out = { mode, spell, arrows: 1, off: 0, parts };
   if (mode === 'magic') {
     const base = playerMagicVsNpc(sk, eq, spell, def).max;
-    if (pm.magic !== 1) parts.unshift(['Prayer', times(pm.magic)]);
+    if (pm.magic !== 1) parts.unshift(['Blessings', times(pm.magic)]);
     return { ...out, base, max: Math.max(1, Math.round(base * pm.magic * m)) };
   }
   if (mode === 'dance') {
     const base = playerDanceVsNpc(sk, eq, game.player.danceStyle, def, rhythm).max;
-    if (pm.str !== 1) parts.unshift(['Prayer', times(pm.str)]);
+    if (pm.str !== 1) parts.unshift(['Blessings', times(pm.str)]);
     return { ...out, base, max: Math.max(1, Math.round(base * pm.str * m)) };
   }
   let baseMax, arrowDmg = 1;
@@ -170,11 +170,11 @@ export function maxHitNow(game, { npc = null, boss = false, rhythm = 0 } = {}) {
     const arrowStr = wpn.noAmmo ? gunShotStr(eq, wpn) : idx === -1 ? 0 : getItem(game.inventory.slotAt(idx).id).arrowStr || 0;
     const typeMult = wpn.weaponType === 'longbow' || wpn.weaponType === 'rifle' ? RANGED_TYPE_DMG[wpn.weaponType] : 1;
     baseMax = Math.round(playerRangedVsNpc(sk, eq, game.player.rangedStyle, def, arrowStr, 'main').max * pm.ranged * typeMult);
-    if (pm.ranged !== 1) parts.unshift(['Prayer', times(pm.ranged)]);
+    if (pm.ranged !== 1) parts.unshift(['Blessings', times(pm.ranged)]);
     if (wpn.weaponType === 'shortbow') { out.arrows = SHORTBOW_ARROWS; arrowDmg = SHORTBOW_ARROW_DMG; parts.push(['Each arrow of the spread', times(arrowDmg)]); }
   } else {
     baseMax = Math.round(playerAttackVsNpc(sk, eq, game.player.style, def, 'main').max * pm.str);
-    if (pm.str !== 1) parts.unshift(['Prayer', times(pm.str)]);
+    if (pm.str !== 1) parts.unshift(['Blessings', times(pm.str)]);
   }
   out.base = baseMax;
   out.max = Math.max(1, Math.round(baseMax * m * arrowDmg));
@@ -265,7 +265,7 @@ export function statSheet(game) {
   const crit = critNow(game, mode), cp = part('crit');
   offence.push(row('crit', 'Crit chance %', pct(Math.min(1, crit.total) * 100, false), [
     ['Fighting level', fracPct(crit.levelPart)], ...bonusParts(cp).map(([l, v]) => [l, v]),
-    ...perkLines(perks.get('crit')), ['Maths mastery', fracPct(crit.learn)], ['Prayer', fracPct(crit.pray)],
+    ...perkLines(perks.get('crit')), ['Maths mastery', fracPct(crit.learn)], ['Blessings', fracPct(crit.pray)],
     ['Class buff', fracPct(crit.buff)], ['Intelligence', fracPct(crit.int)], ['Wind: Gale', fracPct(crit.gale)],
   ].filter(([, v]) => v !== '0%'), crit.total > 1 ? 'Capped at 100%: every hit is a crit.' : ''));
   const cd = part('critDmg');
@@ -322,7 +322,7 @@ export function statSheet(game) {
   }
   {
     const p = part('defence'), pm = game.prayerMult().def;
-    defence.push(row('defence', 'Defence bonus', `+${num(p.total)}`, [...bonusParts(p, ''), ['Defence level', num(sk.defence)], ...(pm !== 1 ? [['Prayer', times(pm)]] : [])],
+    defence.push(row('defence', 'Defence bonus', `+${num(p.total)}`, [...bonusParts(p, ''), ['Defence level', num(sk.defence)], ...(pm !== 1 ? [['Blessings', times(pm)]] : [])],
       'Makes monsters miss more often.'));
   }
   {
@@ -360,7 +360,7 @@ export function statSheet(game) {
   {
     const p = part('prayer');
     utility.push(row('prayer', 'Faith', `${Math.floor(game.prayerPoints)} / ${game.maxPrayer()}`,
-      p.total ? [['Prayer bonus', `+${num(p.total)}`], ['Faith fills faster by', pct(100 * p.total / 30, false)]] : []));
+      p.total ? [['Faith bonus', `+${num(p.total)}`], ['Faith fills faster by', pct(100 * p.total / 30, false)]] : []));
   }
   {
     const x = game.xpBreakdown();

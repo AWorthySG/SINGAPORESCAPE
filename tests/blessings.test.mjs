@@ -1,5 +1,5 @@
 // Prayer as a Blessings loadout (game/blessings.js): slots by Prayer level,
-// blessings of a type stacking (or swapping when the slots are full), no drain, Faith from fighting and bones, the Prayer Burst
+// blessings of a type stacking (or swapping when the slots are full), no drain, Faith from fighting and bones, the Faith Burst
 // (and auto battle firing it), the L hotkey, saves, and the panel without a DOM.
 import './seed.mjs';
 import { test } from 'node:test';
@@ -126,7 +126,7 @@ test('Faith: cap of 20 + Prayer level, filled by hits, blows taken, kills, bones
   assert.equal(g.prayerPoints, 2, 'big bones restore 2');
 });
 
-test('the Prayer Burst needs full Faith, spends it, heals, wards, adds damage, then wears off', () => {
+test('the Faith Burst needs full Faith, spends it, heals, wards, adds damage, then wears off', () => {
   const g = newGame(99);
   g.prayerPoints = g.maxPrayer() - 1;
   assert.equal(g.prayerBurst(), false, 'not full yet');
@@ -193,7 +193,7 @@ test('the Burst hotkey (L) is wired and listed in the Compendium', () => {
   const page = ARTICLE_BY_ID.prayers;
   assert.match(page.title, /Blessings/);
   const text = articleBlocks(page).filter((b) => typeof b === 'string').join(' ');
-  assert.match(text, /Prayer Burst/); assert.match(text, /Faith/);
+  assert.match(text, /Faith Burst/); assert.match(text, /Faith/);
 });
 
 test('saves keep the loadout and Faith; older saves load with a starter loadout and a full bar', () => {

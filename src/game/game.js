@@ -520,7 +520,7 @@ export class Game {
     this.hasTemps = false;
     this.prayerPoints = 0;          // Faith (blessings.js); the old field name, for saves
     this.activePrayers = new Set(); // the equipped Blessings
-    this.burstWard = 0; this.burstZeal = 0;   // a Prayer Burst's ward and zeal, in ticks
+    this.burstWard = 0; this.burstZeal = 0;   // a Faith Burst's ward and zeal, in ticks
     this.quests = {
       bone_collector: { state: 'notStarted' },
       pest_control: { state: 'notStarted', kills: 0 },
@@ -1326,8 +1326,8 @@ export class Game {
     this.updateRunEnergy();
     if (this.specEnergy < 100) { this.specEnergy = Math.min(100, this.specEnergy + 1); this.bus.emit('spec'); }
     this._tickCombatResources();
-    Bless.tickBlessings(this);   // a Prayer Burst's ward and zeal run down
-    // A full bar of Faith fires the Prayer Burst by itself in any fight, with or
+    Bless.tickBlessings(this);   // a Faith Burst's ward and zeal run down
+    // A full bar of Faith fires the Faith Burst by itself in any fight, with or
     // without auto battle (blessings.js shouldAutoBurst). autoCfg.burst = false turns it off.
     if (this.autoCfg?.burst !== false && Bless.shouldAutoBurst(this)) this.prayerBurst();
 
@@ -1370,7 +1370,7 @@ export class Game {
     // A skill's `bless` buff makes every blessing's bonus count that much more.
     const b = Bless.blessingBonus(this.activePrayers), amp = 1 + this.buffMod('bless');
     const m = { att: 1 + b.att * amp, str: 1 + b.str * amp, def: 1 + b.def * amp, ranged: 1 + b.ranged * amp, magic: 1 + b.magic * amp };
-    const zeal = Bless.burstZeal(this);   // a Prayer Burst's extra damage, for every style
+    const zeal = Bless.burstZeal(this);   // a Faith Burst's extra damage, for every style
     if (zeal) { m.str += zeal; m.ranged += zeal; m.magic += zeal; }
     return m;
   }
@@ -1381,7 +1381,7 @@ export class Game {
   }
 
   protectFactor() {
-    if (this.burstWard > 0) return 1;   // a Prayer Burst's ward stops every blow
+    if (this.burstWard > 0) return 1;   // a Faith Burst's ward stops every blow
     for (const id of this.activePrayers) { const p = PRAYER_BY_ID[id]; if (p.protect) return Math.min(0.9, p.protect * (1 + this.buffMod('bless'))); }
     return 0;
   }
@@ -2396,7 +2396,7 @@ export class Game {
   _abilityGains(ab) {
     if (ab.build) this._gainAdrenaline(ab.build);
     if (ab.chi) Monk.gainChi(this, ab.chi);
-    if (ab.faith) Bless.gainFaith(this, ab.faith);   // a full bar fires the Prayer Burst by itself
+    if (ab.faith) Bless.gainFaith(this, ab.faith);   // a full bar fires the Faith Burst by itself
   }
 
   /** Consume an armed offensive ability for the current hit (spends adrenaline). */
@@ -3248,7 +3248,7 @@ export class Game {
     const mods = this._offensiveMods(npc, 'magic');
     this._castElement = null;
     const fancy = mods.spec || mods.ability;
-    // The Mystic blessings (and a Prayer Burst's zeal) boost spells as the Strength
+    // The Mystic blessings (and a Faith Burst's zeal) boost spells as the Strength
     // and Ranged ones boost blows and arrows (they used to be left out of spells).
     const effMax = Math.max(1, Math.round(max * this.prayerMult().magic * mods.dmgM));
     const el = ELEMENTS[spell.element] || {};
