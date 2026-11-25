@@ -107,6 +107,8 @@ test('the groves cut nothing off: every tile you could walk to still can be, and
   const before = reachable(bare), after = reachable(data);
   const treeAt = new Set(data.groves.flatMap((g) => data.objects.filter((o) => o.objId === g.objId && inBox(g, o)).map((o) => o.y * data.width + o.x)));
   let lost = 0;
+  // (Archaeology's restoration bench stands after the groves on a tile of its own, beside the curator: digsites.js.)
+  for (const o of data.objects) if (o.objId === 'restoration_bench') treeAt.add(o.y * data.width + o.x);
   for (let k = 0; k < before.length; k++) if (before[k] && !after[k] && !treeAt.has(k)) lost++;
   assert.equal(lost, 0, 'no tile cut off');
   for (const k of treeAt) {
