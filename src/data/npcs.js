@@ -607,6 +607,8 @@ const TOWNSFOLK = {
   farmer: { name: 'Farmer Lim', level: 0, attackable: false, role: 'shop', wander: 0, examine: 'He sells seeds, vials, knives and snares.', shop: 'farming' },
   villager: { name: 'Villager', level: 0, attackable: false, role: 'dialogue', wander: 5, examine: 'A local resident.', dialogue: 'villager' },
   // Daily culling contracts and the token shop (src/game/culling.js, src/ui/cullingui.js).
+  // Archaeology's museum (src/game/archaeology.js, src/ui/museumui.js): give her restored artefacts, set by set.
+  museum_curator: { name: 'Curator Siti', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'She runs the little heritage museum, and loves an old find.', dialogue: 'museum' },
   pest_officer: { name: 'Pest Control Officer Aziz', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'He keeps the island\'s pests in check, and pays well for help.', dialogue: 'pest' },
   // Endgame Thieving marks (Thieving 100 and 130): clicking one picks its pocket
   // (role 'mark'). `thieving` is the level, the fixed XP a pick and the loot,
