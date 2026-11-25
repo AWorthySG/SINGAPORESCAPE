@@ -67,7 +67,7 @@ export function goSkill(game, skill) {
 // you, the Slayer master for a task. Thieving and Agility walk to their best
 // spot, like their Go.
 export const LIFE_SHORTCUTS = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'farming', 'cooking', 'smithing',
-  'crafting', 'fletching', 'herblore', 'construction', 'firemaking', 'thieving', 'agility', 'slayer'];
+  'crafting', 'fletching', 'herblore', 'construction', 'firemaking', 'hawkering', 'thieving', 'agility', 'slayer'];
 const GATHERING = new Set(['woodcutting', 'mining', 'fishing', 'hunter', 'diving']);
 // Each making skill's "Do all" (autoprocess.js nextJob) and where it is done,
 // first choice first: ore goes to the furnace before bars go to the anvil.
@@ -125,6 +125,7 @@ export function lifeShortcutHint(game, skill) {
   if (skill === 'firemaking') return game.burnableLogs?.().length ? 'Light a fire from your logs' : 'No logs to burn';
   if (skill === 'farming') { const t = patchToTend(game); return t.obj ? (t.ready ? 'A crop is ready to pick' : 'Plant your seeds') : 'Nothing to plant or pick'; }
   if (skill === 'slayer') return 'Get a task from Rajan';
+  if (skill === 'hawkering') return !game.hawker?.rented ? 'Rent your stall at Marina Bay' : game.hawker.menu().length ? 'Open your stall, auto-serve on' : 'Nothing to sell yet';
   return '';
 }
 
@@ -165,6 +166,15 @@ export function startLifeSkill(game, skill, ui = game.ui) {
     const top = bestWorkable(game, skill);
     if (top && top.level > pick.src.level) game.msg(`That's the best you can get to safely: ${top.name} (${skillName(skill)} ${top.level}) lies among or past monsters that would set on you.`, 'system');
     return true;
+  }
+  if (skill === 'hawkering') {
+    // To your stall at Marina Bay: open up there with auto-serve on (or, not
+    // rented yet, its window, to rent it).
+    const h = game.hawker;
+    if (!h?.obj) return false;
+    if (h.rented && !h.menu().length) { game.msg('You have nothing to sell: cook some dishes first (your stall\'s Menu says what customers order).', 'system'); return false; }
+    if (h.rented && !game.autoGather) game.toggleAutoGather(true);
+    return game.goToObject(h.obj);
   }
   if (MAKING[skill]) {
     const job = makingJob(game, skill);

@@ -3940,3 +3940,24 @@ input[type="range"]:focus-visible { outline: 3px solid var(--aw-sun); outline-of
 .bld-head > svg, .bld-head > img { flex: none; }
 .bld-go .wm-go:disabled, .home-row .wm-go:disabled { opacity: .45; filter: grayscale(.6); cursor: var(--cur-default); }
 .bld-mat i { font-style: normal; font-weight: 700; color: var(--aw-text-sec); }
+
+/* ---- Your hawker stall (hawkerui.js, Hawkering) ----
+   The queue as cards: a townsperson's portrait, their order and a patience
+   bar that runs down (red near the end), and a finger-sized Serve button. */
+.hwk-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.hwk-head > svg, .hwk-head > img { flex: none; }
+.hwk-stars { color: #e0a020; letter-spacing: 1px; white-space: nowrap; }
+.hwk-queue { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; margin-top: 8px; }
+.hwk-cust { display: flex; align-items: center; gap: 8px; padding: 6px; border: 1.5px solid var(--aw-ink-faint); border-radius: 10px; background: rgba(255,255,255,.55); min-width: 0; }
+.hwk-cust.vip { border-color: #e0a020; background: #fff6d8; }
+.hwk-face { flex: none; width: 40px; height: 40px; object-fit: contain; border-radius: 8px; background: var(--aw-muted); display: grid; place-items: center; font-size: 22px; }
+.hwk-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hwk-txt b { font-size: var(--fs-sm); font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hwk-txt b i { font-style: normal; font-size: var(--fs-cap); padding: 0 5px; border-radius: 999px; background: #e0a020; color: #fff; }
+.hwk-txt small { display: flex; align-items: center; gap: 4px; font-size: var(--fs-xs); color: var(--aw-text-sec); }
+.hwk-txt small svg, .hwk-txt small img { flex: none; }
+.hwk-pat { display: block; height: 6px; border-radius: 3px; background: rgba(34,48,74,.15); overflow: hidden; }
+.hwk-pat span { display: block; height: 100%; background: #6cc46a; transition: width .3s linear; }
+.hwk-pat span.low { background: #e0583a; }
+.hwk-cust .wm-go { flex: none; min-height: 40px; min-width: 68px; }
+.hwk-cust .wm-go:disabled { opacity: .45; filter: grayscale(.6); }

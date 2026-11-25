@@ -4,6 +4,7 @@ import { classPerks, classPerkSummary, classKeyPerks } from '../game/classperks.
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_MAX_LEVEL, LIFE_PERK_TOP_LEVEL, lifePerkText, lifePerkNext } from '../game/lifeperks.js';
 import { unlockTipText } from '../game/skillunlocks.js';
 import { installHomeUI } from './homeui.js';
+import { installHawkerUI } from './hawkerui.js';
 import { installStoryUI, speakerArt } from './storyui.js';
 import { installReputationUI } from './reputationui.js';
 import { personalise } from '../game/memory.js';
@@ -17,6 +18,7 @@ import { SMELT, SMITH, smithToolRows } from '../data/smithing.js';
 import { CRAFT } from '../data/crafting.js';
 import { POTIONS, FLETCH, CROP_BY_SEED } from '../data/trades.js';
 import { conRecipes } from '../data/construction.js';
+import { SIGNATURE } from '../data/hawkering.js';
 import { COOKING, makeXp } from '../game/skilling.js';
 import { DISHES } from '../data/cooking.js';
 import { SKILLS, SKILL_GROUPS } from '../data/skills.js';
@@ -409,6 +411,7 @@ export class UI {
     this.renderAbilities();
     this.renderTracker();
     installHomeUI(this);   // the kampong home's panel and its button by the map (homeui.js)
+    installHawkerUI(this);   // your hawker stall's window (hawkerui.js)
     installStoryUI(this);  // the Journal's Story view and chapter scenes (storyui.js)
     installReputationUI(this, PANEL_TABS, SUBTAB_LABELS);   // the Journal's Regions view and the region pill (reputationui.js)
     installLifeSkillUI(this);   // Town / Grave teleports, skilling contracts (lifeskillui.js)
@@ -4396,18 +4399,19 @@ export class UI {
     const g = this.game;
     // Construction: what this station works (a sawmill, kiln, workbench or the home workbench).
     const con = skill === 'construction' ? obj?.def?.type : null;
-    const recipes = con ? conRecipes(con) : skill === 'herblore'
+    const wok = skill === 'hawkering';   // your hawker stall's wok: its signature dishes (hawkering.js)
+    const recipes = con ? conRecipes(con) : wok ? SIGNATURE : skill === 'herblore'
       ? Object.entries(POTIONS).map(([id, p]) => ({ result: id, qty: 1, inputs: p.inputs, level: p.level, xp: p.xp }))
       : FLETCH;
     const CON_HINT = { saw: 'Saw logs into planks for building.', kiln: 'Fire clay into bricks for building.',
       build: 'Build furniture from planks, nails and bricks (you need a hammer). Sell it, or use it in your home builds.',
       homebench: 'Saw logs into planks, and build furniture from planks, nails and bricks (you need a hammer).' };
     const render = (body) => {
-      body.innerHTML = `<div class="modal-hint">${con ? CON_HINT[con] || CON_HINT.build : skill === 'herblore'
+      body.innerHTML = `<div class="modal-hint">${con ? CON_HINT[con] || CON_HINT.build : wok ? 'Cook signature dishes at your stall\'s wok, to serve. The Hawker Auntie sells the dry goods.' : skill === 'herblore'
         ? 'Brew farmed herbs into potions. Drink one from your pack for a boost in battle.'
         : 'Carve logs with a knife, and tip arrow shafts with feathers and a metal bar.'}</div>`;
       const list = document.createElement('div');
-      list.appendChild(this._doAllRow(con || skill, obj, con ? { saw: 'Saw all', kiln: 'Fire all' }[con] || 'Build all' : skill === 'herblore' ? 'Brew all' : 'Fletch all'));
+      list.appendChild(this._doAllRow(con || skill, obj, con ? { saw: 'Saw all', kiln: 'Fire all' }[con] || 'Build all' : wok ? 'Cook all' : skill === 'herblore' ? 'Brew all' : 'Fletch all'));
       list.appendChild(this._makeQtyRow());
       for (const r of recipes) {
         const hasTool = !r.tool || g.hasTool(r.tool);
@@ -4422,7 +4426,7 @@ export class UI {
       }
       body.appendChild(list);
     };
-    this.openModal(con ? obj.def.name : skill === 'herblore' ? 'Herblore' : 'Fletching', render);
+    this.openModal(con ? obj.def.name : wok ? 'Stall wok' : skill === 'herblore' ? 'Herblore' : 'Fletching', render);
     this.modal.kind = skill;
   }
 

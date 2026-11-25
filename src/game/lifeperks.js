@@ -53,6 +53,8 @@ export const LIFE_PERKS = {
   diving: { stat: 'dmgPct', max: 10, label: 'damage (every style)', unit: '%' },
   // Shares Cooking's stat (it adds to it): a sturdy home and a steady hand.
   construction: { stat: 'mobDmg', max: 15, label: 'damage vs normal monsters', unit: '%' },
+  // Shares Fletching's stat (it adds to it): quick hands at the wok.
+  hawkering: { stat: 'haste', max: 12, label: 'attack speed', unit: '%' },
 };
 export const LIFE_PERK_SKILLS = Object.keys(LIFE_PERKS);
 // Life skill level-ups mention the perk on every multiple of this (of 50 past

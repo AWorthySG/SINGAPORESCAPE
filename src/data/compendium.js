@@ -50,6 +50,7 @@ import {
 } from '../game/playbalance.js';
 import { GATE_MODS, BOSS_EVERY, MILESTONE_EVERY } from '../game/waves.js';
 import { HOME_PRICE, HOME_UPGRADES } from '../game/home.js';
+import { STALL_RENT } from './hawkering.js';
 import { CHI, MONK_DODGE } from '../game/monk.js';
 import { PRIEST } from '../game/priest.js';
 import { ZEALOT, HOLY_FIRE } from '../game/zealot.js';
@@ -1257,6 +1258,20 @@ export const CHAPTERS = [
           () => ({ table: { head: ['Upgrade', 'Tiers'], rows: homeRows() } }),
         ],
         see: ['mrt', 'skill-unlocks'],
+      },
+      {
+        id: 'hawker-stall', title: 'Your hawker stall',
+        summary: `Hawkering: rent a stall at Marina Bay for ${num(STALL_RENT)} coins and serve the queue.`,
+        body: [
+          `Rent your own stall at the **Marina Bay hawker centre** for **${num(STALL_RENT)} coins** and open up: townsfolk queue at your counters, each wanting a dish you have (from your pack, or your bank: a runner fetches it). Serve them before their **patience** runs out for a hawker's fair price (about what a shop would pay), a **tip** and **Hawkering** XP.`,
+          { list: [
+            'Serve quickly and keep a **streak** going without anyone walking off: the tips grow, and so does the stall\'s **reputation** (and its prices).',
+            '**Auto-serve** (the auto gather switch) keeps serving from what you carry, best dish first.',
+            'Levels bring more counters and faster service, **VIP regulars** with special orders and big tips (level 40), and **signature dishes** cooked at the stall\'s wok from the Hawker Auntie\'s dry goods.',
+            'From level 100 customers order the endgame dishes; at level 50 a skill unlock teleports you to Marina Bay.',
+          ] },
+        ],
+        see: ['skill-unlocks', 'home'],
       },
       {
         id: 'endless-gate', title: 'The Endless Gate',

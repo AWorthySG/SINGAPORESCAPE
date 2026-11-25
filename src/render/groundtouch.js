@@ -33,7 +33,7 @@ const DOORS = new Set(['shophouse_row_mint', 'shophouse_row_peach', 'shophouse_r
   'temasek_gate', 'kranji_farmhouse', 'celestial_pavilion']);
 // Things you stand at to use: stalls, the bank, ranges, furnaces, anvils, benches, shrines...
 const WORKED = new Set(['stall', 'bank', 'range', 'furnace', 'anvil', 'craft', 'fletch', 'herblore', 'shrine',
-  'offering', 'rest', 'transport', 'gate', 'saw', 'kiln', 'build', 'homebench']);
+  'offering', 'rest', 'transport', 'gate', 'saw', 'kiln', 'build', 'homebench', 'hawkstall']);
 // Walls and ruins darken the ground at their foot (landmarks always do).
 const WALLS = new Set(['wall', 'ruin', 'fence']);
 

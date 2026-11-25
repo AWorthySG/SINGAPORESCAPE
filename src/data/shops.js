@@ -184,6 +184,14 @@ export const SHOPS = {
       { id: 'lemongrass', qty: 100 },
       { id: 'pandan_leaves', qty: 100 },
       { id: 'turmeric', qty: 100 },
+      // dry goods for a hawker stall's signature dishes (Hawkering, hawkering.js)
+      { id: 'bread', qty: 200 },
+      { id: 'tea_leaves', qty: 200 },
+      { id: 'condensed_milk', qty: 200 },
+      { id: 'flour', qty: 200 },
+      { id: 'rice', qty: 200 },
+      { id: 'kway_teow', qty: 200 },
+      { id: 'egg', qty: 200 },
     ],
   },
 };

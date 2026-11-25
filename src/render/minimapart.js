@@ -385,7 +385,7 @@ export function minimapObjectBadge(o) {
     || t === 'saw' || t === 'kiln' || t === 'build' || t === 'homebench') return 'smith';   // (Construction's stations too)
   if (t === 'shrine' || t === 'offering' || t === 'gate_shrine') return 'shrine';
   if (t === 'gate') return 'gate';
-  if (t === 'stall') return 'shop';
+  if (t === 'stall' || t === 'hawkstall') return 'shop';   // (your hawker stall too)
   return null;
 }
 /** Which badge a creature wears instead of its dot: bosses and shopkeepers. */
