@@ -572,6 +572,13 @@ function growRigBox(box, x0, y0, w, h, px, py, a, s) {
 function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null, res = 0) {
   for (let pass = res > 0 ? 0 : 1; pass < 2; pass++) for (const n of rig.order) {
     const part = rig.parts[n];
+    // Some parts swap to another picture for a moment (a mouth opening to bite, a claw opening).
+    const img = part && part.alt && part.swap(opts) ? imgs[part.alt] : imgs[n];
+    const k = res > 0 ? inkPart(img, w, h, res) : null;
+    if (!pass && !k) continue;
+    // What this pass draws: the navy copy, the painted box of the layer, or the whole layer.
+    const dx = pass ? (k && k.sw > 0 ? x0 + k.ax : x0) : x0 + k.x, dy = pass ? (k && k.sw > 0 ? y0 + k.ay : y0) : y0 + k.y;
+    const dw = pass ? (k && k.sw > 0 ? k.aw : w) : k.w, dh = pass ? (k && k.sw > 0 ? k.ah : h) : k.h;
     g.save();
     if (part) {
       const px = x0 + part.piv[0] * w, py = y0 + part.piv[1] * h;
@@ -581,14 +588,11 @@ function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null, res = 0) 
       if (part.swing) g.rotate(a);
       if (gr !== 1) g.scale(gr, gr);
       g.translate(-px, -py);
-      if (box && pass) growRigBox(box, x0, y0, w, h, px, py, a, gr);
-    } else if (box && pass) growRigBox(box, x0, y0, w, h, 0, 0, 0, 1);
-    // Some parts swap to another picture for a moment (a mouth opening to bite, a claw opening).
-    const img = part && part.alt && part.swap(opts) ? imgs[part.alt] : imgs[n];
-    const k = res > 0 ? inkPart(img, w, h, res) : null;
-    if (!pass) { if (k) g.drawImage(k.cv, x0 + k.x, y0 + k.y, k.w, k.h); }
-    else if (k && k.sw > 0) g.drawImage(img, k.sx, k.sy, k.sw, k.sh, x0 + k.ax, y0 + k.ay, k.aw, k.ah);   // just the painted part of the layer
-    else g.drawImage(img, x0, y0, w, h);
+      if (box) growRigBox(box, dx, dy, dw, dh, px, py, a, gr);
+    } else if (box) growRigBox(box, dx, dy, dw, dh, 0, 0, 0, 1);
+    if (!pass) g.drawImage(k.cv, dx, dy, dw, dh);
+    else if (k && k.sw > 0) g.drawImage(img, k.sx, k.sy, k.sw, k.sh, dx, dy, dw, dh);   // just the painted part of the layer
+    else g.drawImage(img, dx, dy, dw, dh);
     g.restore();
   }
 }
@@ -629,7 +633,6 @@ function drawRig(c, id, imgs, opts, t, flash, flashCol) {
   const box = flash > 0.01 ? _rigBox : null;
   if (box) { box.x0 = box.y0 = Infinity; box.x1 = box.y1 = -Infinity; }
   drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box, res);
-  if (box) { box.x0 -= RIG_INK; box.y0 -= RIG_INK; box.x1 += RIG_INK; box.y1 += RIG_INK; }   // and the ink line round it
   // A tinted copy of this frame, for the hit flash. (Species rigs no longer get a
   // white border traced round them: monsters go without one, see MONSTER_BOX.)
   // Only the posed layers' box (through the body's sway, in scratch pixels, with
