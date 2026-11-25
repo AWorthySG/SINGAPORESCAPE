@@ -96,6 +96,13 @@ export const SKILL_UNLOCKS = {
     { level: 75, name: 'Swift knife', desc: '10% chance to fletch twice in one go', fx: { quick: 0.10 } },
     { level: 99, name: 'Master fletcher', desc: '+10% logs kept, 5% more double fletches', fx: { save: 0.10, quick: 0.05 } },
   ],
+  construction: [
+    { level: 10, name: 'Measure twice', desc: '5% chance to keep your materials', fx: { save: 0.05 } },
+    { level: 25, name: 'Quick hands', desc: '5% chance to make twice in one go', fx: { quick: 0.05 } },
+    { level: 50, name: 'Lumber yard teleport', desc: 'Teleport to Kranji, by the lumber yard', teleport: 'kranji' },
+    { level: 75, name: 'Sure hammer', desc: '+5% materials kept and 5% more double makes', fx: { save: 0.05, quick: 0.05 } },
+    { level: 99, name: 'Master builder', desc: '+5% materials kept and 5% more double makes', fx: { save: 0.05, quick: 0.05 } },
+  ],
   herblore: [
     { level: 10, name: 'Steady pour', desc: '5% chance a brew keeps its herbs', fx: { save: 0.05 } },
     { level: 25, name: "New recipe: Angler's brew", desc: 'A brew for Fishing: more double catches', recipe: 'anglers_brew' },

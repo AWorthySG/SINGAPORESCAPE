@@ -38,7 +38,7 @@ export const QUESTS = [
   },
   {
     id: 'life_skills_wild', name: 'Trades of the Wild', qp: 2,
-    desc: 'Cikgu Surya teaches the newer life skills: Farming, Herblore, Fletching and Hunter.',
+    desc: 'Cikgu Surya teaches the newer life skills: Farming, Herblore, Fletching, Hunter and Construction.',
     progress: (g) => stageProgress(g, 'life_skills_wild', LIFE_STAGES_WILD),
   },
   {

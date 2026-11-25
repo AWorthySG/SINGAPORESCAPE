@@ -148,7 +148,7 @@ export const DIALOGUES = {
     },
     wild: {
       speaker: 'Cikgu Surya',
-      text: 'Trades of the Wild, lah! Four newer skills: Farming, Herblore, Fletching and Hunter. Grow herbs, brew them into potions that make you fight better, carve your own bows and arrows, and trap creatures for feathers, meat and hides. You can start any time.',
+      text: 'Trades of the Wild, lah! The newer skills: Farming, Herblore, Fletching, Hunter and Construction. Grow herbs, brew them into potions that make you fight better, carve your own bows and arrows, trap creatures for feathers, meat and hides, and saw planks to build with. You can start any time.',
       options: [
         { label: 'Begin Trades of the Wild.', next: 'begin', action: 'lifeWildStart' },
         { label: 'I have done the wild lesson.', next: 'start', action: 'lifeWildTurnIn' },

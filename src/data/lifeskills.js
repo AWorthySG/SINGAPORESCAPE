@@ -103,8 +103,9 @@ export const LIFE_GRAD_ADV = {
   item: 'trades_cape',
 };
 
-// "Trades of the Wild" — Cikgu Surya's course in the four newer life skills.
-// It can be taken at any time.
+// "Trades of the Wild" — Cikgu Surya's course in the newer life skills.
+// It can be taken at any time. Later skills join at the end, so a course
+// already under way keeps its place.
 export const LIFE_STAGES_WILD = [
   {
     skill: 'farming', name: 'Farming',
@@ -130,10 +131,16 @@ export const LIFE_STAGES_WILD = [
     need: { xp: 150 },
     reward: { xp: 400, coins: 250 },
   },
+  {
+    skill: 'construction', name: 'Construction',
+    teach: 'Now Construction, so one day you can build your own kampong house! Chop some logs and saw them into planks at the sawmill in the lumber yard just south of the plaza. Bring me 5 planks.',
+    need: { item: 'plank', qty: 5 },
+    reward: { xp: 400, coins: 250 },
+  },
 ];
 
 export const LIFE_GRAD_WILD = {
-  skills: ['farming', 'herblore', 'fletching', 'hunter'],
+  skills: ['farming', 'herblore', 'fletching', 'hunter', 'construction'],
   xp: 400,
   coins: 1500,
 };

@@ -375,6 +375,7 @@ export const PRODUCTION_XP_MULT = {
   cooking: [[1, 2.2], [10, 2.3], [30, 1.6], [60, 2.6], [99, 1.7], [150, 1.4], [200, 1.9], [300, 1.4]],
   crafting: [[1, 13], [10, 8], [30, 8.1], [60, 5.9], [99, 6.1], [150, 3.3], [200, 2.5], [300, 2.6]],
   fletching: [[1, 16], [10, 14], [30, 7.7], [60, 7.3], [99, 7], [150, 4.7], [200, 4.8], [300, 4.9]],
+  construction: [[1, 9], [10, 12], [30, 11], [60, 21], [99, 17], [150, 14], [200, 14], [300, 15]],
 };
 /** The making multiple for `skill` at level `lvl` (1 for any other skill). */
 export function makeXpMult(skill, lvl) {
@@ -641,7 +642,7 @@ export function resolveHunt(game, action) {
   return true;
 }
 
-// ---------------- Fletching and Herblore ----------------
+// ---------------- Fletching, Herblore and Construction ----------------
 // A recipe worked at a station: `action.recipe` is { result, qty, inputs: [[id, n]...], level, xp, tool? }.
 export function resolveRecipe(game, action) {
   const { recipe: r, skill } = action;
@@ -656,6 +657,7 @@ export function resolveRecipe(game, action) {
   if (action.tally) return r.inputs.every(([id, n]) => game.inventory.has(id, n));   // a batch says it once (makeBatch)
   game.spawnSparkle(game.player, skill === 'herblore' ? '#7ad08a' : '#caa15a', 6);
   const name = getItem(r.result).name.toLowerCase();
-  game.msg(skill === 'herblore' ? `You brew ${aOrAn(name)}.` : `You fletch ${(r.qty || 1) > 1 ? `${r.qty} ${name}s` : `${aOrAn(name)}`}.`);
+  game.msg(skill === 'herblore' ? `You brew ${aOrAn(name)}.` : skill === 'construction' ? `You make ${aOrAn(name)}.`
+    : `You fletch ${(r.qty || 1) > 1 ? `${r.qty} ${name}s` : `${aOrAn(name)}`}.`);
   return r.inputs.every(([id, n]) => game.inventory.has(id, n));
 }

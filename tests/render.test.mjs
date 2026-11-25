@@ -680,6 +680,7 @@ test('gameplay art pack: items, world objects, quest givers, pets and gameplay i
   assert.deepEqual([...pets].sort(), [...PET_ART].sort());
   for (const p of Object.values(SKILL_PETS)) assert.equal(petArtSrc(p.id), PET_ART_PENDING.has(p.id) ? null : `assets/creatures/pets/${p.id}.webp`);
   for (const id of PET_ART_PENDING) assert.ok(!pets.has(id), `${id}'s picture has arrived: take it off PET_ART_PENDING`);
+  // (A new life skill's pet waits in PET_ART_PENDING, wearing its creature's art, until its picture arrives.)
   // Gameplay icons stay in lock-step with assets/icons/{mech,event,quality,ui}-*.webp, and each is used.
   const icons = readdirSync(dir('icons')).filter((f) => /^(mech|event|quality|ui)-/.test(f)).map((f) => f.slice(0, -5))
     .filter((n) => n !== 'ui-lockon' && n !== 'ui-cancel');   // older HUD art, loaded directly

@@ -29,7 +29,7 @@ import { xpRate } from './xprate.js';
 
 // The life skills For you suggests training spots for (Farming grows on its
 // own clock, so an hourly rate means little there).
-export const TRAIN_SKILLS = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'thieving', 'agility', 'smithing', 'cooking', 'crafting', 'fletching', 'herblore', 'firemaking'];
+export const TRAIN_SKILLS = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'thieving', 'agility', 'smithing', 'cooking', 'crafting', 'fletching', 'herblore', 'firemaking', 'construction'];
 export const ACTIONS_PER_HOUR = Math.round((3600000 / TICK_MS) * GATHER_SPEED);
 
 /** Rough XP an hour from `xp` an action in `skill` at your level. */

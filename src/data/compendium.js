@@ -948,7 +948,7 @@ export const CHAPTERS = [
         id: 'skill-chains', title: 'Skill chains',
         summary: 'Life skills that feed one another.',
         body: [
-          'The life skills lean on each other: logs feed Firemaking and Fletching, ore becomes bars for Smithing, raw fish and meat go to Cooking, crops to Herblore.',
+          'The life skills lean on each other: logs feed Firemaking, Fletching and Construction (as planks), ore becomes bars for Smithing (and nails for Construction), raw fish and meat go to Cooking, crops to Herblore.',
           () => `Some makes boost another skill. ${Object.entries(GATHER_CONSUMABLES).map(([s, c]) => `${AOrAn(itemName(c.id).toLowerCase())} in your pack adds ${pct(c.double)} double ${SKILL_BY_ID[s].name} yield`).join('; ')}. Herblore brews can raise Fishing, Hunter and Mining yields, and boss-fight meals cook from Hunter meat, farmed herbs and fish.`,
         ],
         see: ['skills-overview', 'auto-gather'],
@@ -1252,7 +1252,8 @@ export const CHAPTERS = [
         id: 'home', title: 'Your kampong home',
         summary: `A plot in Kranji Farmlands for ${num(HOME_PRICE)} coins.`,
         body: [
-          `Buy a home plot just east of Kranji Village for **${num(HOME_PRICE)} coins**. It has a storage chest (separate from the bank), a cooking range, a fire that never goes out, farm patches, a trophy wall, and a teleport home with a cooldown. Upgrades cost coins and materials:`,
+          `Buy a home plot just east of Kranji Village for **${num(HOME_PRICE)} coins**. It has a storage chest (separate from the bank), a cooking range, a fire that never goes out, farm patches, a trophy wall, and a teleport home with a cooldown.`,
+          'Then build it up with **Construction**, room by room, in the home window\'s **Build** tab: each build needs a Construction level and a hammer, costs planks, nails, bricks or furniture (from your pack, then the bank) and some coins, pays Construction XP and gives the room a perk. Rooms: a parlour (Focus refills fast while you\'re home, and a bank chest), a kitchen (a better range), a workshop (a workbench, an anvil, a crafting table and a fletching bench of your own), an altar (offer bones at home), a bedroom (Rested XP builds faster while you\'re away), a portal room (teleports to the MRT of any region you\'ve visited), a garden and a trophy hall (a little extra damage to bosses). Upgrades bought before Construction are all kept.',
           () => ({ table: { head: ['Upgrade', 'Tiers'], rows: homeRows() } }),
         ],
         see: ['mrt', 'skill-unlocks'],

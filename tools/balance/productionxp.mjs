@@ -1,5 +1,5 @@
-// Making XP against gathering XP: how much Smithing, Cooking, Crafting and
-// Fletching an hour pays, beside the gathering skills (Mining, Woodcutting,
+// Making XP against gathering XP: how much Smithing, Cooking, Crafting,
+// Fletching and Construction an hour pays, beside the gathering skills (Mining, Woodcutting,
 // Fishing at their best source), at a few levels.
 //
 //   node tools/balance/productionxp.mjs                     # levels 30, 99, 200, 500
@@ -45,11 +45,12 @@ import { DISHES } from '../../src/data/cooking.js';
 import { SMELT, SMITH } from '../../src/data/smithing.js';
 import { CRAFT } from '../../src/data/crafting.js';
 import { FLETCH } from '../../src/data/trades.js';
+import { CONSTRUCT } from '../../src/data/construction.js';
 
 const args = parseArgs();
 const levels = String(args.levels || '30,99,200,500').split(',').map(Number);
 const SETS = Number(args.sets) || 40;   // makes measured for each recipe
-export const MAKE = ['smithing', 'cooking', 'crafting', 'fletching'];
+export const MAKE = ['smithing', 'cooking', 'crafting', 'fletching', 'construction'];
 export const GATHER = ['mining', 'woodcutting', 'fishing'];
 const SUPPLY = ['mining', 'woodcutting', 'fishing', 'hunter'];
 
@@ -61,6 +62,9 @@ const RECIPES = [
   ...DISHES.map((r) => ({ skill: 'cooking', kind: 'dish', ref: r, result: r.result, qty: 1, inputs: r.inputs, level: r.level, xp: r.xp, station: 'range', start: (g, o) => g.startDish(o, r) })),
   ...CRAFT.map((r) => ({ skill: 'crafting', kind: 'craft', ref: r, result: r.result, qty: r.qty || 1, inputs: r.inputs, level: r.level, xp: r.xp, station: 'crafting_table', start: (g, o) => g.startCraft(r, o) })),
   ...FLETCH.map((r) => ({ skill: 'fletching', kind: 'fletch', ref: r, result: r.result, qty: r.qty || 1, inputs: r.inputs.map(([id, qty]) => ({ id, qty })), level: r.level, xp: r.xp, station: 'fletching_bench', start: (g, o) => g.startRecipe('fletching', r, o) })),
+  // Construction at the Kranji lumber yard (src/game/construction.js): planks at the sawmill, bricks at the kiln, furniture at the workbench.
+  ...CONSTRUCT.map((r) => ({ skill: 'construction', kind: 'construct', ref: r, result: r.result, qty: r.qty || 1, inputs: r.inputs.map(([id, qty]) => ({ id, qty })), level: r.level, xp: r.xp,
+    station: { saw: 'sawmill', kiln: 'kiln', build: 'workbench' }[r.at[0]], start: (g, o) => g.startRecipe('construction', r, o) })),
 ];
 // A perfect cook (resolveCook) pays half again, 8% of the time.
 const PERFECT = 1 + 0.08 * 0.5;

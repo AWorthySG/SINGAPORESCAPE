@@ -10,7 +10,8 @@
 // FOCUS_ACTIVE_REFILL minutes of it, so it nudges rather than nags.
 //
 // Rested XP: time logged out builds a rested pool (RESTED_RATE of the time
-// away, up to RESTED_CAP_MS, i.e. about 8 hours away). While the pool lasts,
+// away, up to RESTED_CAP_MS, i.e. about 8 hours away; faster with a bed in
+// your kampong home, home.js). While the pool lasts,
 // every XP gain is worth RESTED_MULT as much (multiplying with golden hours
 // and the rest), and each game tick in which you earn XP uses up a tick of it.
 //
@@ -131,7 +132,8 @@ export function tickPlay(game) {
 export function applyAway(game, awayMs) {
   const pl = game.play;
   if (!pl || !(awayMs >= RESTED_MIN_AWAY_MS)) return null;
-  const restedGain = Math.min(RESTED_CAP_MS - pl.rested, awayMs * RESTED_RATE);
+  // A bed at home (a Construction build, home.js) builds it faster.
+  const restedGain = Math.min(RESTED_CAP_MS - pl.rested, awayMs * RESTED_RATE * (1 + (game.home?.restedBonus?.() || 0)));
   pl.rested = Math.max(pl.rested, Math.min(RESTED_CAP_MS, pl.rested + Math.max(0, restedGain)));
   const f0 = pl.focus;
   pl.focus = Math.min(FOCUS_MAX_MS, pl.focus + awayMs * FOCUS_OFFLINE_REGEN);

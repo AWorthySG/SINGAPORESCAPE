@@ -51,6 +51,8 @@ export const LIFE_PERKS = {
   thieving: { stat: 'extra', max: 12, label: 'chance of an extra strike', unit: '%' },
   // Diving shares Fishing's stat (the sea's own perk): the two add up.
   diving: { stat: 'dmgPct', max: 10, label: 'damage (every style)', unit: '%' },
+  // Shares Cooking's stat (it adds to it): a sturdy home and a steady hand.
+  construction: { stat: 'mobDmg', max: 15, label: 'damage vs normal monsters', unit: '%' },
 };
 export const LIFE_PERK_SKILLS = Object.keys(LIFE_PERKS);
 // Life skill level-ups mention the perk on every multiple of this (of 50 past

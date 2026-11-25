@@ -47,6 +47,8 @@ export const SKILLS = [
     group: 'making', desc: 'Make arrows, bows, staves and wands at a fletching bench. Needs a knife.' },
   { id: 'diving', name: 'Diving', icon: '🤿', color: '#2a8ac0',
     group: 'gathering', desc: 'Dive reefs for shells, coral and pearls. Dive gear lets you stay down longer.' },
+  { id: 'construction', name: 'Construction', icon: '🪚', color: '#b0703a',
+    group: 'making', desc: 'Saw planks, fire bricks, build furniture and your kampong home. Needs a hammer.' },
 ];
 
 // Skills panel sections, in display order.

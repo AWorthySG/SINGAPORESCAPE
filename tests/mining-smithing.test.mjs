@@ -136,7 +136,7 @@ test('endgame smithing: every metal melee weapon and plate piece of each tier, a
     }
     // Gathering tools (tooltiers.js) are forged from the same bars, but aren't gear.
     const recs = SMITH.filter((s) => s.bar === t.bar && !ITEMS[s.result]?.tool);
-    for (const r of recs) assert.ok(ITEMS[r.result]?.equip || ITEMS[r.result]?.roundStr, `${r.result} is real gear (or gun rounds)`);
+    for (const r of recs) assert.ok(ITEMS[r.result]?.equip || ITEMS[r.result]?.roundStr || ITEMS[r.result]?.tags?.includes('nails'), `${r.result} is real gear (or gun rounds, or Construction's nails)`);
     // A batch is instant now (makeBatch), so XP an hour is set by how fast you
     // gather the bars; per piece, each tier's best still pays ~35% more.
     const best = Math.max(...recs.map((r) => r.xp));

@@ -58,7 +58,7 @@ const SKILL_PET_LOOK = {
   fishing: ['Ottie', 'smooth_otter'], cooking: ['Ayam', 'chicken'], firemaking: ['Kelip', 'kunang_kunang'],
   woodcutting: ['Kubung', 'colugo'], thieving: ['Cheeky', 'macaque'], agility: ['Zippy', 'slow_loris'],
   farming: ['Orang-orang', 'scarecrow'], hunter: ['Sang Kancil', 'kancil'], herblore: ['Periuk', 'pitcher_plant'],
-  fletching: ['Myna', 'javan_myna'], diving: ['Penyu', 'hawksbill_turtle'],
+  fletching: ['Myna', 'javan_myna'], diving: ['Penyu', 'hawksbill_turtle'], construction: ['Bata', 'concrete_golem'],
 };
 const FAMILY_NPC = new Map();
 for (const id of ALL_MONSTER_IDS) { const f = getNpc(id).family; if (f && !FAMILY_NPC.has(f)) FAMILY_NPC.set(f, id); }

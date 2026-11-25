@@ -12,6 +12,7 @@
 //   tags       misc tags (e.g. 'log' for firemaking, 'raw' for cooking)
 
 import { CROPS, POTIONS } from './trades.js';
+import { conItems } from './construction.js';
 import { signatureWeapons } from './bossWeapons.js';
 import { TOOL_KINDS, TOOL_TIERS, toolId, toolBonusText } from './tooltiers.js';
 import { diveItems, PEARL_JEWELLERY } from './diving.js';
@@ -875,6 +876,9 @@ Object.assign(RAW, {
   // Lifted from Marina Bay's high rollers (Thieving 100). Any shop that buys everything changes them for coins.
   casino_chip: { name: 'Casino chip', icon: '🪙', value: 250, stackable: true, examine: 'A heavy chip from the Marina Bay casino. Worth 250 coins to the right shopkeeper.' },
 });
+
+// ---- Construction (see construction.js): planks, nails, bricks and furniture ----
+Object.assign(RAW, conItems((id) => RAW[id]?.value || 1));
 
 // ---- Weapons for the newer classes, one per metal tier ----
 // Pistols (Pistoler): dual wielded, need no ammo, light shots fired very fast.
