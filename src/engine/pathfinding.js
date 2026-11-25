@@ -191,14 +191,13 @@ function gridPath(grid, width, height, start, goal, reachAdjacent, maxNodes) {
     for (let k = 0; k < 8; k++) {
       if (!(open & (1 << k))) continue;
       const ni = ci + off[k];
-      if (closed[ni] === gen) continue;
-      if (seen[ni] !== gen || gn < g[ni]) {
-        const nx = cx + DXS[k], ny = cy + DYS[k];
-        seen[ni] = gen; g[ni] = gn;
-        cameX[ni] = cx; cameY[ni] = cy;
-        const ex = nx > gx ? nx - gx : gx - nx, ey = ny > gy ? ny - gy : gy - ny;
-        hpush(nx, ny, gn + (ex > ey ? ex : ey));
-      }
+      // (Only a tile already reached can be closed, so most never read `closed`.)
+      if (seen[ni] === gen && (closed[ni] === gen || gn >= g[ni])) continue;
+      const nx = cx + DXS[k], ny = cy + DYS[k];
+      seen[ni] = gen; g[ni] = gn;
+      cameX[ni] = cx; cameY[ni] = cy;
+      const ex = nx > gx ? nx - gx : gx - nx, ey = ny > gy ? ny - gy : gy - ny;
+      hpush(nx, ny, gn + (ex > ey ? ex : ey));
     }
   }
   return [];
