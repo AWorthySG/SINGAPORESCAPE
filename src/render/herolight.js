@@ -18,6 +18,7 @@ export const RIM_K = 0.45;        // how strongly the rim is screened on at its 
 export const FILL_K = 0.08;       // ...and the fill over the dark colours
 const LIGHT = [-0.5, -0.866];     // where the light comes from: up and a little left
 const INK_LUM = [0.045, 0.13];    // luminance below the first is ink (no rim); full rim above the second
+const NAVY_INK = [0.15, 0.2];     // ...and for the navy ink (#22304A and the painted navy line) the same, a little lighter
 const MAX_BAKES = 1;              // pictures baked a frame at most, so a new class never hitches
 
 const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -66,7 +67,9 @@ export function rimLight(px, w, h) {
     const r = px[o] / 255, g = px[o + 1] / 255, b = px[o + 2] / 255;
     const lum = 0.299 * r + 0.587 * g + 0.114 * b;
     // The ink (the very darkest colours) and the light colours are left alone.
-    const notInk = smooth(INK_LUM[0], INK_LUM[1], lum), dim = smooth(0.95, 0.4, r > g ? (r > b ? r : b) : g > b ? g : b);
+    // The navy ink is lighter than black, so a dark, blue-led colour up to its
+    // lightness counts as ink too (a navy or teal cloth is lighter still, and lit).
+    const notInk = smooth(INK_LUM[0], INK_LUM[1], lum) * (b - r > 0.04 ? smooth(NAVY_INK[0], NAVY_INK[1], lum) : 1), dim = smooth(0.95, 0.4, r > g ? (r > b ? r : b) : g > b ? g : b);
     if (notInk <= 0 || dim <= 0) continue;
     let k = FILL_K;
     if (di <= reach) {

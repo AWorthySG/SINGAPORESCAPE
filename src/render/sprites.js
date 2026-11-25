@@ -96,18 +96,20 @@ function staged(ctx, cx, cy, opts, draw) {
 }
 
 // ---------------- Ground shadow ----------------
+// Shadows are the navy ink thinned out, never black (the sticker style's one dark).
+export const SHADOW_RGB = '34,48,74';
 export function drawShadow(ctx, cx, cy, rx = 11, ry = 5) {
   // One soft shadow is drawn once, then stretched to each entity's size.
   const img = cachedBitmap('shadow', SHADOW_BOX, (c) => {
     const sg = c.createRadialGradient(0, 0, 0, 0, 0, 12);
-    sg.addColorStop(0, 'rgba(0,0,0,0.26)'); sg.addColorStop(0.65, 'rgba(0,0,0,0.15)'); sg.addColorStop(1, 'rgba(0,0,0,0)');
+    sg.addColorStop(0, `rgba(${SHADOW_RGB},0.3)`); sg.addColorStop(0.65, `rgba(${SHADOW_RGB},0.17)`); sg.addColorStop(1, `rgba(${SHADOW_RGB},0)`);
     c.fillStyle = sg; circle(c, 0, 0, 12); c.fill();
   });
   if (img) { ctx.drawImage(img, cx - rx, cy - ry, rx * 2, ry * 2); return; }
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
-  g.addColorStop(0, 'rgba(0,0,0,0.26)');
-  g.addColorStop(0.65, 'rgba(0,0,0,0.15)');
-  g.addColorStop(1, 'rgba(0,0,0,0)');
+  g.addColorStop(0, `rgba(${SHADOW_RGB},0.3)`);
+  g.addColorStop(0.65, `rgba(${SHADOW_RGB},0.17)`);
+  g.addColorStop(1, `rgba(${SHADOW_RGB},0)`);
   ctx.fillStyle = g;
   ellipse(ctx, cx, cy, rx, ry);
   ctx.fill();
@@ -1173,7 +1175,7 @@ function mix(a, b, t) {
 }
 
 // A lively eye: white sclera, dark pupil, tiny catchlight.
-function eyeW(ctx, x, y, r = 1.6, pupil = '#15110b') {
+function eyeW(ctx, x, y, r = 1.6, pupil = '#22304A') {
   ctx.fillStyle = '#f8f6ee'; circle(ctx, x, y, r); ctx.fill();
   ctx.fillStyle = pupil; circle(ctx, x + 0.25, y + 0.1, r * 0.56); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,0.95)'; circle(ctx, x - r * 0.32, y - r * 0.34, r * 0.26); ctx.fill();
@@ -1284,7 +1286,7 @@ function beast(ctx, col) {
   ctx.fillStyle = shade(col, -0.32); path(ctx, () => { ctx.moveTo(6, -5); ctx.lineTo(5, -11); ctx.lineTo(10, -6); }); ctx.fill();
   // snout
   ctx.fillStyle = shade(col, 0.2); ellipse(ctx, 14.5, 0.5, 3.4, 2.8); ctx.fill();
-  ctx.fillStyle = '#1a140d'; circle(ctx, 16, 0.3, 0.65); ctx.fill(); // nostril
+  ctx.fillStyle = '#22304A'; circle(ctx, 16, 0.3, 0.65); ctx.fill(); // nostril
   // tusk
   fang(ctx, 13.8, 2.8, 1.2, 2.6);
   eyeW(ctx, 10.5, -2.2, 1.15);
@@ -1309,7 +1311,7 @@ function rodent(ctx, col) {
   ctx.fillStyle = shade(col, 0.42); circle(ctx, 7, -5.5, 1.6); ctx.fill();
   // snout + buck teeth
   path(ctx, () => { ctx.moveTo(12.5, -1); ctx.lineTo(16, 1); ctx.lineTo(12.5, 3); }); fill(ctx, shade(col, 0.25));
-  ctx.fillStyle = '#1a140d'; circle(ctx, 15.8, 0.8, 0.65); ctx.fill();
+  ctx.fillStyle = '#22304A'; circle(ctx, 15.8, 0.8, 0.65); ctx.fill();
   // prominent buck tooth
   ctx.fillStyle = '#f4f0e8'; rr(ctx, 13.2, 2.2, 1.6, 2.2, 0.3); ctx.fill();
   // whiskers
@@ -1366,9 +1368,9 @@ function reptile(ctx, col) {
   // head
   ellipse(ctx, 12, -0.5, 7, 4.8); fill(ctx, col); line(ctx);
   // jaw line + tongue
-  ctx.strokeStyle = '#1a140d'; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(14.5, 1.8); ctx.lineTo(19.5, 1.4); ctx.stroke();
+  ctx.strokeStyle = '#22304A'; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(14.5, 1.8); ctx.lineTo(19.5, 1.4); ctx.stroke();
   ctx.strokeStyle = '#d8324a'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(19.5, 1.5); ctx.lineTo(23, 1.1); ctx.stroke();
-  eyeW(ctx, 13.5, -2.5, 1.1, '#15110b');
+  eyeW(ctx, 13.5, -2.5, 1.1, '#22304A');
 }
 
 function serpent(ctx, col) {
@@ -1386,7 +1388,7 @@ function serpent(ctx, col) {
   circle(ctx, 5, -8.5, 3.6); fill(ctx, col); line(ctx, OUTLINE, 1.2);
   // eye + slit pupil
   ctx.fillStyle = '#ffe24a'; ellipse(ctx, 6.2, -9.2, 1.35, 0.95); ctx.fill();
-  ctx.fillStyle = '#1a140d'; rr(ctx, 5.9, -10, 0.7, 1.7, 0.25); ctx.fill();
+  ctx.fillStyle = '#22304A'; rr(ctx, 5.9, -10, 0.7, 1.7, 0.25); ctx.fill();
   // forked tongue
   ctx.strokeStyle = '#d8324a'; ctx.lineWidth = 1.1; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(8.5, -8.2); ctx.lineTo(12.5, -8.8); ctx.moveTo(12.5, -8.8); ctx.lineTo(13.8, -9.8); ctx.moveTo(12.5, -8.8); ctx.lineTo(13.8, -7.8); ctx.stroke(); ctx.lineCap = 'butt';
@@ -1502,7 +1504,7 @@ function slime(ctx, col) {
   ctx.fillStyle = shade(col, 0.18); circle(ctx, 4, 3.5, 1.5); ctx.fill(); circle(ctx, -5.5, 4.5, 1.1); ctx.fill(); circle(ctx, 6, -0.5, 0.9); ctx.fill();
   // face - more expressive
   eyeW(ctx, -3.2, 0.5, 1.45); eyeW(ctx, 3.3, 0.5, 1.45);
-  ctx.strokeStyle = '#1a140d'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.arc(0.2, 3.8, 2.1, 0.25, Math.PI - 0.25); ctx.stroke();
+  ctx.strokeStyle = '#22304A'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.arc(0.2, 3.8, 2.1, 0.25, Math.PI - 0.25); ctx.stroke();
 }
 
 function ghost(ctx, col) {
@@ -1590,10 +1592,10 @@ function undead(ctx, col) {
   circle(ctx, 0, -10.5, 5.8); fill(ctx, col); line(ctx);
   ctx.fillStyle = shade(col, 0.2); ellipse(ctx, -2, -12.5, 2.6, 1.6); ctx.fill(); // cranium sheen
   ctx.strokeStyle = shade(col, -0.4); ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(1.5, -14.5); ctx.lineTo(2.6, -12.5); ctx.lineTo(1.8, -11.5); ctx.stroke(); // hairline crack
-  ctx.fillStyle = '#15110b'; ellipse(ctx, -2.5, -11, 1.65, 2); ctx.fill(); ellipse(ctx, 2.5, -11, 1.65, 2); ctx.fill();
+  ctx.fillStyle = '#22304A'; ellipse(ctx, -2.5, -11, 1.65, 2); ctx.fill(); ellipse(ctx, 2.5, -11, 1.65, 2); ctx.fill();
   ctx.fillStyle = '#7a1414'; circle(ctx, -2.5, -11, 0.75); ctx.fill(); circle(ctx, 2.5, -11, 0.75); ctx.fill();
   // nose cavity
-  ctx.fillStyle = '#15110b'; path(ctx, () => { ctx.moveTo(0, -9); ctx.lineTo(-1.1, -7.2); ctx.lineTo(1.1, -7.2); }); ctx.fill();
+  ctx.fillStyle = '#22304A'; path(ctx, () => { ctx.moveTo(0, -9); ctx.lineTo(-1.1, -7.2); ctx.lineTo(1.1, -7.2); }); ctx.fill();
   // jaw + teeth
   ctx.fillStyle = shade(col, -0.12); rr(ctx, -3.2, -6.5, 6.4, 2.6, 0.6); ctx.fill();
   ctx.strokeStyle = shade(col, -0.45); ctx.lineWidth = 0.75;
@@ -1636,7 +1638,7 @@ function scorpion(ctx, col) {
     ctx.fillStyle = col; ellipse(ctx, px, py, 3.2, 2.3); ctx.fill(); line(ctx, OUTLINE, 1.1);
     ctx.strokeStyle = OUTLINE; ctx.lineWidth = 0.75; ctx.beginPath(); ctx.moveTo(px - 2.2, py); ctx.lineTo(px + 2.2, py); ctx.stroke();
   }
-  eyeW(ctx, 2.8, 2, 0.85, '#15110b');
+  eyeW(ctx, 2.8, 2, 0.85, '#22304A');
 }
 
 function bat(ctx, col) {
@@ -1654,7 +1656,7 @@ function bat(ctx, col) {
   path(ctx, () => { ctx.moveTo(3.2, -4.5); ctx.lineTo(4.2, -9); ctx.lineTo(1, -5.5); }); ctx.fill();
   // eyes + tiny fangs
   ctx.fillStyle = '#ffe24a'; circle(ctx, -1.8, -1, 0.95); ctx.fill(); circle(ctx, 1.8, -1, 0.95); ctx.fill();
-  ctx.fillStyle = '#1a140d'; circle(ctx, -1.8, -1, 0.38); ctx.fill(); circle(ctx, 1.8, -1, 0.38); ctx.fill();
+  ctx.fillStyle = '#22304A'; circle(ctx, -1.8, -1, 0.38); ctx.fill(); circle(ctx, 1.8, -1, 0.38); ctx.fill();
   fang(ctx, -1.1, 2, 0.65, 1.3); fang(ctx, 1.1, 2, 0.65, 1.3);
 }
 
@@ -1672,7 +1674,7 @@ function seacreature(ctx, col) {
   path(ctx, () => { ctx.moveTo(-1.5, 3.5); ctx.lineTo(-4.5, 9.5); ctx.lineTo(2.5, 5); }); ctx.fill();
   // gills + jaw
   ctx.strokeStyle = shade(col, -0.32); ctx.lineWidth = 0.85; ctx.beginPath(); ctx.moveTo(5.5, -3.5); ctx.lineTo(4.5, 2.5); ctx.moveTo(7.5, -3.5); ctx.lineTo(6.5, 2.5); ctx.stroke();
-  ctx.strokeStyle = '#1a140d'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(10.5, 1.5); ctx.lineTo(15, 1); ctx.stroke();
+  ctx.strokeStyle = '#22304A'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(10.5, 1.5); ctx.lineTo(15, 1); ctx.stroke();
   eyeW(ctx, 8.5, -1.5, 1.15);
 }
 
@@ -1719,7 +1721,7 @@ function drake(ctx, col) {
   circle(ctx, 8.5, -3.5, 4.8); fill(ctx, col); line(ctx);
   ctx.fillStyle = shade(col, -0.32); path(ctx, () => { ctx.moveTo(6.5, -7.5); ctx.lineTo(5.5, -13.5); ctx.lineTo(9.5, -8.5); }); ctx.fill();
   ctx.fillStyle = shade(col, 0.16); ellipse(ctx, 12.5, -2.5, 3.2, 2.2); ctx.fill();
-  ctx.fillStyle = '#1a140d'; circle(ctx, 14, -2.8, 0.55); ctx.fill();
+  ctx.fillStyle = '#22304A'; circle(ctx, 14, -2.8, 0.55); ctx.fill();
   fang(ctx, 12, -0.5, 0.95, 1.9, '#f4efe0');
   eyeW(ctx, 9.8, -4.5, 1.1, '#7a1010');
 }
@@ -1793,7 +1795,7 @@ function hound(ctx, col) {
   path(ctx, () => { ctx.moveTo(5.5, -6.5); ctx.lineTo(4.5, -12.5); ctx.lineTo(9, -7.5); }); fill(ctx, shade(col, -0.28));
   // snout
   path(ctx, () => { ctx.moveTo(12.5, -1.5); ctx.lineTo(16.5, 0.8); ctx.lineTo(12.5, 3); }); fill(ctx, shade(col, 0.18));
-  ctx.fillStyle = '#1a140d'; circle(ctx, 16, 0.6, 0.6); ctx.fill();
+  ctx.fillStyle = '#22304A'; circle(ctx, 16, 0.6, 0.6); ctx.fill();
   fang(ctx, 13.2, 2.8, 0.95, 1.7);
   eyeW(ctx, 9.8, -3.5, 1.05, '#3a1010');
 }
@@ -1829,7 +1831,7 @@ function mantis(ctx, col) {
   ctx.beginPath(); ctx.moveTo(2.5, 0.5); ctx.lineTo(10.5, -2.5); ctx.lineTo(9, -6.5); ctx.stroke(); ctx.lineCap = 'butt';
   // head (more triangular/insect)
   circle(ctx, 1.8, -9.5, 3.4); fill(ctx, col); line(ctx);
-  ctx.fillStyle = '#1a140d'; circle(ctx, 0.4, -10.2, 0.95); ctx.fill(); circle(ctx, 3.2, -10.2, 0.95); ctx.fill();
+  ctx.fillStyle = '#22304A'; circle(ctx, 0.4, -10.2, 0.95); ctx.fill(); circle(ctx, 3.2, -10.2, 0.95); ctx.fill();
 }
 
 function turtle(ctx, col) {
@@ -1838,7 +1840,7 @@ function turtle(ctx, col) {
   path(ctx, () => { ctx.moveTo(-11.5, 0.8); ctx.lineTo(-15.5, 1.8); ctx.lineTo(-11.5, 3.8); }); ctx.fill();
   // head
   circle(ctx, 10.5, 0.5, 3.8); fill(ctx, shade(col, 0.2)); line(ctx);
-  eyeW(ctx, 11.8, -0.2, 0.95, '#15110b');
+  eyeW(ctx, 11.8, -0.2, 0.95, '#22304A');
   // shell
   ellipse(ctx, 0, 0.8, 11.5, 8); fill(ctx, col); line(ctx);
   ctx.fillStyle = shade(col, 0.15); ellipse(ctx, 0, -1.8, 4.8, 3.2); ctx.fill();
@@ -1876,7 +1878,7 @@ function chicken(ctx) {
   circle(ctx, 7, -12, 2.2); fill(ctx, '#d23b2e');
   path(ctx, () => { ctx.moveTo(11, -7); ctx.lineTo(15, -6); ctx.lineTo(11, -4); }); fill(ctx, '#f0a93b');
   // eye
-  circle(ctx, 8.5, -8, 1); fill(ctx, '#1a140d');
+  circle(ctx, 8.5, -8, 1); fill(ctx, '#22304A');
 }
 
 function rat(ctx) {
@@ -1890,7 +1892,7 @@ function rat(ctx) {
   circle(ctx, 8, -5, 3); fill(ctx, '#c79a98'); line(ctx, OUTLINE, 1.5);
   // snout + eye
   path(ctx, () => { ctx.moveTo(13, -1); ctx.lineTo(16, 1); ctx.lineTo(13, 3); }); fill(ctx, '#c79a98');
-  circle(ctx, 11, -1, 1); fill(ctx, '#1a140d');
+  circle(ctx, 11, -1, 1); fill(ctx, '#22304A');
 }
 
 function goblin(ctx) {
@@ -1909,7 +1911,7 @@ function goblin(ctx) {
   path(ctx, () => { ctx.moveTo(6, -11); ctx.lineTo(12, -14); ctx.lineTo(6, -7); }); fill(ctx, '#58a847'); line(ctx, OUTLINE, 1.5);
   // eyes
   circle(ctx, -2.5, -10, 1.4); fill(ctx, '#ffe24a'); circle(ctx, 3, -10, 1.4); fill(ctx, '#ffe24a');
-  circle(ctx, -2.5, -10, 0.6); fill(ctx, '#1a140d'); circle(ctx, 3, -10, 0.6); fill(ctx, '#1a140d');
+  circle(ctx, -2.5, -10, 0.6); fill(ctx, '#22304A'); circle(ctx, 3, -10, 0.6); fill(ctx, '#22304A');
 }
 
 function macaque(ctx) {
@@ -1923,7 +1925,7 @@ function macaque(ctx) {
   circle(ctx, 1, -10, 6.5); fill(ctx, '#7a5a3a'); line(ctx);
   // face
   ellipse(ctx, 1, -9, 4.2, 5); fill(ctx, '#d9b48f');
-  circle(ctx, -1, -10, 1); fill(ctx, '#1a140d'); circle(ctx, 3, -10, 1); fill(ctx, '#1a140d');
+  circle(ctx, -1, -10, 1); fill(ctx, '#22304A'); circle(ctx, 3, -10, 1); fill(ctx, '#22304A');
 }
 
 function lizard(ctx) {
@@ -1939,7 +1941,7 @@ function lizard(ctx) {
   circle(ctx, -4, 0, 1.6); ctx.fill(); circle(ctx, 2, 3, 1.6); ctx.fill(); circle(ctx, 6, -1, 1.4); ctx.fill();
   // head
   ellipse(ctx, 12, 0, 7, 5); fill(ctx, '#6b8a42'); line(ctx);
-  circle(ctx, 14, -2, 1.1); fill(ctx, '#1a140d');
+  circle(ctx, 14, -2, 1.1); fill(ctx, '#22304A');
   // forked tongue
   ctx.strokeStyle = '#c83b3b'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(18, 1); ctx.lineTo(22, 1); ctx.stroke();
 }
@@ -1956,7 +1958,7 @@ function guard(ctx) {
   // head + helm
   circle(ctx, 0, -11, 6.5); fill(ctx, '#e3b187'); line(ctx);
   ctx.fillStyle = '#9aa3ad'; path(ctx, () => { ctx.moveTo(-7, -11); ctx.quadraticCurveTo(0, -22, 7, -11); ctx.lineTo(7, -13); ctx.quadraticCurveTo(0, -20, -7, -13); }); ctx.fill(); line(ctx, OUTLINE, 1.5);
-  circle(ctx, -2, -11, 0.9); fill(ctx, '#1a140d'); circle(ctx, 2, -11, 0.9); fill(ctx, '#1a140d');
+  circle(ctx, -2, -11, 0.9); fill(ctx, '#22304A'); circle(ctx, 2, -11, 0.9); fill(ctx, '#22304A');
 }
 
 // ================= A-WORTHY MASCOT =================
@@ -3034,7 +3036,7 @@ function tree(ctx, variant, depleted, cx, cy, time) {
     ctx.fillStyle = t.base; ellipse(ctx, cxx, cyy - 2, r * 1.15, r * 0.5); ctx.fill();
     ctx.fillStyle = 'rgba(255,240,180,0.22)'; ellipse(ctx, cxx - r * 0.4, cyy - 3.5, r * 0.5, r * 0.2); ctx.fill();
     ctx.fillStyle = 'rgba(20,45,18,0.16)'; ellipse(ctx, cxx + r * 0.3, cyy + 2.5, r * 0.6, r * 0.22); ctx.fill();
-    ctx.strokeStyle = 'rgba(20,40,18,0.32)'; ctx.lineWidth = 1.8; ellipse(ctx, cxx, cyy + 1, r * 1.25, r * 0.62); ctx.stroke();
+    ctx.strokeStyle = 'rgba(34,48,74,0.32)'; ctx.lineWidth = 1.8; ellipse(ctx, cxx, cyy + 1, r * 1.25, r * 0.62); ctx.stroke();
   } else if (t.shape === 'conifer') {
     // stacked dark tiers
     for (let i = 0; i < 3; i++) {
@@ -3072,7 +3074,7 @@ function rock(ctx, ore, depleted, cx, cy) {
     ctx.moveTo(cx - 12, cy + 9); ctx.lineTo(cx - 9, cy - 7); ctx.lineTo(cx - 1, cy - 11);
     ctx.lineTo(cx + 8, cy - 8); ctx.lineTo(cx + 12, cy + 2); ctx.lineTo(cx + 8, cy + 10);
   });
-  ctx.fill(); line(ctx, 'rgba(30,30,34,0.5)', 2);
+  ctx.fill(); line(ctx, OUTLINE, 2);
   // shaded lower-right facet for 3D form
   ctx.fillStyle = 'rgba(20,20,26,0.24)';
   path(ctx, () => { ctx.moveTo(cx + 2, cy - 4); ctx.lineTo(cx + 12, cy + 2); ctx.lineTo(cx + 8, cy + 10); ctx.lineTo(cx - 1, cy + 9); }); ctx.fill();
@@ -3080,12 +3082,12 @@ function rock(ctx, ore, depleted, cx, cy) {
   ctx.fillStyle = 'rgba(255,255,255,0.18)';
   path(ctx, () => { ctx.moveTo(cx - 9, cy - 7); ctx.lineTo(cx - 1, cy - 11); ctx.lineTo(cx + 2, cy - 4); ctx.lineTo(cx - 6, cy - 2); }); ctx.fill();
   // a cleft crack for stone texture
-  ctx.strokeStyle = 'rgba(20,20,26,0.3)'; ctx.lineWidth = 0.8;
+  ctx.strokeStyle = 'rgba(34,48,74,0.3)'; ctx.lineWidth = 0.8;
   ctx.beginPath(); ctx.moveTo(cx - 3, cy - 6); ctx.lineTo(cx - 1, cy - 1); ctx.lineTo(cx - 4, cy + 4); ctx.stroke();
   if (!depleted && ore) {
     // embedded ore nuggets, each with a shadow + glint for relief
     for (const [dx, dy, r] of [[-5, 1, 2.1], [3, 4, 1.9], [-1, -4, 1.7], [6, -1, 1.8], [1, 7, 1.2]]) {
-      ctx.fillStyle = 'rgba(0,0,0,0.2)'; circle(ctx, cx + dx + 0.5, cy + dy + 0.6, r); ctx.fill();
+      ctx.fillStyle = `rgba(${SHADOW_RGB},0.24)`; circle(ctx, cx + dx + 0.5, cy + dy + 0.6, r); ctx.fill();
       ctx.fillStyle = ore; circle(ctx, cx + dx, cy + dy, r); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.6)'; circle(ctx, cx + dx - 0.5, cy + dy - 0.6, r * 0.34); ctx.fill();
     }
@@ -3132,7 +3134,7 @@ function fire(ctx, cx, cy, time) {
 function range(ctx, cx, cy, time) {
   drawShadow(ctx, cx, cy + 11, 14, 5);
   // stone body
-  ctx.fillStyle = '#7c7468'; rr(ctx, cx - 13, cy - 6, 26, 18, 3); ctx.fill(); line(ctx, 'rgba(30,26,20,0.5)', 2);
+  ctx.fillStyle = '#7c7468'; rr(ctx, cx - 13, cy - 6, 26, 18, 3); ctx.fill(); line(ctx, OUTLINE, 2);
   ctx.fillStyle = '#8c8478'; rr(ctx, cx - 13, cy - 6, 26, 4, 3); ctx.fill();
   // fire mouth
   ctx.fillStyle = '#1c1410'; rr(ctx, cx - 9, cy + 1, 18, 9, 2); ctx.fill();
@@ -3140,14 +3142,14 @@ function range(ctx, cx, cy, time) {
   ctx.fillStyle = '#e8521f'; path(ctx, () => { ctx.moveTo(cx - 6, cy + 9); ctx.quadraticCurveTo(cx - 4, cy + 2 * f, cx, cy + 1); ctx.quadraticCurveTo(cx + 4, cy + 2 * f, cx + 6, cy + 9); }); ctx.fill();
   ctx.fillStyle = '#ffce4a'; path(ctx, () => { ctx.moveTo(cx - 3, cy + 9); ctx.quadraticCurveTo(cx, cy + 3 * f, cx + 3, cy + 9); }); ctx.fill();
   // pot
-  ctx.fillStyle = '#3a3a40'; rr(ctx, cx - 7, cy - 12, 14, 8, 3); ctx.fill(); line(ctx, 'rgba(0,0,0,0.4)', 1.5);
+  ctx.fillStyle = '#3a3a40'; rr(ctx, cx - 7, cy - 12, 14, 8, 3); ctx.fill(); line(ctx, OUTLINE, 1.5);
 }
 
 function furnace(ctx, cx, cy, time) {
   drawShadow(ctx, cx, cy + 13, 15, 5);
-  ctx.fillStyle = '#7a4a36'; path(ctx, () => { ctx.moveTo(cx - 13, cy + 12); ctx.lineTo(cx - 10, cy - 12); ctx.lineTo(cx + 10, cy - 12); ctx.lineTo(cx + 13, cy + 12); }); ctx.fill(); line(ctx, 'rgba(30,16,10,0.5)', 2);
+  ctx.fillStyle = '#7a4a36'; path(ctx, () => { ctx.moveTo(cx - 13, cy + 12); ctx.lineTo(cx - 10, cy - 12); ctx.lineTo(cx + 10, cy - 12); ctx.lineTo(cx + 13, cy + 12); }); ctx.fill(); line(ctx, OUTLINE, 2);
   // brick lines
-  ctx.strokeStyle = 'rgba(40,20,12,0.35)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(34,48,74,0.35)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(cx - 11, cy - 2); ctx.lineTo(cx + 11, cy - 2); ctx.moveTo(cx - 12, cy + 5); ctx.lineTo(cx + 12, cy + 5); ctx.stroke();
   // glowing opening
   glow(ctx, cx, cy + 3, 16, 'rgba(255,140,40,0.4)');
@@ -3174,7 +3176,7 @@ function craftTable(ctx, cx, cy) {
 // Farm patch: a bed of tilled soil; a planted crop sprouts, grows and ripens.
 function farmPatch(ctx, obj, cx, cy, time) {
   ctx.fillStyle = '#7a5230'; rr(ctx, cx - 14, cy - 4, 28, 18, 4); ctx.fill(); line(ctx, OUTLINE, 1.2);
-  ctx.strokeStyle = 'rgba(40,24,10,0.35)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(34,48,74,0.35)'; ctx.lineWidth = 1;
   for (const dy of [0, 5, 10]) { ctx.beginPath(); ctx.moveTo(cx - 11, cy + dy); ctx.lineTo(cx + 11, cy + dy); ctx.stroke(); }
   if (!obj.crop) return;
   const def = CROP_COLORS[obj.crop] || '#5aa04a';
@@ -3241,7 +3243,7 @@ function anvil(ctx, cx, cy) {
     ctx.lineTo(cx + 5, cy - 1); ctx.lineTo(cx + 5, cy + 1); ctx.lineTo(cx + 3, cy + 4);
     ctx.lineTo(cx - 3, cy + 4); ctx.lineTo(cx - 3, cy - 1); ctx.lineTo(cx - 11, cy - 1);
   });
-  ctx.fill(); line(ctx, 'rgba(0,0,0,0.5)', 1.5);
+  ctx.fill(); line(ctx, OUTLINE, 1.5);
   ctx.fillStyle = 'rgba(255,255,255,0.18)'; rr(ctx, cx - 10, cy - 4, 17, 1.6, 1); ctx.fill();
 }
 
@@ -3253,15 +3255,15 @@ function stall(ctx, objId, depleted, cx, cy) {
   ctx.fillStyle = '#6b4524';
   rr(ctx, cx - 13, cy - 14, 3, 26, 1); ctx.fill();
   rr(ctx, cx + 10, cy - 14, 3, 26, 1); ctx.fill();
-  line(ctx, 'rgba(30,18,8,0.5)', 1);
+  line(ctx, OUTLINE, 1);
   // counter
-  ctx.fillStyle = '#7a5230'; rr(ctx, cx - 14, cy + 2, 28, 12, 2); ctx.fill(); line(ctx, 'rgba(30,18,8,0.5)', 2);
+  ctx.fillStyle = '#7a5230'; rr(ctx, cx - 14, cy + 2, 28, 12, 2); ctx.fill(); line(ctx, OUTLINE, 2);
   ctx.fillStyle = '#8a6038'; rr(ctx, cx - 14, cy, 28, 4, 2); ctx.fill();
   // striped awning, coloured per stall type
   const cols = { stall_food: '#d8566f', stall_market: '#2f7bbf', stall_gem: '#7a4a9a' };
   const a = cols[objId] || '#d8566f';
   for (let i = 0; i < 6; i++) { ctx.fillStyle = i % 2 ? a : '#f0e7d4'; rr(ctx, cx - 15 + i * 5, cy - 16, 5, 7, 0); ctx.fill(); }
-  line(ctx, 'rgba(30,18,8,0.5)', 1);
+  line(ctx, OUTLINE, 1);
   // scalloped hem
   ctx.fillStyle = a;
   for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(cx - 12.5 + i * 5, cy - 9, 2.5, 0, Math.PI); ctx.fill(); }
@@ -3277,11 +3279,11 @@ function stall(ctx, objId, depleted, cx, cy) {
 function bank(ctx, cx, cy) {
   drawShadow(ctx, cx, cy + 12, 15, 5);
   // counter
-  ctx.fillStyle = '#7a5230'; rr(ctx, cx - 13, cy - 2, 26, 14, 2); ctx.fill(); line(ctx, 'rgba(30,18,8,0.5)', 2);
+  ctx.fillStyle = '#7a5230'; rr(ctx, cx - 13, cy - 2, 26, 14, 2); ctx.fill(); line(ctx, OUTLINE, 2);
   ctx.fillStyle = '#8a6038'; rr(ctx, cx - 13, cy - 4, 26, 4, 2); ctx.fill();
   // booth top sign
-  ctx.fillStyle = '#caa15a'; rr(ctx, cx - 11, cy - 16, 22, 9, 2); ctx.fill(); line(ctx, 'rgba(30,18,8,0.5)', 1.5);
-  ctx.fillStyle = '#5a3a1c'; ctx.font = 'bold 8px Verdana'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#caa15a'; rr(ctx, cx - 11, cy - 16, 22, 9, 2); ctx.fill(); line(ctx, OUTLINE, 1.5);
+  ctx.fillStyle = '#5a3a1c'; ctx.font = '900 8px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('BANK', cx, cy - 11); ctx.textBaseline = 'alphabetic';
   // posts
   ctx.fillStyle = '#6b4524'; rr(ctx, cx - 12, cy - 16, 3, 16, 1); ctx.fill(); rr(ctx, cx + 9, cy - 16, 3, 16, 1); ctx.fill();
@@ -3306,7 +3308,7 @@ function shrineBody(ctx, cx, cy, time) {
   // soft ambient aura, sized to wrap the whole (now much taller) arch
   glow(ctx, cx, cy - 20, 36, 'rgba(180,190,200,0.22)');
   // stone plinth
-  ctx.fillStyle = '#8a8378'; rr(ctx, cx - 13, cy + 6, 26, 9, 2); ctx.fill(); line(ctx, 'rgba(40,36,30,0.5)', 1.5);
+  ctx.fillStyle = '#8a8378'; rr(ctx, cx - 13, cy + 6, 26, 9, 2); ctx.fill(); line(ctx, OUTLINE, 1.5);
   ctx.fillStyle = '#9a948a'; rr(ctx, cx - 10, cy + 3, 20, 4, 2); ctx.fill();
   // archway: the Worthy mark itself — two slender rounded legs joined by a
   // tall dome (the logo's own silhouette is roughly 1:7 legs-to-height; this
@@ -3357,7 +3359,7 @@ function mascotStatue(ctx, cx, cy) {
 function mrtStation(ctx, cx, cy) {
   drawShadow(ctx, cx, cy + 13, 15, 5);
   // platform
-  ctx.fillStyle = '#9a948a'; rr(ctx, cx - 15, cy + 8, 30, 5, 2); ctx.fill(); line(ctx, 'rgba(40,36,30,0.5)', 1.2);
+  ctx.fillStyle = '#9a948a'; rr(ctx, cx - 15, cy + 8, 30, 5, 2); ctx.fill(); line(ctx, OUTLINE, 1.2);
   // train body
   ctx.fillStyle = '#e8eef2'; rr(ctx, cx - 13, cy - 8, 20, 17, 4); ctx.fill(); line(ctx, OUTLINE, 1.3);
   ctx.fillStyle = '#c0392b'; rr(ctx, cx - 13, cy - 8, 20, 4, 4); ctx.fill();            // red stripe (roof)
@@ -3367,7 +3369,7 @@ function mrtStation(ctx, cx, cy) {
   // station pylon with "M"
   ctx.fillStyle = '#3a3530'; rr(ctx, cx + 10, cy - 14, 2.4, 24, 1); ctx.fill();
   ctx.fillStyle = '#c0392b'; rr(ctx, cx + 6, cy - 16, 11, 8, 2); ctx.fill(); line(ctx, OUTLINE, 1.1);
-  ctx.fillStyle = '#fff'; ctx.font = 'bold 7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#fff'; ctx.font = '900 7px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('M', cx + 11.5, cy - 11.5);
   ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
 }
@@ -3385,8 +3387,8 @@ function agilityCourse(ctx, cx, cy) {
 function scenery(ctx, objId, cx, cy, time) {
   switch (objId) {
     case 'wall': {
-      ctx.fillStyle = '#9a948a'; rr(ctx, cx - 15, cy - 12, 30, 26, 2); ctx.fill(); line(ctx, 'rgba(40,36,30,0.5)', 1.5);
-      ctx.strokeStyle = 'rgba(40,36,30,0.4)'; ctx.lineWidth = 1.2;
+      ctx.fillStyle = '#9a948a'; rr(ctx, cx - 15, cy - 12, 30, 26, 2); ctx.fill(); line(ctx, OUTLINE, 1.5);
+      ctx.strokeStyle = 'rgba(34,48,74,0.4)'; ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.moveTo(cx - 15, cy - 3); ctx.lineTo(cx + 15, cy - 3); ctx.moveTo(cx - 15, cy + 6); ctx.lineTo(cx + 15, cy + 6);
       ctx.moveTo(cx, cy - 12); ctx.lineTo(cx, cy - 3); ctx.moveTo(cx - 8, cy - 3); ctx.lineTo(cx - 8, cy + 6); ctx.moveTo(cx + 8, cy + 6); ctx.lineTo(cx + 8, cy + 14); ctx.stroke();
       return;
@@ -3434,13 +3436,13 @@ function scenery(ctx, objId, cx, cy, time) {
       glow(ctx, cx, cy - 12, 22, 'rgba(255,210,120,0.22)');
       ctx.fillStyle = '#3a3530'; rr(ctx, cx - 1.5, cy - 12, 3, 24, 1); ctx.fill();
       ctx.fillStyle = '#2a2620'; rr(ctx, cx - 4, cy + 10, 8, 3, 1); ctx.fill();
-      ctx.fillStyle = '#ffd86a'; rr(ctx, cx - 4, cy - 18, 8, 8, 2); ctx.fill(); line(ctx, '#3a3530', 1.5);
+      ctx.fillStyle = '#ffd86a'; rr(ctx, cx - 4, cy - 18, 8, 8, 2); ctx.fill(); line(ctx, OUTLINE, 1.5);
       ctx.fillStyle = 'rgba(255,255,255,0.5)'; circle(ctx, cx - 1, cy - 15, 1.4); ctx.fill();
       return;
     }
     case 'sign': {
       ctx.fillStyle = '#6b4a2a'; rr(ctx, cx - 1.5, cy - 2, 3, 14, 1); ctx.fill();
-      ctx.fillStyle = '#caa15a'; rr(ctx, cx - 11, cy - 12, 22, 11, 2); ctx.fill(); line(ctx, 'rgba(30,18,8,0.5)', 1.5);
+      ctx.fillStyle = '#caa15a'; rr(ctx, cx - 11, cy - 12, 22, 11, 2); ctx.fill(); line(ctx, OUTLINE, 1.5);
       ctx.strokeStyle = 'rgba(90,58,28,0.7)'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(cx - 7, cy - 8); ctx.lineTo(cx + 7, cy - 8); ctx.moveTo(cx - 7, cy - 5); ctx.lineTo(cx + 5, cy - 5); ctx.stroke();
       return;
@@ -3449,17 +3451,17 @@ function scenery(ctx, objId, cx, cy, time) {
       drawShadow(ctx, cx, cy + 11, 15, 4.5);
       // fallen rubble blocks
       ctx.fillStyle = '#9a948a';
-      rr(ctx, cx - 13, cy + 3, 9, 8, 1.5); ctx.fill(); line(ctx, 'rgba(40,36,30,0.5)', 1.2);
-      rr(ctx, cx + 4, cy + 5, 10, 6, 1.5); ctx.fill(); line(ctx, 'rgba(40,36,30,0.5)', 1.2);
+      rr(ctx, cx - 13, cy + 3, 9, 8, 1.5); ctx.fill(); line(ctx, OUTLINE, 1.2);
+      rr(ctx, cx + 4, cy + 5, 10, 6, 1.5); ctx.fill(); line(ctx, OUTLINE, 1.2);
       // broken pillar with a jagged snapped top
       ctx.fillStyle = '#aaa49a';
       path(ctx, () => { ctx.moveTo(cx - 5, cy + 11); ctx.lineTo(cx - 5, cy - 9); ctx.lineTo(cx - 2, cy - 13); ctx.lineTo(cx + 1, cy - 8); ctx.lineTo(cx + 3, cy - 12); ctx.lineTo(cx + 4.5, cy + 11); });
-      ctx.fill(); line(ctx, 'rgba(40,36,30,0.5)', 1.4);
+      ctx.fill(); line(ctx, OUTLINE, 1.4);
       // shaded right face + a brighter lit left edge
       ctx.fillStyle = 'rgba(20,20,26,0.2)'; rr(ctx, cx + 1, cy - 8, 3.5, 19, 1); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.14)'; rr(ctx, cx - 5, cy - 9, 1.6, 20, 0.8); ctx.fill();
       // cracks + brick courses
-      ctx.strokeStyle = 'rgba(40,36,30,0.45)'; ctx.lineWidth = 0.8;
+      ctx.strokeStyle = 'rgba(34,48,74,0.45)'; ctx.lineWidth = 0.8;
       ctx.beginPath(); ctx.moveTo(cx - 3, cy - 5); ctx.lineTo(cx - 1, cy - 1); ctx.lineTo(cx - 3, cy + 4);
       ctx.moveTo(cx - 5, cy + 1); ctx.lineTo(cx + 4, cy + 1); ctx.moveTo(cx - 11, cy + 7); ctx.lineTo(cx - 6, cy + 7); ctx.stroke();
       // creeping moss
@@ -3500,7 +3502,7 @@ export function drawGroundItem(ctx, id, cx, cy) {
   const disc = cachedBitmap('ground-glow', GROUND_GLOW_BOX, (g) => glow(g, 0, 0, 12, 'rgba(255,225,140,0.22)'));
   if (disc) ctx.drawImage(disc, cx - 12, cy - 12, 24, 24);
   else glow(ctx, cx, cy, 12, 'rgba(255,225,140,0.22)');
-  ctx.fillStyle = 'rgba(0,0,0,0.18)'; ellipse(ctx, cx, cy + 7, 9, 3.2); ctx.fill();
+  ctx.fillStyle = `rgba(${SHADOW_RGB},0.2)`; ellipse(ctx, cx, cy + 7, 9, 3.2); ctx.fill();
   const img = itemIconImage(id);
   if (img && img.complete && img.naturalWidth) {
     const s = 22;
