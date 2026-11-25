@@ -31,6 +31,7 @@ import { NPC } from './npc.js';
 import { Cutscene } from './cutscene.js';
 import * as Lore from './lore.js';
 import { findPath } from '../engine/pathfinding.js';
+import * as QC from './questchoices.js';   // the Good / Evil choice at each chapter's end
 import { chebyshev } from '../core/utils.js';
 import { TILE } from '../config.js';
 
@@ -56,6 +57,8 @@ export class Story {
     this.pages = new Set();      // lore page ids held (saved)
     this.guard = {};             // region -> 'ready' | 'done': lore guardians (saved)
     this.storyPaid = false;      // the story set's bonus (saved)
+    this.picks = {};             // quest choices made: chapter or line id -> 'good' | 'evil' (saved; questchoices.js)
+    this.open = new Set();       // quest choices waiting for you (saved)
     this.scene = null;           // the Cutscene playing, or null
     this.queue = [];             // scenes waiting for a calm moment
     this.event = null;           // the story event under way, or null
@@ -65,6 +68,7 @@ export class Story {
     this._seed = (live ? Date.now() : 20261119) >>> 0;
     this._ready = false;         // set by sync(), once the game has started
     game.bus.on('tick', () => this.tick());
+    game.bus.on('karma', () => QC.karmaFeedback(game));   // "☀️ +10 Good" over you, and a new tier's notice
   }
 
   // ---------------- Odds and ends ----------------
@@ -112,7 +116,8 @@ export class Story {
 
   // ---------------- Saving ----------------
   serialize() {
-    return { done: [...this.done], seen: [...this.seen], pages: [...this.pages], guard: { ...this.guard }, storyPaid: this.storyPaid };
+    return { done: [...this.done], seen: [...this.seen], pages: [...this.pages], guard: { ...this.guard }, storyPaid: this.storyPaid,
+      picks: { ...this.picks }, open: [...this.open] };
   }
 
   load(d) {
@@ -124,6 +129,10 @@ export class Story {
     this.guard = {};
     if (d.guard && typeof d.guard === 'object') for (const [r, v] of Object.entries(d.guard)) if (v === 'ready' || v === 'done') this.guard[r] = v;
     this.storyPaid = d.storyPaid === true;
+    // Quest choices (older saves have none: their finished chapters simply have no choice recorded).
+    this.picks = {};
+    if (d.picks && typeof d.picks === 'object') for (const [k, v] of Object.entries(d.picks)) if (QC.CHOICE_KEYS.includes(k) && (v === 'good' || v === 'evil')) this.picks[k] = v;
+    this.open = new Set(arr(d.open, (k) => QC.CHOICE_KEYS.includes(k) && !this.picks[k]));
   }
 
   /** After a new game or a load: clear any event, put out the hidden notes,
@@ -143,6 +152,7 @@ export class Story {
     Lore.checkSets(this, true);
     for (const [r, v] of Object.entries(this.guard)) if (v === 'ready') Lore.spawnGuardian(this, r);
     this._steps = this._lineSnap();
+    QC.baselineKarma(this.game);   // a load's karma is where you stand, not a change to announce
     this._ready = true;
     this.game.bus.emit('story');
   }
@@ -187,6 +197,7 @@ export class Story {
       g.bus.emit('sfx', 'achievement');
       const at = g.player?.renderCenter?.();
       if (at) g.spawnConfetti?.(at.x, at.y - 18, 30);
+      this._queueChoice(c);   // the chapter's Good / Evil choice comes just before its ending
       this.queueScene(c, 'outro');
     }
     Lore.collect(this, `story_${c.id}`, 'chapter', silent);
@@ -223,15 +234,35 @@ export class Story {
    *  automation runs or scenes are off. */
   queueScene(c, part, opts = {}) {
     const id = `${c.id}:${part}`;
-    const lines = (c[part] || []).map((l) => ({ who: l.who, name: speakerName(l.who), text: l.text }));
-    const item = { id, lines, title: `Chapter ${CHAPTERS.indexOf(c) + 1} · ${c.title}`, kind: part, letter: !!opts.letter };
+    const lines = this.sceneLines(c, part);
+    const item = { id, ch: c.id, lines, title: `Chapter ${CHAPTERS.indexOf(c) + 1} · ${c.title}`, kind: part, letter: !!opts.letter };
     if (!this.scenesOn || this.autoOn()) { this._narrate(item); return null; }
     this.queue.push(item);
     return item;
   }
 
+  /** A scene's lines: the chapter's own, opened by the reply to your choice
+   *  (an ending, once you have chosen), with a Paragon's or a Villain's extra
+   *  line from the first speaker who has one for you. */
+  sceneLines(c, part) {
+    const raw = [...(c[part] || [])];
+    const reply = part === 'outro' && QC.choiceReply(this.game, c.id);
+    if (reply) raw.unshift(reply);
+    const at = raw.findIndex((l) => QC.tierLine(this.game, l.who));
+    if (at >= 0) raw.splice(at + 1, 0, { who: raw[at].who, text: QC.tierLine(this.game, raw[at].who) });
+    return raw.map((l) => ({ who: l.who, name: speakerName(l.who), text: l.text }));
+  }
+
+  /** A chapter is done: its choice now waits, and is put to you in the
+   *  dialogue box before the ending plays (never while automation runs). */
+  _queueChoice(c) {
+    if (!QC.offerChoice(this.game, c.id)) return;
+    if (this.scenesOn && !this.autoOn()) this.queue.push({ id: `${c.id}:choice`, kind: 'choice', key: c.id, lines: [] });
+  }
+
   _narrate(item) {
     const g = this.game;
+    if (item.kind === 'choice') return;   // it waits in the journal (offerChoice said so)
     this.seen.add(item.id);
     if (item.letter) g.msg(`A letter from ${item.lines[0]?.name || 'a friend'}:`, 'system');
     for (const l of item.lines) g.msg(`${l.name}: ${l.text}`, 'system');
@@ -256,12 +287,15 @@ export class Story {
     if (this.autoOn() || !this.scenesOn) { while (this.queue.length) this._narrate(this.queue.shift()); return; }
     const modal = g.ui?.modal;
     if (this._busy() || (modal && typeof modal === 'object')) return;
-    this.playScene(this.queue.shift());
+    const next = this.queue.shift();
+    if (next.kind === 'choice') { if (QC.choicePending(g, next.key)) g.ui?.openQuestChoice?.(next.key); return; }
+    this.playScene(next);
   }
 
   /** Start a scene now (the Story tab's Replay buttons call this too). */
   playScene(item) {
     const g = this.game;
+    if (item.ch) item.lines = this.sceneLines(CHAPTER_BY_ID[item.ch], item.kind);   // a choice made while it waited
     this.scene = new Cutscene(item.lines, { reduce: !!g.reduceMotion, kind: item.kind, title: item.title, id: item.id });
     this.scene.letter = item.letter;
     this._focusNpc = null; this._focusFor = -1;
@@ -275,7 +309,7 @@ export class Story {
   replay(chId, part) {
     const c = CHAPTER_BY_ID[chId];
     if (!c || !this.seen.has(`${chId}:${part}`) || this.scene) return null;
-    return this.playScene({ id: `${chId}:${part}`, lines: c[part].map((l) => ({ who: l.who, name: speakerName(l.who), text: l.text })),
+    return this.playScene({ id: `${chId}:${part}`, lines: this.sceneLines(c, part),
       title: `Chapter ${CHAPTERS.indexOf(c) + 1} · ${c.title}`, kind: part });
   }
 

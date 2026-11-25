@@ -13,6 +13,7 @@ import { REGION_LINES, REGION_GIVERS } from '../data/regionQuests.js';
 import { getNpc } from '../data/npcs.js';
 import { getItem } from '../data/items.js';
 import { NPC } from './npc.js';
+import * as QC from './questchoices.js';   // the Good / Evil choice at a line's climax
 
 export const LINE_BY_ID = Object.fromEntries(REGION_LINES.map((l) => [l.id, l]));
 export const isRegionQuest = (id) => !!LINE_BY_ID[id];
@@ -211,6 +212,7 @@ function completeLine(game, l) {
   if (game.player) game.spawnSparkle?.(game.player, '#ffd36b', 16);
   game.bus.emit('equipment');   // a perk shows in the gear totals
   game.checkAchievements?.();
+  QC.offerChoice(game, l.id);   // its Good / Evil choice (if it has one) now waits with the giver
 }
 
 /** A monster died to you: count it for any line hunting its kind, or its foe. */
@@ -334,22 +336,28 @@ export function regionDialogue(game, npc) {
     const l = LINE_BY_GIVER[id];
     if (!l) return node('Hello there.');
     const q = game.quests[l.id];
+    // A finished line's choice comes first, straight after the hand-in.
+    if (q.state === 'done' && QC.choicePending(game, l.id)) return QC.choiceTree(game, l.id).start;
     if (q.state === 'done') {
       const opts = [];
       if (l.unlock.type === 'shop') opts.push({ label: 'Let me see what you sell.', action: `rq:shop:${l.id}`, next: 'end' });
       if (l.unlock.type === 'ferry') opts.push({ label: `${l.unlock.label}.`, action: `rq:ferry:${l.id}`, next: 'end' });
-      return node(l.thanks, opts);
+      return node(QC.choiceAfter(game, l.id) || l.thanks, opts);   // once chosen, they remember which way you went
     }
     if (q.state === 'active') return node(`How is it going? Next: ${regionGuide(game, l.id).text}.`);
     if (game.fightLevel() < l.level) return node(`${l.intro} Hmm, come back when you're a bit stronger (fight level ${l.level}).`);
     return node(l.intro, [{ label: 'Need a hand with anything?', next: 'offer' }]);
   };
-  return {
-    get start() { return build(); },
+  const tree = {
+    // A Paragon or a Villain hears about it first (questChoices.js TIER_LINES).
+    get start() { const n = build(), t = QC.tierLine(game, id); return t ? { ...n, text: `${t} ${n.text}` } : n; },
     get offer() {
       const l = LINE_BY_GIVER[id];
       return { speaker, text: l?.offer || '', options: [{ label: "I'll help.", action: `rq:start:${l?.id}`, next: 'start' }, { label: 'Maybe later.', next: 'end' }] };
     },
     get said() { return { speaker, text: game._rqSaid || 'Thank you.', options: [{ label: 'Okay.', next: 'start' }] }; },
   };
+  // The choice's outcome and reply nodes.
+  for (const k of QC.CHOICE_NODES) Object.defineProperty(tree, k, { get: () => QC.choiceTree(game, LINE_BY_GIVER[id]?.id)?.[k] });
+  return tree;
 }
