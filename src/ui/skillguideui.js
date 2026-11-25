@@ -165,6 +165,65 @@ function nearestNpc(game, npcId, region = null) {
   return best;
 }
 
+// ---------------- Places: stations, groves, quarries and fishing spots ----------------
+
+/** A section with a header that folds it away: '' when there's nothing in it.
+ *  `fold` holds what the player chose ({ key: open }), else `open` decides. */
+export function foldHTML(fold, key, title, summary, inner, open = true) {
+  if (!inner) return '';
+  const on = key in (fold || {}) ? !!fold[key] : open;
+  return `<div class="sgx-fold${on ? ' open' : ''}"><button type="button" class="sgx-fold-head" data-fold="${esc(key)}" data-open="${on ? 1 : 0}" aria-expanded="${on}">`
+    + `<b>${esc(title)}</b>${summary ? `<small>${esc(summary)}</small>` : ''}<i aria-hidden="true">&#9662;</i></button>`
+    + (on ? `<div class="sgx-fold-body">${inner}</div>` : '') + '</div>';
+}
+
+/** The places a skill's guide points to, one card each: [{ icon, name, level,
+ *  sub, go, map, label }]. Stations (a furnace, a range), Woodcutting's groves
+ *  and Mining's quarries (groves.js), and Fishing's kinds of spot (fishspots.js).
+ *  `go`/`map` are the button data (data-go/data-map, or data-grove/data-gmap). */
+export function placeCards(game, skill) {
+  const cards = [];
+  for (const o of SKILL_GUIDES[skill]?.where || []) {
+    const zs = regionsOf(game, [o]);
+    cards.push({ icon: null, name: OBJECTS[o]?.name || o, level: 0, sub: zs.length ? regionsText(zs, 3) : 'light one anywhere',
+      go: zs.length ? `data-go="${esc(o)}"` : '', map: zs.length ? `data-map="${esc(o)}" data-label="${esc(OBJECTS[o]?.name || o)}"` : '' });
+  }
+  if (skill === 'woodcutting' || skill === 'mining') {
+    for (const g of groveList(game, skill === 'mining' ? 'quarry' : 'grove')) {
+      cards.push({ icon: OBJECTS[g.objId]?.gives || null, name: g.name, level: g.level, sub: `${esc(g.region)} · ${g.count} ${esc(g.tree.toLowerCase())}s`,
+        go: `data-grove="${esc(g.id)}"`, map: `data-gmap="${esc(g.id)}"` });
+    }
+  }
+  if (skill === 'fishing') {
+    for (const f of fishSpotList(game)) {
+      cards.push({ icon: OBJECTS[f.objId]?.catches?.[0]?.id || null, name: f.name, level: f.level, sub: `${esc(f.tool)} · ${regionsText(f.regions, 2)}`,
+        go: `data-go="${esc(f.objId)}"`, map: `data-map="${esc(f.objId)}" data-label="${esc(f.name)}"` });
+    }
+  }
+  return cards;
+}
+
+/** A card each, in a grid that is two wide on a big screen and one on a phone,
+ *  with Go and Map side by side (they used to stack under each other on long,
+ *  mostly empty lines). Above your level a card greys and says what it needs. */
+export function placesHTML(game, skill, fold = {}) {
+  const cards = placeCards(game, skill);
+  if (!cards.length) return '';
+  const lvl = game.skills.level(skill);
+  const title = skill === 'fishing' ? 'Fishing spots' : skill === 'woodcutting' ? 'Groves' : skill === 'mining' ? 'Quarries' : 'Where to go';
+  const html = '<div class="sgx-spots">' + cards.map((c) => {
+    const locked = c.level > lvl;
+    return `<div class="sgx-spot${locked ? ' locked' : ''}">`
+      + `<span class="sgx-spot-ic">${c.icon && ITEMS[c.icon] ? itemIconSVG(c.icon, 30) : '&#128205;'}`
+      + (c.level ? `<span class="sgx-spot-lv" title="${locked ? `Needs level ${c.level}` : `Level ${c.level}`}">${locked ? '&#128274;' : ''}${c.level}</span>` : '') + '</span>'
+      + `<span class="sgx-spot-txt"><b>${esc(c.name)}</b><small title="${c.sub.replace(/"/g, '&quot;')}">${c.sub}</small></span>`
+      + (c.go ? `<span class="sgx-spot-btns"><button type="button" class="wm-go" ${c.go}>Go</button><button type="button" class="wm-go cx-map" ${c.map}>Map</button></span>` : '')
+      + '</div>';
+  }).join('') + '</div>';
+  const open = cards.filter((c) => c.level <= lvl).length;
+  return foldHTML(fold, 'places', title, cards.some((c) => c.level) ? `${open} of ${cards.length} at your level` : `${cards.length}`, html, true);
+}
+
 // ---------------- Views ----------------
 
 function headHTML(game, skill) {
@@ -413,11 +472,15 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
 
   const renderSkill = (body, v) => {
     const sk = v.skill;
+    const fold = ui._sgxFold || (ui._sgxFold = {});   // which sections are folded, kept while the game runs
     body.insertAdjacentHTML('beforeend', headHTML(game, sk));
     if (sk === 'hunter') body.insertAdjacentHTML('beforeend', HUNTER_START);
     if (sk === 'firemaking') body.insertAdjacentHTML('beforeend', fireStartHTML(game));
-    body.insertAdjacentHTML('beforeend', unlockLadderHTML(game, sk));
-    body.insertAdjacentHTML('beforeend', toolLadderHTML(game, sk));
+    // The unlock and tool ladders fold away (closed at first): the owner found the
+    // gathering guides a long wall to scroll past before the spots and nodes.
+    const lv = game.skills.level(sk), ul = unlockLadder(sk, lv), inUse = toolLadder(game, sk).find((r) => r.inUse);
+    body.insertAdjacentHTML('beforeend', foldHTML(fold, 'unlocks', 'Unlocks', `${ul.filter((u) => u.unlocked).length} of ${ul.length} open`, unlockLadderHTML(game, sk), false));
+    body.insertAdjacentHTML('beforeend', foldHTML(fold, 'tools', 'Tools', inUse ? `using ${iname(inUse.id)}` : 'none carried', toolLadderHTML(game, sk), false));
     if (AUTO_TEXT[sk]) {
       body.insertAdjacentHTML('beforeend', `<button type="button" class="sg-auto${game.autoGather ? ' on' : ''}" data-auto="1"><span class="ab-switch" aria-hidden="true"><i></i></span><span><b>Auto gather</b> ${game.autoGather ? 'On' : 'Off'}: ${AUTO_TEXT[sk]}</span></button>`);
     }
@@ -427,27 +490,7 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
       const n = gatherSources().filter((s) => s.skill === sk && s.level <= lvl && s.objIds?.every((id) => game.gatherPicks.has(id))).length;
       body.insertAdjacentHTML('beforeend', `<div class="sg-picks"><span>Tick what auto gather should do${n ? ` (<b>${n}</b> ticked)` : ' (none ticked: it does whatever you start on)'}.</span>${n ? '<button type="button" class="wm-go" data-start="1">Start</button>' : ''}</div>`);
     }
-    // Each station on its own line: the regions that have one, Go and Map.
-    for (const o of SKILL_GUIDES[sk].where || []) {
-      const zs = regionsOf(game, [o]);
-      body.insertAdjacentHTML('beforeend', `<div class="sgx-station"><span><b>${esc(OBJECTS[o]?.name || o)}</b>: ${zs.length ? regionsText(zs, 6) : 'light one anywhere'}</span>`
-        + (zs.length ? `<span class="sgx-btns"><button type="button" class="wm-go" data-go="${esc(o)}">Go</button><button type="button" class="wm-go cx-map" data-map="${esc(o)}" data-label="${esc(OBJECTS[o]?.name || o)}">Map</button></span>` : '') + '</div>');
-    }
-    // Woodcutting: the groves, each thick with one kind of tree; Mining: the
-    // quarries, each thick with one kind of rock (groves.js).
-    if (sk === 'woodcutting' || sk === 'mining') {
-      for (const g of groveList(game, sk === 'mining' ? 'quarry' : 'grove')) {
-        body.insertAdjacentHTML('beforeend', `<div class="sgx-station"><span><b>${esc(g.name)}</b>: ${g.count} ${esc(g.tree.toLowerCase())}s (level ${g.level}), ${esc(g.region)}</span>`
-          + `<span class="sgx-btns"><button type="button" class="wm-go" data-grove="${esc(g.id)}">Go</button><button type="button" class="wm-go cx-map" data-gmap="${esc(g.id)}">Map</button></span></div>`);
-      }
-    }
-    // Fishing: each kind of spot and its one fish, and where to find it (fishspots.js).
-    if (sk === 'fishing') {
-      for (const f of fishSpotList(game)) {
-        body.insertAdjacentHTML('beforeend', `<div class="sgx-station"><span><b>${esc(f.name)}</b>: ${esc(f.fish.toLowerCase())} (level ${f.level}, ${esc(f.tool)}), ${regionsText(f.regions, 3)}</span>`
-          + `<span class="sgx-btns"><button type="button" class="wm-go" data-go="${esc(f.objId)}">Go</button><button type="button" class="wm-go cx-map" data-map="${esc(f.objId)}" data-label="${esc(f.name)}">Map</button></span></div>`);
-      }
-    }
+    body.insertAdjacentHTML('beforeend', placesHTML(game, sk, fold));
     if (COMBAT_SKILLS.includes(sk)) {
       body.insertAdjacentHTML('beforeend', `<div class="cx-filters sgx-bar"><button type="button" class="wm-go sgx-res" data-resources="1">Resources</button></div>`);
       const div = document.createElement('div');
@@ -490,6 +533,7 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
     else if (d.allthen) { v.allThen = true; render(body); }
     else if (d.filter) { v.filter = d.filter; v.shown = PAGE; render(body); }
     else if (d.cat) { v.cat = d.cat; v.shown = PAGE; render(body); }
+    else if (d.fold) { (ui._sgxFold || (ui._sgxFold = {}))[d.fold] = d.open !== '1'; const sc = body.scrollTop; render(body); body.scrollTop = sc; }
     else if (d.auto) { game.toggleAutoGather(); render(body); }
     else if (d.untick) { game.clearGatherPicks(); const sc = body.scrollTop; render(body); body.scrollTop = sc; }
     else if (d.start) { game.startGatherPicks(); ui.closeModal(); }
