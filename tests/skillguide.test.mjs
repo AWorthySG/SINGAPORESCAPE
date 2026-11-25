@@ -245,3 +245,30 @@ test('a locked action-bar slot says on hover what level unlocks it', () => {
   const src = readFileSync(new URL('../src/ui/ui.js', import.meta.url), 'utf8');
   assert.match(src, /Unlocks at combat level \$\{ab\.unlock\}/);
 });
+
+test('gathering guides: spots, groves and quarries are small cards with Go and Map side by side', async () => {
+  const { placeCards, placesHTML, foldHTML } = await import('../src/ui/skillguideui.js');
+  const { fishSpotList, groveList } = await import('../src/game/skillguide.js');
+  const game = newGame();
+  for (const [skill, want] of [['fishing', fishSpotList(game).length], ['woodcutting', groveList(game, 'grove').length], ['mining', groveList(game, 'quarry').length]]) {
+    assert.ok(want > 0, `${skill} has places`);
+    const cards = placeCards(game, skill);
+    assert.equal(cards.length, want, `${skill}: a card for every place`);
+    assert.ok(cards.every((c) => c.icon && ITEMS[c.icon]), `${skill}: every card shows what it gives`);
+    const html = placesHTML(game, skill);
+    assert.equal((html.match(/class="sgx-spot[ "]/g) || []).length, want);
+    // Go and Map share one row of buttons in every card.
+    assert.equal((html.match(/<span class="sgx-spot-btns"><button[^>]*>Go<\/button><button[^>]*>Map<\/button><\/span>/g) || []).length, want);
+    assert.match(html, /data-fold="places" data-open="1"/, 'open at first');
+    // Folded, the section keeps its header but drops the cards.
+    const shut = placesHTML(game, skill, { places: false });
+    assert.match(shut, /data-open="0"/);
+    assert.doesNotMatch(shut, /sgx-spot/);
+  }
+  // A locked place says so; your own level's place doesn't.
+  const fish = placeCards(game, 'fishing');
+  const html = placesHTML(game, 'fishing');
+  assert.equal((html.match(/sgx-spot locked/g) || []).length, fish.filter((c) => c.level > game.skills.level('fishing')).length);
+  // An empty section is left out altogether.
+  assert.equal(foldHTML({}, 'x', 'X', '', ''), '');
+});

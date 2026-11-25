@@ -3066,7 +3066,7 @@ body.cb-safe #hp-orb.low::after {
 .sgx-st.short { background: #f6d6cf; }
 .sgx-st.lock { background: var(--aw-locked); }
 .sgx-where { font-size: var(--fs-xs); color: var(--aw-text-sec); }
-.sgx-btns { display: flex; flex-direction: column; gap: 4px; flex: none; }
+.sgx-btns { display: flex; gap: 4px; flex: none; }   /* side by side: stacked, they made every row twice as tall */
 .sgx-btns .wm-go { min-width: 52px; }
 .sgx-got .sg-lvl { background: #d9f3cf; }
 .sgx-list .cx-more { margin-bottom: 6px; }
@@ -3093,6 +3093,7 @@ body.cb-safe #hp-orb.low::after {
   .sgx-chip { padding: 6px 12px; font-size: var(--fs-sm); }
   .sgx-item { min-height: 32px; }
   .sgx-btns .wm-go { min-height: 36px; }
+  .sgx-spot-btns .wm-go { min-height: 34px; padding: 3px 12px; }
 }
 @media (max-width: 540px) {
   .sgx-then { margin-left: 8px; }
@@ -3100,6 +3101,39 @@ body.cb-safe #hp-orb.low::after {
   .sgx-row { flex-wrap: wrap; }
   .sgx-row .sgx-btns { width: 100%; justify-content: flex-end; }
 }
+/* Places (stations, groves, quarries, fishing spots): a grid of small cards,
+   folding sections for them and the unlock and tool ladders. */
+.sgx-fold { margin: 6px 0; border: 2px solid var(--aw-ink); border-radius: var(--r1); background: var(--aw-card); overflow: hidden; }
+.sgx-fold-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; font: inherit; color: var(--aw-text);
+  background: var(--aw-muted); border: 0; cursor: var(--cur-pointer); text-align: left; }
+.sgx-fold-head b { font-size: var(--fs-md); font-weight: 900; }
+.sgx-fold-head small { flex: 1; font-size: var(--fs-xs); font-weight: 700; color: var(--aw-text-sec); }
+.sgx-fold-head i { font-style: normal; font-size: var(--fs-sm); transition: transform .15s; transform: rotate(-90deg); }
+.sgx-fold.open .sgx-fold-head { border-bottom: 2px solid var(--aw-ink-faint); }
+.sgx-fold.open .sgx-fold-head i { transform: none; }
+.sgx-fold-body { padding: 6px 8px; }
+.sgx-fold-body > .sgx-unlocks { margin: 0; padding: 0; border: 0; background: none; }
+.sgx-fold-body > .sgx-unlocks > b:first-child { display: none; }   /* the fold's header already says it */
+.sgx-spots { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 6px; }
+.sgx-spot { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 5px 6px 5px 5px; border: 1.5px solid var(--aw-ink-faint);
+  border-radius: 10px; background: rgba(255,255,255,.55); }
+.sgx-spot.locked { opacity: .6; }
+.sgx-spot-ic { position: relative; flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; background: var(--aw-muted); font-size: 18px; }
+.sgx-spot-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.sgx-spot-txt b { font-size: var(--fs-sm); font-weight: 900; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sgx-spot-txt small { font-size: var(--fs-xs); color: var(--aw-text-sec); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The level sits on the icon's corner, so a long name keeps to one line. */
+.sgx-spot-lv { position: absolute; right: -6px; bottom: -5px; min-width: 18px; padding: 0 4px; font-size: 10px; line-height: 15px; font-weight: 900;
+  text-align: center; border-radius: 999px; background: #d9f3cf; border: 1.5px solid var(--aw-ink); white-space: nowrap; }
+.sgx-spot.locked .sgx-spot-lv { background: var(--aw-locked); }
+.sgx-spot-btns { flex: none; display: flex; gap: 4px; }
+.sgx-spot-btns .wm-go { padding: 3px 10px; font-size: var(--fs-xs); }
+/* The node and recipe rows as cards too, matching the places above them; rare
+   finds (gems, nests) drop to a smaller second line. */
+.sgx-list .sgx-row { margin: 0 0 6px; padding: 7px 8px; border: 1.5px solid var(--aw-ink-faint); border-radius: 10px; background: rgba(255,255,255,.55); }
+.sgx-list .sgx-row .sgx-text > span:not(.sgx-gives):not(.sgx-where):not(.sgx-ins):not(.sgx-out) { font-size: var(--fs-xs); }
+.sgx-list .sgx-give.rare .sgx-item { font-size: var(--fs-xs); font-weight: 600; }
+.sgx-list .sgx-give.rare .sgx-item svg, .sgx-list .sgx-give.rare .sgx-item img { width: 16px; height: 16px; }
 .sgx-picked { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin: 6px 0; padding: 6px 8px;
   font-size: var(--fs-sm); background: #e6f7df; border: 2px solid var(--aw-ink); border-radius: var(--r1); }
 
