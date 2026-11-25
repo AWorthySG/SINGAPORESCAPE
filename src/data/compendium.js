@@ -84,10 +84,13 @@ import { REWARD_COINS_EACH, REWARD_COINS_MIN, REWARD_COINS_MAX, REWARD_LAMPS } f
 import { AOrAn } from '../core/utils.js';
 import { SMITH } from './smithing.js';
 import { ROUND_SPEND, SPECIAL_CHANCE, INCENDIARY_SHARE, SHOCK_SHARE, FROST_SLOW_TICKS } from '../game/rounds.js';
-const pct = (x, dp = 0) => `${(Math.round(x * 100 * 10 ** dp) / 10 ** dp).toLocaleString('en-GB')}%`;
+// One number formatter for them all: toLocaleString makes a new one at every
+// call, and the tables below format a few thousand numbers as the game loads.
+const EN_GB = new Intl.NumberFormat('en-GB');
+const pct = (x, dp = 0) => `${EN_GB.format(Math.round(x * 100 * 10 ** dp) / 10 ** dp)}%`;
 // A crit's average multiplier: x2, or x4 one time in four (2.5).
 const avgCrit = () => (1 - MEGA_CRIT_CHANCE) * CRIT_MULT + MEGA_CRIT_CHANCE * MEGA_CRIT_MULT;
-const num = (n) => Number(n).toLocaleString('en-GB');
+const num = (n) => EN_GB.format(Number(n));
 const secs = (ticks) => {
   const s = ticks * TICK_MS / 1000;
   return s >= 60 && s % 60 === 0 ? `${s / 60} minute${s === 60 ? '' : 's'}` : `about ${Math.round(s * 10) / 10} seconds`;

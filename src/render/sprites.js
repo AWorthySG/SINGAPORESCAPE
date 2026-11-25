@@ -1087,9 +1087,11 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
   };
   const p = TOWN[npcId] || TOWN.villager;
   const timg = townImage(npcId);
+  // Townsfolk with idle parts blink, breathe and now and then wave (not in low
+  // graphics). The parts are asked for with the picture, not once it is in:
+  // one round trip instead of two while the game loads.
+  const idle = timg && !opts.low && TOWN_IDLE[npcId] ? rigLayers(npcId, townRig(npcId)) : null;
   if (timg && timg.complete && timg.naturalWidth) {
-    // Townsfolk with idle parts blink, breathe and now and then wave (not in low graphics).
-    const idle = !opts.low && TOWN_IDLE[npcId] ? rigLayers(npcId, townRig(npcId)) : null;
     // One picture and no parts: it breathes, and now and then glances the
     // other way and back (motionkit.js), each on its own clock. Not while
     // walking, in low graphics, under Reduce motion, or in a portrait (no entity).

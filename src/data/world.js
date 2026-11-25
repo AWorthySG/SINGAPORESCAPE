@@ -309,7 +309,10 @@ export function buildWorld({ groves: withGroves = true } = {}) {
   const objects = [];
   const npcSpawns = [];
   const occupied = new Set();
-  const key = (x, y) => `${x},${y}`;
+  // A tile's key in the sets below: a number, not an "x,y" string (building
+  // and hashing hundreds of thousands of strings was a good part of the cost
+  // of the start-up). One number per tile for whole x and y from -4096 up to 12287.
+  const key = (x, y) => (y + 4096) * 16384 + x + 4096;
   const isFree = (x, y) => inB(x, y) && !occupied.has(key(x, y));
   const placeObj = (objId, x, y, extra) => {
     if (!isFree(x, y)) return false;
@@ -1100,7 +1103,12 @@ export function buildWorld({ groves: withGroves = true } = {}) {
   R = mulberry32(20261113);
   {
     const outer = (st) => st.x > 149 || st.y > 103;   // the starting island is 0-149 x 0-103
-    const gapTo = (x, y, list) => Math.min(...list.map((st) => Math.max(Math.abs(st.x - x), Math.abs(st.y - y))));
+    // The nearest station's distance (Chebyshev); a plain loop, as it runs for every tile tried.
+    const gapTo = (x, y, list) => {
+      let gap = Infinity;
+      for (const st of list) gap = Math.min(gap, Math.max(Math.abs(st.x - x), Math.abs(st.y - y)));
+      return gap;
+    };
     const zoneOf = (x, y) => zones.find((z) => x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1);
     const taken = new Set(npcSpawns.map((s) => key(s.x, s.y)));
     for (const s of npcSpawns) {
@@ -1467,7 +1475,7 @@ export function buildWorld({ groves: withGroves = true } = {}) {
   // Patches thick with one kind of tree (groves.js), placed after everything else
   // and without dice, so nothing generated earlier moves. (Tests build the world
   // without them to check that.)
-  const groveCtx = { T, width: W, height: H, get, inB, placeObj, objects, npcSpawns, zones, resourceZones,
+  const groveCtx = { T, width: W, height: H, terrain, get, inB, placeObj, objects, npcSpawns, zones, resourceZones,
     stations: STATIONS, landmarks, towns: [[44, 44, 72, 66], ...towns], start: { x: 58, y: 55 } };
   const groves = withGroves ? placeGroves(groveCtx) : [];
   // Then the quarries, patches thick with one kind of rock (groves.js QUARRY_PLAN),

@@ -31,18 +31,21 @@ export const SKILLING_GROUND = /^(obsidian_vein|orichalcum_rock|jade_seam|fallen
 export function placeBestiary(ctx) {
   const { zones, get, landable, occupied, key, npcSpawns, objects, placeNpc, inTown, inNewTown, W, H, rand, mrtClear } = ctx;
   const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
-  // Tiles within SKILL_GAP of a skilling ground, marked once.
-  const nearSkill = new Set();
-  for (const o of objects) {
-    if (!SKILLING_GROUND.test(o.objId)) continue;
-    for (let dy = -SKILL_GAP; dy <= SKILL_GAP; dy++) for (let dx = -SKILL_GAP; dx <= SKILL_GAP; dx++) nearSkill.add(key(o.x + dx, o.y + dy));
-  }
+  // Tiles within SKILL_GAP of a skilling ground, marked once (a flag per tile
+  // of the map: only tiles on it are ever asked about).
+  const nearSkill = new Uint8Array(W * H);
+  const markNear = (cx, cy) => {
+    for (let y = Math.max(0, cy - SKILL_GAP); y <= Math.min(H - 1, cy + SKILL_GAP); y++) {
+      for (let x = Math.max(0, cx - SKILL_GAP); x <= Math.min(W - 1, cx + SKILL_GAP); x++) nearSkill[y * W + x] = 1;
+    }
+  };
+  for (const o of objects) if (SKILLING_GROUND.test(o.objId)) markNear(o.x, o.y);
   // And the first lessons' spots (the tree, rocks and fishing spots nearest the
   // respawn point), which world.js keeps free of ambushers for 10 tiles.
   for (const id of ['tree', 'copper_rock', 'tin_rock', 'fishing_spot', 'rod_spot']) {
     let o = null;
     for (const q of objects) if (q.objId === id && (!o || cheb(q.x, q.y, STARTER.x, STARTER.y) < cheb(o.x, o.y, STARTER.x, STARTER.y))) o = q;
-    if (o) for (let dy = -SKILL_GAP; dy <= SKILL_GAP; dy++) for (let dx = -SKILL_GAP; dx <= SKILL_GAP; dx++) nearSkill.add(key(o.x + dx, o.y + dy));
+    if (o) markNear(o.x, o.y);
   }
   const zoneByName = (name) => zones.find((z) => z.name === name);
   const WZ = zoneByName('The Wilderness');
@@ -52,7 +55,7 @@ export function placeBestiary(ctx) {
   // Aggressive spawns in the Wilderness stay wander (3) + aggro range (4) + 1 tiles in from its west edge.
   const ok = (z, x, y, def) => x >= 1 && y >= 1 && x <= W - 2 && y <= H - 2 && inZ(z, x, y)
     && landable.includes(get(x, y)) && !occupied.has(key(x, y)) && !taken.has(key(x, y))
-    && !inTown(x, y) && !inNewTown(x, y) && !nearStation(x, y) && !nearSkill.has(key(x, y))
+    && !inTown(x, y) && !inNewTown(x, y) && !nearStation(x, y) && !nearSkill[y * W + x]
     && cheb(x, y, STARTER.x, STARTER.y) > STARTER.ring
     && !(z === WZ && def.aggressive && x < WZ.x0 + 8);
   const spotIn = (z, def, far = () => true) => {
