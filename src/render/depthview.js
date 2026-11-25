@@ -39,10 +39,26 @@ const SIL_PAD = 4;         // px of blur margin round a baked outline
  *  low graphics or without a screen to draw on; else the default, leaning in
  *  a touch while the camera pushes in for a fight (not with Reduce motion). */
 export function depthTarget(game, cam = game?.camera, canDraw = typeof document !== 'undefined') {
-  if (!game || !canDraw || game.depthView === false || game.lowFx) return 0;
+  if (!game || !canDraw || game.depthView === false || game.lowFx || game.depthPaused) return 0;
   if (game.reduceMotion) return DEPTH_TILT;
   const lean = Math.max(0, Math.min(LEAN_MAX, ((cam?.zoomMul || 1) - 1) * LEAN_K));
   return DEPTH_TILT * (1 + lean);
+}
+
+/** A device whose frames keep running slow (the governor's trim, governor.js)
+ *  for GIVE_UP_MS on end while tilted gets the flat view back for this visit:
+ *  sets game.depthPaused and says so once. Settings > Depth view clears it. */
+export const GIVE_UP_MS = 8000;
+export function slowGiveUp(game, st, tilted, dt) {
+  // Only while you play: the title screen's loading runs slow on any phone (its clock, playMs, stands still).
+  const playing = game.playMs !== st.play;
+  st.play = game.playMs;
+  if (!playing) return false;
+  st.ms = tilted && game.fxTrim ? (st.ms || 0) + dt : 0;
+  if (st.ms < GIVE_UP_MS || game.depthPaused) return false;
+  game.depthPaused = true;
+  game.msg?.('Depth view is off for now: this device is running slow. Settings > Depth view turns it back on.', 'system');
+  return true;
 }
 
 /** Ease the tilt toward `target` over `dt` ms; Reduce motion snaps it. */

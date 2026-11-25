@@ -14,7 +14,7 @@ import { TILE, SAVE_KEY } from '../src/config.js';
 import {
   DEPTH_TILT, makeProjection, projectRel, unprojectRel, worldToScreen, screenToWorld, rowTransform, projectFlat,
 } from '../src/render/projection.js';
-import { depthTarget, easeTilt, shadowVec, hazeColour, DepthView } from '../src/render/depthview.js';
+import { depthTarget, easeTilt, shadowVec, hazeColour, DepthView, slowGiveUp, GIVE_UP_MS } from '../src/render/depthview.js';
 
 const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg}: ${a} vs ${b}`);
 // Phone (iPhone 13 at the game's zoom) and desktop views, in world px.
@@ -179,6 +179,25 @@ test('the tilt: on by default, flat in low graphics, headless or switched off, s
   assert.equal(t, 1);
   for (let i = 0; i < 200; i++) t = easeTilt(t, 0, 16);
   assert.equal(t, 0);
+  // A device that keeps running slow while tilted goes flat for the visit, once, and says so.
+  const msgs = [], slow = { ...g, fxTrim: true, msg: (m) => msgs.push(m), playMs: 0 }, st = {};
+  const play = (game, s, tilted) => { game.playMs += 16; return slowGiveUp(game, s, tilted, 16); };
+  for (let ms = 0; ms < GIVE_UP_MS - 100; ms += 16) assert.equal(play(slow, st, true), false);
+  slow.fxTrim = false; play(slow, st, true);
+  slow.fxTrim = true;
+  for (let ms = 0; ms < GIVE_UP_MS - 100; ms += 16) play(slow, st, true);
+  assert.ok(!slow.depthPaused, 'a moment of quick frames starts the count again');
+  for (let ms = 0; ms < GIVE_UP_MS * 2; ms += 16) slowGiveUp(slow, st, true, 16);
+  assert.ok(!slow.depthPaused, 'not on the title screen, where the clock stands still (loading runs slow anywhere)');
+  for (let ms = 0; ms < 200; ms += 16) play(slow, st, true);
+  assert.equal(slow.depthPaused, true);
+  assert.equal(msgs.length, 1);
+  assert.equal(depthTarget(slow, slow.camera, true), 0, 'flat for the rest of the visit');
+  for (let ms = 0; ms < GIVE_UP_MS * 2; ms += 16) play(slow, st, true);
+  assert.equal(msgs.length, 1, 'said once');
+  const flat = { ...g, fxTrim: true, playMs: 0 }, st2 = {};
+  for (let ms = 0; ms < GIVE_UP_MS * 2; ms += 16) play(flat, st2, false);
+  assert.ok(!flat.depthPaused, 'slow frames with the flat view are none of its business');
 });
 
 test('a headless game stays flat, and the setting is saved (older saves: on)', () => {

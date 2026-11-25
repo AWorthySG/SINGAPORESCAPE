@@ -3270,6 +3270,7 @@ export class UI {
     // The tilted 2.5D camera (render/depthview.js); Low graphics keeps the flat view.
     row('Depth view', () => this.game.depthView !== false, () => {
       this.game.depthView = this.game.depthView === false;
+      this.game.depthPaused = false;   // (set when a slow device gave it up for the visit, depthview.js)
       this.game.saveSoon = true;
       if (this.game.depthView && this.game.lowFx) this.game.msg('Depth view shows with Graphics on High.', 'system');
     });

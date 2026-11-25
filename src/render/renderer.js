@@ -60,7 +60,7 @@ import { censerBolt } from './censerSwing.js';   // a Zealot's bolt leaves the s
 import { namePill, drawPill, pillRes, PILL_ROW } from './namepill.js';
 import { foeThreat } from '../ui/bossbar.js';
 import { applyRow, applyScreen } from './projection.js';
-import { DepthView, depthTarget, easeTilt } from './depthview.js';
+import { DepthView, depthTarget, easeTilt, slowGiveUp } from './depthview.js';
 
 // Gathering actions that show a progress ring over the node, and its colour.
 const GATHER_RING = { woodcut: '#4fa04f', mine: '#8a8fa0', fish: '#3a8fd8', hunt: '#d08a3a' };
@@ -279,6 +279,7 @@ export class Renderer {
     }
     this._pj = pj;
     this._vw = vw; this._vh = vh;
+    slowGiveUp(game, this._giveUp || (this._giveUp = {}), !!pj, fdt);   // a device that can't keep up goes flat
     const night = 1 - game.daylightFactor(); // 0 (noon) .. 1 (midnight) — lights, fireflies
     // Shadows lean and stretch with the sun (shadows.js); low graphics keeps the plain ones.
     const sun = sunShadow(game.dayPhase(), this._sun || (this._sun = {}));
