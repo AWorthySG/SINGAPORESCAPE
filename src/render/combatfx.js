@@ -504,7 +504,11 @@ export class CombatFx {
           // Pops in big, then shrinks away as it flies.
           const pop = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) * 0.6;
           ctx.globalAlpha = Math.min(1, fade * 2.2);
-          ctx.save(); ctx.translate(x, y); ctx.rotate(s.rot); drawStar(ctx, s.size * pop, s.col); ctx.restore();
+          ctx.save(); ctx.translate(x, y); ctx.rotate(s.rot);
+          // At full strength it is stamped from its picture (starPic); fading,
+          // its three strokes go down see-through one over another, as drawn.
+          if (!(ctx.globalAlpha >= 0.999 && !s.add && stampStar(ctx, s.size * pop, s.col))) drawStar(ctx, s.size * pop, s.col);
+          ctx.restore();
           break;
         }
         case ARC: {
@@ -720,6 +724,48 @@ export function juicePop(age, over = 0.32) {
   if (age < 170) { const u = (age - 80) / 90; return 1 + over - (over + 0.08) * u; }
   if (age < 260) return 0.92 + 0.08 * ((age - 170) / 90);
   return 1;
+}
+
+// A pack fight throws up a couple of hundred crit stars at once, and each was
+// a path filled and stroked twice (round joins) every frame. At full strength
+// a star is now stamped from a picture of itself: drawn once per colour, size
+// (to a quarter unit) and drawing scale (to the next whole pixel a unit), and
+// kept. A star's outline is the same width whatever its size, so a picture
+// can't be stretched from one size to another; there are a few dozen sizes.
+const STAR_PICS_MAX = 240;
+const _starPics = new Map();
+/** The picture of a star of radius `r` (rounded to a quarter) in `col`, for
+ *  drawing at `scale` screen pixels a unit: { cv, half } (half its width in
+ *  units), or null without a canvas. */
+export function starPic(r, col, scale, make = null) {
+  const q = Math.max(0.25, Math.round(r * 4) / 4), res = Math.min(8, Math.max(1, Math.ceil(scale)));
+  const key = `${col}|${q}|${res}`;
+  let e = _starPics.get(key);
+  if (e !== undefined) return e;
+  e = null;
+  const cv = make ? make() : (typeof document !== 'undefined' && document.createElement ? document.createElement('canvas') : null);
+  const g = cv && cv.getContext && cv.getContext('2d');
+  if (g) {
+    // The navy line reaches half its width (1.7) past the points; a little more for its soft edge.
+    const W = Math.ceil((q + 2.2) * 2 * res);
+    cv.width = W; cv.height = W;
+    g.setTransform(res, 0, 0, res, W / 2, W / 2);
+    drawStar(g, q, col);
+    e = { cv, half: W / 2 / res };
+  }
+  if (_starPics.size >= STAR_PICS_MAX) _starPics.delete(_starPics.keys().next().value);
+  _starPics.set(key, e);
+  return e;
+}
+// Stamp a star (see starPic) where drawStar would draw it; false if there's no picture.
+function stampStar(ctx, r, col) {
+  if (r <= 0.3) return true;
+  const m = ctx.getTransform ? ctx.getTransform() : null;
+  if (!m) return false;
+  const p = starPic(r, col, Math.hypot(m.a, m.b));
+  if (!p) return false;
+  ctx.drawImage(p.cv, -p.half, -p.half, p.half * 2, p.half * 2);
+  return true;
 }
 
 /** A chunky five-pointed sticker star: white border, gold fill, navy ink. */

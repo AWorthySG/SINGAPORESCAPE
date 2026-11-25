@@ -128,6 +128,18 @@ export function applyRow(ctx, pj, fy, rise = 0) {
   ctx.setTransform(D * m.a, 0, 0, D * m.d, D * m.e, D * m.f);
 }
 
+const _mb = {};
+/**
+ * Whether a box in flat coordinates (x0..x1 across, y0..y1 down) drawn at
+ * flat row `fy` (as applyRow draws it) lands wholly off the screen (pj.vw by
+ * pj.vh): then nothing of it shows. The flat rectangle the renderer draws is
+ * as wide as the furthest row, so nearer rows' ends fall off the sides.
+ */
+export function rowBoxOff(pj, fy, x0, y0, x1, y1, rise = 0) {
+  const m = rowTransform(pj, fy, rise, _mb);
+  return m.a * x1 + m.e < 0 || m.a * x0 + m.e > pj.vw || m.d * y1 + m.f < 0 || m.d * y0 + m.f > pj.vh;
+}
+
 /** Back to drawing straight onto the screen (world px, no tilt). */
 export function applyScreen(ctx, pj) {
   if (!pj) return;

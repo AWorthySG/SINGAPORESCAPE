@@ -60,7 +60,7 @@ import { drawClassShot, drawClassEffect, drawClassAuras } from './classfx.js';  
 import { censerBolt } from './censerSwing.js';   // a Zealot's bolt leaves the swinging censer
 import { namePill, drawPill, pillRes, PILL_ROW } from './namepill.js';
 import { foeThreat } from '../ui/bossbar.js';
-import { applyRow, applyScreen } from './projection.js';
+import { applyRow, applyScreen, rowBoxOff } from './projection.js';
 import { DepthView, depthTarget, easeTilt, slowGiveUp } from './depthview.js';
 import { bakeBudget } from './governor.js';
 
@@ -455,6 +455,7 @@ export class Renderer {
       if (!n.alive) {
         // Death animation: keel over about the feet while fading out.
         if (cx < -40 || cy < -40 || cx > vw + 40 || cy > vh + 40) continue;
+        if (pj && rowBoxOff(pj, cy - 0.01 * TILE + 12, cx - 56 * sc, cy - 64 * sc, cx + 56 * sc, cy + 40 * sc)) continue;   // tilted, off the screen's side (see below)
         const k = 1 - n.deathT / 420; // 0 -> 1 over the fall
         // It falls away from the killing blow (the way it was knocked), or
         // else backwards: toppling forward dropped it onto the hero's feet.
@@ -488,6 +489,11 @@ export class Renderer {
       // over a thousand monsters, and only a few dozen are ever in view.
       const pad = 48 * sc;
       if (cx < -pad || cy < -pad || cx > vw + pad || cy > vh + pad) continue;
+      // Tilted, the flat area drawn is as wide as the furthest row, so near
+      // you its corners fall off the screen's sides: a third of a crowd in
+      // view can stand there. Skip one whose whole box (with room for its
+      // rings and lunges) lands off screen at its row, as it would be drawn.
+      if (pj && rowBoxOff(pj, cy + 12, cx - pad - 8, cy - pad - 16, cx + pad + 8, cy + pad)) continue;
       const off = n.renderOffset ? n.renderOffset() : { x: 0, y: 0 };
       // A fresh respawn pops up out of the ground in a puff of dust, overshooting
       // a little and settling, as it fades in (creatureanim.js).

@@ -571,32 +571,63 @@ function growRigBox(box, x0, y0, w, h, px, py, a, s) {
 // noting the area the posed layers cover in `box` when one is given. With
 // `res`, each layer's navy copy goes down first in the same pose, so the body
 // gets the stickers' ink line round its outside (rigink.js).
-function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null, res = 0) {
-  for (let pass = res > 0 ? 0 : 1; pass < 2; pass++) for (const n of rig.order) {
-    const part = rig.parts[n];
+// Each part is posed once (its swing worked out once, not once a pass) and
+// drawn with one setTransform from the matrix it already stands in, rather
+// than a save, three or four transform steps and a restore round each
+// drawImage: a pack of rigged monsters on screen made thousands of those calls
+// a frame. The matrix is the one the steps built, so the picture is the same.
+const _rigPose = { img: [], k: [], m: new Float64Array(6 * 12), gr: new Float64Array(12), a: new Float64Array(12) };
+export function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null, res = 0) {
+  const order = rig.order, n = order.length, P = _rigPose;
+  if (n > P.a.length) { P.m = new Float64Array(n * 6); P.gr = new Float64Array(n); P.a = new Float64Array(n); }
+  const M = P.m;
+  // The matrix the monster stands in. (A context that can't say, as some
+  // tools' stand-ins can't, gets each part's own matrix applied over it.)
+  const B = g.getTransform ? g.getTransform() : null;
+  const ba = B ? B.a : 1, bb = B ? B.b : 0, bc = B ? B.c : 0, bd = B ? B.d : 1, be = B ? B.e : 0, bf = B ? B.f : 0;
+  for (let i = 0; i < n; i++) {
+    const name = order[i], part = rig.parts[name];
     // Some parts swap to another picture for a moment (a mouth opening to bite, a claw opening).
-    const img = part && part.alt && part.swap(opts) ? imgs[part.alt] : imgs[n];
-    const k = res > 0 ? inkPart(img, w, h, res) : null;
+    const img = part && part.alt && part.swap(opts) ? imgs[part.alt] : imgs[name];
+    P.img[i] = img; P.k[i] = res > 0 ? inkPart(img, w, h, res) : null;
+    // The part turned by `a` and grown by `gr` about its joint (px, py):
+    // translate(px, py) rotate(a) scale(gr) translate(-px, -py), after B.
+    let la = 1, lb = 0, lc = 0, ld = 1, le = 0, lf = 0, a = 0, gr = 1;
+    if (part) {
+      const px = x0 + part.piv[0] * w, py = y0 + part.piv[1] * h;
+      gr = part.grow ? part.grow(t, opts) : 1;   // a crown or gem pulsing
+      a = part.swing ? part.swing(t, opts) : 0;
+      const co = part.swing ? Math.cos(a) : 1, si = part.swing ? Math.sin(a) : 0;
+      la = co * gr; lb = si * gr; lc = -si * gr; ld = co * gr;
+      le = px - la * px - lc * py; lf = py - lb * px - ld * py;
+    }
+    P.a[i] = a; P.gr[i] = gr;
+    const o = i * 6;
+    M[o] = ba * la + bc * lb; M[o + 1] = bb * la + bd * lb;
+    M[o + 2] = ba * lc + bc * ld; M[o + 3] = bb * lc + bd * ld;
+    M[o + 4] = ba * le + bc * lf + be; M[o + 5] = bb * le + bd * lf + bf;
+  }
+  for (let pass = res > 0 ? 0 : 1; pass < 2; pass++) for (let i = 0; i < n; i++) {
+    const img = P.img[i], k = P.k[i];
     if (!pass && !k) continue;
     // What this pass draws: the navy copy, the painted box of the layer, or the whole layer.
     const dx = pass ? (k && k.sw > 0 ? x0 + k.ax : x0) : x0 + k.x, dy = pass ? (k && k.sw > 0 ? y0 + k.ay : y0) : y0 + k.y;
     const dw = pass ? (k && k.sw > 0 ? k.aw : w) : k.w, dh = pass ? (k && k.sw > 0 ? k.ah : h) : k.h;
-    g.save();
-    if (part) {
-      const px = x0 + part.piv[0] * w, py = y0 + part.piv[1] * h;
-      const gr = part.grow ? part.grow(t, opts) : 1;   // a crown or gem pulsing
-      const a = part.swing ? part.swing(t, opts) : 0;
-      g.translate(px, py);
-      if (part.swing) g.rotate(a);
-      if (gr !== 1) g.scale(gr, gr);
-      g.translate(-px, -py);
-      if (box) growRigBox(box, dx, dy, dw, dh, px, py, a, gr);
-    } else if (box) growRigBox(box, dx, dy, dw, dh, 0, 0, 0, 1);
+    if (box) {
+      const part = rig.parts[order[i]];
+      if (part) growRigBox(box, dx, dy, dw, dh, x0 + part.piv[0] * w, y0 + part.piv[1] * h, P.a[i], P.gr[i]);
+      else growRigBox(box, dx, dy, dw, dh, 0, 0, 0, 1);
+    }
+    const o = i * 6;
+    if (B) g.setTransform(M[o], M[o + 1], M[o + 2], M[o + 3], M[o + 4], M[o + 5]);
+    else { g.save(); g.transform(M[o], M[o + 1], M[o + 2], M[o + 3], M[o + 4], M[o + 5]); }
     if (!pass) g.drawImage(k.cv, dx, dy, dw, dh);
     else if (k && k.sw > 0) g.drawImage(img, k.sx, k.sy, k.sw, k.sh, dx, dy, dw, dh);   // just the painted part of the layer
     else g.drawImage(img, dx, dy, dw, dh);
-    g.restore();
+    if (!B) g.restore();
   }
+  if (B) g.setTransform(ba, bb, bc, bd, be, bf);
+  P.img.length = 0; P.k.length = 0;   // (no pictures held between frames)
 }
 
 // A rig's drawn size (local units) and its parts' drawing resolution.
