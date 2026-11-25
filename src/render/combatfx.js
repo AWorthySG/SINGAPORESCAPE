@@ -3,6 +3,7 @@ import { RARITY } from '../game/loot.js';
 import { spawnElement } from './elementfx.js';
 import { fxImage } from './fxart.js';
 import { applyRow } from './projection.js';
+import { drawScreenPic } from './ambience.js';
 
 // Combat "feel" effects: an impact for each kind of weapon (slash arcs, blunt
 // rings and dust, arrow punctures, bullet tracers, elemental spell bursts, a
@@ -656,7 +657,9 @@ export class CombatFx {
     const t = 1 - this.pulseT / this.pulseMax;
     // Swells quickly, then ebbs away.
     ctx.globalAlpha = this.pulseK * (t < 0.2 ? t / 0.2 : (1 - t) / 0.8) * 0.8;
-    ctx.drawImage(img, 0, 0, vw, vh);
+    // Copied from one stretched to the screen's own pixels once per colour (ambience.js drawScreenPic).
+    const at = this._vigAt || (this._vigAt = {}), k = this.pulseCol === 'hurt' ? 'hurt' : 'gold';
+    if (!drawScreenPic(ctx, at[k] || (at[k] = {}), k, vw, vh, (g, W, H) => g.drawImage(img, 0, 0, W, H))) ctx.drawImage(img, 0, 0, vw, vh);
     ctx.globalAlpha = 1;
   }
 

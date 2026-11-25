@@ -34,7 +34,7 @@ import { RARITY } from '../game/loot.js';
 // The effects a melee blow spawns that wait for its strike (see _holdForStrike).
 const HELD_FX = new Set(['slash', 'cleave', 'swipe']);
 import { itemIconImage } from './icons.js';
-import { moodFor, blendMood, composeWashes, dayNightWashes, buildVignette, ObjectReactions } from './ambience.js';
+import { moodFor, blendMood, composeWashes, dayNightWashes, buildVignette, vignetteKey, drawScreenPic, ObjectReactions } from './ambience.js';
 import { worldMood } from '../game/consequences.js';
 import { Critters } from './critters.js';
 import { LightPass } from './lighting.js';
@@ -874,20 +874,35 @@ export class Renderer {
     // Low-health heartbeat: a soft red edge pulse while below a quarter HP.
     if (game.player.alive && game.player.hp / Math.max(1, game.maxHp()) <= 0.25) {
       const a = 0.10 + (Math.sin(performance.now() * 0.005) + 1) * 0.045;
-      const lg = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.38, vw / 2, vh / 2, Math.max(vw, vh) * 0.74);
-      lg.addColorStop(0, 'rgba(180,0,0,0)');
-      lg.addColorStop(1, `rgba(170,10,10,${a.toFixed(3)})`);
-      ctx.fillStyle = lg;
-      ctx.fillRect(0, 0, vw, vh);
+      this._edgeGlow('beat', 0.38, 0.74, '180,0,0', '170,10,10', +a.toFixed(3), vw, vh);
     }
     const h = game.player.strikeWait > 0 ? 0 : game.player.hurt;   // the screen flash waits for the blow too
     if (!h || !game.player.alive || game.reduceMotion) return;   // Reduce motion: no flashes
     const a = Math.min(0.45, (h / 200) * 0.45);
-    const g = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.32, vw / 2, vh / 2, Math.max(vw, vh) * 0.72);
-    g.addColorStop(0, 'rgba(180,0,0,0)');
-    g.addColorStop(1, `rgba(170,0,0,${a})`);
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, vw, vh);
+    this._edgeGlow('hurt', 0.32, 0.72, '180,0,0', '170,0,0', a, vw, vh);
+  }
+
+  /** A red glow round the screen's edge (r0, r1: where it starts and is
+   *  strongest, as shares of the screen's shorter and longer sides), at
+   *  strength `a`. Painted once at full strength at the screen's own pixels
+   *  and laid on at `a` (a gradient's colour fades the same either way), which
+   *  costs a phone far less than a full-screen gradient a frame (ambience.js). */
+  _edgeGlow(kind, r0, r1, c0, c1, a, vw, vh) {
+    const { ctx } = this, slots = this._glowAt || (this._glowAt = {});
+    const paint = (g, W, H) => {
+      const gr = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * r0, W / 2, H / 2, Math.max(W, H) * r1);
+      gr.addColorStop(0, `rgba(${c0},0)`); gr.addColorStop(1, `rgba(${c1},1)`);
+      g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    };
+    const m = ctx.getTransform ? ctx.getTransform() : null;
+    const ga = ctx.globalAlpha;
+    ctx.globalAlpha = ga * a;
+    const done = m && m.a === m.d && drawScreenPic(ctx, slots[kind] || (slots[kind] = {}), kind, vw, vh, paint);
+    ctx.globalAlpha = ga;
+    if (done) return;
+    const gr = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * r0, vw / 2, vh / 2, Math.max(vw, vh) * r1);
+    gr.addColorStop(0, `rgba(${c0},0)`); gr.addColorStop(1, `rgba(${c1},${a})`);
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, vw, vh);
   }
 
   // A bobbing golden ✕ over the current treasure-trail dig spot.
@@ -1862,15 +1877,18 @@ export class Renderer {
   _drawVignette(vw, vh, night = 0) {
     // Baked once per viewport size (a small canvas stretched to fit), and a
     // little deeper after dark.
-    if (!this._vig || this._vig.vw !== vw || this._vig.vh !== vh) this._vig = { vw, vh, img: buildVignette(vw, vh) };
+    // (Its shape alone decides it, so a fight's zoom doesn't remake it.)
+    const key = vignetteKey(vw, vh);
+    if (!this._vig || this._vig.key !== key) this._vig = { key, img: buildVignette(vw, vh), at: {} };
     // After dark the light pass lays it into its light map instead (lighting.js);
     // the flag is used up here, so a low graphics frame never misses it.
     const inMap = this.lights.vignetted;
     this.lights.vignetted = false;
     if (!this._vig.img || inMap) return;
-    const { ctx } = this;
+    const { ctx } = this, img = this._vig.img;
     ctx.globalAlpha = 0.5 + 0.45 * night;
-    ctx.drawImage(this._vig.img, 0, 0, vw, vh);
+    // Copied from one stretched to the screen's own pixels once (ambience.js drawScreenPic).
+    if (!drawScreenPic(ctx, this._vig.at, key, vw, vh, (g, W, H) => g.drawImage(img, 0, 0, W, H))) ctx.drawImage(img, 0, 0, vw, vh);
     ctx.globalAlpha = 1;
   }
 

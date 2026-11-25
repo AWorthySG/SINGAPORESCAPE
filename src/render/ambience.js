@@ -97,6 +97,51 @@ export function buildVignette(vw, vh) {
   return cv;
 }
 
+/** The vignette's small canvas height for a vw x vh view (buildVignette): it
+ *  depends on the view's shape only, so a fight's zoom doesn't remake it. */
+export const vignetteKey = (vw, vh) => Math.max(40, Math.round(160 * vh / Math.max(1, vw)));
+
+/**
+ * A soft full-screen picture (the edge vignette, the hit pulse, the hurt
+ * flash) drawn from a copy at the screen's own pixels. Stretching a small
+ * picture over the whole screen, or filling it with a radial gradient, costs
+ * a phone several milliseconds a frame (every pixel is worked out afresh);
+ * copying a picture already the screen's size, pixel for pixel, is a fraction
+ * of that. The copy is painted by `paint(g, W, H)` (W x H device pixels, the
+ * same spot `vw` x `vh` covers through the current transform) and made again
+ * only when `key` or the screen's size changes: a fight's zoom leaves the
+ * screen's pixels alone (the view shrinks as the scale grows), so it doesn't.
+ * Sizes within 1/64 of a pixel count as the same. Kept in `slot`.
+ *
+ * Returns false (draw as before) without a canvas, or when the transform
+ * turns, skews or shifts the screen (only a plain scale maps it pixel for pixel).
+ */
+export function drawScreenPic(ctx, slot, key, vw, vh, paint, make = makeCanvas) {
+  const m = ctx.getTransform ? ctx.getTransform() : null;
+  if (!m || m.b || m.c || m.e || m.f || !(m.a > 0) || !(m.d > 0)) return false;
+  const W = vw * m.a, H = vh * m.d;
+  const k = `${key}|${Math.round(W * 64)}x${Math.round(H * 64)}`;
+  if (slot.key !== k) {
+    const cv = slot.cv || make();
+    const g = cv && cv.getContext && cv.getContext('2d');
+    if (!g) return false;
+    const w = Math.ceil(W), h = Math.ceil(H);
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+    g.clearRect(0, 0, w, h);
+    paint(g, W, H);
+    slot.cv = cv; slot.key = k;
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(slot.cv, 0, 0);
+  ctx.setTransform(m.a, 0, 0, m.d, 0, 0);
+  return true;
+}
+function makeCanvas() {
+  if (typeof document === 'undefined' || !document.createElement) return null;
+  try { return document.createElement('canvas'); } catch { return null; }
+}
+
 // ---------------- Object reactions ----------------
 // Tall things that can hide you when you walk behind them, with roughly how
 // far their picture reaches above and to each side of the tile centre.
