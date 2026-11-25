@@ -62,6 +62,13 @@ export const SKILL_UNLOCKS = {
     { level: 75, name: 'Reef sense', desc: '+10% chance of a double catch', fx: { double: 0.10 } },
     { level: 99, name: 'Pearl legend', desc: '10% more quick dives', fx: { quick: 0.10 } },
   ],
+  archaeology: [
+    { level: 10, name: 'Careful digger', desc: '+5% chance of a double find', fx: { double: 0.05 } },
+    { level: 25, name: 'Keen eye', desc: '5% chance to dig twice in one go', fx: { quick: 0.05 } },
+    { level: 50, name: 'Museum teleport', desc: 'Teleport to Chinatown, by Curator Siti\'s museum', teleport: 'chinatown' },
+    { level: 75, name: 'Steady hands', desc: '+10% double finds, and 5% chance a restore keeps its materials', fx: { double: 0.10, save: 0.05 } },
+    { level: 99, name: 'Master of the past', desc: '10% more quick digs, +10% materials kept restoring', fx: { quick: 0.10, save: 0.10 } },
+  ],
   farming: [
     { level: 10, name: 'Green thumb', desc: '10% chance of an extra crop each harvest', fx: { double: 0.10 } },
     { level: 25, name: 'Rich soil', desc: 'Crops grow 10% faster', fx: { grow: 0.10 } },
@@ -137,11 +144,11 @@ export const UNLOCK_SKILLS = Object.keys(SKILL_UNLOCKS);
 
 // Which skill each continuous player action trains ('recipe' says itself).
 export const ACTION_SKILL = {
-  woodcut: 'woodcutting', mine: 'mining', fish: 'fishing', hunt: 'hunter', dive: 'diving', stall: 'thieving',
+  woodcut: 'woodcutting', mine: 'mining', fish: 'fishing', hunt: 'hunter', dive: 'diving', excavate: 'archaeology', stall: 'thieving',
   cook: 'cooking', cookdish: 'cooking', smith: 'smithing', smelt: 'smithing', craft: 'crafting', hawk: 'hawkering',
 };
 // Actions that gather (a double yield applies) and actions that make (inputs can be kept).
-export const GATHER_KINDS = new Set(['woodcut', 'mine', 'fish', 'hunt', 'dive', 'stall']);
+export const GATHER_KINDS = new Set(['woodcut', 'mine', 'fish', 'hunt', 'dive', 'excavate', 'stall']);
 export const MAKE_KINDS = new Set(['cook', 'cookdish', 'smith', 'craft', 'recipe']);
 
 // Consumables carried in the pack that boost a gathering skill: each use of the

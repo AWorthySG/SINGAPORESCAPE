@@ -15,6 +15,7 @@ import { CLUE_TIERS } from '../data/clues.js';
 import { SLAYER_REWARDS } from '../data/slayer.js';
 import { HUNT } from '../data/trades.js';
 import { PEARL_GRADES } from '../data/diving.js';
+import { MUSEUM_SETS, museumPage } from '../data/archaeology.js';
 import { OBJECTS } from '../data/objects.js';
 import { RARE_BOSS_BONES } from '../data/bones.js';
 import { sigDropsFor } from '../data/bossWeapons.js';
@@ -72,7 +73,7 @@ export const RARE_FINDS = {
 const FIND_SKILL = new Map();
 for (const [skill, ids] of Object.entries(RARE_FINDS)) for (const id of ids) if (!FIND_SKILL.has(id)) FIND_SKILL.set(id, skill);
 // What each gathering action trains, for onGather.
-const ACTION_SKILL = { woodcut: 'woodcutting', mine: 'mining', fish: 'fishing', hunt: 'hunter', dive: 'diving', stall: 'thieving', thieve: 'thieving' };
+const ACTION_SKILL = { woodcut: 'woodcutting', mine: 'mining', fish: 'fishing', hunt: 'hunter', dive: 'diving', excavate: 'archaeology', stall: 'thieving', thieve: 'thieving' };
 
 const item = (id) => ({ kind: 'item', id });
 const pet = (id) => ({ kind: 'pet', id });
@@ -101,6 +102,9 @@ PAGES.push(
   { id: 'pets', name: 'Pets', group: 'Life skills', title: 'Beastmaster',
     entries: [...Object.values(BOSS_PETS), ...Object.values(SKILL_PETS)].map((p) => pet(p.id)) },
 );
+// Archaeology's museum sets (archaeology.js): a page each, filled by giving the
+// curator its restored pieces (game/archaeology.js donateAll), with its own title.
+PAGES.push(...MUSEUM_SETS.map((m) => ({ id: museumPage(m.id), name: m.name, group: 'Museum', title: m.title, entries: m.items.map(item) })));
 export const PAGE_BY_ID = Object.fromEntries(PAGES.map((p) => [p.id, p]));
 // Quick "is this item on that page?" lookups.
 const PAGE_ITEMS = new Map(PAGES.map((p) => [p.id, new Set(p.entries.filter((e) => e.kind === 'item').map((e) => e.id))]));

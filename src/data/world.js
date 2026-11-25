@@ -8,6 +8,7 @@ import { placeLandmarks } from './landmarks.js';
 import { placeGroves, QUARRY_PLAN } from './groves.js';
 import { assignFishSpots } from './fishspots.js';
 import { placeDiveSpots } from './divereefs.js';
+import { placeDigSites } from './digsites.js';
 import { placeBestiary } from './bestiaryPlace.js';
 
 // How many of each monster kind populate the world.
@@ -1488,6 +1489,13 @@ export function buildWorld({ groves: withGroves = true } = {}) {
   // and from their own random stream, so nothing placed before them moves.
   // They come with the groves (tests build the world without both to check that).
   if (withGroves) placeDiveSpots({ T, width: W, height: H, get, inB, isFree, placeObj, inTown, objects, start: { x: 58, y: 55 }, rand: mulberry32(20261125) });
+
+  // ================= Dig sites and the museum =================
+  // Archaeology's sites, the museum curator and the restoration bench
+  // (digsites.js), after the groves and quarries and from their own random
+  // stream, so nothing placed before them moves. They come with the groves
+  // (tests build the world without both to check that).
+  if (withGroves) placeDigSites({ T, width: W, height: H, get, inB, isFree, placeObj, placeNpc, inTown, inNewTown, objects, npcSpawns, start: { x: 58, y: 55 }, rand: mulberry32(20261127) });
 
   return {
     width: W,

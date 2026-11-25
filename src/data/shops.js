@@ -1,6 +1,7 @@
 import { REGION_SHOPS } from './regionQuests.js';
 import { TOOL_KINDS, SHOP_TOOL_TIER, toolId } from './tooltiers.js';
 import { DIVE_GEAR, SHOP_DIVE_TIER } from './diving.js';
+import { TROWELS, SHOP_TROWEL_TIER } from './archaeology.js';
 
 // Shop stock definitions.
 //   buyMul:  multiplier on item value for the price the PLAYER pays to buy.
@@ -239,6 +240,8 @@ for (const [metal, qty] of [['bronze', 5], ['iron', 3]]) {
 }
 // Dive gear (diving.js): the snorkel to the air tank, after the tools. The rest are crafted.
 SHOPS.general.stock.push(...DIVE_GEAR.slice(0, SHOP_DIVE_TIER + 1).map((g) => ({ id: g.id, qty: Math.max(2, 10 - 2 * g.tier) })));
+// Archaeology (archaeology.js): the soft brush, and the trowel to the adamant trowel. The rest are crafted.
+SHOPS.general.stock.push({ id: 'soft_brush', qty: 10 }, ...TROWELS.slice(0, SHOP_TROWEL_TIER + 1).map((t) => ({ id: t.id, qty: Math.max(2, 10 - 2 * t.tier) })));
 
 // The shops region story quests open (regionQuests.js).
 Object.assign(SHOPS, REGION_SHOPS);

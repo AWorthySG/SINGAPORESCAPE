@@ -68,7 +68,9 @@ export class NPC extends Character {
 
     this.target = null;           // current foe (the player)
     this.attackCooldown = 0;      // ticks until next attack
-    this.wanderCooldown = randInt(2, 8);
+    // A townsperson added to the world later (`noDice`, e.g. Archaeology's curator) rolls
+    // no dice here, so every spawn after it, and the seeded tests' rolls, stay as they were.
+    this.wanderCooldown = this.def.noDice ? 5 : randInt(2, 8);
     this.repathCooldown = 0;
     this.lastTargetTile = null;
     this.combatLatch = 0;         // ticks left showing in-combat HP bar
@@ -87,7 +89,7 @@ export class NPC extends Character {
     this.chatter = this.def.chatter || null;
     this.chatText = '';
     this.chatTimer = 0;           // ticks left showing the current chatter line
-    this.chatCooldown = randInt(2, 6); // staggered so a flock doesn't cluck in unison
+    this.chatCooldown = this.def.noDice ? 4 : randInt(2, 6); // staggered so a flock doesn't cluck in unison
     this.champion = false;
     // What a fight adds later (damage lately, hit numbers, hit-stop and squash,
     // the death and spawn fades, a boss's cast), made here empty so every

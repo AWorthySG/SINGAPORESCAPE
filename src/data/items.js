@@ -17,6 +17,7 @@ import { hawkerItems } from './hawkering.js';
 import { signatureWeapons } from './bossWeapons.js';
 import { TOOL_KINDS, TOOL_TIERS, toolId, toolBonusText } from './tooltiers.js';
 import { diveItems, PEARL_JEWELLERY } from './diving.js';
+import { digItems } from './archaeology.js';
 
 import { aOrAn, AOrAn } from '../core/utils.js';
 const RAW = {
@@ -1278,6 +1279,9 @@ for (const [id, name, slot, P, value, , , , art, tint, examine] of PEARL_JEWELLE
   RAW[id] = { name, icon: slot === 'ring' ? '💍' : '📿', value, examine, artFrom: [art, tint],
     equip: { slot, req: {}, style: 'magic', bonuses: accessoryStats('magic', P) } };
 }
+// ---- Archaeology (archaeology.js): site materials, relics (encrusted and
+// restored), trowels and the soft brush ----
+Object.assign(RAW, digItems());
 
 // ---- Prayer accessories: no fighting stats, but Faith fills faster (bonus `prayer`, see blessings.js gainFaith) ----
 export const PRAYER_GEAR = [

@@ -30,6 +30,7 @@ export const SKILL_HOURS = {
   diving:      { from: 9,  to: 21,  when: 'Midday',    why: 'the sun lights the reef right to the bottom' },
   construction: { from: 7, to: 19,  when: 'Daytime',   why: 'good light, and the neighbours are awake anyway' },
   hawkering:   { from: 11, to: 23,  when: 'Lunch to supper', why: 'the lunch crowd, then the supper crowd' },
+  archaeology: { from: 7,  to: 19,  when: 'Morning',   why: 'the ground is soft and cool before the heat' },
 };
 
 /** Is `hour` (0-24, fractional) inside the window [from, to)? */

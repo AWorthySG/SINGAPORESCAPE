@@ -16,9 +16,8 @@ import { getItem } from '../data/items.js';
 import { SHOPS, getShop } from '../data/shops.js';
 import { SMELT, SMITH, smithToolRows } from '../data/smithing.js';
 import { CRAFT } from '../data/crafting.js';
-import { POTIONS, FLETCH, CROP_BY_SEED } from '../data/trades.js';
+import { CROP_BY_SEED } from '../data/trades.js';
 import { conRecipes } from '../data/construction.js';
-import { SIGNATURE } from '../data/hawkering.js';
 import { COOKING, makeXp } from '../game/skilling.js';
 import { DISHES } from '../data/cooking.js';
 import { SKILLS, SKILL_GROUPS } from '../data/skills.js';
@@ -72,6 +71,8 @@ import { openCodex, monsterAtScreen, openCompendium } from './codexui.js';
 import { setLinkedText, linkHTML } from './links.js';   // names that open their encyclopedia entry
 import { openEntry } from './encyclopediaui.js';
 import { openPestOfficer, contractTrackerRows, stewardLineHTML, cullingInvOptions } from './cullingui.js';
+import { openMuseum } from './museumui.js';
+import { tradeRecipes } from '../game/autoprocess.js';
 import { eventsPanelHTML, wireEventsPanel, eventTrackerRows, drawEventMarker } from './worldeventsui.js';
 import { keyedSlots, placeSlots } from './slotgrid.js';
 import { WindowMemory, initWindowEase, toggleTapClose } from './windowease.js';   // windows remember where you were; tap outside to close
@@ -4400,20 +4401,21 @@ export class UI {
     // Construction: what this station works (a sawmill, kiln, workbench or the home workbench).
     const con = skill === 'construction' ? obj?.def?.type : null;
     const wok = skill === 'hawkering';   // your hawker stall's wok: its signature dishes (hawkering.js)
-    const recipes = con ? conRecipes(con) : wok ? SIGNATURE : skill === 'herblore'
-      ? Object.entries(POTIONS).map(([id, p]) => ({ result: id, qty: 1, inputs: p.inputs, level: p.level, xp: p.xp }))
-      : FLETCH;
+    const recipes = con ? conRecipes(con) : tradeRecipes(skill);   // (the wok: Hawkering's; restoring: Archaeology's, archaeology.js)
+    const restore = skill === 'archaeology';
     const CON_HINT = { saw: 'Saw logs into planks for building.', kiln: 'Fire clay into bricks for building.',
       build: 'Build furniture from planks, nails and bricks (you need a hammer). Sell it, or use it in your home builds.',
       homebench: 'Saw logs into planks, and build furniture from planks, nails and bricks (you need a hammer).' };
     const render = (body) => {
       body.innerHTML = `<div class="modal-hint">${con ? CON_HINT[con] || CON_HINT.build : wok ? 'Cook signature dishes at your stall\'s wok, to serve. The Hawker Auntie sells the dry goods.' : skill === 'herblore'
         ? 'Brew farmed herbs into potions. Drink one from your pack for a boost in battle.'
-        : 'Carve logs with a knife, and tip arrow shafts with feathers and a metal bar.'}</div>`;
+        : restore ? 'Clean an encrusted relic with a soft brush and two of its site\'s finds. Give the restored piece to Curator Siti, beside the bench, for her museum.'
+          : 'Carve logs with a knife, and tip arrow shafts with feathers and a metal bar.'}</div>`;
       const list = document.createElement('div');
-      list.appendChild(this._doAllRow(con || skill, obj, con ? { saw: 'Saw all', kiln: 'Fire all' }[con] || 'Build all' : wok ? 'Cook all' : skill === 'herblore' ? 'Brew all' : 'Fletch all'));
+      list.appendChild(this._doAllRow(con || skill, obj, con ? { saw: 'Saw all', kiln: 'Fire all' }[con] || 'Build all' : wok ? 'Cook all' : skill === 'herblore' ? 'Brew all' : restore ? 'Restore all' : 'Fletch all'));
       list.appendChild(this._makeQtyRow());
-      for (const r of recipes) {
+      // Restoring lists only relics you have found (thirty-six rows of locked ones is a wall on a phone).
+      for (const r of restore ? recipes.filter((x) => g.inventory.has(x.inputs[0][0], 1)) : recipes) {
         const hasTool = !r.tool || g.hasTool(r.tool);
         const can = hasTool && g.skills.level(skill) >= r.level && r.inputs.every(([id, n]) => g.inventory.has(id, n));
         const row = document.createElement('div');
@@ -4424,9 +4426,10 @@ export class UI {
         row.addEventListener('click', () => { g.startRecipe(skill, r, obj); this.closeModal(); });
         list.appendChild(row);
       }
+      if (restore && list.children.length <= 2) list.insertAdjacentHTML('beforeend', '<div class="modal-hint">No encrusted relics in your pack yet: dig at a heritage site and one turns up now and then.</div>');
       body.appendChild(list);
     };
-    this.openModal(con ? obj.def.name : wok ? 'Stall wok' : skill === 'herblore' ? 'Herblore' : 'Fletching', render);
+    this.openModal(con ? obj.def.name : wok ? 'Stall wok' : skill === 'herblore' ? 'Herblore' : restore ? 'Restoration bench' : 'Fletching', render);
     this.modal.kind = skill;
   }
 
@@ -4590,6 +4593,7 @@ export class UI {
   openDialogue(npc) {
     if (npc.def.dialogue === 'slayer') return this.openSlayerMaster(npc);
     if (npc.def.dialogue === 'pest') return openPestOfficer(this, npc);   // Pest Control contracts (cullingui.js)
+    if (npc.def.dialogue === 'museum') return openMuseum(this, npc);   // Archaeology's museum (museumui.js)
     if (npc.def.dialogue === 'story') return this.game.story?.talkTo(npc);   // a story messenger (story.js)
     const tree = personalise(this.game, npc, npc.def.moral ? this._moralTree(npc.def.moral) : npc.def.dialogue === 'region' ? regionDialogue(this.game, npc) : getDialogue(npc.def.dialogue));   // memory.js
     if (!tree) { this.game.msg(`${npc.name} has nothing to say.`); return; }

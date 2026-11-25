@@ -1,5 +1,6 @@
 import { HIDE_CRAFT } from './trades.js';
 import { diveCraftRecipes } from './diving.js';
+import { trowelCraftRecipes } from './archaeology.js';
 
 // Crafting recipes. Worked at a crafting table: inputs -> result. Jewelry needs a
 // chisel. Gives the materials gathered from the new mining/woodcutting nodes a use.
@@ -47,6 +48,8 @@ export const CRAFT = [
 
   // ---- Diving: pearl jewellery, and dive gear past the shop's (diving.js) ----
   ...diveCraftRecipes(),
+  // ---- Archaeology: trowels past the shop's (archaeology.js) ----
+  ...trowelCraftRecipes(),
 
   // ---- Refine scrolls and upgrade wards (see refine.js and mastery.js) ----
   // Crafting, because it is already the trade that sets gems into metal with

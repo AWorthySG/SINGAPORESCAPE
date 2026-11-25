@@ -51,6 +51,8 @@ export const SKILLS = [
     group: 'making', desc: 'Saw planks, fire bricks, build furniture and your kampong home. Needs a hammer.' },
   { id: 'hawkering', name: 'Hawkering', icon: '🍜', color: '#d0583a',
     group: 'making', desc: 'Run your own stall at the Marina Bay hawker centre. Serve dishes for coins.' },
+  { id: 'archaeology', name: 'Archaeology', icon: '🏺', color: '#b07a4a',
+    group: 'gathering', desc: 'Dig heritage sites for old finds, restore them and fill the museum.' },
 ];
 
 // Skills panel sections, in display order.

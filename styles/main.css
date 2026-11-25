@@ -3961,3 +3961,10 @@ input[type="range"]:focus-visible { outline: 3px solid var(--aw-sun); outline-of
 .hwk-pat span.low { background: #e0583a; }
 .hwk-cust .wm-go { flex: none; min-height: 40px; min-width: 68px; }
 .hwk-cust .wm-go:disabled { opacity: .45; filter: grayscale(.6); }
+/* Curator Siti's museum (museumui.js): a set's pieces, given, carried or still to find. */
+.mu-ic { display: inline-flex; border-radius: 10px; padding: 2px; }
+.mu-ic.got { background: #e4f4dc; }
+.mu-ic.have { background: #fff1c8; }
+.mu-ic.miss { opacity: 0.45; filter: grayscale(0.8); }
+.mu-set.done { border-color: #7ac06a; }
+.mu-give { min-height: 44px; margin: 6px 0 10px; width: 100%; }

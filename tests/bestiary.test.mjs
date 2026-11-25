@@ -138,7 +138,7 @@ test('the world places every new monster in its own region, safely, and every ne
 });
 
 test('nothing already in the world moved', () => {
-  const old = world.npcSpawns.filter((s) => !NEW.has(s.npcId));
+  const old = world.npcSpawns.filter((s) => !NEW.has(s.npcId) && s.npcId !== 'museum_curator');   // (Archaeology's curator: placed after, digsites.js)
   // The new ones are placed after everything else (this count moves only when other content is added).
   assert.equal(old.length, 9516);
   // The new ones sit in one block near the end (only the fixed thieving marks follow).

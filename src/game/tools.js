@@ -4,10 +4,12 @@
 import { ITEMS } from '../data/items.js';
 import { TOOL_TIERS, TOOL_KIND, TOOL_KINDS, toolId, toolBonusText } from '../data/tooltiers.js';
 import { DIVE_TAG, DIVE_GEAR } from '../data/diving.js';
+import { DIG_TAG, TROWELS } from '../data/archaeology.js';
 
-// A tool's tier: a gathering tool's, or a piece of dive gear's (diving.js: the
-// same twelve tiers, kept apart so the tool tables and their stickers aren't touched).
-const tierOf = (it) => it?.toolTier ?? it?.diveTier ?? 0;
+// A tool's tier: a gathering tool's, or a piece of dive gear's or a trowel's
+// (diving.js, archaeology.js: the same twelve tiers, kept apart so the tool
+// tables and their stickers aren't touched).
+const tierOf = (it) => it?.toolTier ?? it?.diveTier ?? it?.digTier ?? 0;
 
 /** Can the player use tool `id` at their level? */
 export function canUseTool(game, id) {
@@ -37,7 +39,7 @@ export function bestTool(game, tag) {
 /** What the tool in use gives: its tier's { speed, yield, find } (zero without a tiered one). */
 const NONE = { speed: 0, yield: 0, find: 0 };
 export function toolBonus(game, tag) {
-  if (!TOOL_KIND[tag] && tag !== DIVE_TAG) return NONE;
+  if (!TOOL_KIND[tag] && tag !== DIVE_TAG && tag !== DIG_TAG) return NONE;
   const id = bestTool(game, tag);
   return id ? TOOL_TIERS[tierOf(ITEMS[id])] : NONE;
 }
@@ -50,6 +52,7 @@ export function actionToolTag(a) {
     case 'fish': return a.obj?.def?.tool || 'net';
     case 'hunt': return 'snare';
     case 'dive': return DIVE_TAG;
+    case 'excavate': return DIG_TAG;
     default: return null;
   }
 }
@@ -81,6 +84,14 @@ export function toolLadder(game, skill) {
       const more = toolBonusText(TOOL_TIERS[g.tier]);
       rows.push({ id: g.id, tag: DIVE_TAG, tier: g.tier, level: g.level, bonus: `+${g.breath} breath${more ? `, ${more}` : ''}`,
         usable: canUseTool(game, g.id), inUse: g.id === using });
+    }
+    return rows;
+  }
+  if (skill === 'archaeology') {
+    const using = bestTool(game, DIG_TAG);
+    for (const t of TROWELS) {
+      rows.push({ id: t.id, tag: DIG_TAG, tier: t.tier, level: t.level, bonus: toolBonusText(TOOL_TIERS[t.tier]) || 'the basic trowel',
+        usable: canUseTool(game, t.id), inUse: t.id === using });
     }
     return rows;
   }

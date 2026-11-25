@@ -10,6 +10,7 @@
 
 import { HUNT } from './trades.js';
 import { DIVE_SPOTS, DIVE_TAG } from './diving.js';
+import { DIG_SITES, DIG_TAG } from './archaeology.js';
 
 export const OBJECTS = {
   // ---------------- Trees ----------------
@@ -935,6 +936,16 @@ for (const s of DIVE_SPOTS) {
     ...(s.pearl ? { pearl: s.pearl } : {}), ...(s.chest ? { chest: s.chest } : {}),
     catches: [{ id: s.gives, level: s.level, xp: s.xp, weight: 1 }], examine: `${s.examine} (Diving ${s.level})` };
 }
+// Archaeology's dig sites (archaeology.js): each turns up one material, like a
+// fishing spot's one fish, and never runs dry; relics come on top. Their xp is
+// fitted in archaeology.js, so no tuning below. Restoring is done at a bench.
+for (const s of DIG_SITES) {
+  OBJECTS[s.id] = { name: s.name, label: s.label, type: 'dig', verb: 'Excavate', emoji: '⛏️', blocking: false,
+    skill: 'archaeology', tool: DIG_TAG, depleteChance: 0, respawn: 0, color: s.color, site: s.id,
+    catches: [{ id: s.gives, level: s.level, xp: s.xp, weight: 1 }], examine: `${s.examine} (Archaeology ${s.level})` };
+}
+OBJECTS.restoration_bench = { name: 'Restoration bench', type: 'restore', verb: 'Restore at', emoji: '🖌️', blocking: true,
+  skill: 'archaeology', examine: 'A bench with brushes, picks and glue for cleaning old finds.' };
 
 // XP audit (Nov 2026): XP an hour at each node, at its own level, by auto gather.
 // Mining paid about a sixth of Woodcutting or Fishing at the same level, so every

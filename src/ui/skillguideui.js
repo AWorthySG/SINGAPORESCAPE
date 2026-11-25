@@ -33,18 +33,19 @@ import { xpRate, actionXp } from '../game/xprate.js';
 import { makeXp } from '../game/skilling.js';
 import {
   SKILL_GUIDES, GATHER_SKILLS, COMBAT_SKILLS, TOOL_NAMES, gatherSources, recipesFor, recipeLabel, recipeKindTitle, canMake,
-  regionsOf, nearestObject, groveList, fishSpotList, diveSpotList, itemEntry, searchResources, RESOURCE_CATS, resourceIndex, perkLadder, gearTiers, trainingSpots, bestSpotsFor, combatExtras,
+  regionsOf, nearestObject, groveList, fishSpotList, diveSpotList, digSiteList, itemEntry, searchResources, RESOURCE_CATS, resourceIndex, perkLadder, gearTiers, trainingSpots, bestSpotsFor, combatExtras,
 } from '../game/skillguide.js';
 
 export const PAGE = 30;
 // Mining, Woodcutting and Fishing: tick the kinds you want and auto gather
 // works through exactly those, taking turns between them.
-const PICK_SKILLS = new Set(['mining', 'woodcutting', 'fishing', 'diving']);
+const PICK_SKILLS = new Set(['mining', 'woodcutting', 'fishing', 'diving', 'archaeology']);
 const AUTO_TEXT = {
   woodcutting: 'when a tree, rock or spot runs dry, move on to the next one nearby. Gather more than one kind (say copper and tin) and it takes turns between them',
   mining: 'when a tree, rock or spot runs dry, move on to the next one nearby. Gather more than one kind (say copper and tin) and it takes turns between them',
   fishing: 'when a tree, rock or spot runs dry, move on to the next one nearby. Gather more than one kind (say copper and tin) and it takes turns between them',
   hunter: 'when a trap or trail runs dry, move on to the next one nearby',
+  archaeology: 'keep digging the site you start on (a site never runs dry). Tick a site below and Start walks you to the nearest one',
   diving: 'keep diving the reef you start on, coming up for air between dives (a reef never runs dry). Tick a reef below and Start walks you to the nearest one',
   farming: 'harvest ripe patches and replant with your best seed, patch after patch',
   thieving: 'keep picking the same pocket after each try',
@@ -103,11 +104,12 @@ const XPH_COUNTS = {
   fishing: 'big catches, trophies, whole schools and passing schools, bonus hauls, lucky finds and streaks',
   hunter: 'whole flocks, bonus hauls, lucky finds and streaks, and the walk between traps and waiting for them to reset',
   diving: 'whole reef beds, bonus hauls, lucky finds and streaks, and the pauses to come up for air',
+  archaeology: 'rich layers, bonus hauls, lucky finds and streaks (restoring the relics you find pays on top)',
   thieving: 'how often you get away with it, the stalls restocking and the stuns (pockets: one a tick)',
   agility: 'a lone obstacle crossed every tick (a course shows none: a lap is mostly running between obstacles)',
 };
 export function xpHourNote(skill) {
-  const tooled = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving'].includes(skill);
+  const tooled = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'archaeology'].includes(skill);
   return `<div class="modal-hint sgx-xph-note"><b>≈ xp/hr</b>: about what an hour there pays you now${tooled ? ', with auto gather and the best tool you carry' : ''}.`
     + `${XPH_COUNTS[skill] ? ` It counts ${XPH_COUNTS[skill]}.` : ''} Golden hours${tooled ? `, rested XP${skill === 'fishing' || skill === 'hunter' ? ', bait' : ''} and night bonuses` : ' and rested XP'} come on top.</div>`;
 }
@@ -196,6 +198,12 @@ export function placeCards(game, skill) {
         go: `data-grove="${esc(g.id)}"`, map: `data-gmap="${esc(g.id)}"` });
     }
   }
+  if (skill === 'archaeology') {
+    for (const f of digSiteList(game)) {
+      cards.push({ icon: OBJECTS[f.objId]?.catches?.[0]?.id || null, name: f.name, level: f.level, sub: `${esc(f.set)} set · ${regionsText(f.regions, 2)}`,
+        go: `data-go="${esc(f.objId)}"`, map: `data-map="${esc(f.objId)}" data-label="${esc(f.name)}"` });
+    }
+  }
   if (skill === 'diving') {
     for (const f of diveSpotList(game)) {
       cards.push({ icon: OBJECTS[f.objId]?.catches?.[0]?.id || null, name: f.name, level: f.level, sub: `${esc(f.catch)} · ${regionsText(f.regions, 2)}`,
@@ -218,7 +226,7 @@ export function placesHTML(game, skill, fold = {}) {
   const cards = placeCards(game, skill);
   if (!cards.length) return '';
   const lvl = game.skills.level(skill);
-  const title = skill === 'fishing' ? 'Fishing spots' : skill === 'diving' ? 'Reefs' : skill === 'woodcutting' ? 'Groves' : skill === 'mining' ? 'Quarries' : 'Where to go';
+  const title = skill === 'fishing' ? 'Fishing spots' : skill === 'diving' ? 'Reefs' : skill === 'archaeology' ? 'Dig sites and the museum' : skill === 'woodcutting' ? 'Groves' : skill === 'mining' ? 'Quarries' : 'Where to go';
   const html = '<div class="sgx-spots">' + cards.map((c) => {
     const locked = c.level > lvl;
     return `<div class="sgx-spot${locked ? ' locked' : ''}">`
@@ -281,6 +289,10 @@ const HUNTER_START = '<div class="sgx-howto"><b>How to start:</b> you begin with
 const DIVING_START = '<div class="sgx-howto"><b>How to start:</b> walk to the shell shallows on Sentosa Beach and tap the reef: you can free-dive with no gear. '
   + 'Each dive lasts your breath (the blue bar over your head), then you come up for air. A snorkel, dive mask, fins and the rest (the Kampong General Store sells the first five) let you stay down longer.</div>';
 
+// How to start Archaeology: where the first site is, the bench and the museum.
+const ARCHAEOLOGY_START = '<div class="sgx-howto"><b>How to start:</b> the old kampong ruins in the west of Bukit Timah are the first dig site: tap one to dig (no tool needed; a trowel from the Kampong General Store is faster). '
+  + 'Now and then you find an encrusted relic. Clean it at the restoration bench in Chinatown with a soft brush (the General Store sells those too), then give it to Curator Siti beside the bench for her museum.</div>';
+
 /** Firemaking's own start button: light a fire right here, best logs first
  *  (game.startFiremaking), with what you'd burn and what you're missing. */
 export function fireStartHTML(game) {
@@ -305,14 +317,14 @@ export function skillListHTML(game, skill, st) {
   const t = (st.search || '').trim().toLowerCase();
   const lvl = game.skills.level(skill);
   let rows;
-  if (GATHER_SKILLS.includes(skill) && skill !== 'farming') {
+  if (GATHER_SKILLS.includes(skill) && skill !== 'farming' && st.filter !== 'restore') {
     let list = gatherSources().filter((s) => s.skill === skill);
     if (t) list = list.filter((s) => s.name.toLowerCase().includes(t) || s.gives.some((g) => iname(g.id).toLowerCase().includes(t)) || regionsOf(game, s.objIds || []).some((z) => z.toLowerCase().includes(t)));
     if (st.filter === 'now') list = list.filter((s) => s.level <= lvl);
     if (st.filter === 'next') list = list.filter((s) => s.level > lvl);
     rows = list.map((s) => () => sourceRowHTML(game, s, st));
   } else {
-    let list = recipesFor(skill);
+    let list = recipesFor(skill);   // (Archaeology's Restoring chip: its bench's recipes)
     if (t) list = list.filter((r) => recipeLabel(r).toLowerCase().includes(t) || r.inputs.some((i) => iname(i.id).toLowerCase().includes(t)));
     if (st.filter === 'now') list = list.filter((r) => canMake(game, r).ok);
     else if (st.filter === 'level') list = list.filter((r) => r.level <= lvl);
@@ -488,6 +500,7 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
     body.insertAdjacentHTML('beforeend', headHTML(game, sk));
     if (sk === 'hunter') body.insertAdjacentHTML('beforeend', HUNTER_START);
     if (sk === 'diving') body.insertAdjacentHTML('beforeend', DIVING_START);
+    if (sk === 'archaeology') body.insertAdjacentHTML('beforeend', ARCHAEOLOGY_START);
     if (sk === 'firemaking') body.insertAdjacentHTML('beforeend', fireStartHTML(game));
     // The unlock and tool ladders fold away (closed at first): the owner found the
     // gathering guides a long wall to scroll past before the spots and nodes.
@@ -513,6 +526,7 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
     }
     const chips = [{ id: 'all', name: 'All' }];
     if (GATHER_SKILLS.includes(sk) && sk !== 'farming') chips.push({ id: 'now', name: 'Can do now' }, { id: 'next', name: 'Coming up' });
+    if (sk === 'archaeology') chips.push({ id: 'restore', name: 'Restoring' });
     else {
       chips.push({ id: 'now', name: 'Can make now' }, { id: 'level', name: 'Have the level' }, { id: 'next', name: 'Coming up' });
       const kinds = [...new Set(recipesFor(sk).map((r) => r.kind))];
