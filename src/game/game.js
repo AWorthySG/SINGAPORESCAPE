@@ -852,7 +852,10 @@ export class Game {
   pathCfg() {
     // Built once: every path search (hundreds a tick with many monsters) shares it.
     // (A trip that keeps out of danger, whatnext.js safeRouteCfg, has its own while it starts.)
-    return this._routeCfg || this._pathCfg || (this._pathCfg = { width: this.world.width, height: this.world.height, isBlocked: (x, y) => this.world.isBlocked(x, y) });
+    // Its grid is the world's walls, which findPath reads directly (pathfinding.js gridPath).
+    const game = this;
+    return this._routeCfg || this._pathCfg || (this._pathCfg = { width: this.world.width, height: this.world.height, isBlocked: (x, y) => this.world.isBlocked(x, y),
+      get grid() { return game.world.wallGrid?.() || null; } });
   }
 
   // There is no walking or run energy any more: everyone always moves at full
@@ -5672,6 +5675,13 @@ export class Game {
    *  hits to empty yours (see _autoCanBeat), plus about how many attacks that
    *  takes; or null when you can't attack it at all (a caster out of runes). */
   _autoFightTimes(n) {
+    const memo = this._ftMemo;   // (set only during a pick, see _autoPickTarget)
+    if (!memo) return this._fightTimesNow(n);
+    if (!memo.has(n)) memo.set(n, this._fightTimesNow(n));
+    return memo.get(n);
+  }
+
+  _fightTimesNow(n) {
     const cl = this.fightLevel(), def = n.def;
     const mode = this.combatMode(), pm = this.prayerMult();
     let max, sp = null;
@@ -6031,6 +6041,15 @@ export class Game {
   // 40 tiles for a monster near your level, never straying into the Wilderness
   // from safe ground.
   _autoPickTarget() {
+    // Nothing a fight-time estimate reads changes while a pick weighs its
+    // candidates, so each monster's is worked out once per pick (see
+    // _autoFightTimes): weighing a dozen champions asked for every attacker's
+    // again for each one, 200 estimates where 60 would do.
+    this._ftMemo = new Map();
+    try { return this._pickTargetNow(); } finally { this._ftMemo = null; }
+  }
+
+  _pickTargetNow() {
     // Archers and casters clear everything already in reach before moving:
     // in-range targets outrank everything out of range (bosses included).
     const range = this.attackRange();

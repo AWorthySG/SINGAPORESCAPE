@@ -189,6 +189,11 @@ export class World {
     return this.baseBlocked[this.idx(x, y)] === 1;
   }
 
+  /** The walls as a grid for path searches (findPath's cfg.grid, read straight
+   *  off): baseBlocked, unless isBlocked has been swapped on this world (tests
+   *  do), when a search must ask that instead. */
+  wallGrid() { return this.isBlocked === World.prototype.isBlocked ? this.baseBlocked : null; }
+
   // ---------------- Ground items ----------------
   addGroundItem(id, qty, x, y) {
     const gi = { uid: uid(), id, qty, x, y, timer: GROUND_ITEM_LIFETIME_TICKS };

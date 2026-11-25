@@ -199,9 +199,11 @@ export class NPC extends Character {
       const range = this.def.aggroRange || 4;
       const distToPlayer = chebyshev(this.x, this.y, player.x, player.y);
       const distToSpawn = chebyshev(this.x, this.y, this.spawnX, this.spawnY);
-      const tooStrong = !this.def.ignoreLevelGate && (game.fightLevel ? game.fightLevel() : game.skills.combatLevel()) > this.def.level * 2 + 1;
       const atCap = !this.temporary && (game._aggroAttackers || 0) >= MAX_AGGRO_ATTACKERS;
-      if (distToPlayer <= range && distToSpawn <= this.wander + range && !tooStrong && !atCap) {
+      // Too strong for it: your fight level is only asked once it is close
+      // enough to care (every aggressive monster around you asked, every tick).
+      if (distToPlayer <= range && distToSpawn <= this.wander + range && !atCap
+        && (this.def.ignoreLevelGate || !((game.fightLevel ? game.fightLevel() : game.skills.combatLevel()) > this.def.level * 2 + 1))) {
         this.target = player;
         if (!this.temporary) game._aggroAttackers = (game._aggroAttackers || 0) + 1;
       }

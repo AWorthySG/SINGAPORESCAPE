@@ -8,11 +8,9 @@
 // order and every path is the same.
 let HX = new Int32Array(4096), HY = new Int32Array(4096), HF = new Float64Array(4096), HN = 0;
 let popX = 0, popY = 0;
-function hswap(a, b) {
-  const x = HX[a], y = HY[a], f = HF[a];
-  HX[a] = HX[b]; HY[a] = HY[b]; HF[a] = HF[b];
-  HX[b] = x; HY[b] = y; HF[b] = f;
-}
+// (Each sift carries the moving tile in hand and shifts the others past it,
+// writing it once where it stops: the same places a swap at every step ends
+// with, for a third of the writes.)
 function hpush(x, y, f) {
   if (HN === HX.length) {
     const n = HN * 2, nx = new Int32Array(n), ny = new Int32Array(n), nf = new Float64Array(n);
@@ -20,30 +18,31 @@ function hpush(x, y, f) {
     HX = nx; HY = ny; HF = nf;
   }
   let i = HN++;
-  HX[i] = x; HY[i] = y; HF[i] = f;
   while (i > 0) {
     const p = (i - 1) >> 1;
-    if (HF[p] <= HF[i]) break;
-    hswap(p, i);
+    if (HF[p] <= f) break;
+    HX[i] = HX[p]; HY[i] = HY[p]; HF[i] = HF[p];
     i = p;
   }
+  HX[i] = x; HY[i] = y; HF[i] = f;
 }
 /** Take the smallest off the heap into popX / popY. */
 function hpop() {
   popX = HX[0]; popY = HY[0];
   HN--;
   if (HN > 0) {
-    HX[0] = HX[HN]; HY[0] = HY[HN]; HF[0] = HF[HN];
+    const x = HX[HN], y = HY[HN], f = HF[HN];
     let i = 0;
     for (;;) {
       const l = i * 2 + 1, r = l + 1;
-      let s = i;
-      if (l < HN && HF[l] < HF[s]) s = l;
-      if (r < HN && HF[r] < HF[s]) s = r;
+      let s = i, sf = f;
+      if (l < HN && HF[l] < sf) { s = l; sf = HF[l]; }
+      if (r < HN && HF[r] < sf) s = r;
       if (s === i) break;
-      hswap(s, i);
+      HX[i] = HX[s]; HY[i] = HY[s]; HF[i] = HF[s];
       i = s;
     }
+    HX[i] = x; HY[i] = y; HF[i] = f;
   }
 }
 
@@ -71,6 +70,8 @@ function scratch(n) {
  * @param {number} cfg.width
  * @param {number} cfg.height
  * @param {(x:number,y:number)=>boolean} cfg.isBlocked
+ * @param {Uint8Array|null} [cfg.grid] the same walls as isBlocked, one byte a
+ *   tile (1 = blocked, row by row), when there is such a grid: searched directly
  * @param {{x:number,y:number}} start
  * @param {{x:number,y:number}} goal
  * @param {object} [opts]
@@ -82,6 +83,11 @@ export function findPath(cfg, start, goal, opts = {}) {
   const { width, height, isBlocked } = cfg;
   const reachAdjacent = !!opts.reachAdjacent;
   const maxNodes = opts.maxNodes ?? 20000;
+  // The world's own walls: the same search, reading the grid straight off.
+  const grid = cfg.grid;
+  if (grid && grid.length === width * height && isTile(start, width, height) && Number.isInteger(goal.x) && Number.isInteger(goal.y)) {
+    return gridPath(grid, width, height, start, goal, reachAdjacent, maxNodes);
+  }
 
   const inB = (x, y) => x >= 0 && x < width && y >= 0 && y < height;
   const idx = (x, y) => y * width + x;
@@ -126,6 +132,72 @@ export function findPath(cfg, start, goal, opts = {}) {
         seen[ni] = gen; g[ni] = tentative;
         cameX[ni] = cx; cameY[ni] = cy;
         hpush(nx, ny, tentative + cheb(nx, ny));
+      }
+    }
+  }
+  return [];
+}
+
+const DXS = Int8Array.from(DIRS, (d) => d[0]), DYS = Int8Array.from(DIRS, (d) => d[1]), OFF = new Int32Array(8);
+const isTile = (t, w, h) => Number.isInteger(t.x) && Number.isInteger(t.y) && t.x >= 0 && t.y >= 0 && t.x < w && t.y < h;
+
+/** findPath over a grid of walls (1 = blocked). Searches exactly as findPath
+ *  does, tile for tile (the same neighbours in the same order, the same
+ *  costs, the same heap), so it finds the very same path; it only reads each
+ *  wall from the grid instead of asking isBlocked up to sixteen times a tile.
+ *  Off the map counts as a wall, as World.isBlocked has it. Every search a
+ *  crowd makes (chases, wandering, auto battle's route checks, quest trips)
+ *  comes through here: on a phone the longest took tens of milliseconds. */
+function gridPath(grid, width, height, start, goal, reachAdjacent, maxNodes) {
+  const gx = goal.x, gy = goal.y;
+  const sc = Math.max(Math.abs(start.x - gx), Math.abs(start.y - gy));
+  if (reachAdjacent ? sc <= 1 : sc === 0) return [];
+  if (!reachAdjacent && (gx < 0 || gy < 0 || gx >= width || gy >= height || grid[gy * width + gx] === 1)) return [];
+
+  const { cameX, cameY, g, seen, closed } = scratch(width * height);
+  const gen = GEN;
+  HN = 0;
+  if (HX.length > 65536) { HX = new Int32Array(4096); HY = new Int32Array(4096); HF = new Float64Array(4096); }
+  const W = width, H = height;
+  const si = start.y * W + start.x;
+  seen[si] = gen; g[si] = 0; cameX[si] = -1; cameY[si] = -1;
+  hpush(start.x, start.y, sc);
+
+  let processed = 0;
+  // Each side's and corner's step: dx, dy and the index offset, in DIRS' order.
+  const off = OFF; off[0] = 1; off[1] = -1; off[2] = W; off[3] = -W; off[4] = W + 1; off[5] = -W + 1; off[6] = W - 1; off[7] = -W - 1;
+  while (HN) {
+    if (++processed > maxNodes) break;
+    hpop();
+    const cx = popX, cy = popY;
+    const ci = cy * W + cx;
+    if (closed[ci] === gen) continue;
+    closed[ci] = gen;
+    const dx = cx > gx ? cx - gx : gx - cx, dy = cy > gy ? cy - gy : gy - cy;
+    if (reachAdjacent ? (dx <= 1 && dy <= 1) : (dx === 0 && dy === 0)) return reconstruct(cameX, cameY, W, start, { x: cx, y: cy });
+
+    // The open ways out, a bit each: the four sides, then a corner only when
+    // both sides beside it are open too (no corner cutting).
+    let open = 0;
+    if (cx + 1 < W && grid[ci + 1] !== 1) open |= 1;
+    if (cx > 0 && grid[ci - 1] !== 1) open |= 2;
+    if (cy + 1 < H && grid[ci + W] !== 1) open |= 4;
+    if (cy > 0 && grid[ci - W] !== 1) open |= 8;
+    if ((open & 5) === 5 && grid[ci + W + 1] !== 1) open |= 16;
+    if ((open & 9) === 9 && grid[ci - W + 1] !== 1) open |= 32;
+    if ((open & 6) === 6 && grid[ci + W - 1] !== 1) open |= 64;
+    if ((open & 10) === 10 && grid[ci - W - 1] !== 1) open |= 128;
+    const gn = g[ci] + 1;
+    for (let k = 0; k < 8; k++) {
+      if (!(open & (1 << k))) continue;
+      const ni = ci + off[k];
+      if (closed[ni] === gen) continue;
+      if (seen[ni] !== gen || gn < g[ni]) {
+        const nx = cx + DXS[k], ny = cy + DYS[k];
+        seen[ni] = gen; g[ni] = gn;
+        cameX[ni] = cx; cameY[ni] = cy;
+        const ex = nx > gx ? nx - gx : gx - nx, ey = ny > gy ? ny - gy : gy - ny;
+        hpush(nx, ny, gn + (ex > ey ? ex : ey));
       }
     }
   }
