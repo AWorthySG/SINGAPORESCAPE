@@ -12,7 +12,7 @@ import {
   swingBeats, strikeLead, WIND_END, STRIKE_AT, HOLD_END,
   turnWidth, turnHop, TURN_MIN_W, lookAround, LOOK_MS, breath,
 } from '../src/render/motionkit.js';
-import { deathPose, telegraphCrouch, CROUCH_MS } from '../src/render/creatureanim.js';
+import { deathPose, telegraphCrouch, CROUCH_MS, fidget, fidgetLand, FIDGET_MS, LAND_MS } from '../src/render/creatureanim.js';
 import { Character } from '../src/game/character.js';
 import { Game } from '../src/game/game.js';
 import { Renderer } from '../src/render/renderer.js';
@@ -84,6 +84,19 @@ test('townsfolk glance about now and then, each on their own clock, turning smoo
   assert.notEqual(when(12.3), when(612.9));
   assert.ok(LOOK_MS > 500);
   assert.ok(Math.abs(breath(1000, seed)) <= 0.0141, 'a gentle breath');
+});
+
+test('an idle hop lands with a squash straight after it, never during it', () => {
+  const seed = 77.7;
+  let hopEnd = -1, landSeen = false;
+  for (let t = 0; t < 12000; t += 4) {
+    const h = fidget(t, seed), l = fidgetLand(t, seed);
+    assert.ok(!(h > 0 && l > 0), 'one or the other');
+    if (h > 0) hopEnd = t;
+    if (l > 0) { landSeen = true; assert.ok(t - hopEnd <= LAND_MS + 8, 'right after the hop'); }
+  }
+  assert.ok(landSeen && FIDGET_MS > 0);
+  assert.ok(worstStep((u) => fidgetLand(u * 12000, seed), 3000) < 0.2, 'the squash eases in and out');
 });
 
 test('a felled monster skids back as it falls and thumps down, with no jumps', () => {

@@ -43,6 +43,14 @@ export function fidget(t, seed) {
   const u = ((t + seed * 53) % every) / FIDGET_MS;
   return u < 1 ? Math.sin(u * Math.PI) : 0;
 }
+/** ...and it lands from that hop with a little squash (0..1 over the
+ *  LAND_MS after the hop), rather than stopping dead on the ground. */
+export const LAND_MS = 130;
+export function fidgetLand(t, seed) {
+  const every = 5200 + (seed % 37) * 80;
+  const u = ((t + seed * 53) % every - FIDGET_MS) / LAND_MS;
+  return u > 0 && u < 1 ? Math.sin(u * Math.PI) : 0;
+}
 
 // ---------------- Struck ----------------
 /** The white flash over a struck body, from its hurt timer (200ms counting

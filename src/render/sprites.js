@@ -11,7 +11,7 @@ import { drawHeroBack } from './heroAnimArt.js';
 import { heroLit, bakeRim } from './herolight.js';
 import { poseBlender } from './poseBlend.js';
 import { swingBeats, turnWidth, turnHop, lookAround, breath } from './motionkit.js';
-import { animSeed, animTempo, stepLift, stepRock, fidget, hitFlash, flinch, telegraphGlow, telegraphShake, telegraphCrouch } from './creatureanim.js';
+import { animSeed, animTempo, stepLift, stepRock, fidget, hitFlash, flinch, telegraphGlow, telegraphShake, telegraphCrouch, fidgetLand } from './creatureanim.js';
 import { CREATURE_RIGS, TOWN_IDLE, bossRig, stride, gaitPhase } from './creatureRigs.js';
 import { REGION_GIVERS } from '../data/regionQuests.js';
 import { RESIDENTS } from '../data/consequences.js';
@@ -301,6 +301,7 @@ function creaturePose(c, opts, t, seed) {
   // Standing about, now and then a little hop of its own (fliers already bob).
   const fg = !floats && ak < 0 && !opts.calm ? fidget(t, seed) * (1 - m) : 0;
   if (fg > 0) { dy -= fg * 1.8; sy += fg * 0.045; sx -= fg * 0.03; }
+  else if (!floats && ak < 0 && !opts.calm && m < 0.99) { const ld = fidgetLand(t, seed) * (1 - m); sy -= ld * 0.05; sx += ld * 0.035; }   // and squashes as it lands
   const a = _lunge;
   a.dx = 0; a.rot = 0; a.sx = 0; a.sy = 0;
   const b = swingBeats(ak);
