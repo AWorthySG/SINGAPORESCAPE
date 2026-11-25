@@ -1,6 +1,6 @@
 import { TILE } from '../config.js';
 import { DEPTH_TILT, relV, rowScaleRel } from './projection.js';
-import { worldArtBox, SHADOW_RGB } from './sprites.js';
+import { worldArtBox, worldArtMax, SHADOW_RGB } from './sprites.js';
 import { clamp01, smooth } from './motionkit.js';
 
 // The depth view (Settings > Depth view, on by default): the flat world seen
@@ -34,6 +34,7 @@ const HAZE_TOP = 0.34;     // the haze reaches this far down the screen
 const SHADOW_MIN_H = 40;   // world px: shorter pictures (flowers, bushes, rocks) keep their contact shadow only
 const SIL_MAX = 112;       // px: outlines are baked at most this tall (they are soft anyway)
 const SIL_PAD = 4;         // px of blur margin round a baked outline
+const ART_AHEAD = 12 * TILE;   // world px: a landmark's picture is asked for this far ahead of its shadow reaching the screen
 
 /** The tilt the view should have now: 0 (flat) when the setting is off, in
  *  low graphics or without a screen to draw on; else the default, leaning in
@@ -221,6 +222,14 @@ export class DepthView {
     g.globalAlpha = sv.alpha;
     // (bx, by): the middle of the picture's base, less `sink` px (its foot).
     const one = (o, bx, by, sink) => {
+      // Every landmark on the island comes through here: one whose shadow
+      // couldn't come near the screen even at its largest is passed over
+      // before its picture is asked for (else they all load at start-up).
+      // Those a short walk away are still asked for, so none pops in.
+      const m = worldArtMax(o, time);
+      if (!m) return;
+      const far = m[1] * sv.len + m[0] + ART_AHEAD, fy = by + m[2] - sink;
+      if (bx < -far || bx > vw + far || fy < -far || fy > vh + m[1] + far) return;
       const b = worldArtBox(o, time, box);
       if (!b || b.h < SHADOW_MIN_H) return;
       by += b.foot - sink;

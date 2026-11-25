@@ -53,8 +53,7 @@ export class PhotoMode {
     this.game = game; this.canvas = canvas;
     this.state = 'off';   // off | framing | preview
     this.blob = null; this.url = null;
-    this.logo = null;
-    if (typeof Image === 'function') { this.logo = new Image(); this.logo.src = 'assets/mascot-login.webp'; }
+    this.logo = null;   // the mascot for the postcard's corner: asked for when postcard mode first opens, not at start-up
     this._build();
   }
 
@@ -112,6 +111,7 @@ export class PhotoMode {
   open() { this.frame(); }
 
   frame() {
+    if (!this.logo && typeof Image === 'function') { this.logo = new Image(); this.logo.src = 'assets/mascot-login.webp'; }
     this.state = 'framing';
     this.game.photoMode = true;   // your own name shows over your head for the picture (renderer.js)
     document.body.classList.add('photo-on');

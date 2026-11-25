@@ -52,6 +52,25 @@ export function countUp(el, key, to, fmt = (n) => String(n), from) {
   requestAnimationFrame(step);
 }
 
+/** A copied element's canvases come out blank (cloneNode copies no pixels):
+ *  paint each copy from its original, so a closing window's map or hero
+ *  stages fade out as they were rather than as empty cream. At most `max`. */
+export function copyCanvases(from, to, max = 24) {
+  if (!from?.querySelectorAll || !to?.querySelectorAll) return 0;
+  const a = from.querySelectorAll('canvas'), b = to.querySelectorAll('canvas');
+  let n = 0;
+  for (let i = 0; i < a.length && i < b.length && n < max; i++) {
+    const src = a[i], dst = b[i];
+    if (!src.width || !src.height) continue;
+    try {
+      dst.width = src.width; dst.height = src.height;
+      dst.getContext('2d')?.drawImage(src, 0, 0);
+      n++;
+    } catch { /* a canvas that can't be read: the copy stays blank */ }
+  }
+  return n;
+}
+
 /** A window closing fades and sinks away. The real window hides at once (so
  *  nothing about opening the next one changes); a still copy of the dimmed
  *  backdrop and window plays the exit and removes itself. The copy sits just
@@ -64,6 +83,7 @@ export function playCloseGhost(overlay) {
   ghost.className = 'modal-ghost';
   ghost.setAttribute('aria-hidden', 'true');
   ghost.inert = true;
+  copyCanvases(overlay, ghost);
   overlay.after(ghost);
   ghost.addEventListener('animationend', (e) => { if (e.target === ghost) ghost.remove(); });
   setTimeout(() => ghost.remove(), 400);   // in case the animation never runs
