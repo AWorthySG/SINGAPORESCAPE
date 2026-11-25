@@ -43,9 +43,9 @@ export const CONTRACT_COUNT = 3;
 export const CONTRACT_STREAK_STEP = 0.1;   // each full day in a row: +10% contract pay, up to +100%
 
 // Which skill each gathering action trains.
-export const GATHER_SKILL = { woodcut: 'woodcutting', mine: 'mining', fish: 'fishing', hunt: 'hunter' };
+export const GATHER_SKILL = { woodcut: 'woodcutting', mine: 'mining', fish: 'fishing', hunt: 'hunter', dive: 'diving' };
 export const CONTRACT_SKILLS = ['woodcutting', 'mining', 'fishing', 'hunter'];
-const VERB = { woodcutting: 'Chop', mining: 'Mine', fishing: 'Fish', hunter: 'Check' };
+const VERB = { woodcutting: 'Chop', mining: 'Mine', fishing: 'Fish', hunter: 'Check', diving: 'Dive' };
 const skillName = (id) => SKILL_BY_ID[id]?.name || id;
 
 /** A node's entry level (a fishing spot's lowest catch). */
@@ -179,6 +179,7 @@ export class Gathering {
       item = GEM_TABLE.find((e) => (r -= e.weight) < 0)?.id || GEM_TABLE[0].id;
     } else if (skill === 'fishing') item = 'pearl';
     else if (skill === 'hunter') { item = 'feather'; qty = 10 + Math.floor(this.rand() * 21); }
+    else if (skill === 'diving') { item = 'seed_pearl'; qty = 1 + Math.floor(this.rand() * 3); }
     const xp = Math.round(nodeXp(def, g.skills.level(skill)) * LUCKY_XP_MULT);
     g.inventory.add('coins', coins);
     if (item) g.inventory.add(item, qty);

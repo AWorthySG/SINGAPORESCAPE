@@ -7,6 +7,7 @@ import { STATIONS } from './transport.js';
 import { placeLandmarks } from './landmarks.js';
 import { placeGroves, QUARRY_PLAN } from './groves.js';
 import { assignFishSpots } from './fishspots.js';
+import { placeDiveSpots } from './divereefs.js';
 import { placeBestiary } from './bestiaryPlace.js';
 
 // How many of each monster kind populate the world.
@@ -1481,6 +1482,12 @@ export function buildWorld({ groves: withGroves = true } = {}) {
   // Then the quarries, patches thick with one kind of rock (groves.js QUARRY_PLAN),
   // the same way: after the groves, so none of them moves. They share the list.
   if (withGroves) groves.push(...placeGroves(groveCtx, QUARRY_PLAN, 'quarry'));
+
+  // ================= Dive reefs =================
+  // Diving's spots (divereefs.js), on shore water, after the groves and quarries
+  // and from their own random stream, so nothing placed before them moves.
+  // They come with the groves (tests build the world without both to check that).
+  if (withGroves) placeDiveSpots({ T, width: W, height: H, get, inB, isFree, placeObj, inTown, objects, start: { x: 58, y: 55 }, rand: mulberry32(20261125) });
 
   return {
     width: W,

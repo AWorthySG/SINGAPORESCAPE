@@ -813,7 +813,7 @@ export const FISHING = {
 const FISH_WAIT_MAX = 2600;
 const AGILITY_CLIP = { agility_balance: 'agility_balance', agility_net: 'agility_climb', agility_rope: 'agility_rope', agility_ledge: 'agility_ledge', agility_zip: 'agility_zip' };
 // Every player action that is a life skill (the rest: walking, talking, shops).
-export const SKILL_ACTION_TYPES = ['woodcut', 'mine', 'fish', 'cook', 'cookdish', 'smelt', 'smith', 'craft', 'hunt',
+export const SKILL_ACTION_TYPES = ['woodcut', 'mine', 'fish', 'cook', 'cookdish', 'smelt', 'smith', 'craft', 'hunt', 'dive',
   'recipe', 'firemake', 'farm', 'thieve', 'stall', 'agility', 'pray', 'rest', 'bury', 'offer'];
 /** The clip for a player action, or null for anything that isn't a life skill. */
 export function actionClipId(a) {
@@ -828,6 +828,7 @@ export function actionClipId(a) {
     case 'smith': return 'smith';
     case 'craft': return 'craft';
     case 'hunt': return 'hunt';
+    case 'dive': return 'hunt';   // crouched at the water's edge, reaching down to the reef
     case 'recipe': return a.skill === 'herblore' ? 'herb' : 'fletch';
     case 'firemake': return 'firemake';
     case 'farm': {

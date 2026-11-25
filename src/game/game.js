@@ -56,6 +56,7 @@ import {
   resolveSmelt, smeltBatch, resolveSmith, resolveFiremake, resolveCraft, resolveDish,
   resolveHunt, resolveRecipe,
 } from './skilling.js';
+import { resolveDive } from './diving.js';
 import { installSkillUnlocks, runSkillAction, extraCrop, growTicks } from './skillunlocks.js';
 import { Home } from './home.js';
 import { CROP_BY_SEED, cropFor, POTIONS, greenFingersChance } from '../data/trades.js';
@@ -218,7 +219,7 @@ const RIFLE_DMG = RANGED_TYPE_DMG.rifle;
 // many times their own level.
 const BOSS_SCALE_MAX = 100;
 // Actions that are a life skill at work: being attacked doesn't pull you off them.
-const LIFE_SKILL_ACTIONS = new Set(['woodcut', 'mine', 'fish', 'hunt', 'farm', 'cook', 'cookdish', 'craft', 'smelt', 'smith', 'agility', 'thieve', 'stall']);
+const LIFE_SKILL_ACTIONS = new Set(['woodcut', 'mine', 'fish', 'hunt', 'dive', 'farm', 'cook', 'cookdish', 'craft', 'smelt', 'smith', 'agility', 'thieve', 'stall']);
 // Agility XP for slipping a monster's blow: this many times its max hit (about
 // what landing an average hit of that size would give a fighting skill).
 export const DODGE_AGILITY_XP = 2;
@@ -437,7 +438,7 @@ export const GATHER_SPEED = 1.25;
 const MAKE_FAST = new Set(['cook', 'cookdish', 'smith', 'craft', 'recipe']);
 // One item of each instant make (makeBatch in autoprocess.js runs the batch).
 const MAKE_RESOLVE = { cook: resolveCook, cookdish: resolveDish, smith: resolveSmith, craft: resolveCraft, recipe: resolveRecipe };
-const GATHER_FAST = new Set(['woodcut', 'mine', 'fish', 'hunt', ...MAKE_FAST]);
+const GATHER_FAST = new Set(['woodcut', 'mine', 'fish', 'hunt', 'dive', ...MAKE_FAST]);
 // Thieving's numbers (Game.pickpocket, Game.stealFromStall), shared with the
 // skill guide's XP an hour (xprate.js) so the two can't drift apart.
 /** XP an ordinary pocket pays: it grows with level only up to 99 (past that the life-skill rate in addXp takes over). */
@@ -1511,6 +1512,7 @@ export class Game {
         return false;
       }));
       case 'hunt': return this._tickContinuous(a, a.obj, () => resolveHunt(this, a));
+      case 'dive': return this._tickContinuous(a, a.obj, () => resolveDive(this, a));   // with a pause for air (diving.js)
       case 'fletchmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('fletching', a.obj));
       case 'herbmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('herblore', a.obj));
       case 'farm': return this._tickArrival(a, a.obj, true, () => { this.tendPatch(a.obj, a.seed); if (this.autoGather) { this._autoLife = { kind: 'farm' }; this.autoGatherBest = null; } });
@@ -1570,7 +1572,7 @@ export class Game {
     }
     this.player.stop();
     // Count the bag before and after so every item gathered pops up over you.
-    const gather = GATHER_ACTIONS.has(a.type) || a.type === 'hunt';
+    const gather = GATHER_ACTIONS.has(a.type) || a.type === 'hunt' || a.type === 'dive';
     const before = gather ? this._bagCounts() : null;
     // With the skill's unlocks (skillunlocks.js); an instant make batch applies them per item itself.
     let going = MAKE_FAST.has(a.type) ? resolver() : runSkillAction(this, a, resolver);
@@ -6241,6 +6243,7 @@ export class Game {
       case 'anvil': return this.beginAction({ type: 'smithmenu', obj, target: tgt }, tgt, true);
       case 'craft': return this.beginAction({ type: 'craftmenu', obj, target: tgt }, tgt, true);
       case 'hunt': return this.beginAction({ type: 'hunt', obj }, tgt, true);
+      case 'dive': return this.beginAction({ type: 'dive', obj }, tgt, true);
       case 'fletch': return this.beginAction({ type: 'fletchmenu', obj, target: tgt }, tgt, true);
       case 'herblore': return this.beginAction({ type: 'herbmenu', obj, target: tgt }, tgt, true);
       case 'farm': return this.beginAction({ type: 'farm', obj, target: tgt }, tgt, true);
@@ -7482,7 +7485,7 @@ export class Game {
     // Fishing spots never run dry, so a catch would go on for ever once the
     // lesson has enough: stop gathering as soon as the step wants something else.
     const a = p.action;
-    if (a && (GATHER_ACTIONS.has(a.type) || a.type === 'hunt') && (g.kind !== 'obj' || a.obj?.objId !== g.objId)) { p.clearAction(); p.stop(); }
+    if (a && (GATHER_ACTIONS.has(a.type) || a.type === 'hunt' || a.type === 'dive') && (g.kind !== 'obj' || a.obj?.objId !== g.objId)) { p.clearAction(); p.stop(); }
     if (p.action || p.isMoving) return;               // busy: wait until idle
     const name = id === 'slayer' ? 'Slayer' : QUESTS.find((d) => d.id === id)?.name || id;
     // (A Slayer task's text counts down every kill; keep the step steady while hunting.)

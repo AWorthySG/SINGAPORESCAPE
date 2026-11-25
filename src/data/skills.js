@@ -45,6 +45,8 @@ export const SKILLS = [
     group: 'making', desc: 'Brew farmed herbs into potions at an apothecary table.' },
   { id: 'fletching', name: 'Fletching', icon: '🏹', color: '#9a7a3a',
     group: 'making', desc: 'Make arrows, bows, staves and wands at a fletching bench. Needs a knife.' },
+  { id: 'diving', name: 'Diving', icon: '🤿', color: '#2a8ac0',
+    group: 'gathering', desc: 'Dive the reefs off the coast for shells, coral, pearls and sunken treasure. Dive gear lets you hold your breath longer.' },
 ];
 
 // Skills panel sections, in display order.

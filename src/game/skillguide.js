@@ -22,6 +22,7 @@ import { LIFE_STAGES, LIFE_STAGES_ADV, LIFE_STAGES_WILD } from '../data/lifeskil
 import { BONE_IDS, boneXp, ALTAR_XP_MULT } from '../data/bones.js';
 import { COOKING, GEM_TABLE, HERB_FORAGE, FISH_TOOL_NAME, TREE_LOGS_MIN, TREE_LOGS_MAX } from './skilling.js';
 import { CODEX_IDS, dropChances, codexHabitats } from './codex.js';
+import { DIVE_SPOT_BY_ID, PEARL_GRADES } from '../data/diving.js';
 import { CULL_GOODS, TOKEN_SHOP } from './culling.js';
 import { materialKind, materialPoints, materialFeedXp } from './materials.js';
 import { goodsKind, goodsPoints } from './offerings.js';
@@ -37,6 +38,7 @@ export const SKILL_GUIDES = {
   mining: { use: 'Ore is smelted into bars for Smithing, and gems and gold go to Crafting. From level 100, rare veins in the far regions give the endgame ores. Each rock holds 10 to 20 ores, and about one swing in 20 breaks the whole seam free at once: ten times the ore left in it, with XP for every ore.' },
   fishing: { use: 'Raw fish are cooked into food that heals you in a fight. Each kind of spot holds one fish, so where you fish picks the fish: the list below says where each is. From level 100, rare spots in the far regions give the endgame fish. Now and then a school of fish (a dark swirl on the water) visits a spot near you for half a minute: fish there and you may net the whole school, 250 to 751 fish at once. And at any spot, about one catch in 20 turns out to be a smaller school of the fish you hooked: 10 to 140 at once.' },
   hunter: { use: 'Pelts, skins and hides become armour; meat is cooked into food. From level 100, hunting grounds in the far regions give the catches for the endgame brews. About one catch in 20 springs the trap on a whole flock, nest or herd at once: 10 to 140 catches, with XP for every one.' },
+  diving: { use: 'Dive the reefs from the shore for shells, sea glass and coral (shops buy them), and pearls from the oyster beds for pearl jewellery. A dive lasts your breath, then you come up for air: your level and dive gear (a snorkel, a mask, fins and on up) let you stay down longer. From level 100, reefs in the far regions. About one dive in 20 finds a whole reef bed at once: 10 to 140 catches, with XP for each, and now and then a sunken chest.' },
   farming: { use: 'Crops are herbs for Herblore and ingredients for hawker dishes. The farm shop sells every seed, the endgame ones too; Gardens by the Bay has more patches. About one harvest in 20 is a record harvest: the patch gives 10 to 140 times its yield again, with XP for every crop.', where: ['farm_patch'] },
   cooking: { use: 'Food heals you in a fight; better food heals more. From level 100 the endgame fish cook into dishes that heal a share of your life, and some boost you too.', where: ['range', 'fire'] },
   smithing: { use: 'Smelt ore into bars at a furnace, then forge weapons, armour and upgrade stones at an anvil. From level 100 you can forge the obsidian to eternal gear.', where: ['furnace', 'anvil'] },
@@ -56,12 +58,12 @@ export const SKILL_GUIDES = {
   slayer: { use: 'Tasks from Slayer Master Rajan. On task you hit harder and sometimes get a second helping of loot; points buy rewards.', combat: true },
 };
 export const GUIDE_SKILLS = Object.keys(SKILL_GUIDES);
-export const GATHER_SKILLS = ['woodcutting', 'mining', 'fishing', 'hunter', 'farming', 'thieving', 'agility'];
+export const GATHER_SKILLS = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'farming', 'thieving', 'agility'];
 export const MAKE_SKILLS = ['smithing', 'cooking', 'crafting', 'fletching', 'herblore', 'firemaking'];
 export const COMBAT_SKILLS = ['attack', 'defence', 'ranged', 'magic', 'hitpoints', 'prayer', 'slayer'];
 
 // Tool tags, as the gathering and making code checks them (game.hasTool).
-export const TOOL_NAMES = { axe: 'an axe', pickaxe: 'a pickaxe', hammer: 'a hammer', knife: 'a knife', chisel: 'a chisel', tinderbox: 'a tinderbox', snare: 'a hunting snare', ...Object.fromEntries(Object.entries(FISH_TOOL_NAME).map(([k, v]) => [k, `a ${v}`])) };
+export const TOOL_NAMES = { axe: 'an axe', pickaxe: 'a pickaxe', hammer: 'a hammer', knife: 'a knife', chisel: 'a chisel', tinderbox: 'a tinderbox', snare: 'a hunting snare', divegear: 'dive gear', ...Object.fromEntries(Object.entries(FISH_TOOL_NAME).map(([k, v]) => [k, `a ${v}`])) };
 // What a bird's nest holds (Game.openNest rolls the same table).
 const NEST_TABLE = [{ id: 'coins', weight: 50 }, { id: 'sapphire', weight: 18 }, { id: 'emerald', weight: 12 }, { id: 'ruby', weight: 7 }, { id: 'diamond', weight: 3 }];
 
@@ -94,6 +96,12 @@ export function gatherSources() {
         add({ key: `${id}:${c.id}`, skill: 'fishing', name: name(c.id), spot: d.name, level: c.level, xp: c.xp, tool: d.tool, respawn: 0, objIds: [id],
           gives: [{ id: c.id, chance: all.length > 1 ? share(all, c) : 1 }], note: `${d.name}${d.night ? ' (+25% XP at night)' : ''}${all.length > 1 ? ': the share is of all its catches once you can land them all' : ''}` });
       }
+    } else if (d.type === 'dive') {
+      // A reef holds one catch, as a fishing spot does; oyster beds give pearls too (diving.js).
+      const c = d.catches[0], p = DIVE_SPOT_BY_ID[id]?.pearl;
+      const pearls = p ? PEARL_GRADES.map((pid, i) => ({ id: pid, chance: p.chance * (p.w[i] || 0) / p.w.reduce((a, b) => a + b, 0), rare: true })).filter((g) => g.chance > 0) : [];
+      add({ key: id, skill: 'diving', name: name(c.id), spot: d.name, level: c.level, xp: c.xp, respawn: 0, objIds: [id],   // (no tool needed: you can free-dive)
+        gives: [{ id: c.id, chance: 1 }, ...pearls], note: `${d.name}${d.night ? ' (+25% XP at night)' : ''}` });
     } else if (d.type === 'stall') {
       add({ key: id, skill: 'thieving', name: d.name, level: d.level, xp: d.xp, respawn: d.respawn, objIds: [id],
         gives: d.loot.map((l) => ({ id: l.id, min: l.min || 1, max: l.max || 1, chance: share(d.loot, l) })), note: d.sure ? `${Math.round(d.sure * 100)}% of tries succeed` : '' });
@@ -177,7 +185,7 @@ export function guideEntries(skill) {
     for (const s of gatherSources()) {
       if (s.skill !== skill) continue;
       let detail;
-      if (skill === 'fishing') detail = s.note;
+      if (skill === 'fishing' || skill === 'diving') detail = s.note;
       else if (skill === 'agility') detail = s.note;
       else if (skill === 'thieving') detail = s.npcId ? `Pickpocket: ${s.gives.map((g) => name(g.id)).join(', ')}` : `Loot: ${[givesText(s.gives), 'coins'].filter(Boolean).join(', ')}`;
       else detail = `${skill === 'hunter' ? 'Catches' : 'Gives'} ${givesText(s.gives)}${s.note.includes('night') ? ' (+25% XP at night)' : ''}`;
@@ -250,6 +258,20 @@ export function fishSpotList(game) {
     const fish = name(c.id).replace(/^Raw /, ''), tool = FISH_TOOL_NAME[d.tool] || d.tool;
     return { objId, name: d.name, fish, level: c.level, tool, regions, count: n,
       text: `${d.name}: ${fish.toLowerCase()} (level ${c.level}, ${tool}), ${regions.join(', ')}` };
+  }).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+}
+/** The world's reefs, one kind to each catch (diving.js), lowest first, for the
+ *  Diving guide: [{ objId, name, catch, level, regions, count, text }]. */
+export function diveSpotList(game) {
+  const count = new Map();
+  for (const o of game?.world?.objects || []) {
+    if (o.worldEvent || OBJECTS[o.objId]?.type !== 'dive') continue;
+    count.set(o.objId, (count.get(o.objId) || 0) + 1);
+  }
+  return [...count].map(([objId, n]) => {
+    const d = OBJECTS[objId], c = d.catches[0], regions = regionsOf(game, [objId]), what = name(c.id);
+    return { objId, name: d.name, catch: what, level: c.level, regions, count: n,
+      text: `${d.name}: ${what.toLowerCase()} (level ${c.level}), ${regions.join(', ')}` };
   }).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
 }
 /** Regions for several object kinds together, without repeats. */
@@ -352,7 +374,7 @@ export function itemOtherUses(id) {
     add('wear', `Wear (${it.equip.slot}${req ? `, needs ${req}` : ''})`);
   }
   if (it.tool) {
-    const skills = { axe: 'Woodcutting', pickaxe: 'Mining', hammer: 'Smithing at an anvil', knife: 'Fletching', chisel: 'Crafting gems', tinderbox: 'Firemaking', snare: 'Hunter' }[it.tool] || 'Fishing';
+    const skills = { axe: 'Woodcutting', pickaxe: 'Mining', hammer: 'Smithing at an anvil', knife: 'Fletching', chisel: 'Crafting gems', tinderbox: 'Firemaking', snare: 'Hunter', divegear: 'Diving (more breath)' }[it.tool] || 'Fishing';
     add('tool', `Tool for ${skills}`);
   }
   const spells = SPELLS.filter((s) => s.runes?.[id]);

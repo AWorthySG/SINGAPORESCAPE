@@ -54,6 +54,8 @@ import { FISH_SCHOOL, WILD_STOCK, SCHOOL_GAP, SCHOOL_HAUL, SCHOOL_NEAR, SCHOOL_A
 import { LEVEL_HAUL, levelHaulPct } from './levelhaul.js';
 import { GATHER_FUN, STREAK_GAP_TICKS, streakXpMult, luckyChance, LUCKY_XP_MULT, nodeXp } from './gathering.js';
 import { TOOL_NAMES } from './skillguide.js';
+import { diveBreath } from './diving.js';
+import { SURFACE_TICKS, diveUptime } from '../data/diving.js';
 
 export const TICKS_AN_HOUR = 3600000 / TICK_MS;
 // A failed theft costs the try and the stun after it (Game.stealFromStall).
@@ -317,7 +319,7 @@ export function xpRate(game, s) {
     const p = { rolls, whole, schools, haul: gatherTicks * haul * s.xp, finds: gatherTicks * st.lucky * findXp + gems };
     const raw = Object.values(p).reduce((a, b) => a + b, 0);
     const parts = Object.fromEntries(Object.entries(p).map(([k, v]) => [k, raw ? v / raw : 0]));
-    const counted = [whole && `whole ${s.skill === 'fishing' ? 'schools' : s.skill === 'mining' ? 'seams' : s.skill === 'hunter' ? 'flocks' : 'trees'} at once (${pct(parts.whole)} of it)`,
+    const counted = [whole && `whole ${s.skill === 'fishing' ? 'schools' : s.skill === 'mining' ? 'seams' : s.skill === 'hunter' ? 'flocks' : s.skill === 'diving' ? 'reef beds' : 'trees'} at once (${pct(parts.whole)} of it)`,
       schools && `passing schools (${pct(parts.schools)})`, ...also, haul && 'your level\'s bonus haul', gems && 'gems', st.lucky && 'lucky finds',
       st.mult > 1 && `a gathering streak (+${Math.round((st.mult - 1) * 100)}%)`].filter(Boolean);
     return { perHour: raw * st.mult * rate * TICKS_AN_HOUR, parts,
@@ -343,6 +345,17 @@ export function xpRate(game, s) {
     const passing = FISH_SCHOOL.on ? schoolShare(game, id, lvl) * schoolSize(lvl, t) / ((SCHOOL_GAP[0] + SCHOOL_GAP[1]) / 2) : 0;
     return gathered({ rolls: per * x * (trophy * TROPHY_XP_MULT + (1 - trophy) * (1 + big)), whole: per * x * wild, schools: passing * x, gatherTicks: 1 },
       `${t.text}, at your level: about ${fmt(per * TICKS_AN_HOUR)} casts an hour${big >= 0.995 ? ', every one a big catch (two fish)' : big > 0.005 ? `, ${Math.round(big * 100)}% of them big catches (two fish)` : ''}`);
+  }
+  if (s.skill === 'diving' && def) {
+    // resolveDive: a find a roll while you're under (a better piece of gear's
+    // second one pays no XP), none while you're up for air; now and then the
+    // whole reef bed at once (as Hunter's whole flock: 10-140 finds, each paid).
+    const t = toolFor(game, 'divegear');
+    const breath = diveBreath(game), up = diveUptime(breath);
+    const per = (1 + quickly(t.extra)) * up;
+    const reef = NODE_JACKPOT.on ? jackpotBase(lvl) * SEAM_MULT * (HUNT_STOCK[0] + HUNT_STOCK[1]) / 2 : 0;
+    return gathered({ rolls: per * x, whole: per * x * reef, gatherTicks: up },
+      `${t.id ? t.text : 'free-diving (no dive gear)'}, at your level: dives of ${breath} ticks with ${SURFACE_TICKS} up for air between, about ${fmt(per * TICKS_AN_HOUR)} finds an hour`);
   }
   if ((s.skill === 'woodcutting' || s.skill === 'mining') && def) {
     const t = toolFor(game, s.tool);
@@ -395,7 +408,7 @@ export function xpRate(game, s) {
 // What the figure leaves out, for its hover text.
 const onTop = (s, def) => `Golden hours and rested XP come on top${GATHERING.has(s.skill)
   ? `, as do ${list([def?.night && 'night bonuses', (s.skill === 'fishing' || s.skill === 'hunter') && 'bait', 'daily contracts'].filter(Boolean))}` : ''}.`;
-const GATHERING = new Set(['woodcutting', 'mining', 'fishing', 'hunter']);
+const GATHERING = new Set(['woodcutting', 'mining', 'fishing', 'hunter', 'diving']);
 
 const cap = (t) => t[0].toUpperCase() + t.slice(1);
 const list = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0] || '');

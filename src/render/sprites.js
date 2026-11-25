@@ -20,6 +20,7 @@ import { RESIDENTS } from '../data/consequences.js';
 import { PORTRAIT_CROPS } from '../data/portraitcrops.js';
 import { BESTIARY_SPECIES, BESTIARY_BOSSES } from '../data/bestiary.js';
 import { OBJECTS } from '../data/objects.js';
+import { drawDiveSpot } from './diveart.js';
 
 const CROP_COLORS = Object.fromEntries(CROPS.map((c) => [c[0], c[9]]));
 const CROP_GROW = Object.fromEntries(CROPS.map((c) => [c[0], c[3]]));
@@ -3022,6 +3023,7 @@ function drawObjectRaw(ctx, obj, cx, cy, time) {
     case 'herblore': return apothecaryTable(ctx, cx, cy, time);
     case 'fletch': return fletchingBench(ctx, cx, cy);
     case 'hunt': return huntTrap(ctx, obj, cx, cy);
+    case 'dive': return drawDiveSpot(ctx, obj, cx, cy, time);   // a reef (diveart.js)
     case 'bank': return bank(ctx, cx, cy);
     case 'shrine': case 'offering': case 'gate_shrine': return shrine(ctx, cx, cy, time);
     case 'rest': return mascotStatue(ctx, cx, cy);

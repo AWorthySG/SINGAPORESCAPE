@@ -393,7 +393,7 @@ export function buyTokenReward(game, id) {
 }
 
 // Gathering lamps: base XP (before the global XP rate) per level of the skill rubbed into.
-export const LAMP_SKILLS = ['woodcutting', 'mining', 'fishing', 'hunter', 'farming'];
+export const LAMP_SKILLS = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'farming'];
 export const LAMP_XP_PER_LEVEL = 25;
 /** A lamp's XP in `skill` as listed (Skills.addXp adds the rates): the menu shows it too. */
 export const lampXp = (game, skill) => LAMP_XP_PER_LEVEL * game.skills.level(skill);

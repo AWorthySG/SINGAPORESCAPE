@@ -49,6 +49,8 @@ export const LIFE_PERKS = {
   hunter: { stat: 'bossDmg', max: 20, label: 'boss and champion damage', unit: '%' },
   farming: { stat: 'aoe', max: 30, label: 'area damage', unit: '%' },
   thieving: { stat: 'extra', max: 12, label: 'chance of an extra strike', unit: '%' },
+  // Diving shares Fishing's stat (the sea's own perk): the two add up.
+  diving: { stat: 'dmgPct', max: 10, label: 'damage (every style)', unit: '%' },
 };
 export const LIFE_PERK_SKILLS = Object.keys(LIFE_PERKS);
 // Life skill level-ups mention the perk on every multiple of this (of 50 past
