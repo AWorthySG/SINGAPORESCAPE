@@ -1,4 +1,4 @@
-// Diving's pictures until the painted ones arrive: a reef in the water (a
+// Diving's drawn pictures, while a reef's painted one loads (and headless): a reef in the water (a
 // floating dive buoy in the reef's colour over a patch of coral and rippling
 // rings) and the breath bar over the hero while they dive. Sticker style: navy
 // ink #22304A, pastel fills. A few paths a frame, no garbage.

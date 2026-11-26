@@ -98,11 +98,11 @@ test('Construction is a making skill with planks, nails, bricks and furniture at
     const parts = r.inputs.reduce((s, [id, n]) => s + ITEMS[id].value * n, 0);
     assert.ok(ITEMS[r.result].value <= parts * 1.15, `${r.result} is worth about its parts`);
   }
-  // Until their own stickers arrive they borrow one, recoloured (the skill's icon is a vector).
+  // Each has its own sticker (art pack IC-9 to IC-11), and the skill its painted icon.
   for (const id of ['plank', 'heartwood_plank', 'bronze_nails', 'eternal_nails', 'brick', 'wooden_stool', 'starwood_lantern_stand']) {
-    assert.match(itemIconSVG(id), /assets\/icons\/item-(arrow_shaft|barbed_hooks|clay|lobster_pot|lantern)\.webp/, `${id} borrows a sticker`);
+    assert.match(itemIconSVG(id), new RegExp(`assets/icons/item-${id}\\.webp`), `${id} has its own sticker`);
   }
-  assert.match(skillIconSVG('construction'), /<svg/);
+  assert.match(skillIconSVG('construction'), /assets\/icons\/skill-construction\.webp/);
 });
 
 test('the lumber yards stand in Kampong Glam and Kranji, clear of the home plot, the same every boot', () => {

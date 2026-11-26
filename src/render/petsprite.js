@@ -14,11 +14,12 @@ const PET_ART_PX = 28;   // a pet picture's box on the map (its 256px canvas, sh
 
 /** Pets with a painted picture of their own (assets/creatures/pets/<id>.webp). */
 export const PET_ART = new Set(['pet_mining', 'pet_smithing', 'pet_crafting', 'pet_fishing', 'pet_cooking', 'pet_firemaking',
-  'pet_woodcutting', 'pet_thieving', 'pet_agility', 'pet_farming', 'pet_hunter', 'pet_herblore', 'pet_fletching']);
+  'pet_woodcutting', 'pet_thieving', 'pet_agility', 'pet_farming', 'pet_hunter', 'pet_herblore', 'pet_fletching',
+  'pet_diving', 'pet_construction', 'pet_hawkering', 'pet_archaeology']);
 // Pets still waiting on a painted picture of their own: they wear their
 // creature's art until it arrives (then the id goes, as the file comes in:
 // tests/render.test.mjs keeps the two in step).
-export const PET_ART_PENDING = new Set(['pet_diving', 'pet_construction', 'pet_hawkering', 'pet_archaeology']);
+export const PET_ART_PENDING = new Set();   // (none: Penyu, Bata, Gagak and Tenggiling have theirs)
 export const petArtSrc = (id) => (PET_ART.has(id) ? `assets/creatures/pets/${id}.webp` : null);
 const _petImg = {};
 function petImage(id) {

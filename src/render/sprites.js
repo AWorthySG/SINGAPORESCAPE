@@ -257,6 +257,7 @@ const TOWN_ART = new Set([
   'event_merchant',
   'pest_officer', 'marina_high_roller', 'jade_merchant',
   'story_messenger',   // the story's messenger, drawn by this id (`artId`, story.js)
+  'museum_curator',   // Curator Siti, beside Archaeology's restoration bench (digsites.js)
 ]);
 // Newer townsfolk borrow another's picture, recoloured, until their own art
 // arrives (remove the line when the file is added).
@@ -2689,6 +2690,16 @@ const WORLD_ART = {
   'obj-wave_gate': [52, 54, 16], 'obj-wave_exit': [50, 52, 16],
   'obj-home_plot': [40, 38, 15], 'obj-home_chest': [44, 38, 15], 'obj-home_trophy': [46, 44, 16],
   'obj-gravestone': [28, 34, 14],   // where you last fell (grave.js)
+  // New-skills pack (WO-3 to WO-5): Diving's reefs, Archaeology's dig sites and
+  // restoration bench, the lumber yards' stations, the home builds and your hawker stall.
+  ...Object.fromEntries(['shell_shallows', 'sea_glass_cove', 'oyster_bed', 'coral_garden', 'cowrie_reef', 'pearl_oyster_reef', 'sunken_junk',
+    'black_coral_reef', 'dragon_coral_reef', 'abyssal_pearl_bed', 'moonlit_lagoon', 'star_coral_trench', 'rift_reef', 'sunken_palace'].map((k) => [`obj-${k}`, [44, 34, 12]])),
+  ...Object.fromEntries(['kampong_ruins', 'coastal_midden', 'river_godowns', 'ubin_dig', 'fort_canning_dig', 'kelong_dig', 'plantation_dig',
+    'hermit_camp', 'old_shipyard', 'stargazer_terrace', 'buried_courtyard', 'temasek_palace_dig'].map((k) => [`obj-${k}`, [46, 38, 14]])),
+  'obj-restoration_bench': [52, 42, 16],
+  'obj-sawmill': [52, 44, 16], 'obj-kiln': [50, 50, 16], 'obj-workbench': [52, 42, 16], 'obj-home_workbench': [52, 44, 16],
+  'obj-home_parlour': [56, 46, 16], 'obj-home_bed': [56, 44, 16], 'obj-home_altar': [46, 50, 16], 'obj-home_bank': [46, 40, 15],
+  'obj-home_portal': [52, 54, 16], 'obj-hawker_counter': [56, 56, 16],
   // A world event's node (worldevents.js): the rare shoal, the meteorite and the ancient tree.
   'obj-event_shoal': [48, 36, 12], 'rock-meteorite': [42, 36, 14], 'tree-ancient': [72, 78, 15],
   // Animated: a campfire's four flicker frames, and a farm patch's five growth stages.
@@ -2829,7 +2840,7 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time) {
   if (obj.def.footprint) {   // a landmark's shadow spans its footprint
     ctx.fillStyle = 'rgba(34,48,74,0.16)';
     ellipse(ctx, cx, cy + foot - 2, w * 0.46, 7); ctx.fill();
-  } else if (t !== 'fishing' && foot > 0) {   // a soft contact shadow; fishing spots sit in the water, hanging things cast none
+  } else if (t !== 'fishing' && t !== 'dive' && foot > 0) {   // a soft contact shadow; fishing spots and reefs sit in the water, hanging things cast none
     ctx.fillStyle = 'rgba(34,48,74,0.16)';
     ellipse(ctx, cx, cy + foot - 1, Math.min(w * 0.42, 22), Math.min(h * 0.12, 5)); ctx.fill();
   }
