@@ -213,8 +213,8 @@ test('Hawkering is wired in: guide, unlocks and teleport, golden hours, life per
   assert.equal(SKILL_UNLOCKS.hawkering.find((u) => u.teleport).teleport, 'marina_bay', 'the teleport goes to the hawker centre');
   assert.ok(SKILL_HOURS.hawkering && LIFE_PERKS.hawkering && SKILL_PETS.hawkering);
   assert.ok(LIFE_SHORTCUTS.includes('hawkering'));
-  assert.match(skillIconSVG('hawkering'), /<svg/);
-  for (const id of ['teh_tarik', 'char_kway_teow', 'bread', 'kway_teow']) assert.match(itemIconSVG(id), /assets\/icons\/item-/, `${id} borrows a sticker`);
+  assert.match(skillIconSVG('hawkering'), /assets\/icons\/skill-hawkering\.webp/);
+  for (const id of ['teh_tarik', 'char_kway_teow', 'bread', 'kway_teow']) assert.match(itemIconSVG(id), new RegExp(`assets/icons/item-${id}\\.webp`), `${id} has its own sticker`);
   assert.ok(itemOtherUses('laksa').some((u) => u.kind === 'serve'));
   const g = newGame();
   assert.match(lifeShortcutHint(g, 'hawkering'), /Rent/);

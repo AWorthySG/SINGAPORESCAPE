@@ -702,37 +702,35 @@ export const OBJECTS = {
   home_plot: { name: 'Kampong plot', label: 'Home', type: 'home', homeTab: 'plot', verb: 'Visit', emoji: '🏡', blocking: false, examine: 'A plot of land in Kranji. Buy it and make it your kampong home.' },
   home_chest: { name: 'Storage chest', label: 'Chest', type: 'home', homeTab: 'chest', verb: 'Open', emoji: '🧰', blocking: true, examine: 'Your own storage chest. Only you have the key.' },
   home_trophy: { name: 'Trophy wall', label: 'Trophies', type: 'home', homeTab: 'trophy', verb: 'Admire', emoji: '🏆', blocking: true, examine: 'Your boss kills and rare finds, on show.' },
-  // Built with Construction (home.js HOME_UPGRADES). Until their own pictures
-  // arrive they borrow one (`art`), recoloured (`tint`); `room` is the Build
-  // window's room card each opens.
+  // Built with Construction (home.js HOME_UPGRADES), each with its own picture;
+  // `room` is the Build window's room card each opens.
   home_parlour: { name: 'Parlour set', label: 'Parlour', type: 'home', homeTab: 'build', room: 'parlour', verb: 'Sit in', emoji: '🛋️', blocking: true,
-    art: 'obj-kopitiam_table', tint: 'sepia(0.4) saturate(1.3) hue-rotate(-10deg)', examine: 'Chairs round a low table: a cuppa here and your Focus comes back fast.' },
+    examine: 'Chairs round a low table: a cuppa here and your Focus comes back fast.' },
   home_bed: { name: 'Bed', label: 'Bed', type: 'home', homeTab: 'build', room: 'bedroom', verb: 'Lie on', emoji: '🛏️', blocking: true,
-    art: 'obj-void_deck_bench', tint: 'hue-rotate(160deg) saturate(0.8) brightness(1.08)', examine: 'Your own bed. Time away from the island rests you faster.' },
+    examine: 'Your own bed. Time away from the island rests you faster.' },
   home_portal: { name: 'Portal arch', label: 'Portals', type: 'home', homeTab: 'portals', room: 'portals', verb: 'Travel', emoji: '🌀', blocking: true,
-    art: 'obj-wave_gate', tint: 'hue-rotate(-60deg) saturate(1.2)', examine: 'An arch of carved wood. Step through to any region you have visited.' },
+    examine: 'An arch of carved wood. Step through to any region you have visited.' },
   home_workbench: { name: 'Home workbench', label: 'Workbench', type: 'homebench', verb: 'Build at', emoji: '🔨', blocking: true, skill: 'construction',
-    art: 'obj-crafting_table', tint: 'sepia(0.5) saturate(1.4) hue-rotate(-15deg) brightness(1.05)', examine: 'Your own workbench: saw planks and build furniture at home.' },
+    examine: 'Your own workbench: saw planks and build furniture at home.' },
   home_altar: { name: 'Home altar', label: 'Altar', type: 'shrine', verb: 'Pray at', emoji: '🕯️', blocking: true, homeAltar: true,
-    art: 'obj-shrine', tint: 'saturate(0.6) brightness(1.1) hue-rotate(20deg)', examine: 'A little altar of your own. Offer bones here for extra Prayer XP.' },
+    examine: 'A little altar of your own. Offer bones here for extra Prayer XP.' },
   home_bank: { name: 'Bank chest', label: 'Bank', type: 'bank', verb: 'Use', emoji: '🏦', blocking: true,
-    art: 'obj-home_chest', tint: 'hue-rotate(180deg) saturate(1.2)', examine: 'A chest tied to your bank. Everything in your bank, right here at home.' },
+    examine: 'A chest tied to your bank. Everything in your bank, right here at home.' },
 
   // ---------------- Construction stations (construction.js) ----------------
   // The Kranji lumber yard, placed at run time by src/game/construction.js (so
-  // world.js and its seeded layout are left alone). Borrowed pictures for now.
+  // world.js and its seeded layout are left alone).
   sawmill: { name: 'Sawmill', type: 'saw', verb: 'Saw at', emoji: '🪚', blocking: true, skill: 'construction',
-    art: 'obj-fletching_bench', tint: 'sepia(0.6) saturate(1.5) hue-rotate(-20deg)', examine: 'A saw bench at the lumber yard. Logs go in, planks come out.' },
+    examine: 'A saw bench at the lumber yard. Logs go in, planks come out.' },
   kiln: { name: 'Kiln', type: 'kiln', verb: 'Fire at', emoji: '🧱', blocking: true, skill: 'construction',
-    art: 'obj-furnace', tint: 'hue-rotate(-18deg) saturate(1.3) brightness(1.05)', examine: 'A brick kiln, warm to the touch. Fire clay into bricks here.' },
+    examine: 'A brick kiln, warm to the touch. Fire clay into bricks here.' },
   workbench: { name: 'Workbench', type: 'build', verb: 'Build at', emoji: '🔨', blocking: true, skill: 'construction',
-    art: 'obj-crafting_table', tint: 'sepia(0.5) saturate(1.4) hue-rotate(-15deg)', examine: 'A sturdy workbench for building furniture from planks, nails and bricks.' },
+    examine: 'A sturdy workbench for building furniture from planks, nails and bricks.' },
 
   // ---------------- Hawkering (hawkerstall.js) ----------------
-  // Your stall at the Marina Bay hawker centre, placed at run time. It borrows
-  // the noodle stall's picture (`art`, recoloured by `tint`) until its own arrives.
+  // Your stall at the Marina Bay hawker centre, placed at run time.
   hawker_counter: { name: 'Your hawker stall', label: 'Your stall', type: 'hawkstall', verb: 'Run', emoji: '🍜', blocking: true, skill: 'hawkering',
-    art: 'obj-hawker_stall_noodle', tint: 'hue-rotate(-25deg) saturate(1.2)', examine: 'A stall of your own, with a wok, a till and a queue of hungry townsfolk.' },
+    examine: 'A stall of your own, with a wok, a till and a queue of hungry townsfolk.' },
 };
 
 // ---------------- Landmarks and set dressing (landmarks.js places them) ----------------

@@ -891,6 +891,40 @@ import { CON_TIERS, CON_WOOD } from '../data/construction.js';
   for (const r of ROUNDS) ITEM_ART.add(`${r}_rounds`);
   // Part F: every tiered gathering tool (iron to eternal axes, pickaxes, rods, harpoons and snares).
   for (const [id, it] of Object.entries(ITEMS)) if (it.toolTier > 0) ITEM_ART.add(id);
+  // New-skills art pack (IC-6 to IC-20): every Diving, Construction, Hawkering and
+  // Archaeology item, encrusted relics included. Each wins over the sticker it borrowed (`artFrom`).
+  for (const id of [
+    'seashell', 'sea_glass', 'oyster_shell', 'coral_fragment', 'cowrie_shell', 'mother_of_pearl', 'sunken_trinket',
+    'black_coral', 'dragon_coral', 'abyssal_nacre', 'moon_shell', 'star_coral', 'rift_coral', 'eternal_conch', 'snorkel',
+    'dive_mask', 'swim_fins', 'wetsuit', 'air_tank', 'rebreather', 'obsidian_dive_helm', 'orichalcum_dive_suit', 'jade_fins',
+    'starmetal_rebreather', 'celestial_dive_helm', 'eternal_dive_suit', 'seed_pearl', 'lustrous_pearl', 'golden_pearl',
+    'perfect_pearl', 'lustrous_pearl_ring', 'lustrous_pearl_amulet', 'golden_pearl_ring', 'golden_pearl_amulet',
+    'perfect_pearl_amulet', 'plank', 'oak_plank', 'teak_plank', 'mahogany_plank', 'yew_plank', 'magic_plank', 'seraya_plank',
+    'meranti_plank', 'chengal_plank', 'starwood_plank', 'moonwood_plank', 'heartwood_plank', 'brick', 'bronze_nails',
+    'iron_nails', 'steel_nails', 'mithril_nails', 'adamant_nails', 'rune_nails', 'obsidian_nails', 'orichalcum_nails',
+    'jade_nails', 'starmetal_nails', 'celestial_nails', 'eternal_nails', 'wooden_stool', 'oak_chair', 'teak_table',
+    'mahogany_cabinet', 'yew_bookcase', 'magic_wardrobe', 'seraya_daybed', 'meranti_screen', 'tok_panjang_table',
+    'starwood_lantern_stand', 'moonwood_wayang_stage', 'heartwood_rocking_chair', 'bread', 'tea_leaves', 'condensed_milk',
+    'flour', 'rice', 'kway_teow', 'teh_tarik', 'char_kway_teow', 'trowel', 'iron_trowel', 'steel_trowel', 'mithril_trowel',
+    'adamant_trowel', 'rune_trowel', 'obsidian_trowel', 'orichalcum_trowel', 'jade_trowel', 'starmetal_trowel',
+    'celestial_trowel', 'eternal_trowel', 'pottery_shard', 'old_coin', 'celadon_shard', 'porcelain_shard', 'bronze_fragment',
+    'jade_bead', 'ship_nail', 'star_glass', 'rift_amber', 'gold_leaf', 'soft_brush', 'tiffin_carrier',
+    'encrusted_tiffin_carrier', 'belanga_pot', 'encrusted_belanga_pot', 'coconut_scraper', 'encrusted_coconut_scraper',
+    'clay_net_weight', 'encrusted_clay_net_weight', 'shell_bead_necklace', 'encrusted_shell_bead_necklace', 'rattan_fish_trap',
+    'encrusted_rattan_fish_trap', 'brass_trade_weight', 'encrusted_brass_trade_weight', 'spice_tin', 'encrusted_spice_tin',
+    'porcelain_teacup', 'encrusted_porcelain_teacup', 'batu_giling', 'encrusted_batu_giling', 'stonemason_chisel',
+    'encrusted_stonemason_chisel', 'stone_lion', 'encrusted_stone_lion', 'gold_armlet', 'encrusted_gold_armlet',
+    'celadon_bowl', 'encrusted_celadon_bowl', 'glass_bead_string', 'encrusted_glass_bead_string', 'kelong_lantern',
+    'encrusted_kelong_lantern', 'carved_float', 'encrusted_carved_float', 'brass_ship_bell', 'encrusted_brass_ship_bell',
+    'nutmeg_grater', 'encrusted_nutmeg_grater', 'gambier_pot', 'encrusted_gambier_pot', 'tally_stick', 'encrusted_tally_stick',
+    'herb_mortar', 'encrusted_herb_mortar', 'bamboo_flute', 'encrusted_bamboo_flute', 'carved_walking_stick',
+    'encrusted_carved_walking_stick', 'caulking_mallet', 'encrusted_caulking_mallet', 'prow_figure', 'encrusted_prow_figure',
+    'brass_compass', 'encrusted_brass_compass', 'bronze_astrolabe', 'encrusted_bronze_astrolabe', 'star_chart_tile',
+    'encrusted_star_chart_tile', 'bronze_sky_mirror', 'encrusted_bronze_sky_mirror', 'jade_hairpin', 'encrusted_jade_hairpin',
+    'lacquer_box', 'encrusted_lacquer_box', 'bronze_wind_chime', 'encrusted_bronze_wind_chime', 'palace_seal',
+    'encrusted_palace_seal', 'gold_hair_ornament', 'encrusted_gold_hair_ornament', 'temasek_coin_hoard',
+    'encrusted_temasek_coin_hoard'
+  ]) ITEM_ART.add(id);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : borrowedArt(id) ? `assets/icons/item-${borrowedArt(id).file}.webp` : null);
   const artImg = (file, size, cls, filter) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain${filter ? `;filter:${filter}` : ''}" />`;
   /** An icon for a long grid (the bank's hundreds of slots): fetched only as its
@@ -943,8 +977,12 @@ import { CON_TIERS, CON_WOOD } from '../data/construction.js';
     ['codex_quill', 'feather'], ['mosquito_net_cape', 'pilgrim_cape']]) I[id] = I[from] || I.coins;
   // Gun rounds' vector fallback: their metal's bar (steel for the special rounds).
   for (const r of ROUNDS) I[`${r}_rounds`] ||= I[`${r}_bar`] || I.steel_bar || I.coins;
-  // Items that name a sticker to borrow (`artFrom: [from, tint]`, e.g. the skill-chain goods) borrow it, tinted.
-  for (const [id, it] of Object.entries(ITEMS)) if (it.artFrom && !ITEM_ART.has(id)) { BORROW_ID[id] = it.artFrom[0]; BORROW_TINT[id] = it.artFrom[1]; I[id] ||= I[it.artFrom[0]] || I.coins; }
+  // Items that name a sticker to borrow (`artFrom: [from, tint]`, e.g. the skill-chain goods) borrow it, tinted,
+  // until their own arrives; either way that sticker's vector stays their fallback.
+  for (const [id, it] of Object.entries(ITEMS)) if (it.artFrom) {
+    if (!ITEM_ART.has(id)) { BORROW_ID[id] = it.artFrom[0]; BORROW_TINT[id] = it.artFrom[1]; }
+    I[id] ||= I[it.artFrom[0]] || I.coins;
+  }
   // Construction's goods borrow a sticker until their own arrive (their vectors,
   // drawn above, stay as the fallback): planks the arrow shafts' bundle of
   // sticks and furniture the woven lobster pot, both in their tier's wood; nails
@@ -982,7 +1020,7 @@ import { CON_TIERS, CON_WOOD } from '../data/construction.js';
   }
   const SKILL_ART = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic', 'prayer', 'slayer',
     'woodcutting', 'mining', 'fishing', 'firemaking', 'cooking', 'smithing', 'crafting', 'thieving', 'agility',
-    'farming', 'hunter', 'herblore', 'fletching']);   // (Construction and Hawkering wait on their painted icons: their vectors show)
+    'farming', 'hunter', 'herblore', 'fletching', 'diving', 'construction', 'hawkering', 'archaeology']);
   export const skillIconSVG = (id, size = 20, cls) => (SKILL_ART.has(id) ? artImg(`skill-${id}`, size, cls) : svg(S[id] || S.attack, size, cls));
   /** Prayer and spell icons (assets/icons/prayer-<id>.webp, spell-<id>.webp). */
   export const prayerIconHTML = (id, size = 28, cls, tint) => artImg(`prayer-${id}`, size, cls, tint);

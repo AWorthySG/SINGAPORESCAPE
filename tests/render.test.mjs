@@ -763,3 +763,27 @@ test('Part E batch 3 species rigs ship every layer on one canvas, with joints in
     assert.equal(!!rig.body, plan === 'plant', `${id} sways as a whole only on the plant plan`);
   }
 });
+
+test('new-skills art pack: Diving, Construction, Hawkering and Archaeology wear their own pictures', async () => {
+  const { itemIconSVG, skillIconSVG } = await import('../src/render/icons.js');
+  const { ITEMS } = await import('../src/data/items.js');
+  const { worldArt, townArt } = await import('../src/render/sprites.js');
+  const { petArtSrc } = await import('../src/render/petsprite.js');
+  for (const s of ['diving', 'construction', 'hawkering', 'archaeology']) {
+    assert.match(skillIconSVG(s, 20), new RegExp(`assets/icons/skill-${s}\\.webp`), `${s} has its painted icon`);
+    assert.equal(petArtSrc(`pet_${s}`), `assets/creatures/pets/pet_${s}.webp`, `pet_${s} has its own picture`);
+  }
+  // Every encrusted relic has a sticker of its own (not its restored one under a crust tint), as do the restored ones.
+  const relics = Object.keys(ITEMS).filter((id) => id.startsWith('encrusted_'));
+  assert.equal(relics.length, 36);
+  for (const id of [...relics, ...relics.map((r) => r.slice('encrusted_'.length)), 'seashell', 'plank', 'brick', 'bronze_nails', 'teh_tarik', 'trowel', 'eternal_trowel']) {
+    const html = itemIconSVG(id, 24);
+    assert.ok(html.includes(`assets/icons/item-${id}.webp`) && !html.includes('filter:'), `${id} has its own untinted sticker`);
+  }
+  // Reefs, dig sites and the bench are painted; the stations no longer borrow (and tint) another object's picture.
+  for (const [id, d] of Object.entries(OBJECTS).filter(([, d]) => ['dive', 'dig', 'restore'].includes(d.type))) assert.ok(worldArt().has(`obj-${id}`), `${id} (${d.type}) has its picture`);
+  for (const id of ['sawmill', 'kiln', 'workbench', 'home_workbench', 'home_parlour', 'home_bed', 'home_altar', 'home_bank', 'home_portal', 'hawker_counter']) {
+    assert.ok(worldArt().has(`obj-${id}`) && !OBJECTS[id].art && !OBJECTS[id].tint, `${id} wears its own picture`);
+  }
+  assert.ok(townArt().has('museum_curator'), 'Curator Siti has her picture');
+});

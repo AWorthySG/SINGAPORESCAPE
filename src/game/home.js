@@ -21,7 +21,7 @@
 //
 // Everything stands on ordinary world objects (range, fire, farm_patch, anvil,
 // crafting_table, fletching_bench, lamp, flower, fence, mascot_statue) plus the
-// home's own (home_* in objects.js, borrowing existing pictures). They are
+// home's own (home_* in objects.js, each with its own picture). They are
 // placed at run time on a free patch of ground near the anchor below, so
 // world.js and its seeded layout are left alone. Saved as game.home (save.js),
 // optional on load: a save from before Construction keeps every tier it bought.

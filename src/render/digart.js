@@ -1,4 +1,4 @@
-// Archaeology's pictures until the painted ones arrive: a dig site (a square
+// Archaeology's drawn pictures, while the painted ones load (and headless): a dig site (a square
 // trench in the earth, pegged out with string, a shard peeking out in the
 // site's colour) and the restoration bench. Sticker style: navy ink #22304A,
 // pastel fills. A few paths a frame, no garbage.
