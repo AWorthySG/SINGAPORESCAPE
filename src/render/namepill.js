@@ -13,7 +13,7 @@ const INK = '#22304A';
 // Monsters are coloured by how dangerous they are to you (foeThreat): green,
 // gold or red words on a faintly tinted card; champions wear gold, bosses red.
 export const PILL_STYLES = {
-  town: { fill: '#FFFDF6', text: INK, size: 9.5, weight: 800, line: 1 },
+  town: { fill: '#FFF9EC', text: INK, size: 9.5, weight: 800, line: 0.75, rim: '#596575' },
   own: { fill: '#FFFFFF', text: INK, size: 10.5, weight: 800, line: 1 },
   easy: { fill: '#EDF8EE', text: '#23733C', size: 9.5, weight: 800, line: 1 },
   even: { fill: '#FFF5DD', text: '#9A5800', size: 9.5, weight: 800, line: 1 },
