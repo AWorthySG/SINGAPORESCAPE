@@ -106,6 +106,7 @@ import { NoticeLane, afterLayout } from './noticelane.js';
 import { QuickSlot, interactCaption, trackerHTML, TRACKER_ROWS, TRACKER_ROWS_PHONE, sellSideSmall, loadTrackerFolded, saveTrackerFolded, sheetSnap } from './hudease.js';
 import { QuickBar, typing } from './quickbar.js';
 import { openKeyboardControls } from './keyboard.js';
+import { districtVisual } from '../data/districtVisuals.js';
 import { PANEL_SHORTCUTS } from '../data/keyboard.js';
 import { makeQtyRow, makePill, maxMakes, makeQtyOf } from './makeqty.js';
 import { CmdSearch } from './cmdsearch.js';
@@ -1116,9 +1117,23 @@ export class UI {
     if (key === this._regionKey) return;
     this._regionKey = key;
     const wild = wildLevel > 0;
+    const visual = districtVisual(name);
+    for (const label of [this.el.region, this.el.minimapRegion]) {
+      if (!label?.style) continue;
+      if (visual) {
+        label.style.setProperty('--district-ink', visual[0]);
+        label.style.setProperty('--district-paper', visual[1]);
+      } else {
+        label.style.removeProperty('--district-ink');
+        label.style.removeProperty('--district-paper');
+      }
+    }
     if (this.el.region) {
-      this.el.region.innerHTML = `<span class="loc-pin">&#128205;</span> ${escapeHtml(name)}` +
-        (wild ? ` <span class="wild-lvl">Lvl ${wildLevel}</span>` : '');
+      const [, , feature, art] = visual || [];
+      const badge = art ? `<img class="district-art" alt="" src="assets/world/${art}">` : '<span class="loc-pin" aria-hidden="true">&#128205;</span>';
+      this.el.region.innerHTML = badge + `<span class="district-text"><span>${escapeHtml(name)}` +
+        (wild ? ` <span class="wild-lvl">Lvl ${wildLevel}</span>` : '') + '</span>' +
+        (feature ? `<small>${escapeHtml(feature)}</small>` : '') + '</span>';
       this.el.region.classList.toggle('wild', wild);
     }
     if (this.el.minimapRegion) {
