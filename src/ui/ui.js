@@ -45,6 +45,7 @@ import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { QUESTS } from '../data/quests.js';
 import { SLAYER_REWARDS, SLAYER_FULL_LEVEL, SLAYER_HELM_DMG, slayerBuffs, nextSlayerUnlock } from '../data/slayer.js';
 import { STATIONS, MRT_FARE } from '../data/transport.js';
+import { renderSingaporeAtlas } from './atlas.js';
 import { EQUIP_SLOTS, canDualPair, isTwoHanded, offhandBlocked, takesQuiver } from '../game/equipment.js';
 import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
@@ -4703,21 +4704,24 @@ export class UI {
     const on = this._mapFilters || (this._mapFilters = new Set(['mrt', 'boss', 'bank']));
     // `focus` ({ x, y, label }) opens with that spot picked (the Monster Codex's Show on map).
     let sel = focus && Number.isFinite(focus.x) ? focus : null;
+    let mode = sel ? 'terrain' : this._mapMode || 'atlas';
     // The terrain never changes, so paint it once (one pixel per tile) and scale it up.
     // It is the minimap's sticker map, at the two pixels per tile the map is
     // drawn at (minimapart.js), painted on first open.
     // (Usually baked already, in spare moments: _warmWorldMap.)
-    if (!this._mapBase) this._mapBase = this._mapBake ? this._mapBake.finish() : bakeMinimapPatch(game.world, 0, 0, W, H, 2);
-    if (!this._mapBase) {
-      const b = document.createElement('canvas');
-      b.width = W; b.height = H;
-      const bc = b.getContext('2d');
-      // The minimap's one-pixel-per-tile picture is the same map in the same
-      // colours: copy its top W x H (was 200,000 one-pixel fills on first open).
-      const mini = this._minimapTerrain();
-      if (mini && bc) bc.drawImage(mini, 0, 0, W, H, 0, 0, W, H);
-      this._mapBase = b;
-    }
+    const terrainBase = () => {
+      if (!this._mapBase) this._mapBase = this._mapBake ? this._mapBake.finish() : bakeMinimapPatch(game.world, 0, 0, W, H, 2);
+      if (!this._mapBase) {
+        const b = document.createElement('canvas');
+        b.width = W; b.height = H;
+        const bc = b.getContext('2d');
+        // The minimap uses the same colours at one pixel per tile.
+        const mini = this._minimapTerrain();
+        if (mini && bc) bc.drawImage(mini, 0, 0, W, H, 0, 0, W, H);
+        this._mapBase = b;
+      }
+      return this._mapBase;
+    };
     const skillName = (id) => SKILLS.find((x) => x.id === id)?.name || id;
     const objTypes = { tree: ['tree'], rock: ['rock'], fishing: ['fishing'], hunt: ['hunt'], farm: ['farm'], bank: ['bank'],
       station: ['furnace', 'anvil', 'range', 'craft', 'fletch', 'herblore'] };
@@ -4744,6 +4748,34 @@ export class UI {
     };
     const render = (body) => {
       body.innerHTML = '';
+      const views = document.createElement('div');
+      views.className = 'wm-view-switch';
+      views.setAttribute('role', 'group');
+      views.setAttribute('aria-label', 'Map view');
+      for (const [id, title] of [['atlas', 'Singapore atlas'], ['terrain', 'Playable terrain']]) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = title;
+        b.dataset.mapView = id;
+        b.setAttribute('aria-pressed', String(id === mode));
+        b.addEventListener('click', () => {
+          if (mode === id) return;
+          this._mapMode = mode = id;
+          render(body);
+          body.querySelector(`[data-map-view="${id}"]`)?.focus({ preventScroll: true });
+        });
+        views.appendChild(b);
+      }
+      body.appendChild(views);
+      if (mode === 'atlas') {
+        renderSingaporeAtlas(body, game.currentZoneName, (target) => {
+          sel = target;
+          mode = 'terrain';
+          render(body);
+          body.querySelector('.wm-info .wm-go')?.focus({ preventScroll: true });
+        });
+        return;
+      }
       const chips = document.createElement('div');
       chips.className = 'wm-chips';
       for (const f of MAP_FILTERS) {
@@ -4760,7 +4792,7 @@ export class UI {
       cnv.className = 'worldmap-canvas';
       const c = cnv.getContext('2d');
       c.imageSmoothingEnabled = false;
-      c.drawImage(this._mapBase, 0, 0, W * scale, H * scale);
+      c.drawImage(terrainBase(), 0, 0, W * scale, H * scale);
       const list = markers();
       // The canvas is shrunk to fit the panel, so size markers in on-screen pixels.
       const k = cnv.width / Math.min(cnv.width, window.innerWidth * 0.9, 620);

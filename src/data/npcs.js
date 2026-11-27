@@ -479,7 +479,7 @@ const BOSS_DEFS = {
   orang_minyak: makeBoss('orang_minyak', 'Orang Minyak', 'humanoid', '#1f1f1f', 158, 'Pulau Hantu', 2.6,
     [{ id: 'cursed_cutlass', weight: 9 }, { id: 'dragon_2h_sword', weight: 12 }, { id: 'dragon_platebody', weight: 14 }, { id: 'occult_necklace', weight: 10 }, { id: 'runite_ore', min: 3, max: 8, weight: 28 }]),
   // Alignment-arc bosses, placed by hand (fixed): a radiant guardian of the light
-  // by the town temple, and a dark sovereign deep in the Wilderness.
+  // by the Golden-domed Hall, and a dark sovereign deep in the Wilderness.
   lion_of_light: { ...makeBoss('lion_of_light', 'Lion of Light', 'beast', '#ffe08a', 72, 'Kampong Glam', 2.1,
     [{ id: 'seraph_blade', weight: 8 }, { id: 'blessed_halo', weight: 6 }, { id: 'rune_platebody', weight: 18 }, { id: 'runite_ore', min: 2, max: 5, weight: 26 }, { id: 'amulet_of_glory', weight: 12 }]), fixed: true },
   shadow_sovereign: { ...makeBoss('shadow_sovereign', 'The Shadow Sovereign', 'demon', '#3a2a52', 120, 'The Wilderness', 2.4,

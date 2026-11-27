@@ -25,6 +25,11 @@ import { projectFlat } from './projection.js';
 // (magic), and `win` for buildings whose glow is their lit windows.
 export const LIGHTS = {
   lamp: { r: 96, rgb: [255, 214, 140], y: -24, flicker: 0.05 },
+  heritage_lamp: { r: 82, rgb: [255, 214, 140], y: -30 },
+  lantern_post: { r: 78, rgb: [255, 166, 90], y: -20 },
+  lantern_tree: { r: 80, rgb: [255, 200, 120], y: -23 },
+  five_foot_lantern: { r: 54, rgb: [255, 200, 120], y: -27 },
+  bollard_light: { r: 44, rgb: [214, 234, 255], y: -4 },
   fire: { r: 118, rgb: [255, 150, 70], y: -6, flicker: 0.2 },
   furnace: { r: 104, rgb: [255, 128, 60], y: -10, flicker: 0.12 },
   range: { r: 86, rgb: [255, 166, 90], y: -8, flicker: 0.12 },

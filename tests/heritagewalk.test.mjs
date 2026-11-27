@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildWorld } from '../src/data/world.js';
 import { World } from '../src/game/world.js';
+import { findPath } from '../src/engine/pathfinding.js';
 import { drawHeritageBank, drawMarketValance, heritageService, heritageTiles, paintHeritageTiles } from '../src/render/heritagewalk.js';
 
+const map = buildWorld();
 const world = new World();
-world.build(buildWorld());
+world.build(map);
 
 test('the heritage inlay connects the real hall, stall and bank without covering blocked tiles', () => {
   const tiles = heritageTiles(world, 45, 46, 68, 84);
@@ -28,6 +30,18 @@ test('the heritage inlay connects the real hall, stall and bank without covering
   const chunks = [...heritageTiles(world, 32, 32, 64, 64), ...heritageTiles(world, 64, 32, 96, 64), ...heritageTiles(world, 32, 64, 64, 96)];
   const keys = (list) => list.map(({ x, y }) => `${x},${y}`).sort();
   assert.deepEqual(keys(chunks), keys(tiles), 'the terrain baker clips each tile to its own chunk');
+});
+
+test('the Lion of Light guards the hall off the main road on walkable ground', () => {
+  const lion = map.npcSpawns.filter((spawn) => spawn.npcId === 'lion_of_light');
+  assert.equal(lion.length, 1);
+  const [{ x, y, wander, opts }] = lion;
+  assert.deepEqual([x, y, wander, opts.aggressive], [64, 82, 0, false]);
+  assert.equal(world.objectAt(x - 1, y - 1).objId, 'golden_dome_hall');
+  assert.equal(world.isBlocked(x, y), false);
+  const grid = { width: world.width, height: world.height, isBlocked: (px, py) => world.isBlocked(px, py) };
+  const path = findPath(grid, map.spawnPoint, { x, y }, { reachAdjacent: true });
+  assert.ok(path?.length, 'the hall grounds are reachable from town');
 });
 
 test('nearby services use the actual working counter, independently of a mouse hover', () => {

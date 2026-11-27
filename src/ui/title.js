@@ -1,11 +1,7 @@
 // The title screen, the loading bar and the animated heroes of the class picker.
 //
-// - Title: the splash (index.html) sits over the game's own live world. While it
-//   shows, the camera drifts through a few "shots" of the island (Kampong Glam,
-//   Chinatown, the Sentosa shore, Marina Bay), cutting between them through a
-//   soft cream dip, with a painted skyline, a row of class heroes idling (and now
-//   and then swinging) in front, and petals drifting down. The world behind is
-//   the real map with the real day cycle, so it costs no more than the game.
+// - Title: a painted evening in Kampong Glam, with animated heroes and petals.
+//   The layered skyline and live island tour cover a failed key-art load.
 // - Loading: the Enter button waits behind a progress bar driven by real image
 //   loads (every picture the game asks for while it renders the title's shots
 //   and the heroes is counted), with rotating gameplay tips, so nothing pops in
@@ -35,6 +31,7 @@ import { cosySkylineSvg, dressTitle } from './cosytitle.js';
 // TITLE_ART: the screen uses it at once (tests/render.test.mjs keeps TITLE_ART
 // in lock-step with the folder). Until then each slot has a placeholder.
 export const TITLE_ART_SLOTS = {
+  'kampong-evening': { size: 'landscape, opaque', use: 'the title scene with clear space on the left for the wordmark', placeholder: 'the painted skyline and live island tour' },
   skyline: { size: '2400x700 (any height), transparent, seamless left-right', use: 'the near band behind the title heroes: rain trees, palms and Supertree-style towers', placeholder: 'the cosy neighbourhood SVG (cosytitle.js)' },
   backdrop: { size: '1920x1080, opaque', use: 'a painted key-art scene shown while the game loads (before the live world fades in)', placeholder: 'the cream paper background' },
   'backdrop-portrait': { size: '1080x1920, opaque', use: 'the same key art cropped for phones held upright', placeholder: 'the cream paper background' },
@@ -50,7 +47,7 @@ export const TITLE_ART_SLOTS = {
   medallion: { size: '256x256, round, transparent outside', use: 'the mascot\'s portrait filling the ribbon\'s sun disc on small screens (MD-1)', placeholder: 'the sitting mascot' },
 };
 /** The slots that have a painted file in assets/title/. */
-export const TITLE_ART = new Set(['backdrop', 'backdrop-portrait', 'sky', 'clouds', 'skyline-far', 'skyline-mid', 'skyline', 'foreground', 'logo-banner', 'mascot-sit', 'medallion']);
+export const TITLE_ART = new Set(['kampong-evening', 'backdrop', 'backdrop-portrait', 'sky', 'clouds', 'skyline-far', 'skyline-mid', 'skyline', 'foreground', 'logo-banner', 'mascot-sit', 'medallion']);
 export const titleArtSrc = (slot) => (TITLE_ART.has(slot) ? `assets/title/${slot}.webp` : null);
 /** The painted slots the title shows at once: asked for while the loading bar
  *  runs (and counted by it), so the city fades in whole. */
@@ -582,7 +579,7 @@ export class TitleScreen {
       tip: splash.querySelector('.sl-tip'), status: splash.querySelector('.sl-status'),
       fade: splash.querySelector('.title-fade'), place: splash.querySelector('.title-place'),
       heroes: splash.querySelector('.title-heroes'), sky: splash.querySelector('.title-skyline'),
-      petals: splash.querySelector('.title-particles'), enter: splash.querySelector('#splash-enter'),
+      petals: splash.querySelector('.title-particles'), keyArt: splash.querySelector('.title-keyart'),
     };
     document.body.classList.add('title-on');
     if (this.still) splash.classList.add('title-still');
@@ -613,34 +610,23 @@ export class TitleScreen {
     for (const id of this._cast()) warmHero(id);
     // The drifting petals (fxImage's own Image is counted like any other).
     if (!this.still && !this.lowFx) for (const k of PETALS) fxImage(`particle-${k}`);
-    // The painted city: asked for now so the loading bar waits for it (the
-    // layers then use the same files from the cache).
+    const keyArt = this.el.keyArt;
+    if (keyArt) {
+      this._titleArt = [this.tracker.add(keyArt)];
+      this._sky = keyArt;
+      if (keyArt.complete && !keyArt.naturalWidth) this._useSkyline();
+      else keyArt.addEventListener('error', () => { if (this.active) this._useSkyline(); }, { once: true });
+    } else this._useSkyline();
+  }
+
+  /** Set up the layered skyline if the key art is unavailable. */
+  _useSkyline() {
+    this.splash.classList.remove('title-keyart-on');
     this._titleArt = TITLE_START_ART.filter((s) => titleArtSrc(s) && !(s === 'clouds' && this.lowFx)).map((s) => {
       if (typeof Image !== 'function') return null;
       const img = new Image(); img.src = titleArtSrc(s);
       if (s === 'sky') this._sky = img;
       return img;
-    });
-  }
-
-  /** The game is built: hook its camera, and warm up the heroes we'll need. */
-  attach(game) {
-    this.game = game;
-    if (!this.splash) return;
-    const picking = game.pendingStyleChoice || game.pendingClassChoice;
-    // The pictures the first view needs are asked for (and counted) now: the
-    // title heroes this screen has room for, and your own hero, whom the
-    // camera comes back to.
-    const cast = this._cast();
-    this.warm();
-    if (game.jobClass) warmHero(game.jobClass);
-    // Once loading is done: every class's idle pictures for the class picker
-    // (they arrive while the title plays), the title heroes' swings and
-    // all of your own hero's pictures.
-    this.later(() => {
-      if (picking) for (const id of Object.keys(CLASS_BY_ID)) warmHero(id);
-      for (const id of cast) swingArtReady(id);
-      if (game.jobClass) warmHeroAnim(game.jobClass);
     });
     // The near band: the painted trees and Supertrees (art slot "skyline"), else
     // the cosy neighbourhood at golden hour (cosytitle.js). The city behind it is
@@ -663,10 +649,26 @@ export class TitleScreen {
     if (mascot && titleArtSrc('loading-hero')) mascot.src = titleArtSrc('loading-hero');
   }
 
-  /** Has the painted sky arrived? (A missing picture leaves the world showing through.) */
+  /** The game is built: hook its camera, and warm up the heroes we'll need. */
+  attach(game) {
+    this.game = game;
+    if (!this.splash) return;
+    const cast = this._cast();
+    this.warm();
+    if (game.jobClass) warmHero(game.jobClass);
+    this.later(() => {
+      if (game.pendingStyleChoice || game.pendingClassChoice) {
+        for (const id of Object.keys(CLASS_BY_ID)) warmHero(id);
+      }
+      for (const id of cast) swingArtReady(id);
+      if (game.jobClass) warmHeroAnim(game.jobClass);
+    });
+  }
+
+  /** Is there an opaque painting over the world? */
   _skyIn() {
     const img = this._sky;
-    return !!(img && img.complete && img.naturalWidth > 0 && this.splash?.classList.contains('title-painted'));
+    return !!(img && img.complete && img.naturalWidth > 0);
   }
 
   /** True while the live world can't be seen behind the title (worldOutOfSight):
@@ -678,6 +680,7 @@ export class TitleScreen {
   /** The title heroes this screen shows (all of them when it can't be measured). */
   _cast() {
     const c = this.el?.heroes, card = this.splash?.querySelector('.splash-inner');
+    if (!c?.clientWidth && this.splash?.classList?.contains('title-keyart-on')) return [];
     const w = c?.clientWidth || globalThis.innerWidth || 0;
     if (!w) return TITLE_HEROES;
     return titleCast(w, c?.clientHeight || 150, card?.getBoundingClientRect?.().width || w);
@@ -722,13 +725,15 @@ export class TitleScreen {
     }
     if (this.ready) this._sinceReady += dt;
     if (this.leaving) return;   // the camera returns to the player
+    const keyArt = this.splash.classList.contains('title-keyart-on');
+    if (keyArt && this.worldHidden) return;
     this.t += this.ready && !this.still ? dt : 0;
     if (this.ready) this._parallax(dt);
     const v = titleCameraAt(this.t, TITLE_SHOTS, this.still);
     cam.cx = v.x; cam.cy = v.y;
     cam.setZoomMul?.(v.zoom);
-    if (this.el.fade) this.el.fade.style.opacity = this.ready ? v.fade.toFixed(3) : '0';
-    if (v.shot !== this._shot && this.el.place) {
+    if (!keyArt && this.el.fade) this.el.fade.style.opacity = this.ready ? v.fade.toFixed(3) : '0';
+    if (!keyArt && v.shot !== this._shot && this.el.place) {
       this._shot = v.shot;
       this.el.place.textContent = v.name;
       // Restart the caption's fade-in for the new place.
