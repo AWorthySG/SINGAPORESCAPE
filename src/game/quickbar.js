@@ -8,6 +8,7 @@
 // Saved as `game.quickbar`: an array of QB_SLOTS action keys (null for an
 // empty slot). Older saves have none and get QB_DEFAULT.
 import { POTIONS, CROP_BY_SEED, cropFor } from '../data/trades.js';
+import { ISLAND_BY_ID, ISLAND_LIFE } from '../data/islandlife.js';
 import { SKILL_BY_ID } from '../data/skills.js';
 import { SKILL_GUIDES } from './skillguide.js';
 import { quickUse, quickUseChoice } from './quickuse.js';
@@ -67,7 +68,7 @@ export function goSkill(game, skill) {
 // you, the Slayer master for a task. Thieving and Agility walk to their best
 // spot, like their Go.
 export const LIFE_SHORTCUTS = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'archaeology', 'farming', 'cooking', 'smithing',
-  'crafting', 'fletching', 'herblore', 'construction', 'firemaking', 'hawkering', 'thieving', 'agility', 'slayer'];
+  'crafting', 'fletching', 'herblore', 'construction', 'firemaking', 'hawkering', 'thieving', 'agility', 'slayer', ...ISLAND_LIFE.map((s) => s.id)];
 const GATHERING = new Set(['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'archaeology']);
 // Each making skill's "Do all" (autoprocess.js nextJob) and where it is done,
 // first choice first: ore goes to the furnace before bars go to the anvil.
@@ -112,6 +113,7 @@ function patchToTend(game) {
 
 /** A shortcut's one-line note for the grid: what a tap would do now. */
 export function lifeShortcutHint(game, skill) {
+  if (ISLAND_BY_ID[skill]) return ISLAND_BY_ID[skill].desc;
   if (GATHERING.has(skill)) {
     const pick = bestGatherPick(game, skill);
     // (Sources your level allows, all of them past monsters' reach from here, aren't "nothing".)
@@ -132,6 +134,7 @@ export function lifeShortcutHint(game, skill) {
 /** Go and start a life skill (a tap in the Life skills grid). Returns true when
  *  something started: a walk, a fire, a batch made on the spot. */
 export function startLifeSkill(game, skill, ui = game.ui) {
+  if (ISLAND_BY_ID[skill]) { ui?.openSkillGuide(skill); return !!ui; }
   if (!game.player.alive) return false;
   // Skilling, not fighting: auto battle would only pull you away again. So would
   // auto quest, off to its next step (it rode you straight back from the MRT ride

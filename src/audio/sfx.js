@@ -345,6 +345,9 @@ export class Sfx {
     const last = this._last || {};
     const sameBeat = (k) => now - (last[k] ?? -Infinity) < 0.03;
     switch (name) {
+      case 'island-note-0': case 'island-note-1': case 'island-note-2':
+        this._tone([262, 330, 392][Number(name.at(-1))], 0.22, 'triangle', 0, 0.12);
+        break;
       case 'hit': {
         if (sameBeat('crit')) break;   // the crit already said it, louder
         // Three takes in turn, so a run of blows doesn't machine-gun. A swing on

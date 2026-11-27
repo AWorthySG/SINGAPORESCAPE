@@ -14,6 +14,7 @@ import { CRAFT } from '../data/crafting.js';
 import { CROPS, POTIONS, FLETCH, HUNT, HIDE_CRAFT, cropFor } from '../data/trades.js';
 import { CONSTRUCT } from '../data/construction.js';
 import { HOME_UPGRADES } from './home.js';
+import { ISLAND_LIFE, LANDINGS, PATTERNS, PHOTO_ASSIGNMENTS, TUNES, VOYAGES } from '../data/islandlife.js';
 import { SIGNATURE, ORDER_BY_ID, STALL_RENT } from '../data/hawkering.js';
 import { SHOPS } from '../data/shops.js';
 import { CLUE_TIERS } from '../data/clues.js';
@@ -38,6 +39,7 @@ const TICK_S = 0.6;
 
 // One line on why each skill matters, and the objects to walk to.
 export const SKILL_GUIDES = {
+  ...Object.fromEntries(ISLAND_LIFE.map((s) => [s.id, { use: s.desc }])),
   woodcutting: { use: 'Logs feed Firemaking and Fletching (bows, arrows, staves). From level 100, groves of rare trees in the far regions give the endgame logs. Each tree holds 10 to 20 logs, and about one swing in 20 brings the whole tree down at once: ten times the logs left in it, with XP for every log.' },
   mining: { use: 'Ore is smelted into bars for Smithing, and gems and gold go to Crafting. From level 100, rare veins in the far regions give the endgame ores. Each rock holds 10 to 20 ores, and about one swing in 20 breaks the whole seam free at once: ten times the ore left in it, with XP for every ore.' },
   fishing: { use: 'Raw fish are cooked into food that heals you in a fight. Each kind of spot holds one fish, so where you fish picks the fish: the list below says where each is. From level 100, rare spots in the far regions give the endgame fish. Now and then a school of fish (a dark swirl on the water) visits a spot near you for half a minute: fish there and you may net the whole school, 250 to 751 fish at once. And at any spot, about one catch in 20 turns out to be a smaller school of the fish you hooked: 10 to 140 at once.' },
@@ -64,6 +66,7 @@ export const SKILL_GUIDES = {
   prayer: { use: `Unlocks Blessings (always-on, in slots that grow with your level) and powers the Faith Burst. Bury bones anywhere, or offer them at an A-Worthy Monument for ${ALTAR_XP_MULT}x XP.`, combat: true, where: ['shrine'] },
   slayer: { use: 'Tasks from Slayer Master Rajan. On task you hit harder and sometimes get a second helping of loot; points buy rewards.', combat: true },
 };
+export const ACTIVITY_SKILLS = ISLAND_LIFE.map((s) => s.id);
 export const GUIDE_SKILLS = Object.keys(SKILL_GUIDES);
 export const GATHER_SKILLS = ['woodcutting', 'mining', 'fishing', 'hunter', 'diving', 'archaeology', 'farming', 'thieving', 'agility'];
 export const MAKE_SKILLS = ['smithing', 'cooking', 'crafting', 'fletching', 'herblore', 'firemaking', 'construction', 'hawkering'];
@@ -199,7 +202,15 @@ export function canMake(game, r) {
 
 const givesText = (g) => g.filter((x) => !x.rare && x.id !== 'coins').map((x) => name(x.id)).slice(0, 4).join(', ');
 /** Every entry for a skill: { level, label, detail, objIds?, xp, source?, recipe? } sorted by level. */
+const ISLAND_ENTRIES = {
+  sailing: VOYAGES.map((r) => ({ ...r, name: LANDINGS[r.from].name + ' → ' + LANDINGS[r.to].name, detail: 'Follow the channel markers.' })),
+  photography: PHOTO_ASSIGNMENTS,
+  textile_arts: PATTERNS.map((p) => ({ ...p, detail: `Print a cotton scarf with ${name(p.dye)} and 8 coins.` })),
+  music: TUNES.map((t) => ({ ...t, detail: `Perform at a hawker stage for ${t.tip} coins.` })),
+};
 export function guideEntries(skill) {
+  const activities = ISLAND_ENTRIES[skill];
+  if (activities) return activities.map(({ name: label, detail, level, xp }) => ({ level, label, detail, xp })).sort((a, b) => a.level - b.level);
   const out = [];
   if (GATHER_SKILLS.includes(skill) && skill !== 'farming') {
     for (const s of gatherSources()) {

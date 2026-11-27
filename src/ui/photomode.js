@@ -11,6 +11,7 @@
 //
 // Browser only (main.js calls initPhotoMode); the pure helpers below are what
 // the tests drive.
+import { recordIslandPhoto } from '../game/islandlife.js';
 import { keyboardBlocked } from './keyboard.js';
 import { typing } from './quickbar.js';
 import { composePostcard, photoPostcardSize } from '../render/postcard.js';
@@ -85,6 +86,7 @@ export class PhotoMode {
       </div>
       <div class="pm-preview" role="dialog" aria-label="Your postcard">
         <img class="pm-img" alt="Your postcard" />
+        <p class="pm-assignment hidden" role="status"></p>
         <div class="pm-row">
           <button type="button" class="pm-btn pm-retake">Retake</button>
           <button type="button" class="pm-btn pm-save">Save postcard</button>
@@ -138,6 +140,7 @@ export class PhotoMode {
     const make = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
     const cv = buildPostcard(this.game, this.canvas, make, { vw: window.innerWidth, vh: window.innerHeight, logo: this.logo && this.logo.complete && this.logo.naturalWidth ? this.logo : null });
     if (!cv) return;
+    const subject = recordIslandPhoto(this.game);
     this.el.classList.remove('flashing'); void this.el.offsetWidth; this.el.classList.add('flashing');
     this.game.audio?.play?.('pickup');   // a little shutter click
     const done = (blob) => {
@@ -146,6 +149,9 @@ export class PhotoMode {
       if (this.url) URL.revokeObjectURL(this.url);
       this.url = URL.createObjectURL(blob);
       this.el.querySelector('.pm-img').src = this.url;
+      const result = this.el.querySelector('.pm-assignment');
+      result.textContent = subject ? `Album print earned: ${subject.name}` : '';
+      result.classList.toggle('hidden', !subject);
       this.state = 'preview';
       this.el.classList.remove('framing');
       this.el.classList.add('previewing');
@@ -187,5 +193,5 @@ export class PhotoMode {
 /** Put the camera button on the HUD (browser only). */
 export function initPhotoMode(game, canvas) {
   if (typeof document === 'undefined') return null;
-  try { return new PhotoMode(game, canvas); } catch (e) { console.error(e); return null; }
+  try { return game.photoCamera = new PhotoMode(game, canvas); } catch (e) { console.error(e); return null; }
 }

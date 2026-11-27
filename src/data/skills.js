@@ -1,4 +1,6 @@
 // Skill definitions. Order here drives the Skills tab layout (RS-style grid).
+import { ISLAND_LIFE } from './islandlife.js';
+
 export const SKILLS = [
   // Melee is one skill, like Ranged: it drives your damage. It keeps
   // the id 'attack' so saves, requirements and perks carry over; 'strength' now
@@ -53,6 +55,7 @@ export const SKILLS = [
     group: 'making', desc: 'Run your own stall at the Marina Bay hawker centre. Serve dishes for coins.' },
   { id: 'archaeology', name: 'Archaeology', icon: '🏺', color: '#b07a4a',
     group: 'gathering', desc: 'Dig heritage sites for old finds, restore them and fill the museum.' },
+  ...ISLAND_LIFE,
 ];
 
 // Skills panel sections, in display order.

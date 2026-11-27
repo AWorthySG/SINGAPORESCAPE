@@ -1018,6 +1018,10 @@ import { CON_TIERS, CON_WOOD } from '../data/construction.js';
     if (!m || !BORROW[m[2]] || !METAL_PAL[m[1]]) return null;
     return { file: BORROW[m[2]], tint: metalTint(m[1]) };
   }
+  S.sailing = `<path d="M3 17h18l-4 4H7zM12 3v12H5zM14 7l5 8h-5z" fill="#81caca" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/>`;
+  S.photography = `<path d="M3 7h5l1-2h6l1 2h5v12H3z" fill="#d6a8b8" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" fill="#9cd2dc" stroke="${OL}" stroke-width="1.2"/>`;
+  S.textile_arts = `<path d="M4 3h16v18H4z" fill="#bd7389" stroke="${OL}" stroke-width="1.2"/><path d="m12 6 5 6-5 6-5-6z" fill="#f5d495" stroke="${OL}" stroke-width="1"/>`;
+  S.music = `<path d="M10 16V6l9-2v11M10 9l9-2" fill="none" stroke="${OL}" stroke-width="1.5"/><ellipse cx="7.5" cy="17" rx="3.5" ry="2.4" fill="#ecc681" stroke="${OL}"/><ellipse cx="16.5" cy="15" rx="3.5" ry="2.4" fill="#ecc681" stroke="${OL}"/>`;
   const SKILL_ART = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic', 'prayer', 'slayer',
     'woodcutting', 'mining', 'fishing', 'firemaking', 'cooking', 'smithing', 'crafting', 'thieving', 'agility',
     'farming', 'hunter', 'herblore', 'fletching', 'diving', 'construction', 'hawkering', 'archaeology']);
