@@ -56,7 +56,7 @@ export const BESTIARY_SPECIES = [
     look: 'A wispy figure made of reservoir water and mist, translucent teal with ripples for a face, lily pads and duckweed stuck to its flowing tail and droplets falling off its hands.' },
   // ---- Sentosa Beach ----
   { name: 'Fiddler crab', plural: 'Fiddler crabs', sprite: 'crab', color: '#e0a040', zone: 'Sentosa Beach', aggro: false, levels: [8, 20, 34],
-    drop: { id: 'seaweed', min: 1, max: 3, weight: 10 }, borrow: 'mud_crab', tint: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.1)',
+    drop: { id: 'coins', min: 2, max: 6, weight: 10 }, borrow: 'mud_crab', tint: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.1)',
     lore: 'It waves its one giant claw to impress, or to warn you off its burrow. Mostly to warn you off.',
     look: 'Tiny sand-coloured crab with a blue-and-orange shell and ONE enormous bright orange claw held up proudly (the other claw tiny), tall stalk eyes and a smug little face.' },
   { name: 'Sentosa peafowl', plural: 'Sentosa peafowl', sprite: 'fowl', color: '#2a7ab0', zone: 'Sentosa Beach', aggro: true, levels: [12, 26, 42],
@@ -215,7 +215,7 @@ export const BESTIARY_SPECIES = [
     lore: 'It has sat on the same reef for a hundred years, and its jagged shell snaps shut on careless ankles.',
     look: 'A huge scalloped clam with wavy ridged shell edges, a gleaming iridescent blue-and-turquoise mantle peeking out, a big pearl inside and two sleepy eyes.' },
   { name: 'Hawksbill turtle', plural: 'Hawksbill turtles', sprite: 'turtle', color: '#8a6a3a', zone: 'Southern Islands', aggro: false, levels: [130, 170, 212],
-    drop: { id: 'seaweed', min: 2, max: 5, weight: 10 }, borrow: 'sea_turtle', tint: 'hue-rotate(-40deg) saturate(1.3)',
+    drop: { id: 'coins', min: 4, max: 10, weight: 10 }, borrow: 'sea_turtle', tint: 'hue-rotate(-40deg) saturate(1.3)',
     lore: 'It nests on the quieter beaches of the Southern Islands. Its beak is sharp and it remembers every rude visitor.',
     look: 'Sea turtle with a gorgeous amber-and-brown tortoiseshell pattern, a narrow pointed hawk-like beak, overlapping shell plates and flippers mid-swim.' },
   { name: 'Duyung', plural: 'Duyung', sprite: 'seacreature', color: '#9ab0c0', zone: 'Southern Islands', aggro: true, levels: [140, 180, 215],
@@ -245,7 +245,7 @@ export const BESTIARY_SPECIES = [
     lore: 'Its "ko-EL! ko-EL!" starts at five in the morning and never stops. People have been driven to violence.',
     look: 'Glossy blue-black bird with piercing red eyes, a pale green beak and a long tail, beak wide open mid-shout; very loud energy.' },
   { name: 'Hyacinth tangle', plural: 'Hyacinth tangles', sprite: 'plant', color: '#6a5ac0', zone: 'Punggol Waterway', aggro: true, levels: [50, 82, 110],
-    drop: { id: 'seaweed', min: 1, max: 3, weight: 10 }, borrow: 'pitcher_plant', tint: 'hue-rotate(260deg) saturate(1.2)',
+    drop: { id: 'coins', min: 2, max: 6, weight: 10 }, borrow: 'pitcher_plant', tint: 'hue-rotate(260deg) saturate(1.2)',
     lore: 'A raft of water hyacinth that drifted down the waterway and woke up hungry.',
     look: 'A floating clump of glossy green bulb-leaves topped with pale lilac hyacinth flowers, dangling purple roots for legs and a mouth hidden in the leaves.' },
   // ---- Kranji Farmlands ----

@@ -733,6 +733,9 @@ export const OBJECTS = {
     examine: 'A stall of your own, with a wok, a till and a queue of hungry townsfolk.' },
 };
 
+// Preserve the footprints that seeded subsequent placements in the old map.
+export const GENERATION_ONLY_SCENERY = new Set(['ruin', 'temasek_gate']);
+
 // ---------------- Landmarks and set dressing (landmarks.js places them) ----------------
 // Painted set pieces that make each region recognisable. A landmark covers a
 // `footprint` of [wide, deep] tiles, standing on its front-left tile, and
@@ -812,7 +815,6 @@ const PROPS = {
   kelong_net: ['Drying net', 'A fishing net hung up to dry between two poles.'],
   kelong_stilts: ['Kelong stilts', 'Rope-bound stilts, all that is left of an old kelong.'],
   buoy_pile: ['Buoys', 'A heap of floats and a coil of rope.'],
-  crab_trap: ['Crab trap', 'A woven trap. Someone is home.'],
   boardwalk: ['Boardwalk', 'Planks out over the water.'],
   boardwalk_corner: ['Boardwalk', 'The boardwalk turns here.'],
   trail_signpost: ['Trail signpost', 'Signs to the summit, the stream and the valley.'],
@@ -822,7 +824,6 @@ const PROPS = {
   hay_bale: ['Hay bale', 'A round bale of golden hay.'],
   water_trough: ['Water trough', 'A stone trough with a tap, for the goats.'],
   durian_cart: ['Durian cart', 'A cart of durians. You can smell it from here.'],
-  fish_rack: ['Fish rack', 'Fish drying in the sun on a bamboo rack.'],
   oil_drums: ['Oil drums', 'Rusty drums stacked on the wharf.'],
   mooring_bollard: ['Mooring bollard', 'An iron bollard with a heavy rope round it.'],
   broken_pillar: ['Broken pillar', 'A carved pillar, broken off and wrapped in vines.'],

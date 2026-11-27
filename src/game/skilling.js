@@ -331,15 +331,15 @@ export function resolveFish(game, action) {
   return true; // fishing spots never deplete
 }
 
-// A small chance while fishing to pull up junk or treasure (incl. a
+// A small chance while fishing to pull up spare change or treasure (incl. a
 // message-in-a-bottle clue scroll) — keeps fishing lively and rewarding.
 function fishOddity(game, obj) {
   const fc = objCenter(obj);
   game.spawnPoof(fc.x, fc.y, '#bfe3ff');
   const r = Math.random();
   if (r < 0.4) {
-    const junk = Math.random() < 0.5 ? 'old_boot' : 'seaweed';
-    if (game.inventory.canAdd(junk, 1) > 0) { game.inventory.add(junk, 1); game.msg(`You fish up some ${getItem(junk).name.toLowerCase()}. Charming.`); }
+    const coins = Math.random() < 0.5 ? 1 : 2;
+    if (game.inventory.add('coins', coins)) game.msg('A little loose change comes up with your catch.');
   } else if (r < 0.85) {
     if (Math.random() < 0.35 && game.inventory.canAdd('pearl', 1) > 0) {
       game.inventory.add('pearl', 1); game.skills.addXp('fishing', 25);

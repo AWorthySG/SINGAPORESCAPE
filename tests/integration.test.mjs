@@ -1793,7 +1793,7 @@ test('Singapore fish species are defined, cookable, and catchable', async () => 
   }
 });
 
-test('extra fish species, bait, junk & treasure are defined and catchable', async () => {
+test('extra fish species, bait & treasure are defined and catchable', async () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const [{ getItem }, { COOKING, resolveFish }] = await Promise.all([
@@ -1805,7 +1805,7 @@ test('extra fish species, bait, junk & treasure are defined and catchable', asyn
     assert.ok(getItem(`raw_${f}`) && getItem(f), `${f} has raw + cooked items`);
     assert.equal(COOKING[`raw_${f}`].result, f, `${f} is cookable`);
   }
-  for (const id of ['fishing_bait', 'old_boot', 'seaweed', 'pearl']) {
+  for (const id of ['fishing_bait', 'pearl']) {
     assert.ok(getItem(id), `${id} is defined`);
   }
 
@@ -4279,7 +4279,7 @@ test('second November batch: 16 species and 3 bosses, placed at home, with bones
   const names = ALL_BOSS_IDS.map((id) => NPCS[id].ability?.name).filter(Boolean);
   assert.equal(new Set(names).size, names.length, 'every signature move has its own name');
   for (const id of EXTRA_BOSS_IDS) assert.ok(w.npcSpawns.some((s) => s.npcId === id), `${id} is still placed`);
-  const extras = ['raw_venison', 'seaweed', 'clay', 'raw_stingray', 'feather', 'chaos_rune', 'raw_lobster',
+  const extras = ['raw_venison', 'clay', 'raw_stingray', 'feather', 'chaos_rune', 'raw_lobster',
     'sandstone', 'pilgrim_cape', 'croc_hide', 'temple_pendant', 'death_rune', 'ring_of_serenity'];
   for (const it of extras) assert.ok(ITEMS[it], `${it} is a real item`);
   for (const id of [...MORE_MONSTER_IDS, ...MORE_BOSS_IDS]) {

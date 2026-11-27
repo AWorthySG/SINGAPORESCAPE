@@ -352,10 +352,8 @@ const RAW = {
   fish_head_curry: { name: 'Fish head curry', icon: '🍛', value: 1200, heal: 34, meal: { ms: 180000, fx: { boss: 0.12, reduce: 0.05 } }, artFrom: ['seafood_stew', 'sepia(0.5) saturate(2) hue-rotate(-25deg)'],
     examine: 'A whole fish head in a fiery curry. Heals 34; for 3 minutes +12% damage to bosses and champions and 5% less damage taken.' },
 
-  // ---- Fishing bait, junk & treasure ----
+  // ---- Fishing bait & treasure ----
   fishing_bait: { name: 'Fishing bait', icon: '🪱', value: 2, stackable: true, tags: ['bait'], examine: 'Improves your catch rate when fishing.' },
-  old_boot: { name: 'Old boot', icon: '🥾', value: 1, examine: 'You fished up someone\'s old boot. Charming.' },
-  seaweed: { name: 'Seaweed', icon: '🌿', value: 2, examine: 'A clump of soggy seaweed.' },
   pearl: { name: 'Pearl', icon: '🦪', value: 600, examine: 'A lustrous pearl from an oyster.' },
   birds_nest: { name: "Bird's nest", icon: '🪺', value: 0, examine: 'Knocked from a tree while chopping — open it for a surprise.' },
 
