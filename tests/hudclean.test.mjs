@@ -54,6 +54,32 @@ test("a townsperson's name beside you steps aside rather than printing over your
   assert.ok(checked > 0, "the townsperson's name was drawn at least once");
 });
 
+test('Smart labels keep the interaction name and spare the hero from ambient chatter', () => {
+  globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  const g = new Game(); g.start();
+  g.worldLabels = 'smart';
+  g.camera.resize(800, 600);
+  const pc = g.player.renderCenter();
+  const makeNpc = (name, dx, dy) => ({
+    name, alive: true, attackable: false, def: {},
+    x: pc.x / 32, y: pc.y / 32, chatTimer: 20, chatText: `Chatter from ${name}`,
+    renderCenter: () => ({ x: pc.x + dx, y: pc.y + dy }),
+  });
+  const focused = makeNpc('Active quest giver', 40, 25);
+  const covered = makeNpc('Behind hero', 0, 35);
+  const left = makeNpc('Left neighbour', -220, -40);
+  const right = makeNpc('Right neighbour', 220, -40);
+  const extra = makeNpc('Extra neighbour', 220, 70);
+  g.hover = { npc: focused };
+  g.nearbyNpcs = () => [focused, covered, left, right, extra];
+  const ctx = recordingCtx();
+  new Renderer(g, { width: 800, height: 600 }, ctx)._drawOverheads(pc.x - 400, pc.y - 300, []);
+  const text = ctx.calls.filter(([op]) => op === 'fillText');
+  const interaction = text.find(([, label]) => label === focused.name);
+  assert.ok(interaction?.[3] > 330, 'the current interaction name moves below the hero');
+  assert.deepEqual(text.map(([, label]) => label).filter((label) => label.startsWith('Chatter from')), [left.chatText, right.chatText]);
+});
+
 test('desktop folds the side panel to its tab icons when you fold it, starts with it open, and the area name only shows on arrival', () => {
   const css = readFileSync(new URL('../styles/main.css', import.meta.url), 'utf8');
   assert.match(css, /@media \(pointer: fine\) and \(min-width: 541px\) and \(min-height: 501px\) \{\s*#sidepanel\.collapsed \{[^}]*grid-template-areas: "tabs"/);

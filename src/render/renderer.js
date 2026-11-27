@@ -13,6 +13,11 @@ import { getItem } from '../data/items.js';
 const SPLAT_SCALE = 0.72;
 // How far over your head your own name pill sits (its middle, in px).
 const OWN_NAME_Y = 56;
+
+// A name or speech pill loses its usual position if it would cover the hero.
+function pillOverHero(pill, dx, dy) {
+  return Math.abs(dx) < pill.w / 2 + 14 && dy - pill.h / 2 < 8 && dy + pill.h / 2 > -34;
+}
 const ARROW_LOOK = {
   default: { head: '#d9c45a', fletch: '#ffffff', shaft: '#b8874a', trail: '#ffffff', size: 1 },
   bronze: { head: '#c9874a', fletch: '#ffffff', shaft: '#b8874a', trail: '#ffffff', size: 1 },
@@ -1933,24 +1938,15 @@ export class Renderer {
       ctx.fillText(label, cx, yy);
       ctx.globalAlpha = 1;
     }
-    // Directional signposts (which way to each area): the HUD's sticker card
-    // (paper, a navy line, a white die-cut rim and a small drop shadow), so a
-    // signpost reads as one family with the banners and toasts.
-    ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif';
+    // Share the cached cream nameplate treatment with world labels. The
+    // Wilderness keeps a distinct colour to signal the danger ahead.
     for (const o of objs) {
       if (!o.sign) continue;
       const cx = o.x * TILE + TILE / 2 - ox, cy = o.y * TILE + TILE / 2 - oy;
       if (cx < -40 || cx > vw + 40 || cy < -20 || cy > vh + 20) continue;
       if (pj) applyRow(ctx, pj, cy + 13);
-      const yy = cy - 16;
-      const wpx = ctx.measureText(o.sign).width + 14, x0 = cx - wpx / 2, y0 = yy - 12;
-      const plate = (dx, dy) => { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x0 + dx, y0 + dy, wpx, 17, 8.5); else ctx.rect(x0 + dx, y0 + dy, wpx, 17); };
-      ctx.fillStyle = 'rgba(34,48,74,0.2)'; plate(0, 2.5); ctx.fill();
-      plate(0, 0);
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 5; ctx.stroke();
-      ctx.fillStyle = '#FFFCF5'; ctx.fill();
-      ctx.strokeStyle = '#22304A'; ctx.lineWidth = 2; ctx.stroke();
-      ctx.fillStyle = o.sign.includes('Wilderness') ? '#C0392B' : '#22304A'; ctx.fillText(o.sign, cx, yy);
+      const style = o.sign.includes('Wilderness') ? 'warningSign' : 'sign';
+      drawPill(ctx, namePill(ctx, o.sign, style, this._pillRes), cx, cy - 20);
     }
   }
 
@@ -2005,6 +2001,7 @@ export class Renderer {
 
   _drawOverheads(ox, oy, objs) {
     const { ctx, game } = this;
+    this._pillRes = pillRes(game.camera);
     this._drawNodeLabels(ox, oy, objs);
     const vw = this._vw || game.camera.viewW, vh = this._vh || game.camera.viewH, pj = this._pj;
     // Tilted, each name and bar is drawn at its owner's row (projection.js);
@@ -2015,7 +2012,6 @@ export class Renderer {
     // Labels drawn so far this frame (names, tags, your status), to keep them apart.
     this._placed ||= [];
     this._nPlaced = 0;
-    this._pillRes = pillRes(game.camera);   // the scale name pills are painted at
     // Hit numbers go down first, so the names, bars and tags drawn after them
     // always sit on top and stay readable in a crowded fight.
     this._drawSplats(ox, oy);
@@ -2028,8 +2024,10 @@ export class Renderer {
       : game.playerRoot > 0 ? ROOTED_STATUS : game.playerStun > 0 ? STUNNED_STATUS : null;
     // Your name and status pill (drawn later, over everyone) hold their spots
     // first, so a name standing by you steps aside instead of printing over them.
-    if (game.player.alive) {
-      const pc = game.player.renderCenter();
+    const pc = game.player.alive ? game.player.renderCenter() : null;
+    const smart = mode === 'smart';
+    let ambientBubbles = 0;
+    if (pc) {
       if (ownName) this._place(pc.x - ox, pc.y - oy - OWN_NAME_Y, namePill(ctx, game.player.name, 'own', this._pillRes).w / 2 + 1);
       if (status) {
         ctx.font = '900 10px Nunito,"Trebuchet MS",sans-serif';
@@ -2058,21 +2056,23 @@ export class Renderer {
       const sc = n.def.scale || 1;
       const yo = -(20 * sc) - 6;
       if (pj) applyRow(ctx, pj, c.y - oy + 12);
-      if (n.chatTimer > 0 && n.chatText) {
-        const px = c.x - ox, py = c.y - oy + yo - 14;
-        ctx.font = '800 10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
-        const wpx = ctx.measureText(n.chatText).width + 10;
-        this._place(px, py - 4.5, wpx / 2);   // names drawn after this step clear of it
-        // A-Worthy speech-bubble sticker: white card, navy ink outline.
-        ctx.fillStyle = '#FFFFFF';
-        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(px - wpx / 2, py - 12, wpx, 15, 7.5); ctx.fill(); }
-        else ctx.fillRect(px - wpx / 2, py - 12, wpx, 15);
-        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 1.5;
-        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(px - wpx / 2, py - 12, wpx, 15, 7.5); ctx.stroke(); }
-        ctx.fillStyle = '#1C1B19'; ctx.fillText(n.chatText, px, py - 1);
+      const focusedTown = smart && !n.attackable && game.hover?.npc === n;
+      const ambient = smart && !boss && !targeted && n.target !== game.player;
+      let talking = false;
+      if (n.chatTimer > 0 && n.chatText && !focusedTown && (!ambient || ambientBubbles < 2)) {
+        const px = c.x - ox, py = c.y - oy + yo - 18.5;
+        const bubble = namePill(ctx, n.chatText, 'town', this._pillRes);
+        const hw = bubble.w / 2;
+        const overHero = pc && pillOverHero(bubble, c.x - pc.x, py + oy - pc.y);
+        if (!ambient || (!overHero && !this._placeHits(px, py, hw))) {
+          this._place(px, py, hw);
+          drawPill(ctx, bubble, px, py);
+          talking = true;
+          if (ambient) ambientBubbles++;
+        }
       }
       if (boss || n.combatLatch > 0 || targeted) this._healthBar(c.x - ox, c.y - oy + yo, n.hp / n.maxHp, boss);
-      if (moral && !(n.chatTimer > 0)) {
+      if (moral && !talking) {
         // A small gold "!" bobbing over their head until you have chosen.
         const px = c.x - ox, py = c.y - oy + yo - 8 + Math.sin(performance.now() * 0.005) * 1.5;
         ctx.font = '900 14px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
@@ -2096,7 +2096,7 @@ export class Renderer {
         for (let k = 0; k < 2 && this._placeHits(px, py, hw); k++) py -= PILL_ROW;
         this._place(px, py, hw);
         drawPill(ctx, pill, px, py);
-      } else if (named && !(n.chatTimer > 0)) {
+      } else if (named && !talking) {
         // Everyone else: a smaller pill, cream for townsfolk and, for a foe,
         // green, gold or red words by how dangerous it is to you (foeThreat).
         // A foe wears it under its feet, leaving the space over its head (and
@@ -2107,13 +2107,17 @@ export class Renderer {
         let py = feet ? c.y - oy + 16 * sc + 9 : c.y - oy + yo - 2 - (moral ? 14 : 0);
         // (how dangerous a foe is only changes with your levels: worked out once a tick)
         if (n.attackable && n._threatTick !== game.tickCount) { n._threatTick = game.tickCount; n._threat = foeThreat(game, n); }
-        const pill = namePill(ctx, n.name, n.attackable ? n._threat : 'town', this._pillRes);
+        const style = n.attackable ? n._threat : focusedTown ? 'townFocus' : 'town';
+        const pill = namePill(ctx, n.name, style, this._pillRes);
+        if (focusedTown && pc && pillOverHero(pill, c.x - pc.x, py + oy - pc.y)) {
+          py = Math.max(c.y - oy + 16 * sc + 9, pc.y - oy + 8 + pill.h / 2);
+        }
         // Two foes side by side would print their names over each other: step
         // this one down a line (twice at most), or leave it off if still crowded.
         const hw = pill.w / 2;
         let tries = 0;
         while (this._placeHits(px, py, hw) && tries < 2) { py += PILL_ROW; tries++; }
-        if (this._placeHits(px, py, hw) && !targeted) continue;   // (your target's name always shows)
+        if (this._placeHits(px, py, hw) && !targeted && !focusedTown) continue;
         this._place(px, py, hw);
         drawPill(ctx, pill, px, py);
       }
