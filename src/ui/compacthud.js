@@ -147,7 +147,11 @@ export class CompactHud {
     const region = this._regionEl || (this._regionEl = document.getElementById('region-label'));
     if (region) {
       const name = region.textContent;
-      if (name !== this._region) { this._region = name; this._regionAt = t; }
+      // The arrival timer shouldn't run out while the title is still showing.
+      if (name !== this._region || document.body?.classList.contains('title-on')) {
+        this._region = name;
+        this._regionAt = t;
+      }
       const folded = !!document.getElementById('minimap-panel')?.classList.contains('collapsed');
       region.classList.toggle('fresh', regionShown({ now: t, changedAt: this._regionAt, minimapFolded: folded }));
     }

@@ -4,6 +4,24 @@
 
 const INK = '#22304A';
 
+/** A triangle means danger on the ground or above a creature. */
+export function drawDangerMark(ctx, x, y, size = 10) {
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x, y - size);
+  ctx.lineTo(x + size, y + size * 0.7);
+  ctx.lineTo(x - size, y + size * 0.7);
+  ctx.closePath();
+  ctx.strokeStyle = '#FFF8E9'; ctx.lineWidth = 4; ctx.stroke();
+  ctx.fillStyle = '#FBE3B0'; ctx.fill();
+  ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = INK; ctx.font = '900 12px Nunito,"Trebuchet MS",sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('!', x, y + 1);
+  ctx.restore();
+}
+
 /** Over a boss (or one of its healers), after the creature is drawn. */
 export function drawBossMech(ctx, n, cx, cy, sc, timeMs, ox, oy) {
   const m = n.mech;
@@ -55,7 +73,8 @@ export function drawSafeZone(ctx, h, ox, oy, timeMs, TILE) {
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = `rgba(95,224,138,${(0.45 + pulse * 0.15).toFixed(3)})`;
   ctx.fill();
-  ctx.lineWidth = 3; ctx.strokeStyle = '#2f9a5a'; ctx.stroke();
+  ctx.lineWidth = 5; ctx.strokeStyle = '#FFF8E9'; ctx.stroke();
+  ctx.lineWidth = 2; ctx.strokeStyle = '#22543C'; ctx.stroke();
   ctx.font = '900 12px Nunito,"Trebuchet MS",sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.fillStyle = '#1f6a3a';

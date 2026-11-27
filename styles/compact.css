@@ -1054,3 +1054,35 @@ body.reduce-motion :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #mo
   }
   #joystick.active { border-color: var(--aw-accent-dk); }
 }
+
+/* Quiet panel frames give the active tab and keyboard focus more definition. */
+@media (hover: hover) and (pointer: fine) {
+  #sidepanel:not(.collapsed), #chatbox, #modal-window {
+    border-color: #596575;
+    box-shadow: var(--shadow-float-sm);
+  }
+  #modal-window::after, #sidepanel:not(.collapsed)::after { opacity: .45; }
+  #sidepanel #inventory-grid .inv-slot:not(.filled) {
+    border-color: var(--aw-ink-faint);
+    box-shadow: none;
+  }
+}
+
+#region-label:not(.wild), #minimap-panel #minimap-region:not(.wild) {
+  background-color: var(--district-paper, var(--paper));
+  border-color: var(--district-ink, var(--aw-ink));
+}
+#minimap-panel #minimap-region:not(.wild)::before,
+#minimap-panel #minimap-region:not(.wild)::after {
+  background-color: var(--district-ink, #F2C14E);
+}
+#region-label .district-art {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  vertical-align: middle;
+  margin-inline-end: 6px;
+}
+#region-label .district-text { display: inline-grid; vertical-align: middle; line-height: 1.15; }
+#region-label .district-text small { font-size: var(--fs-xs); color: var(--district-ink, var(--aw-text)); }

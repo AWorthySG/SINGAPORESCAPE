@@ -1,6 +1,6 @@
 import { damageNumber as splatNum } from '../core/utils.js';   // hitsplats: 54000 -> "54K"
 import { TILE, TICK_MS } from '../config.js';
-import { drawBossMech, drawSafeZone } from './bossmechfx.js';
+import { drawBossMech, drawDangerMark, drawSafeZone } from './bossmechfx.js';
 import { drawGateShrine } from './gateshrine.js';
 import { TURN_MS } from '../game/character.js';
 import { TERRAIN } from '../data/world.js';
@@ -1784,21 +1784,18 @@ export class Renderer {
       const iw = w * k;
       ctx.fillStyle = `rgba(192,57,43,${(0.22 + k * 0.25).toFixed(3)})`;
       ctx.fillRect(x + (w - iw) / 2, y + (w - iw) / 2, iw, iw);
+      // A light solid edge and dark dashes stay visible even without the red.
+      ctx.strokeStyle = '#FFF8E9'; ctx.lineWidth = 3.5;
+      ctx.strokeRect(x + 2, y + 2, w - 4, w - 4);
       ctx.setLineDash([6, 4]);
       ctx.lineDashOffset = -timeMs * 0.03;
-      ctx.strokeStyle = '#C0392B'; ctx.lineWidth = 2.5;
-      ctx.strokeRect(x + 1.5, y + 1.5, w - 3, w - 3);
+      ctx.strokeStyle = '#22304A'; ctx.lineWidth = 2;
+      ctx.strokeRect(x + 2, y + 2, w - 4, w - 4);
       ctx.setLineDash([]);
-      if (h.safe) drawSafeZone(ctx, h, ox, oy, timeMs, TILE);   // a safe circle's green hole
-      // Warning sign in the middle (once per pattern piece, not on every single tile).
-      if (h.sign === false) { ctx.restore(); continue; }
-      const cx = x + w / 2, cy = y + w / 2;
-      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(cx, cy, 8 + pulse * 1.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = '#C0392B'; ctx.font = '900 13px Nunito,"Trebuchet MS",sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('!', cx, cy + 1);
-      ctx.textBaseline = 'alphabetic';
+      if (h.safe) drawSafeZone(ctx, h, ox, oy, timeMs, TILE);
+      // Don't stamp danger over the safe area's label.
+      const centreSafe = h.safe && Math.hypot(h.cx - h.safe.cx, h.cy - h.safe.cy) <= h.safe.r + 0.5;
+      if (h.sign !== false && !centreSafe) drawDangerMark(ctx, x + w / 2, y + w / 2, 8 + pulse * 1.5);
       ctx.restore();
     }
   }
@@ -2080,10 +2077,9 @@ export class Renderer {
         ctx.fillStyle = '#FFD24A'; ctx.fillText('!', px, py);
       }
       if (n.telegraph > 0) {
-        const px = c.x - ox, py = c.y - oy + yo - 12;
-        ctx.font = '800 18px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
-        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 4; ctx.strokeText('!', px, py);
-        ctx.fillStyle = '#ff5a5a'; ctx.fillText('!', px, py);
+        const px = c.x - ox, py = c.y - oy + yo - 17;
+        this._place(px, py, 12);
+        drawDangerMark(ctx, px, py);
       }
       if (named && (boss || n.champion)) {
         const px = c.x - ox;
