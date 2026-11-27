@@ -661,16 +661,21 @@ test('existing weapons, jewellery and boss uniques carry the new offensive stats
   for (const k of OFFENCE_KEYS) assert.equal(up[k], b[k], `mastery leaves ${k} alone`);
 });
 
-test('every amulet, ring and cape suits one style, and each style gets an equal ladder', async () => {
+test('standard amulets, rings and capes each suit one style, with equal ladders', async () => {
   const { ITEMS, ACCESSORY_SLOTS, ACCESSORY_STYLE, ENDGAME_JEWELLERY, accessoryStats, JEWELLERY_MULT, JEWELLERY_EXTRA_MULT } = await import('../src/data/items.js');
   // Diving's pearl jewellery is crafted only, never dropped: styled like the rest, but kept out of ACCESSORY_STYLE (the loot tables).
   const { PEARL_JEWELLERY } = await import('../src/data/diving.js');
   const CRAFTED = Object.fromEntries(PEARL_JEWELLERY.map(([id, , , P]) => [id, ['magic', P]]));
-  // The crafted endgame jewellery suits every style at once (tests/crafting-tiers.test.mjs).
-  const allStyle = new Set(ENDGAME_JEWELLERY.map(([id]) => id));
+  const { CRAFTED_ACCESSORIES } = await import('../src/data/accessories.js');
+  // Crafted endgame and specialised pieces have separate stat progressions.
+  const separateLadders = new Set([...ENDGAME_JEWELLERY, ...CRAFTED_ACCESSORIES].map(([id]) => id));
+  for (const [id, , , , , , , , , , style] of CRAFTED_ACCESSORIES) {
+    assert.equal(ACCESSORY_STYLE[id], undefined, `${id} stays out of the drop ladder`);
+    assert.equal(ITEMS[id].equip.style, style, `${id} has its intended style`);
+  }
   for (const [id, it] of Object.entries(ITEMS)) {
     const eq = it.equip;
-    if (!eq || !ACCESSORY_SLOTS.includes(eq.slot) || /_sash$/.test(id) || allStyle.has(id)) continue;
+    if (!eq || !ACCESSORY_SLOTS.includes(eq.slot) || /_sash$/.test(id) || separateLadders.has(id)) continue;
     const b = eq.bonuses || {};
     if (!['attack', 'strength', 'ranged', 'magic', 'dance'].some((k) => b[k])) continue;
     assert.ok(ACCESSORY_STYLE[id] || CRAFTED[id], `${id} has a style`);
