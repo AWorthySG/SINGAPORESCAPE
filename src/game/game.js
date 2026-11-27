@@ -1,3 +1,5 @@
+import { bossPracticeTip, knownBossMove } from './bosspractice.js';
+import { updateFirstJourney } from './firstjourney.js';
 import { getObject } from '../data/objects.js';   // quest guides read node levels
 import { EventBus } from '../core/events.js';
 import { goldenMult, goldenSkills, GOLDEN_HOUR_XP, SKILL_HOURS } from '../data/skillhours.js';
@@ -636,6 +638,7 @@ export class Game {
     // waits for the levels to settle (3s without one, 30s at most): a new
     // character's first minutes of levels brought a line of news, or a move, at
     // almost every one.
+    this.bus.on('xp', ({ skill }) => { if (skill === 'woodcutting') updateFirstJourney(this); });
     this.bus.on('levelup', (p) => {
       if (!p?.skill || p.skill !== this.autoGatherBest) return;
       const due = this._gatherUpgradeDue?.skill === p.skill ? this._gatherUpgradeDue : null, since = due ? due.since : this.tickCount;
@@ -753,6 +756,7 @@ export class Game {
     // Combat gear is granted once the player picks a fighting style — see
     // chooseStartingStyle(). The UI prompts for this right after the splash.
     this.pendingStyleChoice = true;
+    this.firstJourney = { phase: 'offer' };
     this.msg(`Welcome to ${this.world.townName}, an island of adventure!`, 'system');
   }
 
@@ -3975,6 +3979,7 @@ export class Game {
     if (this.killStreak > 1 && this.killStreak % 5 === 0) this.msg(`Kill streak ${this.killStreak}! Combat XP +${Math.round(Math.min(STREAK_MAX_BONUS, this.killStreak * STREAK_XP_PER_KILL) * 100)}%.`, 'level');
     this.bus.emit('xpbonus');
     this.kills[npc.npcId] = (this.kills[npc.npcId] || 0) + 1;
+    if (npc.npcId === 'rat') updateFirstJourney(this);
     if (!byAlly) { this._gainAdrenaline(this._adrenTrait('kill')); Bless.faithGain(this, 'kill'); }   // kill adrenaline (Gladiators, Berserkers, Sorcerers), and Faith
     // The Holy path: each of your kills heals you a little.
     if (!byAlly && this.player.alive) {
@@ -4211,6 +4216,7 @@ export class Game {
     }
     if (lvl !== this.wildLevel) this.bus.emit('xpbonus');
     this.wildLevel = lvl;
+    updateFirstJourney(this);
     this.ui?.setRegion?.(name, lvl);
   }
 
@@ -5017,9 +5023,9 @@ export class Game {
   }
 
   /** Squares ({cx, cy, r}) covered by a ground-attack pattern. */
-  _hazardSquares(pattern, npc, at) {
+  _hazardSquares(pattern, npc, at, random = Math.random) {
     const out = [];
-    const near = (k) => ({ cx: at.x + Math.round((Math.random() - 0.5) * 2 * k), cy: at.y + Math.round((Math.random() - 0.5) * 2 * k) });
+    const near = (k) => ({ cx: at.x + Math.round((random() - 0.5) * 2 * k), cy: at.y + Math.round((random() - 0.5) * 2 * k) });
     switch (pattern) {
       case 'nova': out.push({ cx: npc.x, cy: npc.y, r: 2 }); break;
       case 'quake': out.push({ cx: npc.x, cy: npc.y, r: 3 }); break;
@@ -5072,12 +5078,12 @@ export class Game {
             if (fx.steal && dmg > 0 && npc.healCapped(dmg * fx.steal) > 0) this.spawnSparkle(npc, '#5fe08a', 6);
           }
           this.bus.emit('hp');
-          if (p.hp <= 0) { this.playerDeath(); return; }
+          if (p.hp <= 0) { this.playerDeath({ boss: npc.npcId, move: ab.name }); return; }
           break;
         }
         case 'dot': {
           const per = Math.max(1, Math.round((def.maxHit || 1) * fx.per));
-          this.playerDot = { kind: fx.kind, dmg: per, ticks: fx.ticks, from: npc.name };
+          this.playerDot = { kind: fx.kind, dmg: per, ticks: fx.ticks, from: npc.name, boss: npc.npcId, move: ab.name };
           this.msg(`You are ${DOT_KINDS[fx.kind]?.name || 'hurt'}!`, 'combat');
           break;
         }
@@ -5155,7 +5161,7 @@ export class Game {
       this.addHitsplat(p, dmg, { tint: DOT_KINDS[d.kind]?.color });
       this.bus.emit('hp');
       if (--d.ticks <= 0) this.playerDot = null;
-      if (p.hp <= 0) { this.playerDot = null; this.playerDeath(); }
+      if (p.hp <= 0) { this.playerDot = null; this.playerDeath(d.boss ? d : null); }
     } else if (d) this.playerDot = null;
     for (const n of this._buffedBosses) {
       if (n.reflectTicks > 0) n.reflectTicks--;
@@ -5193,7 +5199,7 @@ export class Game {
         p.takeDamage(dmg); this.addHitsplat(p, dmg, { crit: true }); this.spawnHitSparks(p, '#ff5a3a');
         this.bus.emit('sfx', 'hurt'); this.bus.emit('hp');
         this.msg(`${h.npc.name}'s attack hits you for ${dmg}!`, 'combat');
-        if (p.hp <= 0) { this.playerDeath(); break; }
+        if (p.hp <= 0) { this.playerDeath({ boss: h.npc.npcId, pattern: h.kind }); break; }
       } else {
         this.addHitsplat(p, 0, { text: 'Dodged!' });
         this._gainAdrenaline(8);                              // a clean dodge pays out
@@ -5204,7 +5210,7 @@ export class Game {
     this.hazards = p.alive ? keep : [];
   }
 
-  playerDeath() {
+  playerDeath(cause = null) {
     // A brew that saves you from death (the phoenix elixir), while it runs:
     // back on your feet with part of your life, and the brew is used up.
     const saver = Object.keys(this.potions).find((id) => POTIONS[id].revive);
@@ -5222,6 +5228,15 @@ export class Game {
     {
       const p0 = this.player, a = p0.action;
       const boss = (a?.type === 'attack' && a.npc?.def.boss && a.npc) || this.nearbyNpcs().find((n) => n.alive && n.def.boss && n.target === p0);
+      if (cause || boss) {
+        const id = cause?.boss || boss.npcId, move = knownBossMove(id);
+        const lesson = {
+          id, name: cause?.move || (cause?.pattern ? `${cause.pattern} ground attack` : 'Boss attack'),
+          tip: bossPracticeTip(cause?.pattern, cause?.move ? move : null),
+        };
+        this.msg(`After the fight · ${lesson.name}: ${lesson.tip}`, 'system');
+        this.bus.emit('bosslesson', lesson);
+      }
       if (boss && !boss.wave && !this.bossRecord.beat[boss.npcId]) {   // (an Endless Gate boss is the wave's, not the boss's record)
         this.bossRecord.lost[boss.npcId] = this.fightLevel();
         this.msg(`Auto battle will leave ${boss.name} alone until you are ${BOSS_RETRY_LEVELS} fight levels stronger.`, 'system');
@@ -7842,6 +7857,7 @@ export class Game {
     const amount = Math.min(qty, have);
     if (amount <= 0) return;
     for (const p of this.inventory.take(itemId, amount, q)) this.bank.deposit(itemId, p.n, p.q);
+    updateFirstJourney(this, true);
   }
 
   depositAll() {
@@ -7852,7 +7868,10 @@ export class Game {
       const n = this.inventory.count(id);
       if (n > 0) { for (const p of this.inventory.take(id, n)) this.bank.deposit(id, p.n, p.q); moved += n; }
     }
-    if (moved) this.msg('You deposit your inventory.', 'system');
+    if (moved) {
+      updateFirstJourney(this, true);
+      this.msg('You deposit your inventory.', 'system');
+    }
   }
 
   withdraw(itemId, qty, q) {

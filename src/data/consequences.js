@@ -120,5 +120,11 @@ export const CONSEQUENCES = [
   { id: 'macritchie_hikers', region: 'MacRitchie Reservoir', when: { quest: 'rq_macritchie' }, npc: 'life_hiker',
     text: 'With the macaques calmed, hikers are back on the TreeTop Walk.',
     announce: 'Hikers are back on the MacRitchie trails now the macaques behave.' },
+  { id: 'pagoda_shared_light', region: 'Chinatown', when: { choice: 'rq_chinatown', side: 'good' }, mood: 1,
+    text: 'The lantern you shared with the goblins makes the lane glow warmer.',
+    announce: 'Madam Tan lights an extra lantern for neighbours who need it.' },
+  { id: 'pagoda_dim_light', region: 'Chinatown', when: { choice: 'rq_chinatown', side: 'evil' }, mood: -2,
+    text: 'With the stolen coins gone, the lane keeps fewer lamps lit.',
+    announce: 'Pagoda Street dims. The neighbours are still counting their losses.' },
 ];
 export const CONSEQUENCE_BY_ID = Object.fromEntries(CONSEQUENCES.map((c) => [c.id, c]));

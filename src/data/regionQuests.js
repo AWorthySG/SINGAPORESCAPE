@@ -33,7 +33,8 @@ export const REGION_LINES = [
     steps: [
       { kind: 'kill', npc: 'rat', qty: 4, text: 'Chase off rats on the Bukit Timah slopes' },
       { kind: 'give', item: 'logs', qty: 5, via: [{ obj: 'tree' }], text: 'Bring Mak Cik Zainab 5 logs to mend her stall',
-        say: 'Wah, solid wood! Now my stall won’t wobble.' },
+        say: 'Wah, solid wood! Now my stall won’t wobble.',
+        alternative: { item: 'plank', qty: 3, skill: 'construction', level: 1, say: 'These sawn planks fit the frame straight away. Steady work!' } },
       { kind: 'foe', npc: 'chicken', name: 'Ayam Jago', text: 'Catch Ayam Jago, the rowdy rooster' },
       { kind: 'talk', text: 'Tell Mak Cik Zainab the rooster is caught', reply: 'Ayam Jago won’t bother you again.',
         say: 'Haha, finally some peace! Take this charm. Rub it and it will always bring you home to me.' },
@@ -65,7 +66,8 @@ export const REGION_LINES = [
     steps: [
       { kind: 'kill', npc: 'macaque', qty: 6, text: 'Shoo away macaques by the reservoir' },
       { kind: 'give', item: 'roti_prata', qty: 3, via: [{ shop: 'hawker' }], text: 'Buy 3 roti prata as decoy snacks for Ranger Siti',
-        say: 'Perfect. We leave these far from the trail and the monkeys follow.' },
+        say: 'Perfect. We leave these far from the trail and the monkeys follow.',
+        alternative: { item: 'anchovy', qty: 4, skill: 'cooking', level: 1, say: 'Put those grilled fish by the ranger station. I’ll lure the macaques clear of the trail.' } },
       { kind: 'foe', npc: 'macaque', name: 'Ah Kow the Bin Raider', text: 'Defeat Ah Kow, the macaque gang’s leader' },
       { kind: 'talk', text: 'Report back to Ranger Siti', reply: 'Ah Kow has gone quiet.',
         say: 'No more snatched bags. Here, keep your eyes as sharp as they are today.' },
@@ -145,7 +147,8 @@ export const REGION_LINES = [
     steps: [
       { kind: 'kill', npc: 'giant_crab', qty: 6, text: 'Defeat giant crabs along the shore' },
       { kind: 'give', item: 'chilli', qty: 3, via: [{ shop: 'hawker' }], text: 'Buy 3 chillies for Auntie Rosnah’s sambal',
-        say: 'Now that is proper chilli! Smell, smell.' },
+        say: 'Now that is proper chilli! Smell, smell.',
+        alternative: { item: 'seashell', qty: 4, skill: 'diving', level: 1, say: 'The fishers can use those shells to weigh down their lines. I’ll save you a plate.' } },
       { kind: 'foe', npc: 'giant_crab', name: 'Sepit Besi', text: 'Defeat Sepit Besi, the iron-clawed crab' },
       { kind: 'talk', text: 'Tell Auntie Rosnah the nets are safe', reply: 'Sepit Besi won’t cut any more nets.',
         say: 'You eat first, I insist! And any time you need a boat to Tekong, just ask.' },

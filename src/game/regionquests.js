@@ -162,6 +162,9 @@ export function regionGuide(game, id) {
   return talk(l.giver, st.text);
 }
 
+const alternativeReady = (game, alt) => !!alt &&
+  game.skills.level(alt.skill) >= alt.level && game.inventory.count(alt.item) >= alt.qty;
+
 // ---------------- Progress ----------------
 function startLine(game, l) {
   const q = game.quests[l.id];
@@ -184,19 +187,22 @@ function advance(game, l) {
 }
 
 /** Do the talk or hand-in the line is waiting on. True if it moved on. */
-function stepAtNpc(game, l) {
+function stepAtNpc(game, l, useAlternative = false) {
   const q = game.quests[l.id];
   const st = q.state === 'active' && l.steps[q.step];
   if (!st || (st.kind !== 'talk' && st.kind !== 'give')) return false;
+  const alt = st.alternative;
+  if (useAlternative && (st.kind !== 'give' || !alternativeReady(game, alt))) return false;
+  const handIn = useAlternative ? alt : st;
   if (st.kind === 'give') {
-    if (game.inventory.count(st.item) < st.qty) {
-      game.msg(`${getNpc(st.to || l.giver).name}: I still need ${st.qty} ${getItem(st.item).name.toLowerCase()}.`, 'system');
+    if (game.inventory.count(handIn.item) < handIn.qty) {
+      game.msg(`${getNpc(st.to || l.giver).name}: I still need ${handIn.qty} ${getItem(handIn.item).name.toLowerCase()}.`, 'system');
       return false;
     }
-    game.inventory.remove(st.item, st.qty);
+    game.inventory.remove(handIn.item, handIn.qty);
   }
-  game._rqSaid = st.say || '';
-  if (st.say) game.msg(`${getNpc(st.to || l.giver).name}: ${st.say}`, 'system');
+  game._rqSaid = handIn.say || '';
+  if (handIn.say) game.msg(`${getNpc(st.to || l.giver).name}: ${handIn.say}`, 'system');
   advance(game, l);
   return true;
 }
@@ -296,6 +302,7 @@ export function regionAction(game, action) {
   switch (verb) {
     case 'start': return startLine(game, l);
     case 'talk': return stepAtNpc(game, l);
+    case 'alternative': return stepAtNpc(game, l, true);
     case 'auto': return q.state === 'notStarted' ? startLine(game, l) : stepAtNpc(game, l);
     case 'tp': return regionTeleport(game, id);
     case 'shop':
@@ -330,8 +337,13 @@ export function regionDialogue(game, npc) {
         return node(opening, [{ label: st.reply, action: `rq:talk:${l.id}`, next: 'said' }]);
       }
       const what = getItem(st.item).name.toLowerCase();
-      if (game.inventory.count(st.item) >= st.qty) return node('Did you bring them?', [{ label: `Here are ${st.qty} ${what}.`, action: `rq:talk:${l.id}`, next: 'said' }]);
-      return node(`I still need ${st.qty} ${what}. ${regionGuide(game, l.id).text}.`);
+      const options = [];
+      if (game.inventory.count(st.item) >= st.qty) options.push({ label: `Here are ${st.qty} ${what}.`, action: `rq:talk:${l.id}`, next: 'said' });
+      const alt = st.alternative;
+      const alternative = alt ? ` I can also use ${alt.qty} ${getItem(alt.item).name.toLowerCase()}.` : '';
+      if (alternativeReady(game, alt)) options.push({ label: `Offer ${alt.qty} ${getItem(alt.item).name.toLowerCase()} instead.`, action: `rq:alternative:${l.id}`, next: 'said' });
+      return options.length ? node(`Did you bring them?${alternative}`, options)
+        : node(`I still need ${st.qty} ${what}.${alternative} ${regionGuide(game, l.id).text}.`);
     }
     const l = LINE_BY_GIVER[id];
     if (!l) return node('Hello there.');

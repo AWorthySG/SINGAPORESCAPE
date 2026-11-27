@@ -14,6 +14,7 @@ const RESIDENT_IDS = new Set(Object.keys(RESIDENTS));
 export function consequenceMet(game, c) {
   const w = c.when || {};
   if (w.moral) return game.moral?.choices?.[w.moral] === w.side;
+  if (w.choice) return game.story?.picks?.[w.choice] === w.side;
   if (w.quest) return game.quests?.[w.quest]?.state === 'done';
   return false;
 }

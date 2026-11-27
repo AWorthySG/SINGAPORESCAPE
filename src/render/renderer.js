@@ -1,3 +1,4 @@
+import { isDepthShop } from './streetdepth.js';
 import { damageNumber as splatNum } from '../core/utils.js';   // hitsplats: 54000 -> "54K"
 import { TILE, TICK_MS } from '../config.js';
 import { drawBossMech, drawDangerMark, drawSafeZone } from './bossmechfx.js';
@@ -363,7 +364,7 @@ export class Renderer {
       const jx = o.shakeT > 0 ? Math.sin(o.shakeT * 0.09) * 1.7 * (o.shakeT / 280) : 0;
       const cx = o.x * TILE + TILE / 2 - ox + jx, cy = o.y * TILE + TILE / 2 - oy;
       const lit = night > 0.12 && isLightSource(o);
-      const fade = this.react.alpha(o), lean = this.react.skew(o, timeMs) + this.amb.lean(o, timeMs);   // brushed, or in the breeze (ambient.js)
+      const fade = this.react.alpha(o), upper = o.def.type === 'tree' && !o.depleted, lean = this.react.skew(o, timeMs) + this.amb.lean(o, timeMs);   // brushed, or in the breeze (ambient.js)
       // A spot's fish stops leaping while a school swirls there (fishCalm keeps when).
       const still = o.def.type === 'fishing' && fishCalm(o, game.fishSchools?.at(o), timeMs);
       drawables.push({ sortY: o.y + (o.def.overhead ? 0.9 : 0.4), z: 1, rise: o.def.type === 'tree' ? riseTree : 0, draw: () => {   // (a hanging lantern goes over your head)
@@ -377,9 +378,9 @@ export class Renderer {
         if (fade < 1 || lean) {
           // See-through while you're behind it; a brushed bush leans about its base.
           ctx.save();
-          ctx.globalAlpha = fade;
+          ctx.globalAlpha = upper ? 1 : fade;
           if (lean) { ctx.translate(cx, cy + 13); ctx.transform(1, 0, lean, 1, 0, 0); ctx.translate(-cx, -(cy + 13)); }
-          drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx, still);
+          drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx, still, upper ? fade : 1);
           ctx.restore();
         } else drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx, still);
       } });
@@ -393,7 +394,8 @@ export class Renderer {
       if (right < ox || left > ox + vw || base < oy || base - fw * TILE * 1.6 - 2 * TILE > oy + vh) continue;
       const cx = o.x * TILE + fw * TILE / 2 - ox, cy = o.y * TILE + TILE / 2 - oy, fade = this.react.alpha(o);
       drawables.push({ sortY: o.y + 0.4, z: 1, rise: riseMark, draw: () => {
-        if (fade < 1) { ctx.save(); ctx.globalAlpha = fade; drawObjectSprite(ctx, o, cx, cy, timeMs); ctx.restore(); }
+        if (isDepthShop(o)) drawObjectSprite(ctx, o, cx, cy, timeMs, false, false, fade);
+        else if (fade < 1) { ctx.save(); ctx.globalAlpha = fade; drawObjectSprite(ctx, o, cx, cy, timeMs); ctx.restore(); }
         else drawObjectSprite(ctx, o, cx, cy, timeMs);
       } });
     }

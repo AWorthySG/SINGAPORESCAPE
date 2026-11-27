@@ -1,3 +1,4 @@
+import { isDepthShop } from './streetdepth.js';
 import { TILE } from '../config.js';
 
 // Atmosphere for the renderer: each region's colour mood (blended as you
@@ -192,6 +193,13 @@ export class ObjectReactions {
         else if (BRUSHY.has(o.objId) && p.moving && Math.abs(o.x - p.x) <= 1 && Math.abs(o.y - p.y) <= 1 && !(this.brush.get(o) > BRUSH_MS * 0.6)) {
           this.brush.set(o, BRUSH_MS);
         }
+      }
+    }
+    if (p.alive && c.x > 41 * TILE && c.x < 79 * TILE && c.y > 52 * TILE && c.y < 87 * TILE) {
+      for (const o of w.landmarks || []) {
+        if (!isDepthShop(o) || !hidesPoint(o, c.x, c.y)) continue;
+        near.add(o);
+        if (!this.fade.has(o)) this.fade.set(o, 1);
       }
     }
     for (const [o, a] of this.fade) {
