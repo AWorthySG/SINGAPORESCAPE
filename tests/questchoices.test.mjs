@@ -251,6 +251,20 @@ test('an old save (no choices saved) loads; its finished chapters simply have no
   assert.deepEqual(QC.pendingChoices(g2), [], 'no choice offered for chapters finished before');
   assert.equal(g2.alignment(), 30);
   assert.match(pathCardHTML(g2), /data-tier="virtuous"/);
+  assert.match(pathCardHTML(g2), /Quest choices 0\/23\b/, 'seven completed quests and chapters had no choice');
+  for (const key of ['ch1', 'rq_kampong_glam']) {
+    assert.equal(choiceBadgeHTML(g2, key), '');
+    assert.match(choiceLineHTML(g2, key), /Completed before choices were added/);
+  }
+  assert.match(choiceBadgeHTML(g2, 'rq_jurong'), /☀️🌙/);
+  g2.skills.addXp('attack', 1e8);
+  g2.handleDialogueAction('rq:start:rq_jurong');
+  g2.quests.rq_jurong.step = REGION_LINES.find((l) => l.id === 'rq_jurong').steps.length - 1;
+  g2.handleDialogueAction('rq:talk:rq_jurong');
+  assert.match(choiceLineHTML(g2, 'rq_jurong'), /data-qc="rq_jurong"/);
+  assert.match(pathCardHTML(g2), /Quest choices 0\/23\b/, 'the pending choice still counts');
+  assert.equal(QC.chooseQuest(g2, 'rq_jurong', 'good'), true);
+  assert.match(pathCardHTML(g2), /Quest choices 1\/23\b/);
 });
 
 // ---------------- The journal ----------------
