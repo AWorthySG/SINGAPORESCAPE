@@ -1,3 +1,4 @@
+import { openIslandSkill } from './islandlifeui.js';
 // The skill guides and the Resources index, drawn from src/game/skillguide.js.
 //
 //  - A gathering skill's guide lists every node (level, XP, what it gives and
@@ -452,6 +453,7 @@ export function itemPageHTML(game, id, st = {}) {
 
 /** Open a skill's guide (skill set) or the Resources index (skill null, maybe at an item). */
 export function openSkillGuide(ui, skill, { itemId = null } = {}) {
+  if (openIslandSkill(ui, skill)) return;
   const game = ui.game;
   // The views stack: Back pops one. Each view keeps its own search, filter and page.
   const stack = [];

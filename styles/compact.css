@@ -1107,3 +1107,43 @@ body.reduce-motion :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #mo
 .drill-signature { margin-block: 8px 12px; }
 .drill-signature summary { font-weight: 800; }
 .drill-answers { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* Island skills share the same controls as the other game windows. */
+.island-panel header {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  padding: .75rem;
+  border-radius: .7rem;
+  background: color-mix(in srgb, var(--island-accent) 13%, #fff7e8);
+  border: 1px solid var(--island-accent);
+}
+.island-panel small, .island-row small { display: block; margin-top: .2rem; }
+.island-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: .5rem;
+  padding: .65rem .25rem;
+  border-bottom: 1px solid #dac7a8;
+}
+.island-actions, .island-chart { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; }
+.island-actions .wm-go, .island-print .wm-go { min-height: 44px; }
+.island-chart { margin-block: .75rem; }
+.island-chart span { padding: .3rem .5rem; background: #eee2cb; border-radius: .4rem; }
+.island-chart .current { color: white; background: var(--island-accent); }
+.island-status:not(:empty) { padding: .65rem 0; font-weight: 800; }
+.island-swatch {
+  display: inline-block;
+  width: 1.3rem;
+  height: 1.3rem;
+  margin-inline-end: .45rem;
+  vertical-align: middle;
+  border-radius: .2rem;
+  background: repeating-conic-gradient(var(--cloth) 0% 25%, var(--print) 0% 50%) 50% / .65rem .65rem;
+}
+.island-album { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .7rem; }
+.island-print { margin: 0; padding: .5rem; text-align: center; background: #fff4dc; border: 1px solid #c6ac88; border-radius: .6rem; }
+.island-print img { width: 100%; height: 90px; object-fit: contain; }
+.island-print figcaption { margin-bottom: .35rem; font-weight: 800; }

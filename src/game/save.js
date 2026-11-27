@@ -1,3 +1,4 @@
+import { restoreIslandLife } from './islandlife.js';
 import { loadFirstJourney } from './firstjourney.js';
 import { captureResumeTask, readResumeTask } from './resumetask.js';
 import { POTIONS, CROP_BY_ID } from '../data/trades.js';
@@ -52,6 +53,7 @@ export function snapshot(game) {
     version: VERSION,
     savedAt: Date.now(),
     firstJourney: game.firstJourney || undefined,
+    islandLife: game.islandLife || undefined,
     resumeTask: captureResumeTask(game) || undefined,
     player: {
       x: dead ? rp.x : at.x,
@@ -299,6 +301,7 @@ export function loadGame(game) {
   try {
     loadFields(game, data);
     loadFirstJourney(game, data.firstJourney);
+    game.islandLife = data.islandLife ? restoreIslandLife(data.islandLife) : undefined;
     game.resumeTask = readResumeTask(game, data.resumeTask);
   } catch (err) {
     // Right version but bad data: keep a copy, and stop the half-loaded game

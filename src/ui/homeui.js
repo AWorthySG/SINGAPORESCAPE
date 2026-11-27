@@ -9,6 +9,7 @@
 // stands there now and its perk, and the next build: the Construction level it
 // needs, the XP it pays, the perk it adds, and each material as an icon with
 // how many you have (pack and bank) against how many it takes.
+import { displayIslandPrint, islandAlbumHTML } from './islandlifeui.js';
 import { getItem, ITEMS } from '../data/items.js';
 import { formatNumber } from '../core/utils.js';
 import { itemIconSVG, playIconHTML, skillIconSVG } from '../render/icons.js';
@@ -18,7 +19,7 @@ import { makeXp } from '../game/skilling.js';
 /** 1,234 / 12.3K / 4.5M / 1.2B: short enough for a pill. */
 const shortXp = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e4 ? `${(n / 1e3).toFixed(1)}K` : formatNumber(n));
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const TABS = [{ id: 'build', name: 'Build' }, { id: 'chest', name: 'Chest' }, { id: 'portals', name: 'Portals' }, { id: 'trophy', name: 'Trophies' }];
+const TABS = [{ id: 'build', name: 'Build' }, { id: 'chest', name: 'Chest' }, { id: 'portals', name: 'Portals' }, { id: 'trophy', name: 'Trophies' }, { id: 'album', name: 'Album' }];
 
 /** Has the player all it takes to build the next tier of `key` now? */
 const canBuild = (game, key) => !game.home.whyNot(key);
@@ -107,7 +108,10 @@ export function openHome(ui, tab = 'build') {
   if (cur === 'plot') cur = 'build';
   if (!ROOMS.some((r) => r.id === room)) room = (ROOMS.find((r) => roomCanBuild(game, r)) || ROOMS[0]).id;
   const render = (body) => {
-    const page = cur === 'chest' ? chestHTML(game) : cur === 'trophy' ? trophyHTML(game) : cur === 'portals' ? portalsHTML(game) : buildHTML(game, room);
+    const album = () => game.home.owned
+      ? '<div class="island-album">' + (islandAlbumHTML(game) || '<p>Complete Photography assignments to add prints.</p>') + '</div>'
+      : '<div class="home-intro">Buy the plot to display your prints.</div>';
+    const page = cur === 'album' ? album() : cur === 'chest' ? chestHTML(game) : cur === 'trophy' ? trophyHTML(game) : cur === 'portals' ? portalsHTML(game) : buildHTML(game, room);
     body.innerHTML = `<div class="sgx-chips home-tabs">${TABS.map((t) => `<button type="button" class="sgx-chip${t.id === cur ? ' on' : ''}" data-tab="${t.id}">${t.name}</button>`).join('')}</div>`
       + `<div class="home-body">${page}</div>`;
     body.onclick = (ev) => {
@@ -115,6 +119,7 @@ export function openHome(ui, tab = 'build') {
       if (!b || ui.modal?.kind !== 'home') return;
       const d = b.dataset, h = game.home;
       if (d.tab) cur = d.tab;
+      else if (d.island?.startsWith('display:')) displayIslandPrint(game, d.island.slice(8));
       else if (d.room) room = d.room;
       else if (d.buy) h.buy();
       else if (d.up) h.upgrade(d.up);

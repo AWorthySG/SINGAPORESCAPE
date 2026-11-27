@@ -1,3 +1,5 @@
+import { openIslandSkill } from '../src/ui/islandlifeui.js';
+import { ACTIVITY_SKILLS } from '../src/game/skillguide.js';
 // The skill guides and the Resources index (src/game/skillguide.js,
 // src/ui/skillguideui.js). The guides are built from the game data, and these
 // tests keep them complete: every recipe under its skill, every recipe output
@@ -43,7 +45,7 @@ const sameInputs = (a, b) => a.length === b.length && a.every((x, i) => x.id ===
 
 test('every skill on the Skills tab has a guide', () => {
   for (const s of SKILLS.filter((x) => !x.hidden)) assert.ok(SKILL_GUIDES[s.id], `${s.id} has a guide`);
-  assert.deepEqual([...GATHER_SKILLS, ...MAKE_SKILLS, ...COMBAT_SKILLS].sort(), [...GUIDE_SKILLS].sort());
+  assert.deepEqual([...GATHER_SKILLS, ...MAKE_SKILLS, ...COMBAT_SKILLS, ...ACTIVITY_SKILLS].sort(), [...GUIDE_SKILLS].sort());
 });
 
 test('every recipe in the game appears under its skill, with its level and inputs', () => {
@@ -159,6 +161,12 @@ test('the guide pages render for every skill, a page at a time', () => {
     if (COMBAT_SKILLS.includes(s)) {
       const h = combatGuideHTML(g, s);
       assert.ok(h.includes('Best places') || h.includes('Every region'), `${s} shows where to train`);
+      continue;
+    }
+    if (ACTIVITY_SKILLS.includes(s)) {
+      const body = { querySelectorAll: () => [] };
+      assert.equal(openIslandSkill({ game: g, openModal: (_, render) => render(body) }, s), true);
+      assert.ok(body.innerHTML.includes('island-row'), `${s} lists activities`);
       continue;
     }
     const all = skillListHTML(g, s, { filter: 'all', search: '', shown: PAGE });
