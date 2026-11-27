@@ -214,7 +214,7 @@ export const PORTRAIT_CROPS = {
   'bosses/kranji_bullfrog_emperor': [0.5, 0.578, 0.682, 0.682],
   'bosses/kusu_tortoise': [0.498, 0.569, 0.771, 0.771],
   'bosses/langsuir_matriarch': [0.5, 0.55, 0.641, 0.641],
-  'bosses/lion_of_light': [0.498, 0.546, 0.646, 0.646],
+  'bosses/lion_of_light': [0.5, 0.539, 0.656, 0.656],
   'bosses/macaque_alpha': [0.498, 0.553, 0.669, 0.669],
   'bosses/mangrove_hydra': [0.498, 0.541, 0.653, 0.653],
   'bosses/merlion': [0.5, 0.534, 0.728, 0.728],

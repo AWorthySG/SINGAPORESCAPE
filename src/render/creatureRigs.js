@@ -320,9 +320,10 @@ const RIG_DATA = {
   chilli_crab: { plan: 'boss', fit: 0.754,
     order: ['limb2', 'base', 'limb', 'head', 'gem'],
     piv: { base: [0.4545, 0.5705], head: [0.7097, 0.4759], limb: [0.3181, 0.6862], limb2: [0.6998, 0.6633], gem: [0.4887, 0.1793], head_roar: [0.7097, 0.4759], limb_strike: [0.3181, 0.6862] } },
-  lion_of_light: { plan: 'boss', fit: 0.816,
-    order: ['tail', 'limb2', 'base', 'limb', 'head', 'gem'],
-    piv: { base: [0.4913, 0.7984], head: [0.396, 0.6922], limb: [0.6773, 0.7102], limb2: [0.3394, 0.7857], tail: [0.1317, 0.8769], gem: [0.5404, 0.096], head_roar: [0.396, 0.6922], limb_strike: [0.6773, 0.7102] } },
+  // The painted guardian's paws stay planted while its head, tail and halo move.
+  lion_of_light: { plan: 'boss', fit: 1, amp: { tail: 0.5 },
+    order: ['tail', 'base', 'head', 'gem'],
+    piv: { base: [0.5162, 0.8359], head: [0.5576, 0.7711], tail: [0.23, 0.8661], gem: [0.5313, 0.2463], head_roar: [0.5576, 0.7711] } },
   hantu_tinggi: { plan: 'boss', fit: 0.861,
     order: ['tail', 'base', 'head', 'limb2', 'limb'],
     piv: { base: [0.5151, 0.5698], head: [0.5, 0.7], limb: [0.3759, 0.4957], limb2: [0.7925, 0.5272], tail: [0.8448, 0.8745], head_roar: [0.5, 0.7], limb_strike: [0.3759, 0.4957] } },

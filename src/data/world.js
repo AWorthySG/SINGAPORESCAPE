@@ -874,8 +874,10 @@ export function buildWorld({ groves: withGroves = true } = {}) {
     for (let copy = 0; copy < 2; copy++) for (const id of kinds) placeInZone(id, z, 4);
   }
   R = rng2;
-  // Alignment-arc bosses at fixed, thematic spots.
-  placeNpc('lion_of_light', 52, 56, 0, { aggressive: false }); // radiant guardian by the town temple (never aggressive)
+  // Keep the original slot during seeded placement so the surrounding world
+  // stays put. The guardian moves to the hall once the scenery is laid out.
+  placeNpc('lion_of_light', 52, 56, 0, { aggressive: false });
+  const lion = npcSpawns.at(-1);
   placeNpc('shadow_sovereign', 108, 50, 2);                    // dark sovereign deep in the Wilderness
 
   // ================= Farming, Herblore, Fletching and Hunter =================
@@ -1497,6 +1499,9 @@ export function buildWorld({ groves: withGroves = true } = {}) {
   // stream, so nothing placed before them moves. They come with the groves
   // (tests build the world without both to check that).
   if (withGroves) placeDigSites({ T, width: W, height: H, get, inB, isFree, placeObj, placeNpc, inTown, inNewTown, objects, npcSpawns, start: { x: 58, y: 55 }, rand: mulberry32(20261127) });
+
+  // The Lion guards the Golden-domed Hall off the heritage walk, clear of the road.
+  Object.assign(lion, { x: 64, y: 82 });
 
   return {
     width: W,

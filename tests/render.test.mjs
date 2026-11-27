@@ -477,7 +477,7 @@ test('every boss and champion-able monster has a battle-bar portrait', async () 
   for (const [id, d] of Object.entries(NPCS)) {
     if (!d.attackable) continue;
     const pr = portraitFor(id, d);
-    assert.ok(pr && pr.src.endsWith('.webp'), `${id} has a portrait`);
+    assert.ok(pr && pr.src.split('?')[0].endsWith('.webp'), `${id} has a portrait`);
     if (d.boss) assert.ok(pr.src.includes('/bosses/'), `${id} uses its boss art`);
   }
 });

@@ -9,7 +9,8 @@
 // and are never touched here.
 const CACHE = 'awa-v1';
 const CORE = ['./', 'index.html', 'styles/main.css', 'styles/title.css', 'styles/story.css', 'styles/heritage.css',
-  'src/main.js', 'manifest.webmanifest', 'assets/logo.svg', 'assets/logo-mark.svg', 'assets/title/kampong-evening.webp'];
+  'src/main.js', 'manifest.webmanifest', 'assets/logo.svg', 'assets/logo-mark.svg',
+  'assets/title/kampong-evening.webp', 'assets/ui/singapore-atlas.webp'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).catch(() => {}).then(() => self.skipWaiting()));

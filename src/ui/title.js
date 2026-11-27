@@ -653,13 +653,14 @@ export class TitleScreen {
   attach(game) {
     this.game = game;
     if (!this.splash) return;
+    const cast = this._cast();
     this.warm();
     if (game.jobClass) warmHero(game.jobClass);
     this.later(() => {
       if (game.pendingStyleChoice || game.pendingClassChoice) {
         for (const id of Object.keys(CLASS_BY_ID)) warmHero(id);
       }
-      for (const id of this._cast()) swingArtReady(id);
+      for (const id of cast) swingArtReady(id);
       if (game.jobClass) warmHeroAnim(game.jobClass);
     });
   }
@@ -679,7 +680,7 @@ export class TitleScreen {
   /** The title heroes this screen shows (all of them when it can't be measured). */
   _cast() {
     const c = this.el?.heroes, card = this.splash?.querySelector('.splash-inner');
-    if (this.splash?.classList.contains('title-keyart-on') && !c?.clientWidth) return [];
+    if (!c?.clientWidth && this.splash?.classList?.contains('title-keyart-on')) return [];
     const w = c?.clientWidth || globalThis.innerWidth || 0;
     if (!w) return TITLE_HEROES;
     return titleCast(w, c?.clientHeight || 150, card?.getBoundingClientRect?.().width || w);
