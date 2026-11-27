@@ -150,7 +150,7 @@ export class PhotoMode {
       this.url = URL.createObjectURL(blob);
       this.el.querySelector('.pm-img').src = this.url;
       const result = this.el.querySelector('.pm-assignment');
-      result.textContent = subject ? `Album print earned: ${subject.name}` : '';
+      result.textContent = subject ? (subject.commission ? `Commission accepted: ${subject.name} · ${subject.coins} coins` : `Album print earned: ${subject.name}`) : '';
       result.classList.toggle('hidden', !subject);
       this.state = 'preview';
       this.el.classList.remove('framing');

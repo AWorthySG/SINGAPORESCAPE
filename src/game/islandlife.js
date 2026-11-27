@@ -1,8 +1,15 @@
-import { LANDINGS, LOOM, PATTERNS, PHOTO_ASSIGNMENTS, STAGES, TUNES, VOYAGES } from '../data/islandlife.js';
+import { LANDINGS, LOOMS, PATTERNS, PHOTO_ASSIGNMENTS, STAGES, TUNES, VOYAGES } from '../data/islandlife.js';
 import { teleportPlayer } from './skillunlocks.js';
 
 export const nearIslandSite = (p, site, range = 2) => Math.max(Math.abs(p.x - site.x), Math.abs(p.y - site.y)) <= range;
 const ids = (raw, table) => table.filter((row) => Array.isArray(raw) && raw.includes(row.id)).map((row) => row.id);
+const dailyKeys = new Set([
+  ...VOYAGES.filter((v) => v.freight).map((v) => 'freight:' + v.id),
+  ...PHOTO_ASSIGNMENTS.map((p) => 'photo:' + p.id),
+  ...PATTERNS.map((p) => 'order:' + p.id),
+  ...TUNES.map((t) => 'encore:' + t.id),
+]);
+const validDay = (day) => typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day);
 
 export function restoreIslandLife(raw) {
   const book = {
@@ -10,6 +17,11 @@ export function restoreIslandLife(raw) {
     photos: ids(raw?.photos, PHOTO_ASSIGNMENTS),
     patterns: ids(raw?.patterns, PATTERNS),
     tunes: ids(raw?.tunes, TUNES),
+    performed: ids(raw?.performed, TUNES),
+    daily: validDay(raw?.daily?.day) ? {
+      day: raw.daily.day,
+      claims: [...dailyKeys].filter((key) => Array.isArray(raw.daily.claims) && raw.daily.claims.includes(key)),
+    } : null,
     cove: ids(raw?.cove, COVE_FIND),
     scarf: null, display: null,
   };
@@ -18,6 +30,22 @@ export function restoreIslandLife(raw) {
   return book;
 }
 export const islandBook = (game) => game.islandLife ??= restoreIslandLife();
+
+export function islandClaimed(game, key) {
+  const daily = islandBook(game).daily;
+  return daily?.day === game.todayKey() && daily.claims.includes(key);
+}
+
+function claimIslandActivity(game, key) {
+  const book = islandBook(game), day = game.todayKey();
+  if (book.daily?.day !== day) book.daily = { day, claims: [] };
+  book.daily.claims.push(key);
+}
+
+function pay(game, coins) {
+  const packed = game.inventory.add('coins', coins);
+  if (packed < coins) game.bank.deposit('coins', coins - packed);
+}
 
 function finish(game, skill, xp, message) {
   game.skills.addXp(skill, xp);
@@ -32,13 +60,15 @@ export function islandReady(game) {
 export function voyageAvailable(game, voyage) {
   return islandReady(game) && nearIslandSite(game.player, LANDINGS[voyage.from])
     && game.skills.level('sailing') >= voyage.level
+    && (!voyage.requires || islandBook(game).voyages.includes(voyage.requires))
     && (voyage.to !== 'cove' || islandBook(game).voyages.includes('ubin'));
 }
 
-export function finishVoyage(game, id, choices) {
+export function finishVoyage(game, id, choices, { freight = false } = {}) {
   const voyage = VOYAGES.find((row) => row.id === id);
   if (!voyage || !voyageAvailable(game, voyage) || choices.length !== voyage.course.length
     || !voyage.course.every((side, i) => side === choices[i])) return false;
+  if (freight && (!voyage.freight || !islandBook(game).voyages.includes(id) || islandClaimed(game, 'freight:' + id))) return false;
   if (game.autoBattle) game.toggleAutoBattle(false);
   if (game.autoQuest) game.toggleAutoQuest(false, 'you set sail.');
   game._autoLife = null;
@@ -47,7 +77,11 @@ export function finishVoyage(game, id, choices) {
   if (!teleportPlayer(game, dest.x, dest.y, `You tie up at ${dest.name}.`)) return false;
   const book = islandBook(game), first = !book.voyages.includes(id);
   if (first) book.voyages.push(id);
-  finish(game, 'sailing', first ? voyage.xp : 3, first ? 'New route charted.' : 'Passage logged.');
+  if (freight) {
+    claimIslandActivity(game, 'freight:' + id);
+    pay(game, voyage.freight);
+    finish(game, 'sailing', voyage.xp, `Freight delivered. You earn ${voyage.freight} coins.`);
+  } else finish(game, 'sailing', first ? voyage.xp : Math.max(3, Math.round(voyage.xp / 4)), first ? 'New route charted.' : 'Passage logged.');
   return true;
 }
 
@@ -70,21 +104,45 @@ export function exploreCove(game, id) {
 export function recordIslandPhoto(game) {
   if (!game.player.alive || game.waves?.active) return null;
   const book = islandBook(game), phase = game.dayPhase();
-  const subject = PHOTO_ASSIGNMENTS.find((row) => !book.photos.includes(row.id) && game.skills.level('photography') >= row.level
+  const candidates = PHOTO_ASSIGNMENTS.filter((row) => game.skills.level('photography') >= row.level
     && nearIslandSite(game.player, row, row.range) && (!row.dusk || (phase >= 17 / 24 && phase < 20 / 24)));
-  if (!subject) return null;
-  book.photos.push(subject.id);
-  finish(game, 'photography', subject.xp, `Album print earned: ${subject.name}.`);
-  return subject;
+  const fresh = candidates.find((row) => !book.photos.includes(row.id));
+  if (fresh) {
+    book.photos.push(fresh.id);
+    claimIslandActivity(game, 'photo:' + fresh.id);
+    finish(game, 'photography', fresh.xp, `Album print earned: ${fresh.name}.`);
+    return fresh;
+  }
+  const subject = candidates.find((row) => !islandClaimed(game, 'photo:' + row.id));
+  if (!subject || !islandReady(game)) return null;
+  const coins = Math.round(subject.xp * 1.5);
+  claimIslandActivity(game, 'photo:' + subject.id);
+  pay(game, coins);
+  finish(game, 'photography', Math.ceil(subject.xp / 2), `Postcard commission: ${subject.name}. You earn ${coins} coins.`);
+  return { ...subject, commission: true, coins };
 }
 
-export function makeIslandPattern(game, id) {
+export function textileWorkshop(game) {
+  return LOOMS.find((site) => nearIslandSite(game.player, site) && game.skills.level('textile_arts') >= site.level);
+}
+
+export function makeIslandPattern(game, id, { order = false } = {}) {
   const pattern = PATTERNS.find((row) => row.id === id);
-  if (!pattern || !islandReady(game) || !nearIslandSite(game.player, LOOM) || game.skills.level('textile_arts') < pattern.level
-    || game.inventory.count(pattern.dye) < 1 || game.inventory.count('coins') < 8) return false;
-  game.inventory.take(pattern.dye, 1);
-  game.inventory.take('coins', 8); // the weaver provides the cotton blank
+  const workshop = textileWorkshop(game);
+  if (!pattern || !islandReady(game) || !workshop || game.skills.level('textile_arts') < pattern.level) return false;
   const book = islandBook(game);
+  const material = order ? 2 : 1, fee = 8 * material;
+  if (order && (workshop.level < 8 || !book.patterns.includes(id) || islandClaimed(game, 'order:' + id))) return false;
+  if (game.inventory.count(pattern.dye) < material || game.inventory.count('coins') < fee) return false;
+  game.inventory.take(pattern.dye, material);
+  game.inventory.take('coins', fee);
+  if (order) {
+    const payout = Math.round(pattern.xp * 1.5);
+    claimIslandActivity(game, 'order:' + id);
+    pay(game, payout);
+    finish(game, 'textile_arts', pattern.xp * 2, `You fill the ${pattern.name} order for ${payout} coins.`);
+    return true;
+  }
   if (!book.patterns.includes(id)) book.patterns.push(id);
   book.scarf = id;
   finish(game, 'textile_arts', pattern.xp, `You print the ${pattern.name} pattern and wear it as a scarf.`);
@@ -97,19 +155,28 @@ export function musicStage(game) {
 
 export function learnIslandTune(game, id) {
   const tune = TUNES.find((row) => row.id === id), book = islandBook(game);
-  if (!tune || !islandReady(game) || !musicStage(game) || game.skills.level('music') < tune.level || book.tunes.includes(id)) return false;
+  const stage = musicStage(game);
+  if (!tune || !islandReady(game) || !stage || (tune.stage && tune.stage !== stage.id)
+    || game.skills.level('music') < tune.level || book.tunes.includes(id)) return false;
   book.tunes.push(id);
   game.saveSoon = true;
   return true;
 }
 
-export function finishIslandTune(game, id, notes, elapsed) {
+export const encoreNotes = (tune) => [...tune.notes].reverse().concat(tune.notes[0], tune.notes[1]);
+
+export function finishIslandTune(game, id, notes, elapsed, { encore = false } = {}) {
   const tune = TUNES.find((row) => row.id === id);
-  if (!tune || !islandReady(game) || !musicStage(game) || !islandBook(game).tunes.includes(id)
-    || elapsed < tune.notes.length * 180 || elapsed > tune.notes.length * 1800
-    || notes.length !== tune.notes.length || !tune.notes.every((note, i) => note === notes[i])) return false;
-  const tip = game.inventory.add('coins', tune.tip);
-  if (tip < tune.tip) game.bank.deposit('coins', tune.tip - tip);
-  finish(game, 'music', tune.xp, `The hawker crowd tips you ${tune.tip} coins for ${tune.name}.`);
+  const stage = musicStage(game), book = islandBook(game);
+  const score = tune && (encore ? encoreNotes(tune) : tune.notes);
+  if (!tune || !islandReady(game) || !stage || !book.tunes.includes(id)
+    || elapsed < score.length * 180 || elapsed > score.length * 1800
+    || notes.length !== score.length || !score.every((note, i) => note === notes[i])) return false;
+  if (encore && (stage.level < 3 || !book.performed.includes(id) || islandClaimed(game, 'encore:' + id))) return false;
+  if (!book.performed.includes(id)) book.performed.push(id);
+  if (encore) claimIslandActivity(game, 'encore:' + id);
+  const tip = tune.tip * (encore ? 3 : 1);
+  pay(game, tip);
+  finish(game, 'music', tune.xp * (encore ? 2 : 1), `The crowd tips you ${tip} coins for ${tune.name}${encore ? ' (encore)' : ''}.`);
   return true;
 }
