@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Game } from '../src/game/game.js';
 import { Renderer } from '../src/render/renderer.js';
+import { PILL_STYLES } from '../src/render/namepill.js';
 import { COLLAPSE_V } from '../src/ui/ui.js';
 
 function recordingCtx() {
@@ -78,6 +79,19 @@ test('Smart labels keep the interaction name and spare the hero from ambient cha
   const interaction = text.find(([, label]) => label === focused.name);
   assert.ok(interaction?.[3] > 330, 'the current interaction name moves below the hero');
   assert.deepEqual(text.map(([, label]) => label).filter((label) => label.startsWith('Chatter from')), [left.chatText, right.chatText]);
+});
+
+test('direction signs use world nameplates and keep a distinct Wilderness warning', () => {
+  const ctx = recordingCtx();
+  const game = { camera: { viewW: 400, viewH: 300 }, player: { alive: false } };
+  const renderer = new Renderer(game, { width: 400, height: 300 }, ctx);
+  for (const [text, style] of [['Bukit Timah ↑', 'sign'], ['The Wilderness ↑', 'warningSign']]) {
+    renderer._drawNodeLabels(0, 0, [{ x: 3, y: 3, def: {}, sign: text }]);
+    assert.ok(ctx.calls.some(([op, label]) => op === 'fillText' && label === text));
+    assert.equal(ctx.fillStyle, PILL_STYLES[style].text);
+    assert.equal(ctx.strokeStyle, PILL_STYLES[style].rim);
+  }
+  assert.notEqual(PILL_STYLES.sign.text, PILL_STYLES.warningSign.text);
 });
 
 test('desktop folds the side panel to its tab icons when you fold it, starts with it open, and the area name only shows on arrival', () => {
