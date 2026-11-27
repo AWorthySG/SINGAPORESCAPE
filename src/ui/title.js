@@ -656,7 +656,7 @@ export class TitleScreen {
     if (titleArtSrc('logo-banner')) { this.splash.classList.add('title-banner'); this.splash.style.setProperty('--title-banner', `url("${new URL(titleArtSrc('logo-banner'), document.baseURI).href}")`); }   // absolute: a url() in a custom property resolves against the stylesheet that uses it
     this._buildLayers();
     // The other painted slots, where they have arrived (title.css picks them up).
-    for (const slot of ['backdrop', 'backdrop-portrait', 'ground']) if (titleArtSrc(slot)) this.splash.style.setProperty(`--title-${slot}`, `url("${titleArtSrc(slot)}")`);
+    if (titleArtSrc('ground')) this.splash.style.setProperty('--title-ground', `url("${titleArtSrc('ground')}")`);
     // The mascot's portrait for the sun disc on small screens (title.css); absolute, like the ribbon's.
     if (titleArtSrc('medallion')) this.splash.style.setProperty('--title-medallion', `url("${new URL(titleArtSrc('medallion'), document.baseURI).href}")`);
     const mascot = this.splash.querySelector('.splash-mascot');

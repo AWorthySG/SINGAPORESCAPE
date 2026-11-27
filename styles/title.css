@@ -20,12 +20,10 @@ body.title-on > :not(#splash):not(#game-root):not(script) { visibility: hidden !
 }
 #splash::before {
   z-index: 0; opacity: 1; transition: opacity 1.1s ease .1s;
-  background: var(--aw-bg) radial-gradient(circle at 1px 1px, rgba(70,50,20,0.05) 1px, transparent 0) 0 0 / 22px 22px;
+  background: var(--aw-bg) url('../assets/title/backdrop.webp') center / cover no-repeat;
 }
-/* Painted key art, once it exists (art slots "backdrop" and "backdrop-portrait", set by title.js). */
-#splash[style*="--title-backdrop:"]::before { background: var(--aw-bg) var(--title-backdrop) center / cover no-repeat; }
 @media (orientation: portrait) {
-  #splash[style*="--title-backdrop-portrait"]::before { background: var(--aw-bg) var(--title-backdrop-portrait) center / cover no-repeat; }
+  #splash::before { background-image: url('../assets/title/backdrop-portrait.webp'); }
 }
 /* Cream at the edges and along the ground, so the card and heroes read over a busy map. */
 #splash::after {
