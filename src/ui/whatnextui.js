@@ -3,6 +3,7 @@
 // what you wear. The goals come from src/game/whatnext.js; ui.js only calls in
 // here. The HTML builders return plain strings so the tests can render them
 // headlessly.
+import { finishResumeTask } from '../game/resumetask.js';
 import { whatNext, runGoal, packUpgrades, firstPackUpgrade } from '../game/whatnext.js';
 import { qualityName } from '../game/loot.js';
 import { getItem } from '../data/items.js';
@@ -24,7 +25,9 @@ export function whatNextHTML(game, goals = whatNext(game)) {
     html += `<div class="quest-row can-go wn-row wn-${g.kind}" data-wn="${i}"><div class="q-foot">`
       + `<span class="wn-ic" aria-hidden="true">${g.icon}</span>`
       + `<span class="wn-text"><b>${esc(g.title)}</b><span class="q-desc">${esc(g.text)}</span></span>`
-      + `<button class="q-go wn-go" data-wn="${i}">${esc(g.go)}</button></div></div>`;
+      + `<button class="q-go wn-go" data-wn="${i}">${esc(g.go)}</button>`
+      + (g.kind === 'resume' ? '<button class="q-go" data-wn-dismiss>Dismiss</button>' : '')
+      + (g.kind === 'journey' ? '<button class="q-go" data-wn-journey>Options</button>' : '') + '</div></div>';
   });
   return html + '</div>';
 }
@@ -34,7 +37,9 @@ export function wireWhatNext(ui, root, goals) {
   for (const row of root?.querySelectorAll?.('.wn-row') || []) {
     row.addEventListener('click', (e) => {
       e.stopPropagation();
-      runGoal(ui.game, goals[Number(row.dataset.wn)]);
+      if (e.target.closest?.('[data-wn-dismiss]')) finishResumeTask(ui.game, false);
+      else if (e.target.closest?.('[data-wn-journey]')) ui.openFirstJourney?.();
+      else runGoal(ui.game, goals[Number(row.dataset.wn)]);
       ui.renderQuestPanel();
     });
   }
@@ -75,7 +80,7 @@ export function watchGoals(ui) {
     if (ui._panelHidden?.(ui.el?.questPanel)) { ui._questStale = true; return; }
     if (sig(whatNext(ui.game)) !== sig(ui._wnGoals)) ui.renderQuestPanel();
   }, 1000);
-  for (const ev of ['inventory', 'equipment', 'levelup', 'quest']) ui.game.bus.on(ev, check);
+  for (const ev of ['inventory', 'equipment', 'levelup', 'quest', 'firstjourney']) ui.game.bus.on(ev, check);
 }
 
 // ---------------- "Wear it" when loot beats your gear ----------------

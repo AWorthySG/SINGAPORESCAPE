@@ -1,3 +1,5 @@
+import { loadFirstJourney } from './firstjourney.js';
+import { captureResumeTask, readResumeTask } from './resumetask.js';
 import { POTIONS, CROP_BY_ID } from '../data/trades.js';
 import { SAVE_KEY } from '../config.js';
 import { STATION_BY_ID } from '../data/transport.js';
@@ -49,6 +51,8 @@ export function snapshot(game) {
   return {
     version: VERSION,
     savedAt: Date.now(),
+    firstJourney: game.firstJourney || undefined,
+    resumeTask: captureResumeTask(game) || undefined,
     player: {
       x: dead ? rp.x : at.x,
       y: dead ? rp.y : at.y,
@@ -294,6 +298,8 @@ export function loadGame(game) {
   }
   try {
     loadFields(game, data);
+    loadFirstJourney(game, data.firstJourney);
+    game.resumeTask = readResumeTask(game, data.resumeTask);
   } catch (err) {
     // Right version but bad data: keep a copy, and stop the half-loaded game
     // saving over the original before the error reaches the player.

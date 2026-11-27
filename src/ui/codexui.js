@@ -8,6 +8,8 @@
 // The list is drawn a page at a time ("Show more"), never all ~600 rows at
 // once, so it stays quick on phones. The page-building functions return plain
 // strings, so the tests can render them without a DOM.
+import { knownBossMove } from '../game/bosspractice.js';
+import { openBossPractice } from './bosspracticeui.js';
 import { getNpc } from '../data/npcs.js';
 import { getItem } from '../data/items.js';
 import { RACES, raceOf } from '../data/races.js';
@@ -309,6 +311,11 @@ export function openCodex(ui, id = null, { view, article } = {}) {
     const page = control('div', 'cx-entry');
     page.innerHTML = codexEntryHTML(game, id);
     body.appendChild(page);
+    if (isDiscovered(game, id) && knownBossMove(id)?.hazards?.length) {
+      const practice = control('button', 'wm-go', { type: 'button', textContent: 'Practise attacks' });
+      practice.addEventListener('click', () => openBossPractice(ui, id));
+      page.prepend(practice);
+    }
     // Go / Show on map: to the nearest place it lives (works before you've
     // met one too, so the codex can send you hunting).
     const row = page.querySelector('.cx-go-row');

@@ -1,3 +1,4 @@
+import { installJourneyNotices, openFirstJourney, showProgressionUnlock } from './journeyui.js';
 import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWield, SECONDARY_WEAPON, shieldBarred, noShieldMsg, weaponTypeOf, sigBarred } from '../data/classes.js';
 import { SKILL_HOURS, windowLabel } from '../data/skillhours.js';
 import { classPerks, classPerkSummary, classKeyPerks } from '../game/classperks.js';
@@ -355,6 +356,7 @@ export class UI {
     this.cmdSearch = new CmdSearch(this);   // the / or Ctrl+K search box (cmdsearch.js)
     this.quickBar = new QuickBar(this);     // one-tap favourites (quickbar.js)
     watchUpgrades(this);   // "Wear it" when loot beats your gear (whatnextui.js)
+    installJourneyNotices(this);
     watchGoals(this);      // the journal's "What next?" card follows the goals
     this.bus.on('inventory', () => this.scheduleInventory());
     installPressStates();   // pressed looks on iPhones (motion.js)
@@ -370,6 +372,7 @@ export class UI {
     this.bus.on('skills', () => { this._soon('skills', () => this.renderSkills()); this._soon('combat', () => this.renderCombatPanel()); });
     this.bus.on('xp', (p) => { this._soon('skills', () => this.renderSkills(), 350); this.showXpDrop(p); });
     this.bus.on('learning', () => this._soon('skills', () => this.renderSkills()));   // Codex button shows Wisdom and cards
+    this.bus.on('firstjourney', () => { this._wnTrack = null; this._trackerSoon(); });
     this.bus.on('levelup', (p) => this.onLevelUp(p));
     // New stat points can come with a level, and spending them changes the Stats box.
     // A stat spend only changes the stats box (and max life, via 'hp'): update
@@ -3376,6 +3379,7 @@ export class UI {
 
     // ---- Help ----
     sec('Help');
+    mk('Opening quest', () => this.openFirstJourney());
     mk('Keyboard controls (?)', () => openKeyboardControls(this));
     mk('Compendium: how the game works', () => openCompendium(this));
     const hint = document.createElement('div');
@@ -3683,6 +3687,8 @@ export class UI {
   // ---------------- Bestiary / Monster Codex ----------------
   /** The old Bestiary entry point now opens the Monster Codex (codexui.js);
    *  with an npc id it opens straight on that creature's entry. */
+  openFirstJourney() { openFirstJourney(this); }
+
   openBestiary(id = null) { openCodex(this, id); }
 
   /** Right-click on the game screen: over a monster, offer to look it up in the codex. */
@@ -3720,7 +3726,9 @@ export class UI {
       const sk = SKILLS.find((s) => s.id === skill);
       const n = to - from;
       // What the new level opened: trees, recipes, gear (levelnews.js).
-      const news = levelNewsText(levelNews(this.game, skill, from, to));
+      const opened = levelNews(this.game, skill, from, to);
+      const news = levelNewsText(opened);
+      showProgressionUnlock(this, skill, from, to, opened);
       this.addChat((n > 1
         ? `Congratulations, you just advanced ${n} ${sk.name} levels! You are now level ${to}.`
         : `Congratulations, you just advanced ${aOrAn(sk.name)} level! You are now level ${to}.`) + (news ? ` ${news}` : ''), 'level');

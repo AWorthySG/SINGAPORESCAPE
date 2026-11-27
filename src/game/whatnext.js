@@ -13,6 +13,8 @@
 //  - fight: monsters your level, outside the Wilderness -> walk there and
 //    switch auto battle on.
 // No DOM and no Math.random, so the tests can drive it.
+import { firstJourneyGoal } from './firstjourney.js';
+import { finishResumeTask, resumeTaskText } from './resumetask.js';
 import { betterRoundsInPack } from './rounds.js';
 import { getItem } from '../data/items.js';
 import { getNpc } from '../data/npcs.js';
@@ -89,7 +91,7 @@ export function nextQuest(game) {
 
 /** The best source of `skill` you can work now (your level, and a tool you
  *  carry or wear), with the nearest placed object of it: { src, obj } or null. */
-export function bestSource(game, skill) {
+export function bestSource(game, skill, filter = null) {
   const lvl = game.skills.level(skill);
   const p = game.playerTile();
   // Each kind of tool is looked for once (a look goes through the whole pack,
@@ -389,8 +391,14 @@ export function fightTarget(game) {
 export function whatNext(game) {
   const out = [];
   if (!game?.player || !game.jobClass) return out;   // nothing to suggest before a class is picked
+  if (game.resumeTask) {
+    const place = game.currentZoneName || game.world.zoneAt(game.player.x, game.player.y)?.name || 'Singapore';
+    out.push({ key: 'resume', kind: 'resume', icon: '↪', title: 'Pick up where you left off', text: `${place} · ${resumeTaskText(game)}`, go: 'Resume' });
+  }
   const up = packUpgrade(game);
   if (up) out.push({ key: `gear:${up.id}`, kind: 'gear', icon: '&#9650;', title: 'Wear your better gear', text: `${getItem(up.id).name} beats what you wear.`, go: 'Equip' });
+  const journey = firstJourneyGoal(game);
+  if (journey) out.push(journey);
   const q = nextQuest(game);
   if (q) out.push({ key: `quest:${q.id}`, kind: 'quest', quest: q.id, icon: '!', title: q.name, text: q.text, go: 'Go' });
   // A life skill: one in its golden hours first, else one about to open new ground.
@@ -413,6 +421,23 @@ export function whatNext(game) {
 /** Start on a goal (the card's Go). Returns true when something started. */
 export function runGoal(game, goal) {
   if (!goal || !game.player.alive) return false;
+  if (goal.kind === 'resume') return finishResumeTask(game, true);
+  if (goal.kind === 'journey') {
+    const j = game.firstJourney;
+    if (j?.phase === 'bank') return game.goToNearest(['bank_booth']);
+    if (j?.phase === 'field') {
+      if (j.route === 'gather') return game.goToNearest(['tree']);
+      const p = game.playerTile();
+      let nearest = null;
+      for (const n of game.npcs) {
+        if (n.npcId !== 'rat' || !n.alive || n.champion || n.temporary || game.world.zoneAt(n.x, n.y)?.wilderness) continue;
+        if (!nearest || dist(n, p) < dist(nearest, p)) nearest = n;
+      }
+      return nearest ? game.goToNpc(nearest) : false;
+    }
+    game.ui?.openFirstJourney?.();
+    return true;
+  }
   if (goal.kind === 'gear') {
     const n = game.equipBest();
     if (!n) game.msg('Nothing in your pack beats what you wear right now.', 'system');

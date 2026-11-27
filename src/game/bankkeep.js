@@ -4,6 +4,7 @@
 // pack every tool, your coins and anything on your keep list; the list is set
 // per item from the bank's menu ("Always keep" / "Stop keeping") and saved as
 // game.bankKeep (an optional field: older saves start with an empty list).
+import { updateFirstJourney } from './firstjourney.js';
 import { getItem } from '../data/items.js';
 
 // Kept however the list is set: you need them for fares, shops and fees.
@@ -43,6 +44,7 @@ export function depositLoot(game) {
     if (n > 0) { for (const p of game.inventory.take(id, n)) game.bank.deposit(id, p.n, p.q); moved += n; }
   }
   game.msg(moved ? 'You bank your loot and keep your tools.' : 'Nothing to bank: your pack holds only tools and kept items.', 'system');
+  if (moved) updateFirstJourney(game, true);
   return moved;
 }
 

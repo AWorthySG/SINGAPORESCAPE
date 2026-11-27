@@ -2,6 +2,7 @@
 // townsfolk who remember your deeds, choices that change the world, and
 // region reputation (src/game/npclife.js, memory.js, consequences.js,
 // reputation.js, src/ui/reputationui.js).
+import { questChoice } from '../src/data/questChoices.js';
 import './seed.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -272,10 +273,11 @@ test('consequences survive a save and reload, without being announced again', ()
 test('every consequence points at a real moral event, quest, shop and resident', () => {
   const questIds = new Set(QUESTS.map((q) => q.id));
   assert.ok(CONSEQUENCES.length >= 10);
-  const sources = new Set(CONSEQUENCES.map((c) => c.when.moral || c.when.quest));
+  const sources = new Set(CONSEQUENCES.map((c) => c.when.moral || c.when.quest || c.when.choice));
   assert.ok(sources.size >= 6 && sources.size <= 12, '6-12 choices and quest lines matter');
   for (const c of CONSEQUENCES) {
     if (c.when.moral) assert.ok(MORAL_BY_ID[c.when.moral] && ['good', 'evil'].includes(c.when.side), c.id);
+    else if (c.when.choice) assert.ok(questChoice(c.when.choice)?.[c.when.side], c.id);
     else assert.ok(questIds.has(c.when.quest), c.id);
     assert.ok(REP_REGIONS.includes(c.region), `${c.id} region`);
     if (c.price) assert.ok(SHOPS[c.price.shop], `${c.id} shop`);

@@ -1,3 +1,4 @@
+import { showResumeNotice } from './ui/journeyui.js';
 import { Game } from './game/game.js';
 import { UI } from './ui/ui.js';
 import { Renderer } from './render/renderer.js';
@@ -218,7 +219,10 @@ function hideSplash() {
   if (!title.ready) return;   // still loading (the button only shows once it's done)
   game.audio.unlock();
   // Dip to cream, hand the camera back, open the class picker, fade the title away.
-  title.exit(() => { if (game.pendingStyleChoice || game.pendingClassChoice) ui.openStyleChoice(); });
+  title.exit(() => {
+    if (game.pendingStyleChoice || game.pendingClassChoice) ui.openStyleChoice();
+    else showResumeNotice(ui);
+  });
 }
 splashEnter && splashEnter.addEventListener('click', hideSplash);
 splash && splash.addEventListener('click', (e) => { if (e.target === splash) hideSplash(); });

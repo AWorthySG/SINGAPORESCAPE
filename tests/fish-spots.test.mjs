@@ -289,12 +289,12 @@ test('a school coming or going lets a leap under way finish and the next begin f
 
 test('the fish is drawn as one sticker over its spot; low graphics keeps the little badge', () => {
   const src = readFileSync(new URL('../src/render/sprites.js', import.meta.url), 'utf8');
-  assert.match(src, /drawWorldArt\(ctx, obj, art, key, cx, cy, time\); if \(t === 'fishing'\) drawCatchBadge\(ctx, obj, cx, cy, time, low, still\)/, 'drawn over each spot picture');
+  assert.match(src, /drawWorldArt\(ctx, obj, art, key, cx, cy, time, upperAlpha\); if \(t === 'fishing'\) drawCatchBadge\(ctx, obj, cx, cy, time, low, still\)/, 'drawn over each spot picture');
   assert.match(src, /const id = !obj\.worldEvent && obj\.def\.catches\?\.\[0\]\?\.id;/, 'its one fish; not on a world event shoal');
   // The renderer passes low graphics, and whether a school is at the spot.
   const rsrc = readFileSync(new URL('../src/render/renderer.js', import.meta.url), 'utf8');
   assert.match(rsrc, /const still = o\.def\.type === 'fishing' && fishCalm\(o, game\.fishSchools\?\.at\(o\), timeMs\);/);
-  assert.equal(rsrc.match(/drawObjectSprite\(ctx, o, cx, cy, timeMs, !!game\.lowFx, still\)/g)?.length, 2);
+  assert.equal(rsrc.match(/drawObjectSprite\(ctx, o, cx, cy, timeMs, !!game\.lowFx, still(?:, upper \? fade : 1)?\)/g)?.length, 2);
   // Draw it with every picture loaded, through a context that records its calls.
   globalThis.Image = class { constructor() { this.complete = true; this.naturalWidth = 160; this.naturalHeight = 160; } };
   try {
