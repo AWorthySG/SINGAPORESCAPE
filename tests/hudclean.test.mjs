@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Game } from '../src/game/game.js';
 import { Renderer } from '../src/render/renderer.js';
+import { PILL_STYLES } from '../src/render/namepill.js';
 import { COLLAPSE_V } from '../src/ui/ui.js';
 
 function recordingCtx() {
@@ -52,6 +53,45 @@ test("a townsperson's name beside you steps aside rather than printing over your
     }
   }
   assert.ok(checked > 0, "the townsperson's name was drawn at least once");
+});
+
+test('Smart labels keep the interaction name and spare the hero from ambient chatter', () => {
+  globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  const g = new Game(); g.start();
+  g.worldLabels = 'smart';
+  g.camera.resize(800, 600);
+  const pc = g.player.renderCenter();
+  const makeNpc = (name, dx, dy) => ({
+    name, alive: true, attackable: false, def: {},
+    x: pc.x / 32, y: pc.y / 32, chatTimer: 20, chatText: `Chatter from ${name}`,
+    renderCenter: () => ({ x: pc.x + dx, y: pc.y + dy }),
+  });
+  const focused = makeNpc('Active quest giver', 40, 25);
+  const covered = makeNpc('Behind hero', 0, 35);
+  const left = makeNpc('Left neighbour', -220, -40);
+  const right = makeNpc('Right neighbour', 220, -40);
+  const extra = makeNpc('Extra neighbour', 220, 70);
+  g.hover = { npc: focused };
+  g.nearbyNpcs = () => [focused, covered, left, right, extra];
+  const ctx = recordingCtx();
+  new Renderer(g, { width: 800, height: 600 }, ctx)._drawOverheads(pc.x - 400, pc.y - 300, []);
+  const text = ctx.calls.filter(([op]) => op === 'fillText');
+  const interaction = text.find(([, label]) => label === focused.name);
+  assert.ok(interaction?.[3] > 330, 'the current interaction name moves below the hero');
+  assert.deepEqual(text.map(([, label]) => label).filter((label) => label.startsWith('Chatter from')), [left.chatText, right.chatText]);
+});
+
+test('direction signs use world nameplates and keep a distinct Wilderness warning', () => {
+  const ctx = recordingCtx();
+  const game = { camera: { viewW: 400, viewH: 300 }, player: { alive: false } };
+  const renderer = new Renderer(game, { width: 400, height: 300 }, ctx);
+  for (const [text, style] of [['Bukit Timah ↑', 'sign'], ['The Wilderness ↑', 'warningSign']]) {
+    renderer._drawNodeLabels(0, 0, [{ x: 3, y: 3, def: {}, sign: text }]);
+    assert.ok(ctx.calls.some(([op, label]) => op === 'fillText' && label === text));
+    assert.equal(ctx.fillStyle, PILL_STYLES[style].text);
+    assert.equal(ctx.strokeStyle, PILL_STYLES[style].rim);
+  }
+  assert.notEqual(PILL_STYLES.sign.text, PILL_STYLES.warningSign.text);
 });
 
 test('desktop folds the side panel to its tab icons when you fold it, starts with it open, and the area name only shows on arrival', () => {

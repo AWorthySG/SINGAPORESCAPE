@@ -279,11 +279,7 @@ test('banners and toasts are one sticker family; every close is one .close-x', (
   assert.match(read('src/ui/accountui.js'), /class="acct-x close-x"/);
   assert.match(read('src/ui/photomode.js'), /class="pm-x close-x"/);
   assert.match(css, /\.close-x, #modal-close\.close-x, [^{]*\{[^}]*background: var\(--aw-white\) none; border: 2px solid var\(--aw-ink/);
-  // The world's signposts are drawn as the same card.
-  const r = read('src/render/renderer.js');
-  const sign = r.slice(r.indexOf('// Directional signposts'), r.indexOf('_place(x, y, hw)'));
-  assert.match(sign, /ctx\.fillStyle = '#FFFCF5'/);
-  assert.match(sign, /ctx\.strokeStyle = '#22304A'/);
+
 });
 
 test('one width for the Codex-type windows', () => {
