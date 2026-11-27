@@ -5,13 +5,21 @@ const ROUTES = new Set(['combat', 'gather']);
 
 export function loadFirstJourney(game, raw) {
   if (!raw || typeof raw !== 'object') return;
-  const route = ROUTES.has(raw.route) ? raw.route : null;
-  const phase = ['field', 'bank', 'explore', 'done', 'skipped'].includes(raw.phase) ? raw.phase : 'offer';
+  const route = raw.route;
+  const phase = raw.phase;
+  if (phase === 'skipped') {
+    game.firstJourney = { phase };
+    return;
+  }
+  if (!ROUTES.has(route) || !['field', 'bank', 'explore', 'done'].includes(phase)) {
+    game.firstJourney = { phase: 'offer' };
+    return;
+  }
   game.firstJourney = {
-    phase: route || phase === 'skipped' ? phase : 'offer', route,
+    phase, route,
     baseline: Number.isFinite(raw.baseline) ? Math.max(0, raw.baseline) : 0,
-    destination: FIRST_JOURNEY_PLACES.includes(raw.destination) ? raw.destination : null,
   };
+  if (FIRST_JOURNEY_PLACES.includes(raw.destination)) game.firstJourney.destination = raw.destination;
 }
 
 const progress = (game, route) => route === 'combat' ? game.kills.rat || 0 : game.skills.xp.woodcutting || 0;
