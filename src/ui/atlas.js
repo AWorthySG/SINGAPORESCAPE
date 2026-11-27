@@ -18,7 +18,7 @@ export const ATLAS_PLACES = [
   { id: 'tuas', lon: 103.635, lat: 1.324, label: 'Tuas', side: 'bottom' },
 ];
 
-// Matches the north-up, 1200 × 800 atlased coastline in assets/ui.
+// Matches the north-up, 1200 × 800 atlas image in assets/maps.
 export function atlasPoint({ lon, lat }) {
   return { left: 100 * (lon - 103.57) / 0.56, top: 150 * (1.492 - lat) / 0.56 };
 }
@@ -33,7 +33,7 @@ export function renderSingaporeAtlas(parent, currentZone, onTerrain) {
   atlas.className = 'atlas';
   atlas.innerHTML = `
     <div class="atlas-map" role="group" aria-label="Geographic map of Singapore">
-      <img src="assets/ui/singapore-atlas.webp" alt="Singapore's coastline, Pulau Ubin, Pulau Tekong and the Southern Islands" width="1200" height="800" />
+      <img src="assets/maps/singapore-atlas.webp" alt="Singapore's coastline, Pulau Ubin, Pulau Tekong and the Southern Islands" width="1200" height="800" />
       <span class="atlas-north" aria-hidden="true">N</span>
       <span class="atlas-tekong" aria-hidden="true">Pulau Tekong</span>
       <span class="atlas-strait" aria-hidden="true">Singapore Strait</span>
