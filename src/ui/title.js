@@ -50,7 +50,7 @@ export const TITLE_ART_SLOTS = {
   medallion: { size: '256x256, round, transparent outside', use: 'the mascot\'s portrait filling the ribbon\'s sun disc on small screens (MD-1)', placeholder: 'the sitting mascot' },
 };
 /** The slots that have a painted file in assets/title/. */
-export const TITLE_ART = new Set(['sky', 'clouds', 'skyline-far', 'skyline-mid', 'skyline', 'foreground', 'logo-banner', 'mascot-sit', 'medallion']);
+export const TITLE_ART = new Set(['backdrop', 'backdrop-portrait', 'sky', 'clouds', 'skyline-far', 'skyline-mid', 'skyline', 'foreground', 'logo-banner', 'mascot-sit', 'medallion']);
 export const titleArtSrc = (slot) => (TITLE_ART.has(slot) ? `assets/title/${slot}.webp` : null);
 /** The painted slots the title shows at once: asked for while the loading bar
  *  runs (and counted by it), so the city fades in whole. */

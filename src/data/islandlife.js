@@ -23,10 +23,10 @@ export const VOYAGES = [
   { id: 'cove_return', from: 'cove', to: 'changi', level: 3, course: [0, 1, 0, 0], xp: 32 },
 ];
 export const PHOTO_ASSIGNMENTS = [
-  { id: 'dome', name: 'Golden dome at dusk', detail: 'Stand at the hall’s south entrance at dusk (17:00–20:00 on the island clock).', x: 62, y: 82, range: 4, dusk: true, level: 1, xp: 32, art: 'obj-golden_dome_hall' },
-  { id: 'market', name: 'Market colours', detail: 'Frame a postcard near the Kampong Glam food stall.', x: 64, y: 62, range: 5, level: 1, xp: 24, art: 'obj-stall_food' },
-  { id: 'ubin', name: 'Pulau Ubin landing', detail: 'Take a postcard from the landing at Pulau Ubin.', x: 193, y: 53, range: 5, level: 2, xp: 38, art: 'obj-stilt_house' },
-  { id: 'wetlands', name: 'Light over the wetlands', detail: 'Take a postcard near the Sungei Buloh boardwalk entrance.', x: 40, y: 149, range: 6, level: 3, xp: 54, art: 'tree-mangrove' },
+  { id: 'dome', name: 'Golden dome at dusk', detail: 'Stand at the hall’s south entrance at dusk (17:00–20:00 on the island clock).', x: 62, y: 82, range: 4, dusk: true, level: 1, xp: 32, art: 'island-dome' },
+  { id: 'market', name: 'Market colours', detail: 'Frame a postcard near the Kampong Glam food stall.', x: 64, y: 62, range: 5, level: 1, xp: 24, art: 'island-market' },
+  { id: 'ubin', name: 'Pulau Ubin landing', detail: 'Take a postcard from the landing at Pulau Ubin.', x: 193, y: 53, range: 5, level: 2, xp: 38, art: 'island-ubin' },
+  { id: 'wetlands', name: 'Light over the wetlands', detail: 'Take a postcard near the Sungei Buloh boardwalk entrance.', x: 40, y: 149, range: 6, level: 3, xp: 54, art: 'island-wetlands' },
 ];
 export const PATTERNS = [
   { id: 'chilli', name: 'Chilli flower', level: 1, xp: 22, dye: 'chilli', colours: ['#a24849', '#f3d49a'] },

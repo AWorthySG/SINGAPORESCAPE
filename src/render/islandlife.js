@@ -56,7 +56,7 @@ export function drawIslandSites(g, game, ox, oy, width, height, time, calm) {
   const key = display.id;
   if (!prints.has(key) && typeof Image === 'function') {
     const image = new Image();
-    image.src = `assets/world/${display.art}.webp`;
+    image.src = `assets/postcards/${display.art}.webp`;
     prints.set(key, image);
   }
   const img = prints.get(key);
@@ -67,10 +67,25 @@ export function drawIslandSites(g, game, ox, oy, width, height, time, calm) {
   if (img?.complete && img.naturalWidth) g.drawImage(img, px - 9, py - 7, 18, 13);
 }
 const prints = new Map();
+const scarves = new Map();
 
 export function drawIslandScarf(g, id, x, y, facing) {
   const pattern = PATTERNS.find((p) => p.id === id);
   if (!pattern) return;
+  if (!scarves.has(id) && typeof Image === 'function') {
+    const image = new Image();
+    image.src = `assets/icons/scarf-${id}.webp`;
+    scarves.set(id, image);
+  }
+  const art = scarves.get(id);
+  if (art?.complete && art.naturalWidth) {
+    g.save();
+    g.translate(x, y);
+    if (facing < 0) g.scale(-1, 1);
+    g.drawImage(art, -7, -5, 14, 14);
+    g.restore();
+    return;
+  }
   g.save();
   g.translate(x, y);
   g.strokeStyle = INK;
