@@ -57,6 +57,10 @@ export const LIFE_PERKS = {
   hawkering: { stat: 'haste', max: 12, label: 'attack speed', unit: '%' },
   // Archaeology: the patience of a dig, as a little more crit damage (Mining's stat: the two add up).
   archaeology: { stat: 'critDmg', max: 30, label: 'crit damage', unit: '%' },
+  sailing: { stat: 'pierce', max: 8, label: 'armour pierce', unit: '%' },
+  photography: { stat: 'crit', max: 8, label: 'crit chance', unit: '%' },
+  textile_arts: { stat: 'lifesteal', max: 4, label: 'lifesteal', unit: '%' },
+  music: { stat: 'haste', max: 8, label: 'attack speed', unit: '%' },
 };
 export const LIFE_PERK_SKILLS = Object.keys(LIFE_PERKS);
 // Life skill level-ups mention the perk on every multiple of this (of 50 past
