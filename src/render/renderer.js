@@ -134,6 +134,8 @@ const GROUND_VARIANTS = { [TERRAIN.STONE]: [['stone-2', 0.2], ['stone-3', 0.2]] 
 // rock until painted rock arrives: then add ground-stone-peaks.webp and make
 // the entry { tex: 'stone-peaks' }; nothing else needs to change.
 export const REGION_GROUND = {
+  'Kampong Glam': { [TERRAIN.STONE]: { tex: 'stone-kampong' } },
+  Chinatown: { [TERRAIN.STONE]: { tex: 'stone-chinatown' } },
   'The Celestial Peaks': { [TERRAIN.STONE]: { tint: { lo: [76, 84, 96], hi: [208, 213, 220], mid: 0.6, gain: 3 } } },
 };
 const REGION_TERRAINS = new Set(Object.values(REGION_GROUND).flatMap((r) => Object.keys(r).map(Number)));
@@ -163,7 +165,8 @@ function regionGround(game, tex, t, x, y) {
     } catch { cv = null; }   // (no canvas to hand: the usual texture)
     tex.region[key] = cv;
   }
-  return tex.region[key];
+  const tile = tex.region[key];
+  return tile && tile.naturalWidth !== 0 ? tile : null;
 }
 
 const LIT_RGB = [255, 190, 110];   // the warm pool round lamps and fires drawn with them
@@ -214,7 +217,7 @@ export class Renderer {
     tex.ready = false;
     const load = (name) => {
       const img = new Image();
-      img.onload = () => {
+      img.onload = img.onerror = () => {
         if (--left > 0) return;
         tex.ready = true;
         this.terrainCanvas.chunks.clear(); this.terrainCanvas.order.length = 0;
@@ -231,7 +234,7 @@ export class Renderer {
   /** Paint one tile's worth of a ground texture; false if it isn't ready. */
   _groundTile(g, t, x, y, sx, sy) {
     const tex = this.groundTex;
-    if (!tex || !tex.ready || !tex[t]) return false;
+    if (!tex?.ready) return false;
     const k = GROUND_TEX_PX / TILE;
     let img = tex[t];
     const vs = tex.variants[t];
@@ -239,8 +242,9 @@ export class Renderer {
     if (own) img = own;   // a region's own ground (one look, no inset tiles)
     else if (vs) {   // the block's variant: the same every bake (the variants share the plain one's outer ring of stones)
       let r = tileHash(Math.floor(x / k), Math.floor(y / k), 41);
-      for (const [v, w] of vs) { if ((r -= w) < 0) { img = v; break; } }
+      for (const [v, w] of vs) { if ((r -= w) < 0) { if (v.naturalWidth !== 0) img = v; break; } }
     }
+    if (!img || img.naturalWidth === 0) return false;
     g.drawImage(img, (x % k) * TILE, (y % k) * TILE, TILE, TILE, sx, sy, TILE + 0.5, TILE + 0.5);
     return true;
   }
@@ -1506,7 +1510,7 @@ export class Renderer {
   /** The fill for ground type t: its painted texture as a repeating pattern, or its plain colour. */
   _groundFill(g, t) {
     const tex = this.groundTex;
-    if (tex && tex.ready && tex[t] && g.createPattern) {
+    if (tex && tex.ready && tex[t] && tex[t].naturalWidth !== 0 && g.createPattern) {
       const pats = this._groundPats || (this._groundPats = {});
       const p = pats[t] || (pats[t] = g.createPattern(tex[t], 'repeat'));
       if (p) return p;

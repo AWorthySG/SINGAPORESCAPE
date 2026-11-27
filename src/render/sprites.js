@@ -2775,12 +2775,14 @@ export function bedLook(obj) {
   return { key, tint, s: 0.92 + tileHash(obj.x, obj.y, 63) * 0.16, flip: tileHash(obj.x, obj.y, 64) < 0.5 };
 }
 const _worldImg = {};
+// Replaced art gets a new URL so the offline cache serves the current sprite.
+const revisedWorldArt = new Set(['obj-heritage_lamp', 'obj-lantern_post']);
 function worldImage(key) {
   if (!WORLD_ART[key]) return null;
   if (_worldImg[key] !== undefined) return _worldImg[key];
   if (typeof Image === 'undefined') { _worldImg[key] = null; return null; }
   const img = new Image();
-  img.src = `assets/world/${key}.webp`;
+  img.src = `assets/world/${key}.webp${revisedWorldArt.has(key) ? '?v=2' : ''}`;
   _worldImg[key] = img;
   return img;
 }

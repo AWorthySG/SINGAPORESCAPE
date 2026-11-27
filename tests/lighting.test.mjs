@@ -58,6 +58,11 @@ test('the world has lights where you would expect them, and a felled magic tree 
   const g = freshGame();
   const lamps = g.world.objects.filter((o) => o.objId === 'lamp');
   assert.ok(lamps.length > 10, 'street lamps stand in the towns');
+  for (const id of ['heritage_lamp', 'lantern_post', 'lantern_tree', 'five_foot_lantern', 'bollard_light']) {
+    const prop = g.world.objects.find((o) => o.objId === id);
+    assert.ok(prop, `there is a ${id} in the world`);
+    assert.ok(lightFor(prop), `${id} gives off light`);
+  }
   const tree = g.world.objects.find((o) => o.objId === 'magic_tree');
   assert.ok(lightFor(tree), 'a magic tree glows');
   tree.depleted = true;

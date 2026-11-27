@@ -161,7 +161,7 @@ test('the splash keeps #splash-enter and the loading bar, and the picker keeps c
   assert.match(css, /#splash\.loading #splash-enter \{ display: none; \}/);
 });
 
-test('the splash shows the brand once: the mascot in the ribbon\'s sun, over the title', () => {
+test('the splash shows the title once alongside the mascot', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   const splash = html.slice(html.indexOf('<div id="splash"'), html.indexOf('<script type="module"'));
   // One mascot, inside the crest with the title (title.css sets it in the sunburst's disc).
@@ -170,7 +170,7 @@ test('the splash shows the brand once: the mascot in the ribbon\'s sun, over the
   // No second logo and no "by A Worthy" line under the title.
   assert.ok(!splash.includes('splash-logo') && !splash.includes('logo.svg'), 'no logo under the title');
   assert.ok(!/by <b>A/.test(splash), 'no "by A Worthy" line');
-  assert.match(splash, /class="cosy-tag">Your cosy kampong adventure</);
+  assert.match(splash, /class="splash-sub">Explore a Singapore of shophouses, forest trails and spirits\.</);
   const css = readFileSync(new URL('../styles/title.css', import.meta.url), 'utf8');
   assert.match(css, /#splash\.title-banner \.splash-crest \.splash-mascot \{[^}]*position: absolute;/);
   // Small screens: the mascot's round portrait fills the disc instead (MD-1).

@@ -210,12 +210,34 @@ test('near the top of the view the tag goes under the feet, still clear of the m
 });
 
 // ---------------- The Peaks' rock ----------------
-test('only the Celestial Peaks have ground of their own: their stone', () => {
-  assert.deepEqual(Object.keys(REGION_GROUND), ['The Celestial Peaks']);
+test('the Celestial Peaks have ground of their own: their stone', () => {
   assert.deepEqual(Object.keys(REGION_GROUND['The Celestial Peaks']).map(Number), [TERRAIN.STONE]);
   // Recoloured until painted rock arrives (then a `tex`, which groundTextures lists for the art lock-step).
   assert.ok(REGION_GROUND['The Celestial Peaks'][TERRAIN.STONE].tint);
   assert.ok(!groundTextures().has('stone-peaks'));
+});
+
+test('Kampong Glam and Chinatown use their own paving and fall back if its art failed', () => {
+  const stone = { id: 'stone' }, kampong = { id: 'stone-kampong' }, market = { id: 'stone-chinatown' };
+  const terrain = TERRAIN.STONE;
+  const names = ['Kampong Glam', 'Chinatown', 'Marina Bay'];
+  const renderer = {
+    game: { world: { zoneAt: (x) => ({ name: names[x] }) } },
+    groundTex: { ready: true, [terrain]: stone, variants: {}, region: {
+      ['Kampong Glam|' + terrain]: kampong,
+      ['Chinatown|' + terrain]: market,
+    } },
+  };
+  let art;
+  const pick = (x) => {
+    Renderer.prototype._groundTile.call(renderer, { drawImage: (img) => { art = img; } }, terrain, x, 0, 0, 0);
+    return art;
+  };
+  assert.equal(REGION_GROUND['Kampong Glam'][terrain].tex, kampong.id);
+  assert.equal(REGION_GROUND.Chinatown[terrain].tex, market.id);
+  assert.deepEqual(names.map((_, i) => pick(i)), [kampong, market, stone]);
+  market.naturalWidth = 0;
+  assert.equal(pick(1), stone);
 });
 
 test('the recolour turns warm paving into cool grey-blue rock and keeps its pattern', () => {

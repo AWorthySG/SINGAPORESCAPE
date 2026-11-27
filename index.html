@@ -44,6 +44,7 @@
   <link rel="stylesheet" href="styles/encyclopedia.css" />
   <link rel="stylesheet" href="styles/makeqty.css" />
   <link rel="stylesheet" href="styles/minimap.css" />
+  <link rel="stylesheet" href="styles/heritage.css" />
   <!-- Compact HUD overrides: keep last (src/ui/compacthud.js) -->
   <link rel="stylesheet" href="styles/compact.css" />
   <!-- modulepreload: the whole static import graph (node tools/modulepreload.mjs) -->
@@ -496,29 +497,25 @@
 
   </div>
 
-  <!-- Title / splash screen featuring the A Worthy logo. It loads first (the
-       bar under the title, driven by src/ui/title.js), then turns see-through
-       over the live world, which the camera tours slowly behind it. -->
-  <div id="splash" class="loading">
+  <!-- Title screen and the loading progress driven by src/ui/title.js. -->
+  <div id="splash" class="loading title-keyart-on">
+    <img class="title-keyart" src="assets/title/kampong-evening.webp" alt="" fetchpriority="high" />
     <div class="title-skyline" aria-hidden="true"></div>
     <canvas class="title-heroes" aria-hidden="true"></canvas>
     <div class="title-particles" aria-hidden="true"></div>
     <div class="title-place" aria-hidden="true"></div>
     <div class="splash-inner">
-      <p class="splash-lah" aria-hidden="true">Steady lah, adventurer!</p>
-      <!-- The brand shows once: the mascot rising in the ribbon's sun, over the title. -->
       <div class="splash-crest">
         <img src="assets/title/mascot-sit.webp" alt="" class="splash-mascot" />
         <h1 class="splash-title">A-Worthy Adventure</h1>
       </div>
-      <p class="splash-sub"><span class="cosy-tag">Explore a Singapore of shophouses, forest trails and spirits.</span></p>
+      <p class="splash-sub">Explore a Singapore of shophouses, forest trails and spirits.</p>
       <div id="splash-loader" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <div class="sl-track"><div class="sl-fill"></div></div>
         <p class="sl-status">Loading the game&hellip;</p>
         <p class="sl-tip" aria-live="polite"></p>
       </div>
-      <button id="splash-enter">Enter Kampong Glam &#9654;</button>
-      <p class="splash-controls">Joystick or W A S D to move &middot; Interact button, E or Space to act &middot; T, Y and U for auto battle, gather and quest</p>
+      <button id="splash-enter">Enter Kampong Glam <span aria-hidden="true">&rarr;</span></button>
     </div>
     <div class="title-fade" aria-hidden="true"></div>
   </div>
