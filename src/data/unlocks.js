@@ -26,7 +26,21 @@ export const UNLOCKS = { on: true };
 // Skill teleports share one cooldown, in game ticks (600ms each): 5 minutes.
 export const SKILL_TELEPORT_TICKS = 500;
 
+function islandMilestones(reward, station, place) {
+  return [
+    { level: 10, name: 'Better ' + reward, desc: '+10% coins from ' + reward, fx: { contractCoins: .10 } },
+    { level: 25, name: 'Steady practice', desc: '+10% XP from skill activities', fx: { activityXp: .10 } },
+    { level: 50, name: place + ' teleport', desc: 'Teleport to ' + place, teleport: station },
+    { level: 75, name: 'Trusted regular', desc: '+15% coins from ' + reward, fx: { contractCoins: .15 } },
+    { level: 99, name: 'Island master', desc: '+15% coins and +15% skill activity XP', fx: { contractCoins: .15, activityXp: .15 } },
+  ];
+}
+
 export const SKILL_UNLOCKS = {
+  sailing: islandMilestones('freight', 'changi', 'Changi Coast'),
+  photography: islandMilestones('photo commissions', 'sungei_buloh', 'Sungei Buloh'),
+  textile_arts: islandMilestones('textile orders', 'chinatown', 'Chinatown'),
+  music: islandMilestones('performances', 'marina_bay', 'Marina Bay'),
   woodcutting: [
     { level: 10, name: 'Sturdy swing', desc: '+5% chance of double logs', fx: { double: 0.05 } },
     { level: 25, name: "Feller's rhythm", desc: '5% chance to chop twice in one go', fx: { quick: 0.05 } },

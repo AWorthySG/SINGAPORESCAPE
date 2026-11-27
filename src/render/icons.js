@@ -871,7 +871,12 @@ import { CON_TIERS, CON_WOOD } from '../data/construction.js';
     'atlas_moth_empress', 'jembalang_lord', 'krait_matriarch', 'duyung_queen', 'great_argus_monarch',
     'typhoon_mother', 'void_eel_leviathan', 'todak_king', 'jade_moon_hare', 'fenghuang',
     // The Monk's, Priest's and Zealot's ascended weapons (art pack IC-2 to IC-4).
-    'spirit_of_badang_monk', 'jade_moon_hare_priest', 'eternal_wyrm_zealot'].map((b) => `sig_${b}`));
+    'spirit_of_badang_monk', 'jade_moon_hare_priest', 'eternal_wyrm_zealot',
+    // Dedicated ascended-weapon stickers from the IC-21 art return.
+    'jade_dragon_sniper', 'jade_dragon_ranger', 'fenghuang_pistoler',
+    'fenghuang_gladiator', 'celestial_garuda_merchant', 'celestial_garuda_corsair',
+    'jade_moon_hare_samurai', 'spirit_of_badang_rogue', 'singa_of_temasek_swordsman',
+    'todak_king_brawler', 'eternal_wyrm_berserker', 'jenglot_sovereign_halberdier'].map((b) => `sig_${b}`));
   for (const [id, it] of Object.entries(ITEMS)) if (it.signature && (!NEW_SIG.has(id) || SIG_ART.has(id))) ITEM_ART.add(id);
   // Gameplay art pack: endgame fish and dishes, crops and seeds, brews, Hunter
   // catches and lures, jewellery, the casino chip and Pest Control's goods.

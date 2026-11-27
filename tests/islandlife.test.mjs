@@ -2,9 +2,10 @@ import './seed.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
+import { xpForLevel } from '../src/data/xp.js';
 import { Game } from '../src/game/game.js';
-import { LANDINGS, LOOM, PHOTO_ASSIGNMENTS, STAGES } from '../src/data/islandlife.js';
-import { exploreCove, finishIslandTune, finishVoyage, islandBook, learnIslandTune, makeIslandPattern, recordIslandPhoto, restoreIslandLife } from '../src/game/islandlife.js';
+import { islandPhotoArt, LANDINGS, LOOM, LOOMS, PHOTO_ASSIGNMENTS, STAGES, TUNES, VOYAGES } from '../src/data/islandlife.js';
+import { encoreNotes, exploreCove, finishIslandTune, finishVoyage, islandBook, learnIslandTune, makeIslandPattern, recordIslandPhoto, restoreIslandLife } from '../src/game/islandlife.js';
 import { saveGame } from '../src/game/save.js';
 import { drawIslandSites } from '../src/render/islandlife.js';
 
@@ -37,7 +38,7 @@ test('voyages follow the chart, land at the correct port and open cove finds onc
 
 test('photos respect the location and dusk, award one print, and have display art', () => {
   const g = fresh();
-  for (const p of PHOTO_ASSIGNMENTS) assert.ok(existsSync(new URL(`../assets/postcards/${p.art}.webp`, import.meta.url)), p.art);
+  for (const p of PHOTO_ASSIGNMENTS) assert.ok(existsSync(new URL(`../${islandPhotoArt(p)}`, import.meta.url)), p.art);
   visit(g, PHOTO_ASSIGNMENTS[0]);
   g.dayPhase = () => .5;
   assert.equal(recordIslandPhoto(g), null);
@@ -81,4 +82,84 @@ test('landings have distinctive sails which stay still under Reduce motion', () 
   };
   assert.deepEqual(draw(0, true), draw(960, true));
   assert.notDeepEqual(draw(0, false), draw(960, false));
+});
+
+test('advanced voyages unlock in route order and freight can pay once per route per day', () => {
+  const g = fresh();
+  g.skills.xp.sailing = xpForLevel(20);
+  g.todayKey = () => '2026-11-28';
+  const sail = (id, freight = false) => finishVoyage(g, id, VOYAGES.find((r) => r.id === id).course, { freight });
+  visit(g, LANDINGS.changi);
+  assert.equal(sail('marina'), false, 'chart Pulau Ubin first');
+  assert.equal(sail('ubin', true), false, 'chart a route before hauling freight');
+  assert.equal(sail('ubin'), true);
+  assert.equal(sail('changi'), true);
+  assert.equal(sail('marina'), true);
+  assert.equal(sail('sentosa'), true);
+  assert.equal(g.currentZoneName, 'Sentosa Beach');
+  assert.equal(sail('sentosa_return'), true);
+  const coins = g.inventory.count('coins');
+  assert.equal(sail('sentosa', true), true);
+  assert.equal(g.inventory.count('coins'), coins + 250);
+  assert.equal(sail('sentosa_return'), true);
+  assert.equal(sail('sentosa', true), false);
+  assert.equal(saveGame(g), true);
+  const next = new Game(); next.start(); next.todayKey = g.todayKey;
+  assert.equal(finishVoyage(next, 'sentosa', VOYAGES.find((r) => r.id === 'sentosa').course, { freight: true }), false);
+  next.todayKey = () => '2026-11-29';
+  assert.equal(finishVoyage(next, 'sentosa', VOYAGES.find((r) => r.id === 'sentosa').course, { freight: true }), true);
+});
+
+test('collected photo assignments pay for fresh postcards on subsequent days', () => {
+  const g = fresh();
+  g.skills.xp.photography = xpForLevel(30);
+  const p = PHOTO_ASSIGNMENTS.find((a) => a.id === 'temple');
+  visit(g, p);
+  g.todayKey = () => '2026-11-28';
+  assert.equal(recordIslandPhoto(g).id, 'temple');
+  assert.equal(recordIslandPhoto(g), null);
+  g.todayKey = () => '2026-11-29';
+  const coins = g.inventory.count('coins');
+  assert.equal(recordIslandPhoto(g).commission, true);
+  assert.equal(g.inventory.count('coins'), coins + 144);
+  assert.equal(recordIslandPhoto(g), null);
+  assert.deepEqual(islandBook(g).photos, ['temple']);
+});
+
+test('the Chinatown workshop buys learned designs and the Sentosa stage teaches encores', () => {
+  const g = fresh();
+  g.todayKey = () => '2026-11-28';
+  g.skills.xp.textile_arts = xpForLevel(22);
+  g.skills.xp.music = xpForLevel(22);
+  visit(g, LOOMS[1]);
+  g.inventory.add('butterfly_pea', 4);
+  assert.equal(makeIslandPattern(g, 'butterfly', { order: true }), false);
+  assert.equal(makeIslandPattern(g, 'butterfly'), true);
+  assert.equal(makeIslandPattern(g, 'butterfly', { order: true }), true);
+  assert.equal(g.inventory.count('butterfly_pea'), 1);
+  assert.equal(makeIslandPattern(g, 'butterfly', { order: true }), false);
+  const tune = TUNES.find((t) => t.id === 'tide');
+  visit(g, STAGES[0]);
+  assert.equal(learnIslandTune(g, 'tide'), false);
+  visit(g, STAGES[2]);
+  assert.equal(learnIslandTune(g, 'tide'), true);
+  assert.equal(finishIslandTune(g, 'tide', encoreNotes(tune), 2400, { encore: true }), false);
+  assert.equal(finishIslandTune(g, 'tide', tune.notes, 2400), true);
+  assert.equal(finishIslandTune(g, 'tide', tune.notes, 2400, { encore: true }), false);
+  assert.equal(finishIslandTune(g, 'tide', encoreNotes(tune), 2400, { encore: true }), true);
+  assert.equal(finishIslandTune(g, 'tide', encoreNotes(tune), 2400, { encore: true }), false);
+});
+
+test('all 12 returned ascended weapons use their own icon rather than a donor', async () => {
+  const { itemArtSrc, itemIconSVG } = await import('../src/render/icons.js');
+  const { ITEMS } = await import('../src/data/items.js');
+  for (const name of ['jade_dragon_sniper', 'jade_dragon_ranger', 'fenghuang_pistoler', 'fenghuang_gladiator',
+    'celestial_garuda_merchant', 'celestial_garuda_corsair', 'jade_moon_hare_samurai', 'spirit_of_badang_rogue',
+    'singa_of_temasek_swordsman', 'todak_king_brawler', 'eternal_wyrm_berserker', 'jenglot_sovereign_halberdier']) {
+    const id = 'sig_' + name, path = `assets/icons/item-${id}.webp`;
+    assert.ok(ITEMS[id].signature.ascended);
+    assert.equal(itemArtSrc(id), path);
+    assert.ok(itemIconSVG(id).includes(path));
+    assert.ok(existsSync(new URL('../' + path, import.meta.url)));
+  }
 });

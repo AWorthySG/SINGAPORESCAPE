@@ -1,9 +1,9 @@
 import { TILE } from '../config.js';
-import { LANDINGS, LOOM, PATTERNS, PHOTO_ASSIGNMENTS, STAGES } from '../data/islandlife.js';
+import { islandPhotoArt, LANDINGS, LOOMS, PATTERNS, PHOTO_ASSIGNMENTS, STAGES } from '../data/islandlife.js';
 
 const SITES = [
   ...Object.values(LANDINGS).map((site) => ({ ...site, kind: 'boat' })),
-  { ...LOOM, kind: 'cloth' },
+  ...LOOMS.map((site) => ({ ...site, kind: 'cloth' })),
   ...STAGES.map((site) => ({ ...site, kind: 'stage' })),
 ];
 const INK = '#344259';
@@ -56,7 +56,7 @@ export function drawIslandSites(g, game, ox, oy, width, height, time, calm) {
   const key = display.id;
   if (!prints.has(key) && typeof Image === 'function') {
     const image = new Image();
-    image.src = `assets/postcards/${display.art}.webp`;
+    image.src = islandPhotoArt(display);
     prints.set(key, image);
   }
   const img = prints.get(key);
@@ -74,7 +74,7 @@ export function drawIslandScarf(g, id, x, y, facing) {
   if (!pattern) return;
   if (!scarves.has(id) && typeof Image === 'function') {
     const image = new Image();
-    image.src = `assets/icons/scarf-${id}.webp`;
+    image.src = `assets/icons/scarf-${pattern.art || id}.webp`;
     scarves.set(id, image);
   }
   const art = scarves.get(id);
@@ -82,6 +82,7 @@ export function drawIslandScarf(g, id, x, y, facing) {
     g.save();
     g.translate(x, y);
     if (facing < 0) g.scale(-1, 1);
+    if (pattern.hue) g.filter = `hue-rotate(${pattern.hue}deg)`;
     g.drawImage(art, -7, -5, 14, 14);
     g.restore();
     return;
