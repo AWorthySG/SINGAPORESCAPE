@@ -1148,3 +1148,128 @@ body.reduce-motion :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #mo
 .island-assignment-art { width: 52px; height: 35px; object-fit: cover; border-radius: .3rem; vertical-align: middle; margin-inline-end: .5rem; }
 .island-panel header img { width: 48px; height: 48px; flex: 0 0 auto; object-fit: contain; }
 .island-print figcaption { margin-bottom: .35rem; font-weight: 800; }
+
+/* Enamel controls and brass edging tie the HUD to the illustrated world.
+   Layout, hit targets and visibility still come from the responsive styles. */
+#game-root {
+  --hud-enamel: #294952;
+  --hud-enamel-deep: #192f3d;
+  --hud-teal: #356a65;
+  --hud-gold: #d6ab69;
+  --hud-warm: #f2dfbd;
+  --hud-ivory: #fff8e9;
+}
+
+#chat-head,
+#panel-head,
+#modal-window #modal-title {
+  background: linear-gradient(110deg, var(--hud-warm), var(--hud-ivory) 78%);
+  box-shadow: inset 0 -1px var(--hud-gold);
+  color: var(--hud-enamel-deep);
+}
+
+#sidepanel #panel-tabs {
+  background: linear-gradient(145deg, var(--hud-enamel), var(--hud-enamel-deep));
+  border-color: var(--hud-gold);
+}
+#sidepanel #panel-tabs .tab-btn {
+  color: var(--hud-ivory);
+  border-radius: 10px;
+}
+#sidepanel #panel-tabs .tab-btn .tab-label { color: inherit; }
+#sidepanel #panel-tabs .tab-btn:not(.active):hover {
+  background: #375868;
+  border-color: #729492;
+}
+#sidepanel #panel-tabs .tab-btn.active {
+  color: #fffdf4;
+  background: linear-gradient(155deg, #477f75, var(--hud-teal));
+  border-color: #a7ceb8;
+  box-shadow: inset 0 -2px #295652;
+}
+
+#sidepanel #inventory-grid .inv-slot:not(.filled) {
+  background: linear-gradient(150deg, #ecdec5, #f8ecd7);
+  border-color: #c9b597;
+  box-shadow: inset 0 1px 2px rgba(34,48,74,.12);
+}
+#sidepanel #inventory-grid .inv-slot.filled {
+  background-color: var(--hud-ivory);
+  background-image: radial-gradient(ellipse at 50% 38%, #fffdf8 10%, transparent 72%);
+}
+#sidepanel #inventory-grid .inv-slot.filled:hover {
+  background-color: #f9e9c8;
+}
+#sidepanel #panel-body {
+  scrollbar-color: #ac9374 transparent;
+}
+
+#minimap-panel:not(.collapsed) #minimap-canvas {
+  box-shadow: 0 0 0 2px var(--hud-gold), 0 3px 0 2px var(--hud-enamel-deep), 0 6px 12px rgba(34,48,74,.24);
+}
+#minimap-panel #minimap-region:not(.wild) {
+  background-image: linear-gradient(110deg, #fff6db, #f3dbb2);
+}
+#map-btn {
+  background-color: var(--hud-teal);
+  color: #fffdf4;
+  box-shadow: 0 2px 0 var(--hud-enamel-deep);
+}
+#daynight-badge, #photo-btn {
+  box-shadow: 0 0 0 1px var(--hud-gold), var(--shadow-sticker-sm);
+}
+
+#game-root #ability-buttons .ability-btn:not(.ready):not(.armed),
+#quickbar .qb-btn:not(.on) {
+  background-color: var(--hud-ivory);
+  background-image: linear-gradient(150deg, #fffef8, #efe2c8);
+}
+#game-root #ability-buttons .ability-btn.ready {
+  background-image: linear-gradient(155deg, #fff6cb, #edcb80);
+}
+#ability-buttons .ability-btn .ab-key {
+  background: var(--hud-enamel-deep);
+  color: #fff9e9;
+  text-shadow: none;
+}
+#quickbar .qb-key {
+  background-color: var(--hud-enamel-deep);
+  color: #fff9e9;
+  border-color: var(--hud-gold);
+}
+#quickbar :is(#qb-search, #qb-life) {
+  border-color: var(--hud-teal);
+}
+#ability-bar .auto-row {
+  background: var(--hud-ivory) var(--paper-grain);
+  border-color: var(--hud-enamel);
+}
+#ability-bar .ab-btn[aria-pressed="true"] {
+  box-shadow: inset 0 2px #4e9988;
+}
+#hp-bar {
+  box-shadow: 0 2px 0 var(--hud-enamel-deep), 0 3px 0 1px var(--hud-gold);
+}
+#hp-bar.warded {
+  box-shadow: 0 2px 0 var(--hud-enamel-deep), 0 0 0 2px #ffd98a;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #quickbar .qb-btn:not(.on):hover:not(:disabled),
+  #game-root #ability-buttons .ability-btn:not(.ready):not(.armed):hover:not(.disabled):not(.locked) {
+    background-image: linear-gradient(145deg, #fffaf0, #d6eee2);
+  }
+}
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+  #auto-menu-btn {
+    background-color: var(--hud-enamel);
+    color: #fff8e9;
+    box-shadow: 0 2px 0 var(--hud-enamel-deep), inset 0 0 0 1px var(--hud-gold);
+  }
+  #interact-btn:not(.idle):not(.warn) {
+    background-image: linear-gradient(155deg, #468078, var(--hud-teal));
+  }
+  :is(#sidepanel, #modal-window) .sheet-handle::before {
+    background-color: var(--hud-teal);
+  }
+}
