@@ -416,8 +416,9 @@ const RIG_DATA = {
 const TOWN_DATA = {
   farmer: { W: 229, H: 300, ref: [9, 9, 218, 296], piv: { body: [0.4694, 0.506], arm: [0.5775, 0.6075], body_blink: [0.4694, 0.506], arm_wave: [0.6228, 0.552] } },
   fletcher: { W: 234, H: 300, ref: [13, 9, 225, 296], piv: { body: [0.5326, 0.5199], arm: [0.3256, 0.5755], body_blink: [0.5326, 0.5199], arm_wave: [0.3592, 0.5372] } },
-  guide: { W: 221, H: 300, ref: [9, 9, 212, 296], piv: { body: [0.4477, 0.5045], arm: [0.5108, 0.5771], body_blink: [0.4477, 0.5045] } },
-  hawker: { W: 244, H: 300, ref: [9, 9, 234, 296], piv: { body: [0.5774, 0.5027], arm: [0.3355, 0.5956], body_blink: [0.5774, 0.5027], arm_wave: [0.3744, 0.4729] } },
+  // The repainted starter residents share a 256px canvas and a common foot line.
+  guide: { W: 256, H: 256, ref: [42, 12, 214, 249], piv: { body: [0.5, 0.5], body_blink: [0.5, 0.5], arm: [0.6731, 0.6717] } },
+  hawker: { W: 256, H: 256, ref: [29, 12, 226, 249], piv: { body: [0.5, 0.5], body_blink: [0.5, 0.5], arm: [0.3259, 0.631], arm_wave: [0.3259, 0.631] } },
   light_priestess: { W: 220, H: 300, ref: [9, 9, 211, 296], piv: { body: [0.4939, 0.5131], body_blink: [0.4939, 0.5131] } },
   mage: { W: 213, H: 300, ref: [9, 9, 205, 296], piv: { body: [0.4674, 0.5329], arm: [0.6373, 0.6696], body_blink: [0.4674, 0.5329], arm_wave: [0.6175, 0.5624] } },
   mercenary_bruiser: { W: 197, H: 300, ref: [13, 9, 188, 296], piv: { body: [0.4724, 0.5113], arm: [0.1756, 0.48], body_blink: [0.4724, 0.5113], arm_wave: [0.1919, 0.4807] } },
@@ -425,12 +426,13 @@ const TOWN_DATA = {
   mercenary_sellsword: { W: 224, H: 300, ref: [9, 9, 215, 296], piv: { body: [0.4059, 0.5115], arm: [0.5433, 0.5477], body_blink: [0.4059, 0.5115], arm_wave: [0.4939, 0.5129] } },
   mercenary_spear_guard: { W: 173, H: 300, ref: [9, 9, 164, 296], piv: { body: [0.4299, 0.5417], body_blink: [0.4299, 0.5417] } },
   shadow_broker: { W: 223, H: 300, ref: [9, 9, 202, 296], piv: { body: [0.4406, 0.5031], arm: [0.6587, 0.5951], body_blink: [0.4406, 0.5031], arm_wave: [0.6013, 0.5143] } },
-  shopkeeper: { W: 245, H: 300, ref: [9, 9, 237, 296], piv: { body: [0.4278, 0.5185], arm: [0.6561, 0.5843], body_blink: [0.4278, 0.5185], arm_wave: [0.6198, 0.5396] } },
-  skills_tutor: { W: 230, H: 300, ref: [9, 9, 221, 296], piv: { body: [0.4479, 0.5239], arm: [0.6755, 0.6377], body_blink: [0.4479, 0.5239], arm_wave: [0.6312, 0.5771] } },
+  pest_officer: { W: 256, H: 256, ref: [22, 12, 233, 249], piv: { body: [0.5, 0.5], body_blink: [0.5, 0.5] } },
+  shopkeeper: { W: 256, H: 256, ref: [31, 12, 225, 249], piv: { body: [0.5, 0.5], body_blink: [0.5, 0.5], arm: [0.6722, 0.6133], arm_wave: [0.6722, 0.6133] } },
+  skills_tutor: { W: 256, H: 256, ref: [41, 12, 215, 249], piv: { body: [0.5, 0.5], body_blink: [0.5, 0.5], arm: [0.6693, 0.6656], arm_wave: [0.6693, 0.6656] } },
   slayer_master: { W: 234, H: 300, ref: [9, 9, 225, 296], piv: { body: [0.47, 0.5193], body_blink: [0.47, 0.5193] } },
   villager: { W: 244, H: 300, ref: [30, 9, 236, 296], piv: { body: [0.5025, 0.5251], arm: [0.3458, 0.5075], body_blink: [0.5025, 0.5251], arm_wave: [0.39, 0.5022] } },
   aworthling: { W: 200, H: 300, ref: [9, 9, 192, 296], piv: { body: [0.4944, 0.5245], body_blink: [0.4944, 0.5245] } },
-  banker: { W: 252, H: 300, ref: [9, 9, 243, 296], piv: { body: [0.4088, 0.5185], arm: [0.5984, 0.6024], body_blink: [0.4088, 0.5185], arm_wave: [0.5689, 0.5325] } },
+  banker: { W: 256, H: 256, ref: [30, 12, 226, 249], piv: { body: [0.5, 0.5], body_blink: [0.5, 0.5], arm: [0.6848, 0.6109], arm_wave: [0.6848, 0.6109] } },
 };
 // --- end of measured data ---
 
