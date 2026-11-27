@@ -171,7 +171,9 @@ test('Rested XP is +50%, stacks with golden hours and tired play, and is used up
   assert.equal(Play.xpMult(g), 1);
 });
 
-test('Focus, rested time and the gravestone survive a save, and time since the save counts as time away', () => {
+test('Focus, rested time and the gravestone survive a save, and time since the save counts as time away', (t) => {
+  const now = Date.now();
+  t.mock.method(Date, 'now', () => now);
   const g = boot();
   g.play.focus = 1234567;
   g.play.rested = 0;
@@ -185,8 +187,8 @@ test('Focus, rested time and the gravestone survive a save, and time since the s
   const g2 = new Game();
   g2.bus.on('chat', (m) => said.push(m.text));
   g2.start();
-  assert.ok(Math.abs(g2.play.rested - 3 * HOUR * Play.RESTED_RATE) < 1000);
-  assert.ok(Math.abs(g2.play.focus - Math.min(Play.FOCUS_MAX_MS, 1234567 + 3 * HOUR * Play.FOCUS_OFFLINE_REGEN)) < 2000);
+  assert.equal(g2.play.rested, 3 * HOUR * Play.RESTED_RATE);
+  assert.equal(g2.play.focus, Math.min(Play.FOCUS_MAX_MS, 1234567 + 3 * HOUR * Play.FOCUS_OFFLINE_REGEN));
   assert.deepEqual(g2.play.grave, { x: g.player.x + 3, y: g.player.y, left: 900, coins: 40, items: [] });
   assert.ok(said.some((t) => /You were away 3h 00m\. Rested: \+50% XP/.test(t)), 'a welcome-back message');
   // A save with a broken play field still loads, full and unrested.

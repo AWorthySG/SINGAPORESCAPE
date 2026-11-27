@@ -145,3 +145,62 @@ test('endgame jewellery has its own untinted sticker', () => {
     assert.ok(html.includes(`assets/icons/item-${t.jewel}.webp`) && !html.includes('filter:'), `${t.jewel} has its own sticker`);
   }
 });
+
+test('the six new rings and amulets can be found, crafted and equipped through normal play', () => {
+  const g = newGame();
+  const table = g.world.objects.find((o) => o.def.type === 'craft');
+  standBy(g, table);
+  if (!g.inventory.has('chisel')) g.inventory.add('chisel', 1);
+  const families = ['tideglass', 'ironwood', 'lantern', 'orchid', 'starfall', 'riftguard'];
+  for (const family of families) {
+    for (const slot of ['ring', 'amulet']) {
+      const id = `${family}_${slot}`;
+      const [recipe, duplicate] = CRAFT.filter((r) => r.result === id);
+      assert.ok(recipe && !duplicate, `one recipe for ${id}`);
+      assert.equal(recipe.tool, 'chisel');
+      assert.ok(guideEntries('crafting').some((e) => e.label === ITEMS[id].name && e.level === recipe.level));
+      assert.ok(g.inventory.count(id) === 0);
+      for (const input of recipe.inputs) assert.equal(g.inventory.add(input.id, input.qty), input.qty);
+      setLevel(g, 'crafting', recipe.level - 1);
+      g.startCraft(recipe, table); step(g, 2);
+      assert.equal(g.inventory.count(id), 0, `${id} requires Crafting ${recipe.level}`);
+      setLevel(g, 'crafting', recipe.level);
+      g.startCraft(recipe, table); step(g, 3);
+      assert.equal(g.inventory.count(id), 1);
+      for (const input of recipe.inputs) assert.equal(g.inventory.count(input.id), 0, input.id);
+      const [skill, level] = Object.entries(ITEMS[id].equip.req)[0];
+      const index = g.inventory.slots.findIndex((entry) => entry?.id === id);
+      setLevel(g, skill, level - 1);
+      g.equipItem(index);
+      assert.equal(g.equipment.get(slot), null, `${id} requires ${skill} ${level}`);
+      setLevel(g, skill, level);
+      g.equipItem(index);
+      assert.equal(g.equipment.get(slot), id);
+      g.equipment.clearSlot(slot);
+      assert.match(itemIconSVG(id), new RegExp(`item-${id}\\.webp`));
+    }
+  }
+});
+
+test('accessory pairs offer different combat stats and can be mixed across slots', () => {
+  const g = newGame();
+  const eq = g.equipment;
+  eq.set('weapon', 'bronze_sword');
+  const base = eq.bonuses();
+  eq.set('ring', 'orchid_ring');
+  eq.set('amulet', 'ironwood_amulet');
+  const mixed = eq.bonuses();
+  assert.equal(mixed.lifesteal - base.lifesteal, 3);
+  assert.equal(mixed.defence - base.defence, 20);
+  assert.equal(mixed.hp - base.hp, 12);
+  eq.set('weapon', 'shortbow');
+  eq.set('ring', 'tideglass_ring');
+  eq.set('amulet', 'starfall_amulet');
+  assert.ok(eq.bonuses().crit >= 7);
+  assert.ok(eq.bonuses().haste >= 6);
+  eq.set('ring', 'riftguard_ring');
+  assert.ok(eq.bonuses().bossDmg >= 5);
+  assert.ok(eq.bonuses().pierce >= 5);
+  eq.set('amulet', 'lantern_amulet');
+  assert.ok(eq.bonuses().prayer >= 6);
+});

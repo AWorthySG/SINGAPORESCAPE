@@ -1,6 +1,7 @@
 import { HIDE_CRAFT } from './trades.js';
 import { diveCraftRecipes } from './diving.js';
 import { trowelCraftRecipes } from './archaeology.js';
+import { CRAFTED_ACCESSORIES } from './accessories.js';
 
 // Crafting recipes. Worked at a crafting table: inputs -> result. Jewelry needs a
 // chisel. Gives the materials gathered from the new mining/woodcutting nodes a use.
@@ -37,6 +38,11 @@ export const CRAFT = [
   { result: 'holy_beads', inputs: [{ id: 'pearl', qty: 2 }], level: 12, xp: 45 },
   { result: 'pearl_amulet', inputs: [{ id: 'silver_bar', qty: 1 }, { id: 'pearl', qty: 2 }], level: 14, xp: 55, tool: 'chisel' },
   { result: 'ring_of_devotion', inputs: [{ id: 'gold_bar', qty: 1 }, { id: 'pearl', qty: 1 }], level: 20, xp: 70, tool: 'chisel' },
+
+  // ---- Specialised jewellery pairs ----
+  ...CRAFTED_ACCESSORIES.map(([result, , , , , , level, xp, materials]) => ({
+    result, level, xp, tool: 'chisel', inputs: materials.map(([id, qty]) => ({ id, qty })),
+  })),
 
   // ---- Granite armour ----
   { result: 'granite_helm', inputs: [{ id: 'granite', qty: 1 }], level: 45, xp: 90 },

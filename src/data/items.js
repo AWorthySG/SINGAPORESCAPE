@@ -18,6 +18,7 @@ import { signatureWeapons } from './bossWeapons.js';
 import { TOOL_KINDS, TOOL_TIERS, toolId, toolBonusText } from './tooltiers.js';
 import { diveItems, PEARL_JEWELLERY } from './diving.js';
 import { digItems } from './archaeology.js';
+import { CRAFTED_ACCESSORIES } from './accessories.js';
 
 import { aOrAn, AOrAn } from '../core/utils.js';
 const RAW = {
@@ -1326,6 +1327,12 @@ for (const K of TOOL_KINDS) {
     if (base.equip) it.equip = { slot: 'weapon', req: { attack: 1 }, bonuses: { ...base.equip.bonuses, attack: base.equip.bonuses.attack + i, strength: base.equip.bonuses.strength + i } };
     RAW[id] = it;
   });
+}
+
+// ---- Craftable accessory pairs ----
+for (const [id, name, slot, req, bonuses, value, , , , examine, style] of CRAFTED_ACCESSORIES) {
+  RAW[id] = { name, icon: slot === 'ring' ? '💍' : '📿', value, examine,
+    equip: { slot, req, bonuses, ...(style ? { style } : {}) } };
 }
 
 // ---- Stronger rings and amulets ----
