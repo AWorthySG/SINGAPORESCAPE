@@ -9,13 +9,13 @@
   "tree-mangrove": { "bytes": 17858, "clearRows": 3 },
   "tree-meranti_tree": { "bytes": 15004, "clearRows": 1 },
   "tree-moonlit_kapok": { "bytes": 15784, "clearRows": 1 },
-  "tree-oak": { "bytes": 15344, "clearRows": 6 },
+  "tree-oak": { "bytes": 15636, "clearRows": 17 },
   "tree-rain_tree": { "bytes": 12942, "clearRows": 4 },
   "tree-seraya_tree": { "bytes": 14802, "clearRows": 2 },
   "tree-starfall_banyan": { "bytes": 17774, "clearRows": 1 },
   "tree-teak": { "bytes": 13596, "clearRows": 3 },
   "tree-tembusu": { "bytes": 16590, "clearRows": 3 },
-  "tree-tree": { "bytes": 12598, "clearRows": 4 },
+  "tree-tree": { "bytes": 14758, "clearRows": 5 },
   "tree-willow": { "bytes": 17264, "clearRows": 6 },
   "tree-yew_tree": { "bytes": 16142, "clearRows": 3 }
 }

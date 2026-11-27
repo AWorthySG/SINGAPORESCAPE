@@ -11,7 +11,7 @@ globalThis.Image = class { get complete() { return globalThis.__artLoaded; } get
 
 const { buildWorld, TERRAIN } = await import('../src/data/world.js');
 const { LANDMARK_PLAN, STATION_GAP, footprintTiles } = await import('../src/data/landmarks.js');
-const { OBJECTS } = await import('../src/data/objects.js');
+const { GENERATION_ONLY_SCENERY, OBJECTS } = await import('../src/data/objects.js');
 const { STATIONS } = await import('../src/data/transport.js');
 const { World } = await import('../src/game/world.js');
 const { worldArt, drawObjectSprite, bedLook } = await import('../src/render/sprites.js');
@@ -21,7 +21,7 @@ const { AmbientLife, RIPPLE_CAP } = await import('../src/render/ambient.js');
 const { TILE } = await import('../src/config.js');
 
 const data = buildWorld();
-const lmIds = (p) => (p.lm || []).map((e) => (Array.isArray(e) ? e[0] : e));
+const lmIds = (p) => (p.lm || []).map((e) => (Array.isArray(e) ? e[0] : e)).filter((id) => !GENERATION_ONLY_SCENERY.has(id));
 const PIECES = new Set(LANDMARK_PLAN.flatMap((p) => [...lmIds(p), ...(p.props || []).map((e) => e[0])]));
 const zoneAt = (x, y) => data.zones.find((z) => x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1)?.name;
 const ter = (x, y) => data.terrain[y * data.width + x];
@@ -136,7 +136,7 @@ function drawingCtx() {
 test('every set piece has its picture; landmarks span their footprint and loops step through their frames', () => {
   const art = worldArt();
   for (const [id, d] of Object.entries(OBJECTS)) {
-    if (d.footprint || d.prop) assert.ok(art.has(`obj-${id}`), `${id} has a picture`);
+    if (!GENERATION_ONLY_SCENERY.has(id) && (d.footprint || d.prop)) assert.ok(art.has(`obj-${id}`), `${id} has a picture`);
     if (d.frames) for (let i = 0; i < d.frames; i++) assert.ok(art.has(`obj-${id}-${i}`), `${id} frame ${i}`);
   }
   for (const id of PIECES) assert.ok(OBJECTS[id].footprint || OBJECTS[id].prop || OBJECTS[id].frames, `${id} is a set piece`);
