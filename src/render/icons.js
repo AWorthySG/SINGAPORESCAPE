@@ -1024,7 +1024,7 @@ import { CON_TIERS, CON_WOOD } from '../data/construction.js';
   S.music = `<path d="M10 16V6l9-2v11M10 9l9-2" fill="none" stroke="${OL}" stroke-width="1.5"/><ellipse cx="7.5" cy="17" rx="3.5" ry="2.4" fill="#ecc681" stroke="${OL}"/><ellipse cx="16.5" cy="15" rx="3.5" ry="2.4" fill="#ecc681" stroke="${OL}"/>`;
   const SKILL_ART = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic', 'prayer', 'slayer',
     'woodcutting', 'mining', 'fishing', 'firemaking', 'cooking', 'smithing', 'crafting', 'thieving', 'agility',
-    'farming', 'hunter', 'herblore', 'fletching', 'diving', 'construction', 'hawkering', 'archaeology']);
+    'farming', 'hunter', 'herblore', 'fletching', 'diving', 'construction', 'hawkering', 'archaeology', 'sailing', 'photography', 'textile_arts', 'music']);
   export const skillIconSVG = (id, size = 20, cls) => (SKILL_ART.has(id) ? artImg(`skill-${id}`, size, cls) : svg(S[id] || S.attack, size, cls));
   /** Prayer and spell icons (assets/icons/prayer-<id>.webp, spell-<id>.webp). */
   export const prayerIconHTML = (id, size = 28, cls, tint) => artImg(`prayer-${id}`, size, cls, tint);

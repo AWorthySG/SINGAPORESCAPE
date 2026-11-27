@@ -7,12 +7,12 @@ const SIDES = ['Port · left', 'Starboard · right'];
 const NOTES = ['Low', 'Middle', 'High'];
 const button = (label, key, disabled = false) => `<button type="button" class="wm-go" data-island="${key}"${disabled ? ' disabled' : ''}>${label}</button>`;
 const row = (title, hint, actions = '') => `<section class="island-row"><div><b>${title}</b><small>${hint}</small></div><div class="island-actions">${actions}</div></section>`;
-const swatch = (p) => `<span aria-hidden="true" class="island-swatch" style="--cloth:${p.colours[0]};--print:${p.colours[1]}"></span>`;
+const swatch = (p) => `<img class="island-swatch" src="assets/icons/scarf-${p.id}.webp" alt="">`;
 
 export function islandAlbumHTML(game) {
   const book = islandBook(game);
   return PHOTO_ASSIGNMENTS.filter((p) => book.photos.includes(p.id)).map((p) =>
-    `<figure class="island-print"><img src="assets/world/${p.art}.webp" alt=""><figcaption>${p.name}</figcaption>${button(book.display === p.id ? 'On display' : 'Display', 'display:' + p.id, book.display === p.id)}</figure>`).join('');
+    `<figure class="island-print"><img src="assets/postcards/${p.art}.webp" alt=""><figcaption>${p.name}</figcaption>${button(book.display === p.id ? 'On display' : 'Display', 'display:' + p.id, book.display === p.id)}</figure>`).join('');
 }
 
 export function displayIslandPrint(game, id) {
@@ -45,7 +45,7 @@ export function openIslandSkill(ui, skill) {
     }
     if (skill === 'photography') {
       return '<p>Use the camera to take assignment postcards. Finished subjects appear in your home album.</p>' +
-        PHOTO_ASSIGNMENTS.map((p) => row(p.name, book.photos.includes(p.id) ? 'Print collected' : `Level ${p.level} · ${p.detail}`,
+        PHOTO_ASSIGNMENTS.map((p) => row(`<img class="island-assignment-art" src="assets/postcards/${p.art}.webp" alt="">` + p.name, book.photos.includes(p.id) ? 'Print collected' : `Level ${p.level} · ${p.detail}`,
           book.photos.includes(p.id) ? '' : nearIslandSite(game.player, p, p.range)
             ? button('Open camera', 'camera:', lvl < p.level || !game.photoCamera) : go(p))).join('');
     }

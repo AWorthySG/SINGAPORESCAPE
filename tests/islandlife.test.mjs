@@ -37,7 +37,7 @@ test('voyages follow the chart, land at the correct port and open cove finds onc
 
 test('photos respect the location and dusk, award one print, and have display art', () => {
   const g = fresh();
-  for (const p of PHOTO_ASSIGNMENTS) assert.ok(existsSync(new URL(`../assets/world/${p.art}.webp`, import.meta.url)), p.art);
+  for (const p of PHOTO_ASSIGNMENTS) assert.ok(existsSync(new URL(`../assets/postcards/${p.art}.webp`, import.meta.url)), p.art);
   visit(g, PHOTO_ASSIGNMENTS[0]);
   g.dayPhase = () => .5;
   assert.equal(recordIslandPhoto(g), null);
