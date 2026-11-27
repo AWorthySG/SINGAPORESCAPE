@@ -16,6 +16,7 @@
 // functions below build the tables from them, so they keep in step when
 // something is retuned) or matches a constant in the module named beside it.
 // Kept free of the DOM so the tests can check it headlessly.
+import { KEYBOARD_GROUPS } from './keyboard.js';
 import { CLASSES, CLASS_BY_ID, SECONDARY_WEAPON, WEAPON_TYPE_NAMES, ARMOUR_FAMILY, ARMOUR_FAMILIES, CLEAVE_SHARE } from './classes.js';
 import { ITEMS, getItem, TWO_HANDED_TYPES, QUIVER_BOW_TYPES } from './items.js';
 import { ALL_MONSTER_IDS, ALL_BOSS_IDS, getNpc, RARE_DROP_TABLE, stretchLevel } from './npcs.js';
@@ -362,27 +363,7 @@ export const CHAPTERS = [
         summary: 'Moving, fighting and the hotkeys on a computer.',
         body: [
           'Click the ground to walk there, or steer with **W A S D** or the **arrow keys**. Click a monster to attack it, and a tree, rock, person or shop to use it. Right-click for every option, and right-click a monster to look it up in the Monster Codex.',
-          { keys: [
-            ['G', 'Attack the nearest enemy'],
-            ['Tab', 'Switch to the next closest enemy'],
-            ['E or Space', 'Interact with the nearest thing'],
-            ['F', 'Quick eat: eat the first food in your bag'],
-            ['Q', 'Arm your weapon\'s special attack'],
-            ['L', 'Faith Burst, when your Faith is full (see [[prayers]])'],
-            ['Z X C V B', 'Your five combat skills (see [[abilities]])'],
-            ['T', 'Auto battle on or off'],
-            ['Y', 'Auto gather on or off'],
-            ['U', 'Auto quest on or off'],
-            ['P', 'Pickpocket the nearest person'],
-            ['H', 'Merchant only: hire a mercenary'],
-            ['M', 'World map'],
-            ['K', 'Teleport back to Kampong Glam (stand still 3s; recharges in 2.5 minutes)'],
-            ['R', 'Teleport to your gravestone after a death'],
-            ['O', 'Postcard mode: snap the view as a postcard to save or share'],
-            ['I', 'Open or fold the menu (the side panel)'],
-            ['1 2 3 4 5', 'Side panel tabs: Bag, Skills, Combat, Journal, Settings'],
-            ['Esc', 'Close the window or menu'],
-          ] },
+          { keys: KEYBOARD_GROUPS.slice(0, -1).flatMap(([, rows]) => rows.map(([label, ...keys]) => [keys.join(' / '), label])) },
           { tip: 'In a shop or at the Offering Shrine, point at an item and press **1**, **5**, **X** (ten) or **A** (all) to buy, sell or offer that many at once.' },
         ],
         see: ['controls-phone', 'auto-battle'],

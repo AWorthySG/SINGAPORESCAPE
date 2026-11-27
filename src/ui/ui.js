@@ -104,7 +104,9 @@ export const mapLabelPx = (screenPx, k, base) => Math.round(Math.max(base, scree
 export const MAP_GROVE_NAMES_K = 2.5;
 import { NoticeLane, afterLayout } from './noticelane.js';
 import { QuickSlot, interactCaption, trackerHTML, TRACKER_ROWS, TRACKER_ROWS_PHONE, sellSideSmall, loadTrackerFolded, saveTrackerFolded, sheetSnap } from './hudease.js';
-import { QuickBar } from './quickbar.js';
+import { QuickBar, typing } from './quickbar.js';
+import { openKeyboardControls } from './keyboard.js';
+import { PANEL_SHORTCUTS } from '../data/keyboard.js';
 import { makeQtyRow, makePill, maxMakes, makeQtyOf } from './makeqty.js';
 import { CmdSearch } from './cmdsearch.js';
 import { addCollectionButton } from './collectionui.js';
@@ -251,9 +253,14 @@ export class UI {
     // Tab buttons: the mascot icon plus a short label, so each tab is easy to find.
     const TAB_LABELS = { inventory: 'Bag', skills: 'Skills', combat: 'Combat', quests: 'Journal', settings: 'Settings' };
     document.querySelectorAll('#panel-tabs .tab-btn').forEach((b) => {
-      b.innerHTML = tabIconSVG(b.dataset.view, 32) + `<span class="tab-label">${TAB_LABELS[b.dataset.view] || ''}</span>`;
-      b.setAttribute('aria-label', b.title || TAB_LABELS[b.dataset.view] || b.dataset.view);
+      const view = b.dataset.view, key = PANEL_SHORTCUTS[view];
+      b.innerHTML = tabIconSVG(view, 32) + `<span class="tab-label">${TAB_LABELS[view] || ''}</span>`
+        + `<kbd class="panel-key" aria-hidden="true">${key}</kbd>`;
+      b.setAttribute('aria-label', TAB_LABELS[view] || view);
+      b.setAttribute('aria-keyshortcuts', key);
+      b.title = `${b.title} (${key})`;
     });
+    document.getElementById('keyboard-help')?.addEventListener('click', () => openKeyboardControls(this));
     this.el.panelHead = document.getElementById('panel-head');
     this.el.panelTitle = document.getElementById('panel-title');
     this.el.panelCollapse = document.getElementById('panel-collapse');
@@ -866,9 +873,7 @@ export class UI {
     document.addEventListener('mousemove', (e) => { mx = e.clientX; my = e.clientY; }, { capture: true, passive: true });
     document.addEventListener('keydown', (e) => {
       if (!this.modal || !['shop', 'shrine'].includes(this.modal.kind)) return;
-      const t = e.target;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.defaultPrevented || e.isComposing || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
       const n = KEYS[(e.key || '').toLowerCase()];
       const at = n && mx >= 0 ? document.elementFromPoint(mx, my) : null;
       const over = at?.closest?.('.hot');
@@ -1061,7 +1066,7 @@ export class UI {
     if (row.dataset.tab !== tab) {
       row.dataset.tab = tab;
       row.innerHTML = views.length < 2 ? '' : views.map((v) =>
-        `<button type="button" class="subtab-btn" role="tab" data-view="${v}">${SUBTAB_LABELS[v] || v}</button>`).join('');
+        `<button type="button" class="subtab-btn" role="tab" data-view="${v}" aria-keyshortcuts="${PANEL_SHORTCUTS[v]}">${SUBTAB_LABELS[v] || v}<kbd class="panel-key" aria-hidden="true">${PANEL_SHORTCUTS[v]}</kbd></button>`).join('');
       row.querySelectorAll('.subtab-btn').forEach((b) => b.addEventListener('click', () => {
         this._dropTips();
         this._showPanelView(b.dataset.view);   // (each view keeps its own scroll: windowease.js)
@@ -3356,15 +3361,11 @@ export class UI {
 
     // ---- Help ----
     sec('Help');
+    mk('Keyboard controls (?)', () => openKeyboardControls(this));
     mk('Compendium: how the game works', () => openCompendium(this));
     const hint = document.createElement('div');
     hint.className = 'hint';
-    hint.innerHTML = 'Move: joystick or W A S D / arrow keys. Interact with the nearest thing: the Interact button, E or Space. P pickpockets, T toggles auto battle.<br>' +
-      'Stand by a tree to chop, a rock to mine, the water to fish, or a monster to fight, then press Interact.<br>' +
-      'In combat, build <b>Adrenaline</b> and spend it on abilities (Z/X/C/V): ' +
-      'Power Strike, Flurry, Brace and Second Wind. Hit each foe\'s <b>weakness</b> ' +
-      '(melee/ranged/magic) for +25% damage and <b>Brace</b> when a monster winds up a heavy blow (!).<br>' +
-      'Eat food to heal. Bank your loot. Your progress auto-saves.';
+    hint.textContent = 'Build Adrenaline in combat to use abilities. Eat food to heal and bank your loot. Your progress auto-saves.';
     group.appendChild(hint);
   }
 

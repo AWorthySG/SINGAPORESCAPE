@@ -854,6 +854,8 @@ body.reduce-motion :is(#lvl-burst, .ui-ghost) { display: none !important; }
 }
 body.reduce-motion :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #modal-window) { animation: none; }
 
+#centre-hud { display: contents; }
+
 /* Desktop: a bottom tab dock leaves the full panel width for its content.
    Keep the combat controls in a short stack so more of the world stays visible. */
 @media (min-width: 1024px) and (min-height: 501px) and (hover: hover) and (pointer: fine) {
@@ -890,29 +892,165 @@ body.reduce-motion :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #mo
   #sidepanel #panel-tabs .tab-btn :is(img, svg) { width: 22px; height: 22px; }
   #sidepanel #panel-tabs .tab-btn.active { background: var(--aw-accent); }
 
-  #ability-bar { bottom: 12px; gap: 4px; }
-  #ability-bar .auto-row {
-    flex-direction: row;
-    align-items: stretch;
+  #chatbox { max-width: calc(50vw - 176px); }
+  #centre-hud {
+    position: absolute;
+    left: 50%;
+    bottom: 12px;
+    transform: translateX(-50%);
+    z-index: 25;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+  }
+  #centre-hud :is(#ability-bar, #quickbar, #hp-bar) {
+    position: relative;
+    inset: auto;
+    transform: none;
+  }
+  #ability-bar { display: flex; gap: 4px; }
+  #ability-bar #auto-menu-btn { display: none; }
+  #ability-bar .auto-row, #ability-bar.auto-open .auto-row {
+    display: grid;
+    position: static;
+    transform: none;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
     width: 296px;
     border-width: 1px;
     border-radius: 10px;
   }
   #ability-bar .auto-row .ab-btn {
-    flex: 1 1 0;
+    grid-column: span 4;
     gap: 4px;
-    min-height: 32px;
+    min-height: 30px;
     padding: 3px 4px;
   }
-  #ability-bar .auto-row .ab-btn + .ab-btn,
-  #ability-bar #auto-battle-cfg {
+  #ability-bar .auto-row .ab-btn + .ab-btn {
     border-top: 0;
     border-left: 1px solid var(--aw-ink-faint);
   }
+  #ability-bar #tp-row {
+    grid-column: span 6;
+    border-top: 1px solid var(--aw-ink-faint);
+  }
+  #ability-bar #tp-row .tp-btn { padding: 3px 4px; }
+  #ability-bar #tp-row .tp-btn + .tp-btn { border-left: 1px solid var(--aw-ink-faint); }
+  #ability-bar #tp-row .tp-ic { width: 16px; height: 16px; margin-right: 2px; }
+  #ability-bar #tp-row .ab-status { max-width: 100%; }
+  #ability-bar #play-hud {
+    grid-column: span 5;
+    min-height: 28px;
+    gap: 2px 4px;
+    padding: 2px 4px;
+    border-top: 1px solid var(--aw-ink-faint);
+    border-left: 1px solid var(--aw-ink-faint);
+  }
+  #ability-bar #play-hud .ph-focus { flex-basis: 100%; gap: 4px; }
+  #ability-bar #play-hud .ph-bar { min-width: 24px; }
+  #ability-bar #play-hud :is(.ph-grave, .ph-rested) { padding-inline: 3px; }
+  #ability-bar #auto-battle-cfg {
+    width: auto;
+    border-top: 1px solid var(--aw-ink-faint);
+    border-left: 1px solid var(--aw-ink-faint);
+  }
+  #ability-bar .auto-row button:focus-visible { outline-offset: -3px; }
+  #ability-bar #adrenaline { width: 232px; }
   #ability-bar .auto-row .ab-switch { scale: .8; transform-origin: left center; margin-right: -6px; }
-  #ability-bar #auto-battle-cfg { flex: 0 0 27px; }
   #ability-bar .ability-btn { width: 46px; height: 46px; }
   #ability-bar .ability-btn .ab-icon :is(img, svg) { width: 28px; height: 28px; }
-  #quickbar { bottom: 122px; }
-  #hp-bar { bottom: 170px; }
+}
+
+#keyboard-help, .panel-key { display: none; }
+.keyboard-guide {
+  columns: 266px 2;
+  column-gap: 10px;
+}
+.keyboard-guide section {
+  break-inside: avoid;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  background: var(--paper);
+  border: 1px solid var(--aw-ink-faint);
+  border-radius: var(--r-card);
+}
+.keyboard-guide h3 { font-size: var(--fs-md); margin: 0 0 4px; }
+.keyboard-guide dl, .keyboard-guide dd { margin: 0; }
+.keyboard-guide dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 3px 8px;
+  padding: 5px 0;
+  font-size: var(--fs-sm);
+}
+.keyboard-guide dl > div + div { border-top: 1px solid var(--aw-ink-faint); }
+.keyboard-guide dd { display: flex; flex-wrap: wrap; gap: 4px; }
+:is(.keyboard-guide, #sidepanel) kbd {
+  font-family: inherit;
+  font-weight: 800;
+  font-size: var(--fs-badge);
+  line-height: 1.35;
+  padding: 0 4px;
+  border: 1px solid var(--aw-ink-faint);
+  border-radius: 4px;
+  background: var(--paper-deep);
+  color: var(--aw-ink);
+}
+
+@media (min-width: 541px) and (min-height: 501px) and (hover: hover) and (pointer: fine) {
+  #keyboard-help {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 24px;
+    height: 24px;
+    margin-left: auto;
+    padding: 0;
+    border: 1px solid var(--aw-ink-faint);
+    border-radius: 7px;
+    background: var(--paper);
+    color: var(--aw-ink);
+    font: inherit;
+    cursor: var(--cur-pointer);
+  }
+  #keyboard-help:hover { background: var(--aw-hover); }
+  #panel-head #keyboard-help + .ps-btns { margin-left: 0; }
+  #sidepanel .panel-key { display: inline-block; }
+  #panel-tabs .panel-key { position: absolute; top: 2px; right: 2px; padding: 0 2px; }
+  #panel-tabs .tab-btn { position: relative; }
+  #panel-subtabs .panel-key { margin-left: 4px; vertical-align: 1px; }
+}
+
+@media (min-width: 1024px) and (min-height: 501px) and (hover: hover) and (pointer: fine) {
+  #sidepanel:not(.collapsed) #panel-body {
+    height: min(480px, calc(100dvh - 365px));
+    overscroll-behavior: contain;
+  }
+  #sidepanel.ps-tall:not(.collapsed) #panel-body { height: min(var(--ps-h), calc(100dvh - 365px)); }
+  #ability-bar .ab-text { max-width: 100%; }
+  #ability-bar .ab-status { max-width: 100%; }
+  #ability-bar .ab-label { white-space: nowrap; }
+  #ability-bar .ab-label kbd { padding: 0 2px; margin-left: 0; }
+  #quickbar { gap: 4px; }
+  #quickbar .qb-btn:not(.qb-edit) { width: 30px; height: 34px; border-radius: 8px; }
+  #quickbar .qb-btn :is(.ui-ic, svg) { width: 22px; height: 22px; }
+  #quickbar .qb-key { bottom: -6px; right: -2px; }
+}
+
+/* Four quiet direction marks make the phone's floating movement pad easier
+   to spot without adding a label or taking space away from combat buttons. */
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+  #joystick::before {
+    inset: 10px;
+    border-style: solid;
+    background:
+      radial-gradient(circle at 50% 6px, var(--aw-ink-faint) 2px, transparent 3px),
+      radial-gradient(circle at calc(100% - 6px) 50%, var(--aw-ink-faint) 2px, transparent 3px),
+      radial-gradient(circle at 50% calc(100% - 6px), var(--aw-ink-faint) 2px, transparent 3px),
+      radial-gradient(circle at 6px 50%, var(--aw-ink-faint) 2px, transparent 3px);
+  }
+  #joystick.active { border-color: var(--aw-accent-dk); }
 }
