@@ -853,3 +853,66 @@ body.reduce-motion :is(#lvl-burst, .ui-ghost) { display: none !important; }
   :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #modal-window) { animation: none; }
 }
 body.reduce-motion :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #modal-window) { animation: none; }
+
+/* Desktop: a bottom tab dock leaves the full panel width for its content.
+   Keep the combat controls in a short stack so more of the world stays visible. */
+@media (min-width: 1024px) and (min-height: 501px) and (hover: hover) and (pointer: fine) {
+  #sidepanel:not(.collapsed) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "head" "body" "tabs";
+    max-height: calc(100dvh - 252px);
+  }
+  #sidepanel.collapsed,
+  #game-root.hud-min #sidepanel:not(:hover):not(.collapsed) {
+    width: var(--panel-w);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    grid-template-areas: "tabs";
+  }
+  #sidepanel #panel-tabs {
+    flex-direction: row;
+    gap: 4px;
+    padding: 5px;
+    border-left: 0;
+    border-top: 1px solid var(--aw-ink-faint);
+  }
+  #sidepanel #panel-tabs .tab-btn {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 46px;
+    padding: 2px;
+    border-radius: 9px;
+    background-image: none;
+    box-shadow: none;
+  }
+  #sidepanel #panel-tabs .tab-btn :is(img, svg) { width: 22px; height: 22px; }
+  #sidepanel #panel-tabs .tab-btn.active { background: var(--aw-accent); }
+
+  #ability-bar { bottom: 12px; gap: 4px; }
+  #ability-bar .auto-row {
+    flex-direction: row;
+    align-items: stretch;
+    width: 296px;
+    border-width: 1px;
+    border-radius: 10px;
+  }
+  #ability-bar .auto-row .ab-btn {
+    flex: 1 1 0;
+    gap: 4px;
+    min-height: 32px;
+    padding: 3px 4px;
+  }
+  #ability-bar .auto-row .ab-btn + .ab-btn,
+  #ability-bar #auto-battle-cfg {
+    border-top: 0;
+    border-left: 1px solid var(--aw-ink-faint);
+  }
+  #ability-bar .auto-row .ab-switch { scale: .8; transform-origin: left center; margin-right: -6px; }
+  #ability-bar #auto-battle-cfg { flex: 0 0 27px; }
+  #ability-bar .ability-btn { width: 46px; height: 46px; }
+  #ability-bar .ability-btn .ab-icon :is(img, svg) { width: 28px; height: 28px; }
+  #quickbar { bottom: 122px; }
+  #hp-bar { bottom: 170px; }
+}
