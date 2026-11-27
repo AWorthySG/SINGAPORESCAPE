@@ -17,6 +17,7 @@
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
 import { drawObjectSprite, drawCreature, drawPlayer } from './sprites.js';
+import { paintHeritageTiles } from './heritagewalk.js';
 import { GroundTouch } from './groundtouch.js';
 
 /** A stable 0..1 hash of a tile (and an optional salt). */
@@ -861,6 +862,7 @@ export class TerrainFx {
     }
     // 1b. Kerbs round the town paving, over the soft edges.
     this._kerbs(g, world, tx0, ty0, tx1, ty1, fill);
+    paintHeritageTiles(g, world, tx0, ty0, tx1, ty1);
     // 1c. Where surfaces meet (seams, the foot of walls, worn earth by doors,
     //     verges) and each region's small touches (groundtouch.js).
     (this._touch || (this._touch = new GroundTouch(this.factory))).bake(g, world, tx0, ty0, tx1, ty1, opts);

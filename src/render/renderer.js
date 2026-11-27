@@ -1,3 +1,4 @@
+import { drawHeritageBank, drawHeritageServiceCue, drawMarketValance, heritageService } from './heritagewalk.js';
 import { isDepthShop } from './streetdepth.js';
 import { damageNumber as splatNum } from '../core/utils.js';   // hitsplats: 54000 -> "54K"
 import { TILE, TICK_MS } from '../config.js';
@@ -325,6 +326,8 @@ export class Renderer {
     } else {
       this._drawTerrain(x0, y0, x1, y1, ox, oy, timeMs);
     }
+    const service = game.player.alive && heritageService(game.world, game.player);
+    if (service && game.hover?.obj !== service) drawHeritageServiceCue(ctx, service, ox, oy);
     this._drawGroundDecals(ox, oy);
     this._drawHazards(ox, oy, timeMs);
     // Weather (weather.js): the sky for this region and moment, then puddles and
@@ -383,6 +386,8 @@ export class Renderer {
           drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx, still, upper ? fade : 1);
           ctx.restore();
         } else drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx, still);
+        if (o.objId === 'bank_booth' && o.x === 51 && o.y === 48) drawHeritageBank(ctx, cx, cy);
+        if (o.objId === 'stall_food' && o.x === 64 && o.y === 62) drawMarketValance(ctx, cx, cy, timeMs, trim || game.reduceMotion);
       } });
     }
     // Landmarks stand on their front-left tile, but their picture spreads across
