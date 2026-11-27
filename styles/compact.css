@@ -1054,3 +1054,15 @@ body.reduce-motion :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #mo
   }
   #joystick.active { border-color: var(--aw-accent-dk); }
 }
+
+/* Quiet panel frames give the active tab and keyboard focus more definition. */
+@media (hover: hover) and (pointer: fine) {
+  #sidepanel:not(.collapsed), #chatbox, #modal-window {
+    border-color: #596575;
+    box-shadow: var(--shadow-float-sm);
+  }
+  #sidepanel #inventory-grid .inv-slot:not(.filled) {
+    border-color: var(--aw-ink-faint);
+    box-shadow: none;
+  }
+}
