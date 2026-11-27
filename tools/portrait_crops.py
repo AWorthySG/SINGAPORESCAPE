@@ -3,7 +3,7 @@ import sys, os, json
 from PIL import Image
 root = sys.argv[1]
 out = {}
-HEAD_RIGHT = {'wild_arowana', 'dugong'}   # long, low pictures with the head on the right
+HEAD_RIGHT = {'wild_arowana'}   # long, low pictures with the head on the right
 for sub in ('species', 'bosses'):
     d = os.path.join(root, 'assets/creatures', sub)
     for f in sorted(os.listdir(d)):
