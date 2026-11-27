@@ -58,8 +58,11 @@ One-command alternatives: `npx vercel`, drag the folder onto
 | Fight | Left-click a monster |
 | Talk / trade / bank | Left-click an NPC or the bank booth |
 | Eat / wield / light | Left-click the item in your inventory |
-| Switch tabs | Click the bottom-right tabs, or press **1–5** |
-| Toggle run | Click the **RUN** orb, or press **R** |
+| Switch panels | **1–5** for Bag, Skills, Combat, Journal and Settings. **6–0** for Gear, Blessings, Stats, Story and Achievements |
+| Fight and heal | **G** attacks, **Tab** cycles enemies while focused on the world, **F** uses food or a healing potion, and **Z X C V B** use abilities |
+| Interact and travel | **E / Space** interacts, **Shift+Q / J** follows the next quest step, **Shift+E / N** goes to the nearest bank, and **M** opens the map |
+| Quick actions | **Shift+G** opens Life skills, **T / Y / U** toggle automation, and **Shift+1–6** run your custom quick bar slots |
+| Search and help | **/** or **Ctrl / Cmd + K** searches. **?** opens Keyboard controls |
 | Close menus | **Esc** |
 
 ---

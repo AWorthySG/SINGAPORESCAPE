@@ -11,6 +11,8 @@
 //
 // Browser only (main.js calls initPhotoMode); the pure helpers below are what
 // the tests drive.
+import { keyboardBlocked } from './keyboard.js';
+import { typing } from './quickbar.js';
 import { composePostcard, photoPostcardSize } from '../render/postcard.js';
 import { fxImage, badgeKey } from '../render/fxart.js';
 import { postcardLine, SITE_URL, TAGLINE } from '../data/postcards.js';
@@ -100,11 +102,14 @@ export class PhotoMode {
     on('.pm-save', () => this.save());
     on('.pm-share', () => this.share());
     window.addEventListener('keydown', (e) => {
-      const t = e.target;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (e.defaultPrevented || e.isComposing || e.repeat || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
       if (document.body.classList.contains('title-on')) return;
-      if (e.key === 'Escape' && this.state !== 'off') { e.stopPropagation(); this.close(); }
-      else if ((e.key === 'o' || e.key === 'O') && !e.ctrlKey && !e.metaKey) { if (this.state === 'off') this.open(); else if (this.state === 'framing') this.snap(); }
+      if (e.key === 'Escape' && this.state !== 'off') { e.preventDefault(); e.stopPropagation(); this.close(); }
+      else if (e.key.toLowerCase() === 'o' && !keyboardBlocked(this.game.ui, this.game)) {
+        e.preventDefault();
+        if (this.state === 'off') this.open();
+        else if (this.state === 'framing') this.snap();
+      }
     }, true);
   }
 

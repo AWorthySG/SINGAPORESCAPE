@@ -12,16 +12,13 @@ import { receiveTransfer, forwardToNewHome } from './game/transfer.js';
 import { initPwa } from './pwa.js';
 import { TitleScreen } from './ui/title.js';
 import { cloud } from './game/cloud.js';
-import { quickUse } from './game/quickuse.js';
 import { installLinks } from './ui/links.js';
-import { closeTopWindow } from './ui/windowease.js';
+import { handleGameShortcut, keyboardBlocked } from './ui/keyboard.js';
 import { FxGovernor, slowFrames, shouldScaleDown, judgeFrames, TRIM_OFF_HOLD } from './render/governor.js';
 import { preloadFx } from './render/fxart.js';
 
 const VIEW_TILES = 15;        // tiles shown across the shorter side of the screen, at most
 const VIEW_TILES_LONG = 24;   // ...and along the longer side
-
-const ABILITY_KEYS = new Set(['z', 'x', 'c', 'v', 'b']);   // resolved against the weapon in hand
 
 const canvas = document.getElementById('game-canvas');
 // Opaque context: the world covers the whole canvas, so the browser can skip
@@ -56,7 +53,7 @@ const ui = new UI(game);
 installLinks(ui);   // names in the chat, quests and Codex open their entry (links.js)
 const renderer = new Renderer(game, canvas, ctx);
 const input = new Input(canvas);
-const movepad = new MovePad(game);
+const movepad = new MovePad(game, undefined, () => !title.active && !keyboardBlocked(ui, game));
 guardTouchZoom();
 guardPageShift();   // taps landing off-target after the iPhone keyboard (see input.js)
 clickSecondFingerTaps();
@@ -118,53 +115,12 @@ ui.onWorldTap = (cx, cy) => {
 input.onKey((e) => {
   // On the title screen the keys belong to it: Enter goes in (as does Space or
   // Enter on its focused button), and nothing reaches the game behind it.
-  if (title.active) { if (e.key === 'Enter' && document.activeElement?.id !== 'splash-enter') hideSplash(); return; }
-  // Typing in a search box (bank, bestiary) must not fire the shortcut keys.
-  const t = e.target;
-  if (e.key !== 'Escape' && t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-  if ('fgqlepzxcvb '.includes(e.key?.toLowerCase() || '-')) handsOn(game);
-  // The number keys pick the five panel tabs: 1 Bag, 2 Skills, 3 Combat, 4 Journal, 5 Settings.
-  const map = { '1': 'inventory', '2': 'skills', '3': 'combat', '4': 'quests', '5': 'settings' };
-  if (map[e.key]) {
-    document.querySelector(`#panel-tabs .tab-btn[data-view="${map[e.key]}"]`)?.click();
-  } else if (e.key === 'f' || e.key === 'F') {
-    quickUse(game);   // the food or potion that best fits your wound (game/quickuse.js)
-  } else if (e.key === 'Tab' && !document.activeElement?.closest?.('#sidepanel, #modal-overlay, #chatbox, #ability-bar')) {
-    // Tab in the world switches target; inside a panel it still moves keyboard focus.
-    e.preventDefault();
-    game.nextTarget();
-  } else if (e.key === 'i' || e.key === 'I') {
-    ui.toggleMenu();   // open or fold the side panel (Bag, Skills, Combat, Journal, Settings)
-  } else if (e.key === 'g' || e.key === 'G') {
-    game.attackNearest();   // lock onto the nearest enemy, like the Attack button
-  } else if (e.key === 'q' || e.key === 'Q') {
-    game.toggleSpec();
-  } else if (e.key === 'l' || e.key === 'L') {
-    game.prayerBurst();   // spend a full bar of Faith (game/blessings.js)
-  } else if (ABILITY_KEYS.has(e.key?.toLowerCase())) {
-    game.activateAbilityKey(e.key);
-  } else if (e.key === 'e' || e.key === 'E' || e.key === ' ') {
-    if (e.key === ' ') e.preventDefault();   // don't scroll the page
-    game.interact();
-  } else if (e.key === 'p' || e.key === 'P') {
-    game.pickpocketNearest();
-  } else if ((e.key === 'h' || e.key === 'H') && game.jobClass === 'merchant') {
-    game.hireMercenary();   // Merchant: hire a mercenary
-  } else if (e.key === 't' || e.key === 'T') {
-    game.toggleAutoBattle();
-  } else if (e.key === 'y' || e.key === 'Y') {
-    game.toggleAutoGather();
-  } else if (e.key === 'u' || e.key === 'U') {
-    game.toggleAutoQuest();
-  } else if (e.key === 'k' || e.key === 'K') {
-    game.teleports?.start('town');    // teleport to Kampong Glam (teleports.js)
-  } else if (e.key === 'r' || e.key === 'R') {
-    game.teleports?.start('grave');   // teleport to your gravestone
-  } else if (e.key === 'm' || e.key === 'M') {
-    ui.openWorldMap();
-  } else if (e.key === 'Escape') {
-    closeTopWindow(ui);   // the top-most only: a menu, a touch card, then the window
+  if (title.active) {
+    if (!e.defaultPrevented && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey &&
+        e.key === 'Enter' && !e.target?.closest?.('button, a, input, select, textarea')) hideSplash();
+    return;
   }
+  handleGameShortcut(e, game, ui);
 });
 
 // Resize handling with device-pixel-ratio scaling for crisp rendering.

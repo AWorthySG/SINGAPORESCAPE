@@ -82,7 +82,7 @@ export class CmdSearch {
     this.sel = 0;
     if (typeof document === 'undefined') return;
     document.addEventListener('keydown', (e) => {
-      if (this.isOpen() || typing(e.target) || e.altKey) return;
+      if (e.defaultPrevented || e.isComposing || e.repeat || this.isOpen() || typing(e.target) || e.altKey || e.shiftKey || this.ui.modal?.locked || this.game.story?.scene || this.game.photoMode) return;
       if (document.getElementById('splash')?.classList.contains('hidden') === false) return;
       const k = (e.key || '').toLowerCase();
       if ((k === '/' && !e.ctrlKey && !e.metaKey) || (k === 'k' && (e.ctrlKey || e.metaKey))) {

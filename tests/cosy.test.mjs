@@ -210,7 +210,7 @@ test('the photo postcard frames the view with the region, the game and where to 
   assert.doesNotThrow(() => composePostcard(recordingCtx(), 1600, 1100, {}));
 });
 
-test('postcard mode builds a card from the game, names the file and words the share', () => {
+test('postcard mode builds a card from the game, names the file and words the share', async () => {
   const g = freshGame();
   g.currentZoneName = 'Kampong Glam';
   const made = [];
@@ -226,12 +226,10 @@ test('postcard mode builds a card from the game, names the file and words the sh
   assert.equal(postmarkDate(new Date(2026, 10, 19)), '19 NOV 2026');
   const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   assert.match(main, /import\('\.\/ui\/photomode\.js'\)\.then\(\(m\) => m\.initPhotoMode\(game, canvas\)\)/);
-  // Its key (O) is free: main.js's own shortcuts don't use it, and the controls list names it.
-  assert.doesNotMatch(main, /e\.key === 'o'|e\.key === 'O'/);
   const pm = readFileSync(new URL('../src/ui/photomode.js', import.meta.url), 'utf8');
-  assert.match(pm, /e\.key === 'o' \|\| e\.key === 'O'/);
-  const comp = readFileSync(new URL('../src/data/compendium.js', import.meta.url), 'utf8');
-  assert.match(comp, /\['O', 'Postcard mode/);
+  assert.match(pm, /e\.key\.toLowerCase\(\) === 'o'/);
+  const { KEYBOARD_GROUPS } = await import('../src/data/keyboard.js');
+  assert.ok(KEYBOARD_GROUPS.some(([, rows]) => rows.some(([action, key]) => action === 'Take a postcard' && key === 'O')));
 });
 
 // ---------------- The title ----------------

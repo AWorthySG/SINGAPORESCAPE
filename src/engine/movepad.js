@@ -20,12 +20,12 @@ export function stickVector(dx, dy, reach) {
 }
 
 export class MovePad {
-  constructor(game, root = document.getElementById('game-root')) {
+  constructor(game, root = document.getElementById('game-root'), canUseKeys = () => true) {
     this.game = game;
     this.keys = new Set();
     this.stick = { x: 0, y: 0 };
     this._buildJoystick(root);
-    this._bindKeys();
+    this._bindKeys(canUseKeys);
   }
 
   _push() {
@@ -38,14 +38,14 @@ export class MovePad {
     else this.game.setMoveInput(this.stick.x, this.stick.y);
   }
 
-  _bindKeys() {
+  _bindKeys(canUseKeys) {
     const typing = (e) => {
       const t = e.target;
-      return t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+      return t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
     };
     window.addEventListener('keydown', (e) => {
       const k = e.key.toLowerCase();
-      if (!KEY_DIRS[k] || typing(e) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (!KEY_DIRS[k] || e.defaultPrevented || e.isComposing || typing(e) || e.ctrlKey || e.metaKey || e.altKey || !canUseKeys()) return;
       if (k.startsWith('arrow')) e.preventDefault();   // don't scroll the page
       if (!this.keys.has(k)) { this.keys.add(k); this._push(); }
     });
@@ -80,7 +80,7 @@ export class MovePad {
     // Moves and lifts are followed on the window, by pointer id, so the stick
     // keeps steering if the thumb slides off it or pointer capture is lost,
     // and a second finger (Attack, a skill, a palm) never takes it over.
-    let active = null, origin = null, reach = 1;
+    let active = null, origin = null, home = null, reach = 1;
     // A second touch that lands on the stick while it is steering (a thumb
     // rolling or re-planting): it takes over when the old touch lifts.
     let spare = null;
@@ -93,7 +93,7 @@ export class MovePad {
     const end = () => {
       spare = null;
       if (active === null) return;
-      active = null; origin = null;
+      active = null; origin = null; home = null;
       base.classList.remove('active');
       base.style.transform = '';
       knob.style.transform = 'translate(-50%, -50%)';
@@ -101,45 +101,50 @@ export class MovePad {
       this._push();
     };
     this._resetStick = end;
+    const place = ({ id, x, y }) => {
+      home ||= base.getBoundingClientRect();
+      // Reuse the resting bounds on handoff: the current ring is already
+      // translated and may be a long way from the new thumb.
+      const { left, right, top, bottom, width, height } = home;
+      reach = Math.max(24, width / 2 - 8);
+      active = id;
+      origin = { x, y };
+      const tx = Math.min(window.innerWidth - 4 - right, Math.max(4 - left, x - left - width / 2));
+      const ty = Math.min(window.innerHeight - 4 - bottom, Math.max(4 - top, y - top - height / 2));
+      base.style.transform = `translate(${tx}px, ${ty}px)`;
+      try { base.setPointerCapture(id); } catch { /* the window still follows the pointer */ }
+      base.classList.add('active');
+      update({ clientX: x, clientY: y });
+    };
     base.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
       e.preventDefault();
-      // Already steering: a second finger is ignored. A primary pointer means
-      // no other touch is down, so a stale one (its lift was never seen) is
-      // replaced rather than blocking the stick.
+      const point = { id: e.pointerId, x: e.clientX, y: e.clientY };
       if (active !== null && !e.isPrimary) {
-        if (spare === null) spare = { id: e.pointerId, x: e.clientX, y: e.clientY };
+        if (spare === null && e.pointerType === 'touch') spare = point;
         return;
       }
+      // A new primary press also recovers from a lift the browser never sent.
       spare = null;
-      const r = base.getBoundingClientRect();
-      // Rect and clientX share CSS pixels, so the maths holds under page zoom.
-      reach = Math.max(24, r.width / 2 - 8);
-      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-      active = e.pointerId;
-      origin = { x: e.clientX, y: e.clientY };
-      // (The drawn base stays on screen even when the thumb lands at the edge.)
-      const vw = window.innerWidth, vh = window.innerHeight;
-      const tx = Math.min(vw - 4 - r.right, Math.max(4 - r.left, origin.x - cx));
-      const ty = Math.min(vh - 4 - r.bottom, Math.max(4 - r.top, origin.y - cy));
-      base.style.transform = `translate(${tx}px, ${ty}px)`;
-      try { base.setPointerCapture(e.pointerId); } catch { /* ignore */ }
-      base.classList.add('active');
-      update(e);
+      place(point);
     });
     window.addEventListener('pointermove', (e) => {
       if (e.pointerId === active) update(e);
       else if (spare && e.pointerId === spare.id) { spare.x = e.clientX; spare.y = e.clientY; }
     });
-    // Only a real lift or a cancel ends the push; losing capture alone does not.
-    const lift = (e) => {
-      if (spare && e.pointerId === spare.id) { spare = null; return; }
-      if (e.pointerId !== active) return;
-      if (!spare) { end(); return; }
-      // Hand over to the spare touch, starting still from where it is now.
-      active = spare.id; origin = { x: spare.x, y: spare.y }; spare = null;
-      update({ clientX: origin.x, clientY: origin.y });
-    };
-    window.addEventListener('pointerup', lift);
-    window.addEventListener('pointercancel', lift);
+    // A normal lift can hand off to a thumb already on the stick. Cancel
+    // stops the gesture outright, for example when the OS takes the touch.
+    window.addEventListener('pointerup', (e) => {
+      if (e.pointerId === active && spare) {
+        const next = spare;
+        spare = null;
+        place(next);
+      } else if (e.pointerId === active) end();
+      else if (e.pointerId === spare?.id) spare = null;
+    });
+    window.addEventListener('pointercancel', (e) => {
+      if (e.pointerId === active) end();
+      else if (e.pointerId === spare?.id) spare = null;
+    });
   }
 }

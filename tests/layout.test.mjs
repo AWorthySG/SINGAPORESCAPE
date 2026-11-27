@@ -349,8 +349,9 @@ test('five panel tabs: every view sits in exactly one tab, and the number keys p
   assert.equal(tabOfView('prayer'), 'combat');
   assert.equal(tabOfView('achievements'), 'quests');
   assert.match(html, /<div id="panel-body">\s*<div id="panel-subtabs"/, 'the sub-tab row heads the panel body');
-  const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
-  assert.match(main, /const map = \{ '1': 'inventory', '2': 'skills', '3': 'combat', '4': 'quests', '5': 'settings' \};/);
+  const { PANEL_SHORTCUTS } = await import('../src/data/keyboard.js');
+  assert.deepEqual(tabViews.map((view) => PANEL_SHORTCUTS[view]), ['1', '2', '3', '4', '5']);
+  assert.deepEqual(Object.keys(PANEL_SHORTCUTS).sort(), panelViews.sort(), 'every view has a direct shortcut');
 });
 
 test('sub-tabs switch views inside a tab, and each tab remembers the one it last showed', async () => {

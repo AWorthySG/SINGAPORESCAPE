@@ -16,7 +16,7 @@ export const hpText = (hp, max) => `${formatNumber(Math.max(0, Math.round(hp)))}
 function barEl(ui) {
   if (ui._hpBar !== undefined) return ui._hpBar;
   if (typeof document === 'undefined') return (ui._hpBar = null);
-  const root = document.getElementById('game-root');
+  const root = document.getElementById('centre-hud');
   if (!root) return (ui._hpBar = null);
   const el = document.createElement('div');
   el.id = 'hp-bar';
@@ -26,7 +26,7 @@ function barEl(ui) {
   el.title = 'Hitpoints';
   el.innerHTML = '<span class="hpb-track"><i class="hpb-trail"></i><i class="hpb-fill"></i></span>'
     + '<span class="hpb-ic" aria-hidden="true">&#9829;&#xFE0E;</span><b class="hpb-num"></b><b class="hpb-ward" title="Grace ward: soaks the blows you take"></b>';
-  root.appendChild(el);
+  root.prepend(el);
   ui._hpBar = el;
   ui._hpBarParts = { fill: el.querySelector('.hpb-fill'), trail: el.querySelector('.hpb-trail'), num: el.querySelector('.hpb-num'), ward: el.querySelector('.hpb-ward') };
   return el;

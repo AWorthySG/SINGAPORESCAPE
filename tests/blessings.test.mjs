@@ -18,6 +18,7 @@ import { blessingSlots, trimBlessings, slotsUsed, shouldAutoBurst, starterBlessi
 import { ARTICLE_BY_ID, articleBlocks } from '../src/data/compendium.js';
 import { blessingsPanelHTML, slotStripHTML, renderBlessingsPanel, renderFaithOrb, BURST_KEY, burstText, blessingHint, blessingTotals } from '../src/ui/blessingsui.js';
 import { activeEffects } from '../src/game/statsheet.js';
+import { handleGameShortcut } from '../src/ui/keyboard.js';
 
 function fakeStorage() {
   const m = new Map();
@@ -187,8 +188,10 @@ test('the Burst fires by itself in any fight once Faith is full, at any range', 
 });
 
 test('the Burst hotkey (L) is wired and listed in the Compendium', () => {
-  const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
-  assert.match(main, /e\.key === 'l' \|\| e\.key === 'L'\) \{\s*game\.prayerBurst\(\)/);
+  let burst = 0;
+  const game = { prayerBurst: () => { burst++; } };
+  assert.ok(handleGameShortcut({ key: BURST_KEY, preventDefault() {} }, game, {}));
+  assert.equal(burst, 1);
   assert.equal(BURST_KEY, 'L');
   const keys = articleBlocks(ARTICLE_BY_ID['controls-keyboard']).find((b) => b.keys).keys.map(([k]) => k);
   assert.ok(keys.includes('L'));

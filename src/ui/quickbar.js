@@ -57,14 +57,7 @@ export class QuickBar {
     // Eat slot, which scans the whole bag, is worked out once per burst.
     this.game.bus.on('inventory', () => (ui._coalesce ? ui._coalesce('quickbar', () => this.render()) : this.render()));
     if (typeof document === 'undefined') return;
-    document.addEventListener('keydown', (e) => this.onKey(e));
     this.render();
-  }
-
-  onKey(e) {
-    if (typing(e.target) || document.getElementById('splash')?.classList.contains('hidden') === false) return;
-    const i = slotOfKey(e);
-    if (i >= 0 && quickbarOf(this.game)[i]) { e.preventDefault(); this.tap(i); }
   }
 
   tap(i) {
@@ -74,7 +67,7 @@ export class QuickBar {
 
   _mount() {
     if (this.el || typeof document === 'undefined') return this.el;
-    const root = document.getElementById('game-root');
+    const root = document.getElementById('centre-hud');
     if (!root) return null;
     const el = document.createElement('div');
     el.id = 'quickbar';
@@ -94,7 +87,7 @@ export class QuickBar {
     document.addEventListener('pointerdown', (e) => {
       if (el.classList.contains('open') && !el.contains(e.target)) el.classList.remove('open');
     }, true);
-    root.appendChild(el);
+    root.querySelector('#ability-bar').before(el);
     this.el = el;
     return el;
   }
@@ -118,14 +111,14 @@ export class QuickBar {
     // contents, the same row as before); on a phone it is the grid the more
     // button opens, under it and clear of your hero, each with its name.
     html += '<div class="qb-pop">';
-    html += `<button type="button" id="qb-life" class="qb-btn" title="Life skills: go and start any of them in one tap" aria-label="Life skills">${tabIconSVG('skills', 24)}${qbLabel('Life skills')}</button>`;
+    html += `<button type="button" id="qb-life" class="qb-btn" title="Life skills (Shift+G)" aria-label="Life skills" aria-keyshortcuts="Shift+G">${tabIconSVG('skills', 24)}${qbLabel('Life skills')}</button>`;
     bar.forEach((key, i) => {
       const a = QB_ACTIONS[key];
       if (!a) return;
       const on = a.on ? a.on(g) : null;
       const icon = key === 'eat' && food ? { item: food } : a.icon;
       html += `<button type="button" class="qb-btn qb-slot${on ? ' on' : ''}" data-slot="${i}" data-action="${esc(key)}"`
-        + `${on !== null ? ` aria-pressed="${on}"` : ''} title="${esc(a.label)}${on !== null ? (on ? ' (on)' : ' (off)') : ''} (Shift+${i + 1})" aria-label="${esc(a.label)}">`
+        + `${on !== null ? ` aria-pressed="${on}"` : ''} title="${esc(a.label)}${on !== null ? (on ? ' (on)' : ' (off)') : ''} (Shift+${i + 1})" aria-label="${esc(a.label)}" aria-keyshortcuts="Shift+${i + 1}">`
         + `${qbIconHTML(icon)}${qbLabel(a.label)}<kbd class="qb-key" aria-hidden="true">${slotKeyLabel(i)}</kbd></button>`;
     });
     html += `<button type="button" class="qb-btn qb-edit" title="Choose the quick bar's actions" aria-label="Edit quick bar">${glyphArtHTML('ui-edit', '&#9998;', 24)}${qbLabel('Edit')}</button>`;

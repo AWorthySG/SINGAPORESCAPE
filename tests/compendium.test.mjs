@@ -5,7 +5,7 @@
 import './seed.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { KEYBOARD_GROUPS } from '../src/data/keyboard.js';
 
 import {
   CHAPTERS, ARTICLES, ARTICLE_BY_ID, articleBlocks, relatedOf, linksIn, searchArticles, plainText,
@@ -145,13 +145,12 @@ test('the quality odds match the drop roll', () => {
   }
 });
 
-test('the keyboard article lists every hotkey the game listens for', () => {
-  const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
-  const letters = [...new Set([...main.matchAll(/e\.key === '([a-z])'/g)].map((m) => m[1].toUpperCase()))];
-  assert.ok(letters.length >= 10);
-  const keys = articleBlocks(ARTICLE_BY_ID['controls-keyboard']).find((b) => b.keys).keys.map(([k]) => k);
-  for (const l of letters) assert.ok(keys.some((k) => k.split(/ or | /).includes(l)), `${l} is listed`);
-  for (const k of ['Tab', 'Esc', 'Z X C V B', '1 2 3 4 5']) assert.ok(keys.includes(k) || keys.some((x) => x.includes(k)), `${k} is listed`);
+test('the keyboard article matches the in-game shortcut reference', () => {
+  const keys = articleBlocks(ARTICLE_BY_ID['controls-keyboard']).find((b) => b.keys).keys;
+  const labels = new Map(keys.map(([key, label]) => [label, key]));
+  for (const [, rows] of KEYBOARD_GROUPS.slice(0, -1)) {
+    for (const [label, ...shortcuts] of rows) assert.equal(labels.get(label), shortcuts.join(' / '), label);
+  }
 });
 
 test('every article renders to HTML without a DOM', () => {

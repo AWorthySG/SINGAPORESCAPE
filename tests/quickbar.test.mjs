@@ -118,15 +118,13 @@ test('the real actions work end to end on a headless game', () => {
   assert.ok(g.player.isMoving || g.player.action, 'on the way');
 });
 
-test('Shift+1 to Shift+6 pick the slots (plain 1-5 still pick the panel tabs)', () => {
+test('Shift+1 to Shift+6 pick the slots (plain digits belong to the panel views)', () => {
   assert.equal(slotOfKey({ code: 'Digit1', shiftKey: true }), 0);
   assert.equal(slotOfKey({ code: 'Digit6', shiftKey: true }), 5);
   assert.equal(slotOfKey({ code: 'Digit7', shiftKey: true }), -1, 'only as many keys as slots');
   assert.equal(slotOfKey({ code: 'Digit1', shiftKey: false }), -1, 'a plain 1 is the Bag tab');
   assert.equal(slotOfKey({ code: 'Digit1', shiftKey: true, ctrlKey: true }), -1);
-  // The plain digits are the tab keys in main.js: the bar must not take them.
-  const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
-  assert.match(main, /const map = \{ '1': 'inventory', '2': 'skills', '3': 'combat', '4': 'quests', '5': 'settings' \}/);
+
 });
 
 test('headless: the bar subscribes to its events and draws nothing without a DOM', () => {
