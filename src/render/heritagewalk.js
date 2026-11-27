@@ -81,7 +81,7 @@ export function drawHeritageBank(g, x, y) {
   g.fillRect(-22, -34, 44, 10);
   g.fillStyle = '#f8dc9d';
   g.fillRect(-19, -33, 38, 1);
-  g.font = 'bold 8px sans-serif';
+  g.font = '900 8px Nunito,"Trebuchet MS",sans-serif';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.fillText('BANK', 0, -28, 37);
