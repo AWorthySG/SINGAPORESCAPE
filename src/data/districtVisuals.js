@@ -20,10 +20,10 @@ export const DISTRICT_VISUALS = {
   'Kranji Farmlands': ['#756420', '#F6EFCE', 'Kranji farmhouse', 'obj-kranji_farmhouse.webp'],
   'Mandai Rainforest': ['#2C6946', '#DBEEDC', 'Canopy course', 'obj-canopy_course_treetop_walk.webp'],
   'Tuas Docklands': ['#4D5C71', '#E4EDF0', 'Gantry crane', 'obj-gantry_crane.webp'],
-  'Temasek Ruins': ['#825033', '#F2E7D6', 'Temasek gate', 'obj-temasek_gate.webp'],
+  'Temasek Ruins': ['#825033', '#F2E7D6', 'Palace of Temasek', 'obj-temasek_palace_dig.webp'],
   'The Celestial Peaks': ['#565791', '#EBE8FA', 'Celestial pavilion', 'obj-celestial_pavilion.webp'],
   'Pulau Hantu': ['#685173', '#EEE6F1', 'Ghost lanterns', 'obj-ghost_lantern.webp'],
-  'The Wilderness': ['#843F38', '#F5E4DC', 'Ruined walls', 'obj-ruin.webp'],
+  'The Wilderness': ['#843F38', '#F5E4DC', 'Stone barricades', 'obj-wall.webp'],
 };
 
 export function districtVisual(name) {
