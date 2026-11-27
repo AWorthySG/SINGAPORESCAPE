@@ -20,7 +20,7 @@ const iconFor = (cls) => (cls === 'good' ? SUN : cls === 'evil' ? MOON : SCALES)
  *  until you choose, then the one you picked. */
 export function choiceBadgeHTML(game, key) {
   const c = questChoice(key);
-  if (!c) return '';
+  if (!c || QC.choiceUnavailable(game, key)) return '';
   const pick = QC.choicePick(game, key);
   const tip = pick ? `You chose ${pick === 'good' ? 'Good' : 'Evil'}: ${c[pick].done}` : 'Holds a Good or Evil choice';
   return ` <span class="qc-badge${pick ? ` ${pick}` : ''}" title="${esc(tip)}" aria-label="${esc(tip)}">${pick === 'good' ? SUN : pick === 'evil' ? MOON : SUN + MOON}</span>`;
@@ -32,6 +32,7 @@ export function choiceLineHTML(game, key) {
   if (!c) return '';
   const pick = QC.choicePick(game, key);
   if (pick) return `<div class="qc-line ${pick}">${pick === 'good' ? SUN : MOON} ${esc(c[pick].done)}</div>`;
+  if (QC.choiceUnavailable(game, key)) return '<div class="qc-line">Completed before choices were added</div>';
   if (QC.choicePending(game, key)) {
     return `<div class="qc-line wait"><span>${SCALES} A choice waits: ${esc(c.title)}</span>`
       + `<button class="path-go qc-choose" type="button" data-qc="${key}" title="Make the choice">Choose</button></div>`;
@@ -48,6 +49,7 @@ export function pathCardHTML(game) {
   if (p.cls !== 'good') next.push(p.nextEvil ? `${MOON} ${p.nextEvil.need} more Evil to become <b>${esc(p.nextEvil.title)}</b>` : `${MOON} Villain is the lowest Evil tier`);
   const met = QC.crossroads(game).filter((x) => x.side).length;
   const made = QC.CHOICE_KEYS.filter((k) => QC.choicePick(game, k)).length;
+  const available = QC.CHOICE_KEYS.filter((k) => !QC.choiceUnavailable(game, k)).length;
   let html = `<div class="path-card path-${p.cls}" data-tier="${p.tier}">`
     + `<div class="path-head"><span class="path-icon" aria-hidden="true">${iconFor(p.cls)}</span><b>Your path: <span class="path-title">${esc(p.title)}</span></b>`
     + `<span class="path-net" title="Good minus Evil">${signed(p.a)}</span></div>`
@@ -56,7 +58,7 @@ export function pathCardHTML(game) {
     + `<div class="pathm-ends"><span>${MOON} Villain</span><span>Paragon ${SUN}</span></div>`
     + `<div class="path-fight">${esc(p.fight)}</div>`
     + `<div class="path-next">${next.join('<br>')}</div>`
-    + `<div class="path-tally">Good ${p.good} · Evil ${p.evil} · Crossroads ${met}/${MORAL_EVENTS.length} · Quest choices ${made}/${QC.CHOICE_KEYS.length}</div>`;
+    + `<div class="path-tally">Good ${p.good} · Evil ${p.evil} · Crossroads ${met}/${MORAL_EVENTS.length} · Quest choices ${made}/${available}</div>`;
   const waiting = QC.pendingChoices(game);
   for (const k of waiting) {
     const c = questChoice(k);
