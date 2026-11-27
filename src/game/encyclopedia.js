@@ -139,7 +139,7 @@ export const nameKey = (s) => (String(s).toLowerCase().match(/[a-z0-9]+(?:['’-
 
 // Everyday words that happen to be item names: linking every "logs" or "bones"
 // in the chat would bury the useful links.
-const TOO_COMMON = new Set(['coins', 'logs', 'bones', 'feather', 'feathers', 'ashes', 'fire', 'water', 'arrows', 'rune', 'bread', 'gold', 'silver', 'bronze', 'iron', 'steel', 'clay', 'coal', 'seaweed', 'fish', 'rat', 'chicken', 'cow', 'goat']);
+const TOO_COMMON = new Set(['coins', 'logs', 'bones', 'feather', 'feathers', 'ashes', 'fire', 'water', 'arrows', 'rune', 'bread', 'gold', 'silver', 'bronze', 'iron', 'steel', 'clay', 'coal', 'fish', 'rat', 'chicken', 'cow', 'goat']);
 
 let _names = null;
 /** Map nameKey -> { kind, id }, and the longest name's word count. Built once

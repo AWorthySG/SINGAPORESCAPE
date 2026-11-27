@@ -30,12 +30,12 @@ const WET = new Set(['Sungei Buloh Wetlands', 'MacRitchie Reservoir', 'Mandai Ra
 const DOORS = new Set(['shophouse_row_mint', 'shophouse_row_peach', 'shophouse_row_butter', 'shophouse_row_lilac',
   'golden_dome_hall', 'hdb_block', 'dragon_playground', 'hawker_centre', 'chinese_temple', 'wet_market',
   'spiky_dome_theatre', 'flower_dome', 'lifeguard_tower', 'lighthouse', 'kusu_turtle_temple', 'stilt_house',
-  'temasek_gate', 'kranji_farmhouse', 'celestial_pavilion']);
+  'kranji_farmhouse', 'celestial_pavilion']);
 // Things you stand at to use: stalls, the bank, ranges, furnaces, anvils, benches, shrines...
 const WORKED = new Set(['stall', 'bank', 'range', 'furnace', 'anvil', 'craft', 'fletch', 'herblore', 'shrine',
   'offering', 'rest', 'transport', 'gate', 'saw', 'kiln', 'build', 'homebench', 'hawkstall']);
-// Walls and ruins darken the ground at their foot (landmarks always do).
-const WALLS = new Set(['wall', 'ruin', 'fence']);
+// Walls darken the ground at their foot (landmarks always do).
+const WALLS = new Set(['wall', 'fence']);
 
 /** [width, height] (px) each touch is drawn at, its foot at the bottom centre. */
 export const TOUCH_DETAILS = {
@@ -83,7 +83,7 @@ export function touchPlan(world, tx0, ty0, tx1, ty1, opts = {}) {
       walls.push(o);
       // Moss at the foot of old walls where it's damp or wild.
       const z = world.zoneAt ? world.zoneAt(o.x, o.y) : null, zn = z ? z.name : '';
-      if ((WET.has(zn) || FOREST.has(zn) || o.objId === 'ruin') && tileHash(o.x, o.y, 1102) < 0.4 * k && ground(o.x, o.y + 1) !== null) {
+      if ((WET.has(zn) || FOREST.has(zn)) && tileHash(o.x, o.y, 1102) < 0.4 * k && ground(o.x, o.y + 1) !== null) {
         bits.push({ id: 'moss', px: o.x * TILE + 8 + tileHash(o.x, o.y, 1103) * 16, py: (o.y + 1) * TILE + 3, flip: tileHash(o.x, o.y, 1104) < 0.5, s: 0.9 });
       }
     } else if (WORKED.has(o.def.type)) {

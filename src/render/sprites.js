@@ -20,7 +20,7 @@ import { REGION_GIVERS } from '../data/regionQuests.js';
 import { RESIDENTS } from '../data/consequences.js';
 import { PORTRAIT_CROPS } from '../data/portraitcrops.js';
 import { BESTIARY_SPECIES, BESTIARY_BOSSES } from '../data/bestiary.js';
-import { OBJECTS } from '../data/objects.js';
+import { GENERATION_ONLY_SCENERY, OBJECTS } from '../data/objects.js';
 import { drawDiveSpot } from './diveart.js';
 import { drawDigSite, drawRestoreBench } from './digart.js';
 
@@ -2660,7 +2660,7 @@ const WORLD_ART = {
   'obj-stall_food': [56, 50, 16], 'obj-stall_market': [56, 50, 16], 'obj-stall_gem': [56, 50, 16],
   'obj-agility_course': [60, 48, 16], 'obj-agility_balance': [50, 34, 15], 'obj-agility_net': [46, 46, 16],
   'obj-agility_rope': [44, 46, 16], 'obj-agility_ledge': [44, 42, 16], 'obj-agility_zip': [48, 46, 16],
-  'obj-wall': [40, 36, 15], 'obj-ruin': [44, 44, 15], 'obj-fence': [40, 34, 15], 'obj-bush': [34, 30, 14],
+  'obj-wall': [40, 36, 15], 'obj-fence': [40, 34, 15], 'obj-bush': [34, 30, 14],
   'obj-flower': [28, 26, 13], ...Object.fromEntries([1, 2, 3].flatMap((n) => [[`obj-flower-${n}`, [28, 26, 13]], [`obj-bush-${n}`, [34, 30, 14]]])),
   'obj-palm': [50, 66, 15], 'obj-lamp': [24, 54, 15], 'obj-sign': [28, 38, 15],
   'obj-fishing_spot': [42, 30, 12], 'obj-rod_spot': [42, 34, 12], 'obj-sea_rod_spot': [42, 34, 12],
@@ -2707,7 +2707,7 @@ const WORLD_ART = {
   ...Object.fromEntries([0, 1, 2, 3].map((i) => [`obj-fire-${i}`, [32, 42, 14]])),
   ...Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`obj-farm_patch-${i}`, [42, 36, 15]])),
   // Landmarks (landmarks.js): drawn across their footprint, a little wider than it.
-  ...Object.fromEntries(Object.entries(OBJECTS).filter(([, d]) => d.footprint).map(([id, d]) => [`obj-${id}`, [d.footprint[0] * 32 * (d.artScale || 1.1), 999, 16]])),
+  ...Object.fromEntries(Object.entries(OBJECTS).filter(([id, d]) => d.footprint && !GENERATION_ONLY_SCENERY.has(id)).map(([id, d]) => [`obj-${id}`, [d.footprint[0] * 32 * (d.artScale || 1.1), 999, 16]])),
   // Set dressing: one-tile props, most fitted in a 40 px box, a few taller or smaller.
   ...Object.fromEntries(Object.entries(OBJECTS).filter(([, d]) => d.prop).map(([id]) => [`obj-${id}`, [40, 40, 15]])),
   ...Object.fromEntries(Object.entries({
@@ -3574,30 +3574,6 @@ function scenery(ctx, objId, cx, cy, time) {
       ctx.fillStyle = '#caa15a'; rr(ctx, cx - 11, cy - 12, 22, 11, 2); ctx.fill(); line(ctx, OUTLINE, 1.5);
       ctx.strokeStyle = 'rgba(90,58,28,0.7)'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(cx - 7, cy - 8); ctx.lineTo(cx + 7, cy - 8); ctx.moveTo(cx - 7, cy - 5); ctx.lineTo(cx + 5, cy - 5); ctx.stroke();
-      return;
-    }
-    case 'ruin': {
-      drawShadow(ctx, cx, cy + 11, 15, 4.5);
-      // fallen rubble blocks
-      ctx.fillStyle = '#9a948a';
-      rr(ctx, cx - 13, cy + 3, 9, 8, 1.5); ctx.fill(); line(ctx, OUTLINE, 1.2);
-      rr(ctx, cx + 4, cy + 5, 10, 6, 1.5); ctx.fill(); line(ctx, OUTLINE, 1.2);
-      // broken pillar with a jagged snapped top
-      ctx.fillStyle = '#aaa49a';
-      path(ctx, () => { ctx.moveTo(cx - 5, cy + 11); ctx.lineTo(cx - 5, cy - 9); ctx.lineTo(cx - 2, cy - 13); ctx.lineTo(cx + 1, cy - 8); ctx.lineTo(cx + 3, cy - 12); ctx.lineTo(cx + 4.5, cy + 11); });
-      ctx.fill(); line(ctx, OUTLINE, 1.4);
-      // shaded right face + a brighter lit left edge
-      ctx.fillStyle = 'rgba(20,20,26,0.2)'; rr(ctx, cx + 1, cy - 8, 3.5, 19, 1); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.14)'; rr(ctx, cx - 5, cy - 9, 1.6, 20, 0.8); ctx.fill();
-      // cracks + brick courses
-      ctx.strokeStyle = 'rgba(34,48,74,0.45)'; ctx.lineWidth = 0.8;
-      ctx.beginPath(); ctx.moveTo(cx - 3, cy - 5); ctx.lineTo(cx - 1, cy - 1); ctx.lineTo(cx - 3, cy + 4);
-      ctx.moveTo(cx - 5, cy + 1); ctx.lineTo(cx + 4, cy + 1); ctx.moveTo(cx - 11, cy + 7); ctx.lineTo(cx - 6, cy + 7); ctx.stroke();
-      // creeping moss
-      ctx.fillStyle = 'rgba(74,128,58,0.6)';
-      ctx.beginPath(); ctx.arc(cx - 3.5, cy + 9, 1.6, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(cx + 8, cy + 5.5, 1.4, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(cx - 11, cy + 4.5, 1.2, 0, Math.PI * 2); ctx.fill();
       return;
     }
     default: {

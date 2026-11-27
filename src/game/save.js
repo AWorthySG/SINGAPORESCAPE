@@ -299,6 +299,7 @@ export function loadGame(game) {
     return false;
   }
   try {
+    exchangeRetiredLoot(data);
     loadFields(game, data);
     loadFirstJourney(game, data.firstJourney);
     game.islandLife = data.islandLife ? restoreIslandLife(data.islandLife) : undefined;
@@ -311,6 +312,31 @@ export function loadGame(game) {
     throw err;
   }
   return true;
+}
+
+// Retired fishing junk is exchanged at its coin value. Send the player's
+// copies to the bank so even a full pack can load without losing anything.
+function exchangeRetiredLoot(data) {
+  let credited = 0;
+  const remove = (entry) => {
+    if (entry?.id !== 'old_boot' && entry?.id !== 'seaweed') return entry;
+    if (Number.isFinite(entry.qty) && entry.qty > 0) credited += Math.floor(entry.qty) * (entry.id === 'seaweed' ? 2 : 1);
+    return null;
+  };
+  if (Array.isArray(data.inventory)) data.inventory = data.inventory.map(remove);
+  if (Array.isArray(data.bank)) data.bank = data.bank.map(remove).filter(Boolean);
+  if (Array.isArray(data.home?.chest)) data.home.chest = data.home.chest.map(remove).filter(Boolean);
+  if (credited) {
+    if (!Array.isArray(data.bank)) data.bank = [];
+    data.bank.push({ id: 'coins', qty: credited });
+  }
+
+  const grave = data.play?.grave;
+  if (Array.isArray(grave?.items)) {
+    credited = 0;
+    grave.items = grave.items.map(remove).filter(Boolean);
+    if (credited) grave.coins = Math.max(0, Number(grave.coins) || 0) + credited;
+  }
 }
 
 function loadFields(game, data) {

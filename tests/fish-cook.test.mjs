@@ -264,7 +264,7 @@ test('endgame Fishing XP an hour: each spot well ahead of the best before it, at
       noon(g);
       gain += g.skills.xp.fishing - base; g.skills.xp.fishing = base;
       // An endless bag: drop what was caught so the run never stops for space.
-      for (const s of g.inventory.slots) if (s && (ITEMS[s.id].tags?.includes('raw') || ['old_boot', 'seaweed', 'pearl', 'coins'].includes(s.id))) g.inventory.remove(s.id, g.inventory.count(s.id));
+      for (const s of g.inventory.slots) if (s && (ITEMS[s.id].tags?.includes('raw') || ['pearl', 'coins'].includes(s.id))) g.inventory.remove(s.id, g.inventory.count(s.id));
       if (!g.player.action) g.defaultObjectAction(spot);
     }
     return gain * 6000 / TICKS;

@@ -4,6 +4,7 @@
 
 import { NPCS, MONSTER_IDS, BOSS_IDS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS, MORE_MONSTER_IDS, MORE_BOSS_IDS, stretchLevel } from './npcs.js';
 import { STATIONS } from './transport.js';
+import { GENERATION_ONLY_SCENERY } from './objects.js';
 import { placeLandmarks } from './landmarks.js';
 import { placeGroves, QUARRY_PLAN } from './groves.js';
 import { assignFishSpots } from './fishspots.js';
@@ -1501,12 +1502,14 @@ export function buildWorld({ groves: withGroves = true } = {}) {
     width: W,
     height: H,
     terrain,
-    objects,
+    // The old arches still reserve the same sites during seeded world
+    // generation. Drop them before play so removing scenery shifts no nodes.
+    objects: objects.filter((o) => !GENERATION_ONLY_SCENERY.has(o.objId)),
     npcSpawns,
     zones,
     towns,   // the outer towns' rectangles (the World Boss keeps its distance)
     resourceZones,   // named places dense with one life skill's nodes (see the block above the border fence)
-    landmarks,       // the regions' set pieces, { objId, x, y, region } (landmarks.js)
+    landmarks: landmarks.filter((o) => !GENERATION_ONLY_SCENERY.has(o.objId)), // the regions' set pieces, { objId, x, y, region } (landmarks.js)
     groves,          // patches thick with one kind of tree, or of rock (kind 'quarry'), { id, name, objId, kind, region, cx, cy, x0..y1, count } (groves.js)
     spawnPoint: { x: 58, y: 55 },
     respawnPoint: { x: 58, y: 55 },

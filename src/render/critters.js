@@ -22,7 +22,7 @@ const WINGS = ['#F5B82E', '#EF476F', '#5FAEE3', '#FFFFFF', '#B98AE8', '#FF9F6A']
 const JUNGLE = new Set(['Bukit Timah', 'Jurong Forest', 'Mandai Rainforest', 'Sungei Buloh Wetlands',
   'MacRitchie Reservoir', 'Pulau Ubin', 'Kranji Farmlands', 'Gardens by the Bay', 'Punggol Waterway']);
 const GRIM = new Set(['The Wilderness', 'Pulau Hantu', 'Tekong Badlands', 'The Shadow Rift']);
-const PERCH = new Set(['wall', 'ruin', 'bank', 'stall', 'transport', 'lamp', 'shrine']);
+const PERCH = new Set(['wall', 'bank', 'stall', 'transport', 'lamp', 'shrine']);
 // Where the bluebottle flits (in its own colours, flapping through its painted loop).
 const BLUEBOTTLE = new Set(['Kampong Glam', 'Chinatown', 'Marina Bay', 'Gardens by the Bay', 'Pulau Ubin', 'Kranji Farmlands']);
 const FLAP_MS = 90;     // a butterfly's or sunbird's wingbeat frame

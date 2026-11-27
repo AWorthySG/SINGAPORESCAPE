@@ -346,8 +346,6 @@ import { CON_TIERS, CON_WOOD } from '../data/construction.js';
   I.raw_cobia = rawFish('#5a6a72', '#8a9aa2'); I.cobia = cookedFish('#6a7a82');
   // Bait, junk & treasure
   I.fishing_bait = `<path d="M6 8 q3 -3 6 0 q3 3 6 0" fill="none" stroke="#c06a5a" stroke-width="2.4" stroke-linecap="round"/><path d="M6 13 q3 -3 6 0 q3 3 6 0" fill="none" stroke="#d8806a" stroke-width="2.4" stroke-linecap="round"/><circle cx="18.5" cy="7" r="1.1" fill="${OL}"/>`;
-  I.old_boot = `<path d="M7 5 H12 V13 L18 15 Q20 16 20 18 V20 H6 Q5 20 5 18 V7 Q5 5 7 5 Z" fill="#5a4632" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M6 18 H20" stroke="${C.woodDk}" stroke-width="1.4"/><path d="M8 7 H11" stroke="${C.woodHi}" stroke-width="1"/>`;
-  I.seaweed = `<path d="M9 21 C6 16 12 14 9 9 C7 5 11 4 11 3" fill="none" stroke="${C.leafDk}" stroke-width="2.2" stroke-linecap="round"/><path d="M15 21 C18 15 12 13 15 8 C17 5 14 4 14 3" fill="none" stroke="${C.leaf}" stroke-width="2.2" stroke-linecap="round"/>`;
   I.pearl = `<circle cx="12" cy="13" r="6" fill="#f0f2f5" stroke="${OL}" stroke-width="1.1"/><circle cx="10" cy="11" r="2.2" fill="#ffffff" opacity=".9"/><path d="M5 16 Q12 21 19 16" fill="none" stroke="#b6c0c8" stroke-width="1"/>`;
   I.birds_nest = `<path d="M4 13 Q12 22 20 13 Q20 18 12 19 Q4 18 4 13 Z" fill="${C.wood}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M5 13 Q12 17 19 13" fill="none" stroke="${C.woodDk}" stroke-width="1"/><ellipse cx="9.5" cy="12" rx="2.2" ry="1.7" fill="#f0e7d4" stroke="${OL}" stroke-width="0.8"/><ellipse cx="14" cy="12.5" rx="2.2" ry="1.7" fill="#dfe8c0" stroke="${OL}" stroke-width="0.8"/>`;
   I.fishing_rod = `<path d="M5 20 L19 5" stroke="${C.wood}" stroke-width="2.2" stroke-linecap="round"/><path d="M19 5 L18 12" stroke="#cdd6dd" stroke-width="0.8"/><path d="M18 12 q2 1 0 3" fill="none" stroke="${OL}" stroke-width="1.2"/><circle cx="8" cy="17" r="1.6" fill="${C.gold}" stroke="${OL}" stroke-width="0.8"/>`;
@@ -841,7 +839,7 @@ import { CON_TIERS, CON_WOOD } from '../data/construction.js';
     'raw_boar_meat', 'boar_steak', 'hornbill_casque', 'qilin_mane',
     ...['giant_trevally', 'diamond_trevally', 'hybrid_grouper', 'climbing_perch', 'ikan_keli', 'belida', 'arapaima', 'arowana',
       'milkfish', 'queenfish', 'threadfin', 'white_pomfret', 'coral_trout', 'cobia'].map((f) => `raw_${f}`),
-    'fishing_rod', 'lobster_pot', 'harpoon', 'fishing_bait', 'old_boot', 'seaweed', 'pearl', 'birds_nest', 'satay', 'nasi_lemak',
+    'fishing_rod', 'lobster_pot', 'harpoon', 'fishing_bait', 'pearl', 'birds_nest', 'satay', 'nasi_lemak',
     'merlion_amulet', 'amulet_of_glory', 'mark_of_grace',
   ]);
   // Weapons of the newer classes (pistols, shurikens, canes) and scout leather: painted stickers.

@@ -372,7 +372,7 @@ const MORE_BASES = [
   ['Kancil', 'beast', '#b08050', 'Pulau Ubin', false, [6, 16, 32], { id: 'raw_venison', weight: 14 }],
   ['Kunang-kunang', 'wisp', '#d8f070', 'Pulau Ubin', true, [10, 24, 42], null],
   ['Shore pit viper', 'serpent', '#5a9a4a', 'Sungei Buloh Wetlands', true, [15, 32, 52], null],
-  ['Mangrove terrapin', 'turtle', '#6a7a4a', 'Sungei Buloh Wetlands', false, [12, 28, 48], { id: 'seaweed', min: 1, max: 3, weight: 10 }],
+  ['Mangrove terrapin', 'turtle', '#6a7a4a', 'Sungei Buloh Wetlands', false, [12, 28, 48], { id: 'coins', min: 2, max: 6, weight: 10 }],
   ['Lumpur slime', 'slime', '#6a5a3a', 'Sungei Buloh Wetlands', false, [10, 26, 45], { id: 'clay', min: 1, max: 4, weight: 12 }],
   ['Colugo', 'bat', '#8a7a6a', 'Jurong Forest', false, [22, 40, 62], null],
   ['Forest scorpion', 'scorpion', '#2a2a3a', 'Jurong Forest', true, [28, 48, 72], null],

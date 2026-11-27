@@ -436,7 +436,7 @@ const SHADOW = {
 };
 const NO_SHADOW = new Set(['fire', 'farm', 'fishing']);
 // Objects that are walls or buildings darken the ground beside them a little.
-const OCCLUDERS = new Set(['wall', 'ruin', 'building']);
+const OCCLUDERS = new Set(['wall', 'building']);
 function shadowKind(o) {
   const t = o.def.type;
   if (NO_SHADOW.has(t)) return null;
@@ -1039,7 +1039,7 @@ export class TerrainFx {
 }
 
 // Kinds of object tall enough to cast a reflection.
-const REFLECTS = new Set(['tree', 'palm', 'lamp', 'wall', 'ruin', 'building', 'sign', 'bush']);
+const REFLECTS = new Set(['tree', 'palm', 'lamp', 'wall', 'building', 'sign', 'bush']);
 // The water tiles a reflection of something standing on (x, y) can fall on.
 function waterBelow(world, x, y) {
   const out = [];
