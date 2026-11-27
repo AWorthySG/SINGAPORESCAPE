@@ -270,13 +270,18 @@ for (const [id, g] of Object.entries(REGION_GIVERS)) if (!TOWN_ART.has(id)) { TO
 // A living-world resident without a picture of their own wears the one they borrow (`art`).
 for (const [id, r] of Object.entries(RESIDENTS)) if (!TOWN_ART.has(id) && TOWN_ART.has(r.art)) TOWN_ALIAS[id] = r.art;
 const townFile = (id) => (TOWN_ART.has(id) ? id : TOWN_ALIAS[id] || null);
+// Keep a resident's new portrait and idle layers together in the offline cache.
+const REPAINTED_TOWN_ART = new Set(['banker', 'guide', 'hawker', 'pest_officer', 'shopkeeper', 'skills_tutor']);
+const townArtRevision = (id) => REPAINTED_TOWN_ART.has(id) ? '?v=2' : '';
+export const townArtSrc = (id) => TOWN_ART.has(id) ? `assets/creatures/townsfolk/${id}.webp${townArtRevision(id)}` : null;
 const _townImg = {};
 function townImage(id) {
-  if (!id || !townFile(id)) return null;
   if (_townImg[id] !== undefined) return _townImg[id];
+  const src = townArtSrc(townFile(id));
+  if (!src) return null;
   if (typeof Image === 'undefined') { _townImg[id] = null; return null; }
   const img = new Image();
-  img.src = `assets/creatures/townsfolk/${townFile(id)}.webp`;
+  img.src = src;
   _townImg[id] = img;
   return img;
 }
@@ -540,7 +545,8 @@ const rigFiles = (rig) => rig.files || rig.order;
 function rigLayers(id, rig = RIGS[id]) {
   if (!rig || typeof Image === 'undefined') return null;
   const imgs = _rigImg[id] || (_rigImg[id] = Object.fromEntries(rigFiles(rig).map((n) => {
-    const img = new Image(); img.src = `assets/creatures/${rigDir(rig.kind)}/${id}_${n}.webp${lionArtRevision(id)}`; return [n, img];
+    const revision = rig.kind === 'town' ? townArtRevision(id) : lionArtRevision(id);
+    const img = new Image(); img.src = `assets/creatures/${rigDir(rig.kind)}/${id}_${n}.webp${revision}`; return [n, img];
   })));
   return rigFiles(rig).every((n) => imgs[n].complete && imgs[n].naturalWidth) ? imgs : null;
 }

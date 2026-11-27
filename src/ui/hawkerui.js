@@ -10,7 +10,7 @@
 import { getItem } from '../data/items.js';
 import { formatNumber } from '../core/utils.js';
 import { itemIconSVG, skillIconSVG } from '../render/icons.js';
-import { townArt } from '../render/sprites.js';
+import { townArtSrc } from '../render/sprites.js';
 import { ORDERS, STALL_RENT, VIP_LEVEL, SERVICE } from '../data/hawkering.js';
 import { TICK_MS } from '../config.js';
 
@@ -18,7 +18,10 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const TABS = [{ id: 'stall', name: 'Stall' }, { id: 'wok', name: 'Wok' }, { id: 'menu', name: 'Menu' }];
 const short = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e4 ? `${(n / 1e3).toFixed(1)}K` : formatNumber(Math.round(n)));
 const stars = (n) => '★'.repeat(Math.floor(n)) + (n % 1 ? '½' : '') + '☆'.repeat(5 - Math.ceil(n));
-const portrait = (id) => (townArt().has(id) ? `<img class="hwk-face" src="assets/creatures/townsfolk/${esc(id)}.webp" alt="" loading="lazy">` : '<span class="hwk-face">🙂</span>');
+const portrait = (id) => {
+  const src = townArtSrc(id);
+  return src ? `<img class="hwk-face" src="${esc(src)}" alt="" loading="lazy">` : '<span class="hwk-face">🙂</span>';
+};
 
 /** A serve's XP now (as Skills.addXp adds it), and about that an hour with auto-serve. */
 function xpFigures(game, id) {

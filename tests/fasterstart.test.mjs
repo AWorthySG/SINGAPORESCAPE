@@ -113,10 +113,10 @@ test('a townsperson asks for their idle parts with their picture, not a round tr
   const n = asked.length;
   try { drawCreature(ctx, 'banker', 0, 0, { time: 0 }); } catch { /* headless: nothing to draw into */ }
   const srcs = asked.slice(n).map((i) => i.src);
-  assert.ok(srcs.some((s) => s.endsWith('townsfolk/banker.webp')), 'the picture');
+  assert.ok(srcs.includes('assets/creatures/townsfolk/banker.webp?v=2'), 'the current picture');
   const parts = townIdleParts('banker');
   assert.ok(parts.length > 1);
-  for (const p of parts) assert.ok(srcs.some((s) => s.endsWith(`banker_${p}.webp`)), `${p} asked for at once`);
+  for (const p of parts) assert.ok(srcs.includes(`assets/creatures/townsfolk/idle/banker_${p}.webp?v=2`), `${p} asked for at once with the same revision`);
   // Low graphics never draws the idle parts, so never asks for them.
   const m = asked.length;
   try { drawCreature(ctx, 'farmer', 0, 0, { time: 0, low: true }); } catch { /* as above */ }
