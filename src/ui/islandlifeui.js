@@ -1,6 +1,7 @@
 import { islandPhotoArt, ISLAND_BY_ID, LANDINGS, LOOMS, PATTERNS, PHOTO_ASSIGNMENTS, STAGES, TUNES, VOYAGES } from '../data/islandlife.js';
 import { getItem } from '../data/items.js';
-import { COVE_FIND, encoreNotes, exploreCove, finishIslandTune, finishVoyage, islandBook, islandClaimed, islandReady, learnIslandTune, makeIslandPattern, musicStage, nearIslandSite, textileWorkshop, voyageAvailable } from '../game/islandlife.js';
+import { COVE_FIND, encoreNotes, exploreCove, finishIslandTune, finishVoyage, islandBook, islandClaimed, islandPayout, islandReady, learnIslandTune, makeIslandPattern, musicStage, nearIslandSite, textileWorkshop, voyageAvailable } from '../game/islandlife.js';
+import { nextUnlock, skillTeleport, skillTeleportOf } from '../game/skillunlocks.js';
 import { lifePerkNext, lifePerkText } from '../game/lifeperks.js';
 import { skillIconSVG } from '../render/icons.js';
 
@@ -43,7 +44,7 @@ export function openIslandSkill(ui, skill) {
         const prereq = VOYAGES.find((r) => r.id === (v.requires || (v.to === 'cove' ? 'ubin' : '')));
         const hint = known ? 'Charted' : prereq && !book.voyages.includes(prereq.id)
           ? 'Chart ' + LANDINGS[prereq.to].name + ' first' : 'Uncharted';
-        const freight = v.freight && known ? ` · ${claimed ? 'Freight delivered today' : v.freight + ' coins for freight'}` : '';
+        const freight = v.freight && known ? ` · ${claimed ? 'Freight delivered today' : islandPayout(game, skill, v.freight) + ' coins for freight'}` : '';
         const disabled = !voyageAvailable(game, v);
         const actions = nearIslandSite(game.player, LANDINGS[v.from])
           ? button('Set sail', 'voyage:' + v.id, disabled) + (v.freight && known ? button('Carry freight', 'freight:' + v.id, disabled || claimed) : '')
@@ -57,7 +58,7 @@ export function openIslandSkill(ui, skill) {
       return '<p>Collect a print on your first visit. Return on another day for a paid postcard commission.</p>' +
         PHOTO_ASSIGNMENTS.map((p) => {
           const collected = book.photos.includes(p.id), done = islandClaimed(game, 'photo:' + p.id);
-          const hint = collected ? (done ? 'Print collected · Submitted today' : 'Print collected · ' + Math.round(p.xp * 1.5) + ' coins for a new postcard') : 'Level ' + p.level;
+          const hint = collected ? (done ? 'Print collected · Submitted today' : 'Print collected · ' + islandPayout(game, skill, Math.round(p.xp * 1.5)) + ' coins for a new postcard') : 'Level ' + p.level;
           return row(`<img class="island-assignment-art" src="${islandPhotoArt(p)}" alt="">` + p.name, hint + ' · ' + p.detail,
             done ? '' : nearIslandSite(game.player, p, p.range)
               ? button('Open camera', 'camera:', lvl < p.level || !game.photoCamera) : go(p));
@@ -73,7 +74,7 @@ export function openIslandSkill(ui, skill) {
           const actions = (workshop ? button('Print scarf', 'print:' + p.id, !ready || lvl < p.level || dye < 1 || coins < 8) : '')
             + (workshop?.level >= 8 && known ? button(made ? 'Order filled today' : 'Fill order', 'order:' + p.id, made || !ready || lvl < p.level || dye < 2 || coins < 16) : '')
             + (known ? button(book.scarf === p.id ? 'Remove' : 'Wear', 'wear:' + p.id) : '');
-          const offer = known && !made ? ` · Order: 2 dye + 16 coins for ${Math.round(p.xp * 1.5)} coins` : '';
+          const offer = known && !made ? ` · Order: 2 dye + 16 coins for ${islandPayout(game, skill, Math.round(p.xp * 1.5))} coins` : '';
           return row(swatch(p) + p.name, `Level ${p.level} · ${getItem(p.dye).name}${offer}`, actions);
         }).join('');
     }
@@ -86,7 +87,7 @@ export function openIslandSkill(ui, skill) {
           + (stage?.level >= 3 && book.performed.includes(t.id)
             ? button(done ? 'Encore played today' : 'Play encore', 'encore:' + t.id, !ready || done) : '')
           : button('Learn', 'learn:' + t.id, !ready || !stage || lvl < t.level || (teacher && stage.id !== teacher.id));
-        return row(t.name, `Level ${t.level} · ${t.notes.length} notes · ${t.tip} coins${teacher ? ' · Learn at ' + teacher.name : ''}`, actions);
+        return row(t.name, `Level ${t.level} · ${t.notes.length} notes · ${islandPayout(game, skill, t.tip)} coins${teacher ? ' · Learn at ' + teacher.name : ''}`, actions);
       }).join('');
   };
   const challenge = () => {
@@ -100,8 +101,13 @@ export function openIslandSkill(ui, skill) {
   };
   const render = (body) => {
     const level = game.skills.level(skill), next = lifePerkNext(skill, level);
+    const milestone = nextUnlock(skill, level);
+    const unlocked = skillTeleportOf(game, skill);
+    const progress = milestone || unlocked ? row('Skill milestones',
+      milestone ? `Level ${milestone.level} · ${milestone.desc}` : 'All milestones earned',
+      unlocked ? button('Skill teleport', 'teleport:', !islandReady(game)) : '') : '';
     body.innerHTML = `<div class="island-panel" style="--island-accent:${info.color}"><header>${skillIconSVG(skill, 32)}<div><b>${info.name} · Level ${game.skills.level(skill)}</b><small>${info.desc}</small><small>Combat · ${lifePerkText(skill, level)}${next ? ' · Level ' + next.level + ': ' + next.text : ''}</small></div></header>
-      <div class="island-status" role="status">${message}</div>${attempt ? challenge() : page()}</div>`;
+      <div class="island-status" role="status">${message}</div>${attempt ? challenge() : progress + page()}</div>`;
     for (const b of body.querySelectorAll('[data-island]')) {
       b.addEventListener('click', () => {
         const key = b.dataset.island, [act, id] = key.split(':');
@@ -109,6 +115,10 @@ export function openIslandSkill(ui, skill) {
         if (act === 'go') {
           if (game.travelToTile(sites.get(key))) ui.closeModal();
           else { message = 'There is no safe route from here.'; render(body); }
+          return;
+        }
+        if (act === 'teleport') {
+          if (!islandReady(game) || !skillTeleport(game, skill)) { message = 'Skill teleport is unavailable right now.'; render(body); }
           return;
         }
         if (act === 'camera') { ui.closeModal(); game.photoCamera?.open(); return; }

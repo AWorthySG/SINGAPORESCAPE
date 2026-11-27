@@ -1,5 +1,5 @@
 import { LANDINGS, LOOMS, PATTERNS, PHOTO_ASSIGNMENTS, STAGES, TUNES, VOYAGES } from '../data/islandlife.js';
-import { teleportPlayer } from './skillunlocks.js';
+import { teleportPlayer, unlockFx } from './skillunlocks.js';
 
 export const nearIslandSite = (p, site, range = 2) => Math.max(Math.abs(p.x - site.x), Math.abs(p.y - site.y)) <= range;
 const ids = (raw, table) => table.filter((row) => Array.isArray(raw) && raw.includes(row.id)).map((row) => row.id);
@@ -42,13 +42,15 @@ function claimIslandActivity(game, key) {
   book.daily.claims.push(key);
 }
 
+export const islandPayout = (game, skill, base) => Math.round(base * (1 + (unlockFx(game, skill).contractCoins || 0)));
+
 function pay(game, coins) {
   const packed = game.inventory.add('coins', coins);
   if (packed < coins) game.bank.deposit('coins', coins - packed);
 }
 
 function finish(game, skill, xp, message) {
-  game.skills.addXp(skill, xp);
+  game.skills.addXp(skill, xp * (1 + (unlockFx(game, skill).activityXp || 0)));
   game.saveSoon = true;
   game.msg(message, 'system');
 }
@@ -79,8 +81,9 @@ export function finishVoyage(game, id, choices, { freight = false } = {}) {
   if (first) book.voyages.push(id);
   if (freight) {
     claimIslandActivity(game, 'freight:' + id);
-    pay(game, voyage.freight);
-    finish(game, 'sailing', voyage.xp, `Freight delivered. You earn ${voyage.freight} coins.`);
+    const coins = islandPayout(game, 'sailing', voyage.freight);
+    pay(game, coins);
+    finish(game, 'sailing', voyage.xp, `Freight delivered. You earn ${coins} coins.`);
   } else finish(game, 'sailing', first ? voyage.xp : Math.max(3, Math.round(voyage.xp / 4)), first ? 'New route charted.' : 'Passage logged.');
   return true;
 }
@@ -115,7 +118,7 @@ export function recordIslandPhoto(game) {
   }
   const subject = candidates.find((row) => !islandClaimed(game, 'photo:' + row.id));
   if (!subject || !islandReady(game)) return null;
-  const coins = Math.round(subject.xp * 1.5);
+  const coins = islandPayout(game, 'photography', Math.round(subject.xp * 1.5));
   claimIslandActivity(game, 'photo:' + subject.id);
   pay(game, coins);
   finish(game, 'photography', Math.ceil(subject.xp / 2), `Postcard commission: ${subject.name}. You earn ${coins} coins.`);
@@ -137,7 +140,7 @@ export function makeIslandPattern(game, id, { order = false } = {}) {
   game.inventory.take(pattern.dye, material);
   game.inventory.take('coins', fee);
   if (order) {
-    const payout = Math.round(pattern.xp * 1.5);
+    const payout = islandPayout(game, 'textile_arts', Math.round(pattern.xp * 1.5));
     claimIslandActivity(game, 'order:' + id);
     pay(game, payout);
     finish(game, 'textile_arts', pattern.xp * 2, `You fill the ${pattern.name} order for ${payout} coins.`);
@@ -175,7 +178,7 @@ export function finishIslandTune(game, id, notes, elapsed, { encore = false } = 
   if (encore && (stage.level < 3 || !book.performed.includes(id) || islandClaimed(game, 'encore:' + id))) return false;
   if (!book.performed.includes(id)) book.performed.push(id);
   if (encore) claimIslandActivity(game, 'encore:' + id);
-  const tip = tune.tip * (encore ? 3 : 1);
+  const tip = islandPayout(game, 'music', tune.tip * (encore ? 3 : 1));
   pay(game, tip);
   finish(game, 'music', tune.xp * (encore ? 2 : 1), `The crowd tips you ${tip} coins for ${tune.name}${encore ? ' (encore)' : ''}.`);
   return true;
