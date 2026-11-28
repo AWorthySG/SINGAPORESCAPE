@@ -141,10 +141,87 @@ test('the title is headless-safe: no splash, no browser, nothing breaks', () => 
   assert.match(titleSkylineSvg(), /^<svg [^>]*viewBox="0 0 1200 140"/);
 });
 
+test('the painted title waits for the opening view and skips the hero stage', (t) => {
+  const previousDocument = globalThis.document;
+  const bodyClasses = new Set();
+  globalThis.document = { body: { classList: { add: (c) => bodyClasses.add(c), remove: (c) => bodyClasses.delete(c) } } };
+  t.after(() => {
+    if (previousDocument) globalThis.document = previousDocument;
+    else delete globalThis.document;
+  });
+
+  for (const pendingStyleChoice of [true, false]) {
+    const classes = new Set(['loading', 'title-keyart-on']);
+    const keyArt = { complete: true, naturalWidth: 1920, addEventListener() {} };
+    const label = { textContent: 'Begin adventure' };
+    const splash = {
+      style: {},
+      classList: { contains: (c) => classes.has(c), add: (c) => classes.add(c), remove: (c) => classes.delete(c) },
+      querySelector: (s) => ({ '.title-keyart': keyArt, '.splash-enter-label': label }[s]),
+    };
+    const title = new TitleScreen(splash, { still: true });
+    const camera = { cx: 2750, cy: 1200, snapped: true };
+    title.attach({ camera, pendingStyleChoice });
+    const openingPicture = title.tracker.add({ complete: false });
+    t.mock.method(title, '_startSkylineActors');
+
+    assert.equal(label.textContent, pendingStyleChoice ? 'Begin adventure' : 'Continue adventure');
+    for (let i = 0; i < 3; i++) title.frame(16);
+    assert.equal(title.ready, false, 'a pending opening image keeps the title loading');
+    assert.deepEqual([camera.cx, camera.cy], [2750, 1200], 'preload the player view instead of panning the title tour');
+
+    openingPicture.complete = true;
+    title.frame(16);
+    assert.equal(title.ready, true, 'settled images take the player straight to the ready title');
+    assert.equal(title._startSkylineActors.mock.callCount(), 0, 'the painted scene has no hero or petal stages');
+    assert.ok(title.worldHidden, 'pause world rendering under the finished key art');
+
+    let entered = false;
+    title.exit(() => { entered = true; });
+    assert.ok(entered && classes.has('hidden') && !title.worldHidden, 'reduced motion hands back the world immediately');
+    assert.equal(camera.snapped, false);
+  }
+});
+
+test('the painted title fades before resuming the renderer and opening the picker', (t) => {
+  const previousDocument = globalThis.document;
+  globalThis.document = { body: { classList: { add() {}, remove() {} } } };
+  t.after(() => {
+    if (previousDocument) globalThis.document = previousDocument;
+    else delete globalThis.document;
+  });
+
+  const classes = new Set(['ready', 'title-keyart-on']);
+  const keyArt = { complete: true, naturalWidth: 1920, addEventListener() {} };
+  const splash = Object.assign(new EventTarget(), {
+    style: {},
+    classList: { contains: (c) => classes.has(c), add: (c) => classes.add(c) },
+    querySelector: (s) => s === '.title-keyart' ? keyArt : null,
+  });
+  const title = new TitleScreen(splash, { still: false });
+  title.warm();
+  title.ready = true;
+  const enter = t.mock.fn();
+  title.exit(enter);
+  assert.ok(classes.has('leaving') && !classes.has('hidden') && title.worldHidden);
+  assert.equal(enter.mock.callCount(), 0);
+
+  for (const propertyName of ['transform', 'opacity', 'opacity']) {
+    splash.dispatchEvent(Object.assign(new Event('transitionend'), { propertyName }));
+    assert.equal(enter.mock.callCount(), propertyName === 'opacity' ? 1 : 0);
+  }
+  assert.ok(classes.has('hidden') && !title.active && !title.worldHidden);
+});
+
 test('the splash keeps #splash-enter and the loading bar, and the picker keeps class names clickable', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   const splash = html.slice(html.indexOf('<div id="splash"'), html.indexOf('<script type="module"'));
   assert.match(splash, /<button id="splash-enter">/);
+  assert.match(splash, /class="splash-brand-primary">\s*<span class="splash-brand-mark">\s*<img src="assets\/logo\.svg"[^>]*>\s*<\/span>\s*<span>A-Worthy Education<\/span>/);
+  assert.match(splash, /class="splash-brand-nib">\s*<img src="assets\/education-gold-nib\.webp"/);
+  assert.match(splash, /class="splash-enter-label">Begin adventure</);
+  assert.match(splash, /class="splash-scene">Transit Road, Nee Soon Camp</);
+  assert.match(splash, /class="sl-status">Unfolding the map&hellip;</);
   assert.match(splash, /id="splash-loader" role="progressbar"[^>]*aria-valuenow="0"/);
   for (const cls of ['title-skyline', 'title-heroes', 'title-particles', 'title-fade', 'sl-fill', 'sl-tip']) assert.ok(splash.includes(`class="${cls}"`), cls);
   assert.match(html, /<link rel="stylesheet" href="styles\/title.css" \/>/);
@@ -167,10 +244,10 @@ test('the splash shows the title once alongside the mascot', () => {
   // One mascot, inside the crest with the title (title.css sets it in the sunburst's disc).
   assert.equal((splash.match(/class="splash-mascot"/g) || []).length, 1);
   assert.match(splash, /<div class="splash-crest">\s*<img src="assets\/title\/mascot-sit\.webp" alt="" class="splash-mascot" \/>\s*<h1 class="splash-title">A-Worthy Adventure<\/h1>\s*<\/div>/);
-  // No second logo and no "by A Worthy" line under the title.
-  assert.ok(!splash.includes('splash-logo') && !splash.includes('logo.svg'), 'no logo under the title');
+  // The brand lockup stays in the corner rather than repeating under the title.
+  assert.doesNotMatch(splash.slice(splash.indexOf('class="splash-inner"')), /splash-logo|logo\.svg/, 'no logo under the title');
   assert.ok(!/by <b>A/.test(splash), 'no "by A Worthy" line');
-  assert.match(splash, /class="splash-sub">Explore a Singapore of shophouses, forest trails and spirits\.</);
+  assert.match(splash, /class="splash-sub">\s*<strong class="splash-tagline">Always an adventure with A-Worthy<\/strong>\s*Explore the A-Worthy World, any way you like\.\s*<\/p>/);
   const css = readFileSync(new URL('../styles/title.css', import.meta.url), 'utf8');
   assert.match(css, /#splash\.title-banner \.splash-crest \.splash-mascot \{[^}]*position: absolute;/);
   // Small screens: the mascot's round portrait fills the disc instead (MD-1).

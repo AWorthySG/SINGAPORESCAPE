@@ -203,19 +203,18 @@ function wire(body, view, c, data) {
 }
 
 // ---------------- Entry points ----------------
-/** The title screen's "Account" button and status line, under Enter. */
+/** The title screen's account button and status, under the primary action. */
 export function mountTitleAccount(splash) {
   const enter = splash?.querySelector('#splash-enter');
   if (!enter || splash.querySelector('#splash-account')) return;
   const box = document.createElement('div');
   box.className = 'splash-account';
-  box.innerHTML = '<button id="splash-account" type="button">Account</button><span class="sa-status" aria-live="polite"></span>';
-  enter.insertAdjacentElement('afterend', box);
+  box.innerHTML = '<button id="splash-account" type="button">Account &amp; saves</button><span class="sa-status" aria-live="polite"></span>';
+  (enter.closest('.splash-action') || enter).insertAdjacentElement('afterend', box);
   const btn = box.querySelector('button'), st = box.querySelector('.sa-status');
   btn.addEventListener('click', (e) => { e.stopPropagation(); openAccount(); });
   const show = (c) => {
-    btn.textContent = c.signedIn ? `Account: ${c.account.username}` : 'Account / cloud save';
-    st.textContent = c.signedIn ? c.statusText() : 'Playing as a guest: saved on this device';
+    st.textContent = c.signedIn ? c.statusText() : 'Saved on this device';
     st.dataset.s = c.status;
   };
   sync().onChange(show);
