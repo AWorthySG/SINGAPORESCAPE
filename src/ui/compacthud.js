@@ -1,35 +1,26 @@
-// The compact HUD: small bits of state that let styles/compact.css keep the
-// screen clear without losing anything.
-//  - The Auto button (every screen now, not just phones) names what is on:
-//    "Auto", "Battle", "Battle + Quest", and "Grave" while a gravestone waits.
-//  - The chat goes quiet a few seconds after its last non-combat line: on a
-//    mouse it folds to one line showing that message; hover brings it back.
-//  - The area name at the top centre shows on arrival, then gives way to the
-//    minimap's own caption (it stays while the minimap is folded).
-//  - The objectives doze on every screen: with nothing new on them for a while
-//    they fold to a small "Objectives" chip; a new goal, a tap or (with a
-//    mouse) hovering over the chip wakes them.
-//  - #game-root.calm: out of combat, so an empty adrenaline bar can hide.
-// The rules are pure functions below (tested headlessly); the class only
-// toggles classes and text, once a tick, and does nothing headless.
+// Small readouts that change with play: the Auto modes, the folded log's
+// latest loot, the arrival caption, and whether an empty adrenaline bar can
+// hide. The full log only opens when asked. Background chat is still recorded
+// there, but it never opens the log or replaces the loot preview.
 
-export const CHAT_QUIET_MS = 9000;     // a chat with nothing new for this long folds to one line (mouse only)
+export const LOOT_PEEK_MS = 6000;
 export const REGION_SHOW_MS = 6000;    // the top-centre area name shows this long after you arrive
-export const TRACKER_DOZE_MS = 15000;  // objectives with no news for this long fold to a chip
 
 /** The Auto button's caption: what's switched on, or "Auto" when nothing is.
  *  A waiting gravestone is added, as its button lives in the folded card. */
 export function autoLabel({ battle = false, gather = false, quest = false, grave = false } = {}) {
   const on = [battle && 'Battle', gather && 'Gather', quest && 'Quest'].filter(Boolean);
-  let text = on.length === 0 ? 'Auto' : on.length === 3 ? 'Auto: all' : on.join(' + ');
+  let text = on.length === 0 ? 'Auto' : on.length === 1 ? `Auto ${on[0]}` : on.length === 3 ? 'Auto: all' : on.join(' + ');
   if (grave) text += ' · Grave';
   return text;
 }
 
-/** True when the chat should fold to its one-line peek. */
-export function chatQuiet({ now, lastAt, hovered = false, focused = false }) {
-  if (hovered || focused) return false;
-  return now - (lastAt || 0) >= CHAT_QUIET_MS;
+/** A short excerpt of the game's pickup and named drop messages. */
+export function lootExcerpt(text, cls) {
+  if (cls === 'combat' || typeof text !== 'string') return '';
+  const small = text.match(/^You (?:loot: |pick up )(.+)\.$/);
+  if (small) return `Loot · ${small[1]}`;
+  return /^(?:A rare drop!|Signature drop!|Tool drop!|Boss trophy!) /.test(text) ? text : '';
 }
 
 /** Whether the top-centre area name shows: just after it changed, or always
@@ -38,50 +29,28 @@ export function regionShown({ now, changedAt, minimapFolded = false }) {
   return minimapFolded || now - (changedAt ?? -Infinity) < REGION_SHOW_MS;
 }
 
-/** What counts as news on the tracker: its words without any numbers. Distances
- *  change with every step ("42m"), and counts like a kill streak or "3/11"
- *  with every kill, so only a new or different goal wakes it. */
-export function trackerSig(text) {
-  return String(text || '').replace(/[×x]?\d[\d.,:\/%+]*\s?(?:km|m|s)?/g, '').replace(/\s+/g, ' ').trim();
-}
-
-/** True when the tracker should fold to its chip. */
-export function trackerDozing({ now, changedAt, wokeAt = -Infinity }) {
-  return now - Math.max(changedAt ?? -Infinity, wokeAt) >= TRACKER_DOZE_MS;
-}
-
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 export class CompactHud {
   constructor(ui) {
     this.ui = ui;
     this.game = ui.game;
-    this._chatAt = now();
+    this._lootAt = -Infinity;
+    this._lootText = '';
     this._region = null;
     this._regionAt = -Infinity;
     this._label = '';
-    this._trkSig = null;
-    this._trkAt = now();
-    this._trkWoke = -Infinity;
     this.game.bus.on('chat', (p) => this.onChat(p || {}));
     this.game.bus.on('tick', () => this.tick());
     for (const ev of ['autobattle', 'autogather', 'autoquest']) this.game.bus.on(ev, () => this.tick());
   }
 
   onChat({ text, cls }) {
-    // Hits and misses stream all fight long; only other news wakes the chat.
-    if (cls === 'combat') return;
-    this._chatAt = now();
-    if (text) this._peekText = text;
-    // A kill brings a burst of lines (loot, XP, a level): the peek shows the
-    // last of them and the HUD is checked once, at the end of the burst.
-    const show = () => {
-      const peek = this._peek();
-      if (peek && this._peekText) { peek.textContent = this._peekText; peek.title = this._peekText; }
-      this._peekText = '';
-      this.tick();
-    };
-    if (this.ui._coalesce) this.ui._coalesce('chatpeek', show); else show();
+    const loot = lootExcerpt(text, cls);
+    if (!loot) return;
+    this._lootAt = now();
+    this._lootText = loot;
+    if (this.ui._coalesce) this.ui._coalesce('lootpeek', () => this.tick()); else this.tick();
   }
 
   _peek() {
@@ -93,19 +62,6 @@ export class CompactHud {
     el.setAttribute('aria-hidden', 'true');   // the log itself is what screen readers read
     head.querySelector('#chat-title')?.after(el);
     this._peekEl = el;
-    return el;
-  }
-
-  /** A tap on the dozing chip wakes the tracker (rather than folding it for good). */
-  _wireTracker() {
-    const el = document.getElementById('quest-tracker');
-    el?.addEventListener('click', (e) => {
-      if (!el.classList.contains('dozing')) return;
-      e.stopImmediatePropagation();
-      e.preventDefault();
-      this._trkWoke = now();
-      el.classList.remove('dozing');
-    }, true);
     return el;
   }
 
@@ -121,27 +77,24 @@ export class CompactHud {
 
     const btn = this._auto || (this._auto = document.getElementById('auto-menu-btn'));
     if (btn) {
-      const label = autoLabel({ battle: !!g.autoBattle, gather: !!g.autoGather, quest: !!g.autoQuest, grave: !!g.play?.grave });
+      const { autoBattle: battle, autoGather: gather, autoQuest: quest } = g;
+      const grave = !!g.play?.grave;
+      const label = autoLabel({ battle, gather, quest, grave });
       if (label !== this._label) {
         this._label = label;
         btn.innerHTML = `<span class="am-dot" aria-hidden="true"></span><span class="am-text">${label}</span>`;
-        btn.classList.toggle('grave', !!g.play?.grave);
+        btn.title = `Auto modes · Battle ${battle ? 'on' : 'off'} · Gather ${gather ? 'on' : 'off'} · Quest ${quest ? 'on' : 'off'}${grave ? ' · Gravestone waiting' : ''}`;
+        btn.setAttribute('aria-label', `${label} — automation controls`);
+        btn.classList.toggle('running', !!(battle || gather || quest));
+        btn.classList.toggle('grave', grave);
       }
     }
 
     const chat = this._chat || (this._chat = document.getElementById('chatbox'));
     if (chat) {
-      const quiet = chatQuiet({ now: t, lastAt: this._chatAt, hovered: chat.matches?.(':hover'), focused: chat.matches?.(':focus-within') });
-      chat.classList.toggle('quiet', quiet);
-      this._peek();
-    }
-
-    const trk = this._trk || (this._trk = this._wireTracker());
-    if (trk) {
-      const sig = trackerSig(trk.textContent);
-      if (sig !== this._trkSig) { this._trkSig = sig; this._trkAt = t; }
-      if (trk.matches?.(':hover')) this._trkWoke = t;   // a mouse resting on it keeps it open
-      trk.classList.toggle('dozing', !trk.classList.contains('folded') && trackerDozing({ now: t, changedAt: this._trkAt, wokeAt: this._trkWoke }));
+      const peek = this._peek();
+      const loot = t - this._lootAt < LOOT_PEEK_MS ? this._lootText : '';
+      if (peek && peek.textContent !== loot) { peek.textContent = loot; peek.title = loot; }
     }
 
     const region = this._regionEl || (this._regionEl = document.getElementById('region-label'));

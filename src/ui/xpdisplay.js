@@ -45,7 +45,7 @@ export class XpDisplay {
 
   _root() {
     if (this.el || typeof document === 'undefined') return this.el;
-    const host = document.getElementById('minimap-panel');
+    const host = document.getElementById('minimap-dock') || document.getElementById('minimap-panel');
     if (!host) return null;
     const el = document.createElement('div');
     el.id = 'xp-hud';

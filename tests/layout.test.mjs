@@ -141,7 +141,7 @@ test('sheets: a swipe down or a tap on the handle closes; a short drag snaps bac
   let folded = 0;
   const prev = { document: globalThis.document, matchMedia: globalThis.matchMedia };
   globalThis.document = { getElementById: () => null };
-  globalThis.matchMedia = (q) => ({ matches: !q.includes('max-height: 500px)') || q.includes('pointer'), addEventListener() {} });
+  globalThis.matchMedia = (q) => ({ matches: q.includes('(orientation: portrait)'), addEventListener() {} });
   try {
     const ui = { el: { sidepanel: panel, panelHead: head, modalTitle: null }, _collapseApply: { panel: () => { folded++; } } };
     UI.prototype._initSheets.call(ui);
@@ -200,7 +200,7 @@ test('the notification lane: top centre on a desktop, under the objectives on a 
   // objectives down the left; the lane goes under them, left of the minimap.
   const phone = placeLane({
     'boss-bar': rect(6, 6, 278, 48), 'wave-hud': rect(6, 54, 278, 50), 'quest-tracker': rect(6, 104, 200, 40),
-    'minimap-panel': rect(296, 6, 126, 150), 'hp-orb': rect(380, 160, 36, 36), sidepanel: rect(366, 222, 56, 56),
+    'minimap-panel': rect(296, 6, 126, 150), 'minimap-dock': rect(296, 156, 126, 72), sidepanel: rect(366, 236, 56, 56),
   }, 428, 'phone');
   assert.deepEqual(phone, { top: 150, left: 6, width: 284 });
   // The minimap folded (just its small button left): the lane stops short of
@@ -209,13 +209,16 @@ test('the notification lane: top centre on a desktop, under the objectives on a 
     'quest-tracker': rect(6, 6, 200, 200), 'minimap-panel': rect(346, 6, 38, 38), sidepanel: rect(330, 194, 52, 52),
   }, 390, 'phone');
   assert.deepEqual(folded, { top: 212, left: 6, width: 318 }, 'clear of the Bag / Skills launcher');
-  // A very narrow phone: a strip right across, under the minimap and orbs, short of the launcher.
-  const tiny = placeLane({ 'quest-tracker': rect(6, 6, 120, 40), 'minimap-panel': rect(180, 6, 134, 150), 'hp-orb': rect(270, 160, 36, 36), sidepanel: rect(258, 222, 56, 56) }, 320, 'phone');
-  assert.ok(tiny.top >= 210 && tiny.left === 6 && tiny.left + tiny.width <= 258 - 6);
+  // A very narrow phone: the lane descends below the footer and leaves quick-use accessible.
+  const tiny = placeLane({
+    'quest-tracker': rect(6, 6, 120, 40), 'minimap-panel': rect(180, 6, 134, 150),
+    'minimap-dock': rect(154, 156, 160, 58), quickbar: rect(208, 222, 44, 44), sidepanel: rect(258, 222, 56, 56),
+  }, 320, 'phone');
+  assert.deepEqual(tiny, { top: 220, left: 6, width: 196 });
   // A phone on its side: along the top, right of the objectives, short of the Bag.
   const side = (extra = {}) => ({
     'quest-tracker': rect(6, 6, 186, 58), sidepanel: rect(472, 6, 56, 56),
-    'minimap-panel': rect(616, 6, 128, 130), 'spec-orb': rect(560, 36, 30, 30), ...extra,
+    'minimap-panel': rect(616, 6, 128, 130), 'minimap-dock': rect(604, 136, 140, 64), ...extra,
   });
   const flat = placeLane(side(), 750, 'flat');
   assert.deepEqual([flat.top, flat.left], [6, 200], 'level with the objectives, just right of them');
@@ -288,7 +291,7 @@ test('sheets never start a drag (or capture the pointer) on a tab, slot, row or 
   let folded = 0;
   const prev = { document: globalThis.document, matchMedia: globalThis.matchMedia };
   globalThis.document = { getElementById: () => null };
-  globalThis.matchMedia = (q) => ({ matches: !q.includes('max-height: 500px)') || q.includes('pointer'), addEventListener() {} });
+  globalThis.matchMedia = (q) => ({ matches: q.includes('(orientation: portrait)'), addEventListener() {} });
   try {
     UI.prototype._initSheets.call({ el: { sidepanel: panel, panelHead: head, modalTitle: null }, _collapseApply: { panel: () => { folded++; } } });
     fire('pointerdown', { clientX: 10, clientY: 100, pointerId: 1, target: el('button') });

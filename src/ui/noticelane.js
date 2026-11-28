@@ -224,24 +224,32 @@ export function laneMode() {
   return flat ? 'flat' : 'desk';
 }
 
-const IDS = ['region-label', 'quest-tracker', 'boss-bar', 'wave-hud', 'minimap-panel', 'hp-orb', 'hp-bar', 'spec-orb', 'prayer-orb', 'sidepanel'];
+const IDS = ['region-label', 'quest-tracker', 'boss-bar', 'wave-hud', 'minimap-panel', 'minimap-dock',
+  'hp-bar', 'sidepanel', 'quickbar', 'combat-resources', 'adrenaline', 'xp-hud'];
 
 /** The on-screen boxes the lane steers round, by id (missing when hidden). */
 function liveBoxes() {
   const out = {};
   for (const id of IDS) {
     const e = document.getElementById(id);
-    if (!e || e.classList.contains('hidden') || !e.offsetParent) continue;
+    if (!e || e.classList.contains('hidden') || e.classList.contains('idle')) continue;
     const r = e.getBoundingClientRect();
     if (r.width && r.height) out[id] = r;
   }
-  out.caps = [...document.querySelectorAll('#minimap-panel .orb-cap')].map((e) => e.getBoundingClientRect()).filter((r) => r.width);
   return out;
 }
 
 /** Where the lane goes: { top, left, width } in px. Pure, for the tests.
  *  `b` maps element ids to their boxes ({ left, top, right, bottom, width, height }). */
 export function placeLane(b, vw, mode) {
+  const map = b['minimap-panel'], dock = b['minimap-dock'];
+  const mm = map && dock ? {
+    left: Math.min(map.left, dock.left),
+    right: Math.max(map.right, dock.right),
+    bottom: Math.max(map.bottom, dock.bottom),
+  } : map || dock;
+  const bag = b.sidepanel?.width < 100 ? b.sidepanel : null;
+  const rightStrip = [bag, b.quickbar, b['combat-resources'], b.adrenaline, b['xp-hud']];
   const below = (top, left, width) => {
     // The boss bar and the Endless Gate panel can share the column (and on a
     // phone your life bar tops it): go under them.
@@ -256,44 +264,43 @@ export function placeLane(b, vw, mode) {
     // Top-left, under the objectives (and the boss bar / gate panel above them),
     // as wide as the gap left of the minimap.
     left = b['quest-tracker']?.left ?? b['boss-bar']?.left ?? 6;
-    const mm = b['minimap-panel'];
     width = (mm ? mm.left - 6 : vw - 6) - left;
     top = below(6, left, width);
-    // With the minimap folded the gap reaches past the Bag launcher under it:
-    // stop short of the launcher, so a card never sits over it.
-    const bag = b.sidepanel;
-    if (bag && bag.width < 100 && bag.left < left + width && bag.bottom > top) width = bag.left - 6 - left;
-    // The orbs (and their labels) sit under the minimap but reach further left
-    // than it: stop short of them too, or a tip covers the HP and Special orbs.
-    for (const r of [b['spec-orb'], b['prayer-orb'], b['hp-orb'], ...(b.caps || [])]) {
-      if (r && r.left < left + width && r.right > left && r.top < top + 120 && r.bottom > top) width = Math.min(width, r.left - 8 - left);
-    }
+    const clearRight = () => {
+      for (const r of rightStrip) {
+        if (r && r.left > vw * 0.44 && r.bottom > top && r.top < top + 145) {
+          width = Math.min(width, r.left - 6 - left);
+        }
+      }
+    };
+    clearRight();
     if (width < 200) {
-      // A very narrow screen: a strip right across, under the minimap and its orbs.
+      // Borrow the space under a wider map footer while keeping the launcher
+      // and quick items available. On the narrowest phones the lane can use
+      // the original column when all the available space is to its left.
+      const column = { left, top, width };
       left = 6; width = vw - 12;
-      top = Math.max(top, mm ? mm.bottom + 6 : 0, b['hp-orb'] ? b['hp-orb'].bottom + 14 : 0);
-      const dock = b.sidepanel;
-      if (dock && dock.width < 100 && dock.bottom > top && dock.left > left) width = Math.min(width, dock.left - 6 - left);
+      top = Math.max(top, mm ? mm.bottom + 6 : 0);
+      clearRight();
+      if (column.width >= width) ({ left, top, width } = column);
     }
   } else if (mode === 'flat') {
     // A phone on its side: right of the strip (objectives, boss bar, gate
-    // panel), left of the Bag launcher, the orbs and the minimap.
+    // panel), left of the Bag launcher and the minimap.
     let lo = 6, hi = vw - 6;
     top = Infinity;
     for (const id of ['quest-tracker', 'boss-bar', 'wave-hud']) {
       const r = b[id];
       if (r && r.left < vw / 2) { lo = Math.max(lo, r.right + 8); top = Math.min(top, r.top); }
     }
-    for (const r of [b['minimap-panel'], b['spec-orb'], b['prayer-orb'], b['hp-orb'], ...(b.caps || [])]) {
-      if (r && r.left > vw / 2) hi = Math.min(hi, r.left - 8);
-    }
+    if (mm && mm.left > vw / 2) hi = Math.min(hi, mm.left - 8);
     if (top === Infinity) top = 6;
     left = lo;
     width = Math.min(340, hi - lo);
-    const bag = b.sidepanel;
-    if (bag && bag.width < 100 && bag.right > lo && bag.left < hi) {
-      if (bag.left - 8 - lo >= 220) width = Math.min(width, bag.left - 8 - lo);
-      else top = Math.max(top, bag.bottom + 6);
+    for (const r of rightStrip) {
+      if (!r || r.right <= lo || r.left >= hi || r.bottom <= top || r.top >= top + 110) continue;
+      if (r.left - 8 - lo >= 220) width = Math.min(width, r.left - 8 - lo);
+      else top = Math.max(top, r.bottom + 6);
     }
     width = Math.max(120, width);
   } else {
@@ -304,9 +311,9 @@ export function placeLane(b, vw, mode) {
     top = below(rl ? rl.bottom + 6 : 44, left, width);
     // A side panel made wider or taller (panelsize.js) can reach in under the
     // lane's right end: the lane stops short of it (a few cards run ~250px down).
-    const dock = b.sidepanel;
-    if (dock && dock.width >= 100 && dock.left < left + width + 8 && dock.top < top + 260) {
-      width = Math.max(200, Math.min(width, dock.left - 8 - left));
+    const panel = b.sidepanel;
+    if (panel && panel.width >= 100 && panel.left < left + width + 8 && panel.top < top + 260) {
+      width = Math.max(200, Math.min(width, panel.left - 8 - left));
     }
   }
   return { top: Math.round(top), left: Math.round(left), width: Math.round(width) };

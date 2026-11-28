@@ -119,9 +119,9 @@ test('item descriptions stay up: through the bag redrawing under the mouse, and 
   assert.match(ui, /if \(host && o && !o\.isConnected && host\._tipGet\)/, 'a redrawn copy of the item keeps the tip');
 });
 
-test('quiet and collapsed chat previews use the chat header foreground colour', () => {
-  const css = readFileSync(new URL('../styles/compact.css', import.meta.url), 'utf8');
-  assert.match(css, /#chatbox\.quiet #chat-peek, #chatbox\.collapsed #chat-peek \{[^}]*color: inherit;/);
+test('the collapsed log loot preview uses the header foreground colour', () => {
+  const css = readFileSync(new URL('../styles/hud-information.css', import.meta.url), 'utf8');
+  assert.match(css, /#chatbox\.collapsed #chat-peek:not\(:empty\) \{[^}]*color: inherit;/);
 });
 
 test('the locked ability badge explains its level and returns to the normal cooldown when unlocked', () => {

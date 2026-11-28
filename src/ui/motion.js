@@ -115,7 +115,8 @@ export function exitGhost(el, cls, { game, costly = false, prune } = {}) {
  *  showing view, not the hidden ones) plays the exit. */
 export function sheetCloseGhost(panel, game) {
   if (!panel || typeof matchMedia !== 'function') return null;
-  if (!matchMedia('(pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px)').matches) return null;
+  const side = matchMedia('(pointer: coarse) and (orientation: landscape) and (max-height: 500px)').matches;
+  if (!side && !matchMedia('(pointer: coarse) and (orientation: portrait)').matches) return null;
   // Copy the panel as it was open: put its open classes back on the copy.
   const ghost = exitGhost(panel, 'sheet-ghost', { game, costly: true, prune: (c) => c.id === 'panel-body' });
   if (!ghost) return null;
@@ -132,7 +133,7 @@ export function sheetCloseGhost(panel, game) {
   // Let go part-way down a drag: it carries on from there (the slide's start
   // is the copy's own position).
   const d = panel._dragD || 0;
-  if (d > 0) ghost.style.transform = matchMedia('(max-height: 500px)').matches ? `translateX(${d}px)` : `translateY(${d}px)`;
+  if (d > 0) ghost.style.transform = side ? `translateX(${d}px)` : `translateY(${d}px)`;
   return ghost;
 }
 

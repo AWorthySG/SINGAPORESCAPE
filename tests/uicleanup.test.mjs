@@ -85,16 +85,20 @@ test('a tip card puts itself away after about six seconds', () => {
 });
 
 // ---------------- Objectives ----------------
-test('the objectives show three rows (two on a phone), the rest behind "+N more"', () => {
+test('the leading objective stays visible while details expand on demand', () => {
   const rows = [1, 2, 3, 4, 5].map((i) => `<div class="trk-row">Row ${i}</div>`);
   const short = trackerHTML(rows, false);
   assert.equal(TRACKER_ROWS, 3);
   assert.ok(short.includes('Row 3') && !short.includes('Row 4'), 'three rows');
-  assert.match(short, /class="trk-more">\+2 more</);
+  assert.match(short, /class="trk-more"[^>]*>\+2 more</);
   const all = trackerHTML(rows, false, { open: true });
   assert.ok(all.includes('Row 5') && all.includes('Show less'), 'a tap shows them all');
   const phone = trackerHTML(rows, false, { max: TRACKER_ROWS_PHONE });
   assert.ok(phone.includes('Row 2') && !phone.includes('Row 3') && phone.includes('+3 more'), 'two on a phone');
+  const leading = trackerHTML(rows, false, { max: 1 });
+  assert.ok(leading.includes('Row 1') && !leading.includes('Row 2'));
+  assert.match(leading, /aria-expanded="false" aria-controls="tracked-objectives"[^>]*>\+4 more</);
+  assert.match(all, /id="tracked-objectives" class="trk-rows" tabindex="0"/);
   assert.ok(!trackerHTML(rows.slice(0, 3), false).includes('trk-more'), 'nothing to fold at three');
   assert.ok(!trackerHTML(rows, true).includes('trk-more'), 'a folded tracker is one line');
 });

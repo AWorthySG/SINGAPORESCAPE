@@ -64,9 +64,11 @@ export function trackerHTML(rows, folded, { max = TRACKER_ROWS, open = false } =
     + (folded ? `&#9733; ${n || rows.length} objective${(n || rows.length) === 1 ? '' : 's'}` : 'Objectives')
     + `<span class="trk-chev" aria-hidden="true">${glyphArtHTML('ui-collapse', folded ? '&#9656;' : '&#9662;', 14)}</span></button>`;
   if (folded) return head;
-  if (rows.length <= max) return head + rows.join('');
-  if (open) return head + rows.join('') + '<button type="button" class="trk-more">Show less</button>';
-  return head + rows.slice(0, max).join('') + `<button type="button" class="trk-more">+${rows.length - max} more</button>`;
+  const extra = rows.length - max;
+  const content = open ? rows : rows.slice(0, max);
+  const more = extra > 0 ? `<button type="button" class="trk-more" aria-expanded="${open}" aria-controls="tracked-objectives" aria-label="${open ? 'Show only the leading objective' : `Show ${extra} more objective details`}">${open ? 'Show less' : `+${extra} more`}</button>` : '';
+  const scrollable = open && extra > 0 ? ' tabindex="0" role="group" aria-label="Objective details"' : '';
+  return `${head}${more}<div id="tracked-objectives" class="trk-rows"${scrollable}>${content.join('')}</div>`;
 }
 
 /** True when the shop's sell side (your pack) is small beside its stock, so

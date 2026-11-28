@@ -208,7 +208,7 @@ test('the minimap stylesheet: linked before compact.css, the canvas carries the 
   const mm = html.indexOf('styles/minimap.css'), compact = html.indexOf('styles/compact.css');
   assert.ok(mm > 0 && mm < compact, 'minimap.css comes before compact.css');
   const links = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map((m) => m[1]);
-  assert.equal(links[links.length - 1], 'styles/compact.css', 'compact.css stays last');
+  assert.ok(links.indexOf('styles/compact.css') < links.indexOf('styles/hud.css'), 'the game HUD theme follows compact.css');
   const css = readFileSync(new URL('../styles/minimap.css', import.meta.url), 'utf8');
   assert.match(css, /#minimap-compass \{ display: none; \}/, 'the separate N badge gives way to the ring\'s own');
   assert.match(css, /#minimap-panel #minimap-region \{[^}]*margin-top: -14px/, 'the area name hangs off the ring');

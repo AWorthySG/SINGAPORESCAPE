@@ -64,9 +64,9 @@ export function whatNextTrackerRows(ui) {
     });
   }
   if (!goal) return [];
-  return [`<div class="trk-row trk-next" role="button" tabindex="0" title="${esc(goal.title)}: ${esc(goal.text)}">`
+  return [`<button type="button" class="trk-row trk-next" title="${esc(goal.title)}: ${esc(goal.text)}">`
     + `<span class="trk-ic">&#10148;</span><span class="trk-next-text">${esc(goal.kind === 'quest' ? `${goal.title}: ${goal.text}` : goal.title)}</span>`
-    + `<span class="trk-go">${esc(goal.go)}</span></div>`];
+    + `<span class="trk-go">${esc(goal.go)}</span></button>`];
 }
 
 /** Keep the journal's card current: when the goals change (new loot, a level,

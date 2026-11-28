@@ -1,0 +1,245 @@
+/* Touch keeps the playfield between its status strip and the two thumb zones. */
+@media (pointer: coarse) {
+  #game-root {
+    --hud-left: calc(10px + var(--sa-l));
+    --hud-right: calc(10px + var(--sa-r));
+    --hud-top: calc(8px + var(--sa-t));
+    --hud-map-size: clamp(98px, 23dvw, 144px);
+    --hud-nav-width: max(154px, var(--hud-map-size));
+    --hud-map-bottom: calc(var(--hud-map-size) + 72px);
+    --hud-nav-top: calc(var(--hud-top) + var(--hud-map-bottom) + 8px);
+    --hud-res-top: calc(var(--hud-nav-top) + 60px);
+    --hud-strip-width: min(320px, calc(100% - var(--hud-left) - var(--hud-right) - var(--hud-nav-width) - 10px));
+    --hud-boss-top: calc(var(--hud-top) + 36px);
+    --hud-boss-row: 0px;
+    --hud-wave-row: 0px;
+    --hud-tracker-top: calc(var(--hud-boss-top) + var(--hud-boss-row) + var(--hud-wave-row));
+    --hud-stick: clamp(92px, 25dvw, 114px);
+    --pad-r: var(--hud-right);
+    --pad-b: calc(12px + var(--sa-b));
+    --auto-b: calc(var(--pad-b) + var(--hud-stick) + 8px);
+    --hud-log-bottom: calc(var(--auto-b) + 50px);
+    --atk: 66px;
+    --sk: 44px;
+  }
+  #game-root:has(#boss-bar:not(.hidden)) { --hud-boss-row: 60px; }
+  #game-root:has(#wave-hud:not(.hidden)) { --hud-wave-row: 56px; }
+  #game-root:has(#minimap-panel.collapsed) { --hud-map-bottom: 44px; }
+
+  #game-root #hp-bar {
+    top: var(--hud-top); left: var(--hud-left); bottom: auto;
+    width: var(--hud-strip-width); height: 28px; transform: none;
+  }
+  #game-root #boss-bar {
+    top: var(--hud-boss-top); left: var(--hud-left); width: var(--hud-strip-width);
+    max-width: none; height: 52px; min-width: 0; transform: none;
+    margin: 0; padding: 3px 6px; gap: 5px;
+  }
+  #game-root #boss-bar #boss-bar-portrait {
+    width: clamp(27px, 7vw, 40px); height: clamp(27px, 7vw, 40px); margin: 0;
+  }
+  #game-root #boss-bar #boss-bar-head { margin-bottom: 2px; }
+  #game-root #boss-bar #boss-bar-name { margin-bottom: 0; font-size: var(--fs-xs); }
+  #game-root #boss-bar #boss-bar-info { margin-top: 2px; }
+  #game-root #boss-bar #boss-bar-cast { margin-top: 2px; }
+  #game-root #wave-hud {
+    top: calc(var(--hud-boss-top) + var(--hud-boss-row)); left: var(--hud-left);
+    width: var(--hud-strip-width); min-width: 0; max-width: none; height: 50px;
+    display: flex; align-items: center; gap: 4px; padding: 2px 4px 2px 6px;
+    font-size: var(--fs-xs); line-height: 1.2;
+  }
+  #wave-hud .wv-title, #wave-hud .wv-best { display: none; }
+  #wave-hud .wv-body { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #wave-hud .wv-leave { flex: none; min-width: 44px; min-height: 44px; width: auto; margin: 0; padding-inline: 8px; }
+  body #game-root #quest-tracker {
+    top: var(--hud-tracker-top); left: var(--hud-left); right: auto;
+    max-width: var(--hud-strip-width); max-height: 102px; overflow: auto; overscroll-behavior: contain;
+  }
+  #game-root #hover-text { display: none; }
+  #game-root:has(#minimap-panel:not(.collapsed)) #region-label { display: none; }
+  #game-root:has(#minimap-panel.collapsed) #region-label {
+    top: var(--hud-top); right: calc(var(--hud-right) + 50px); left: auto;
+    max-width: calc(var(--hud-nav-width) - 54px); margin: 0; transform: none;
+    overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-xs);
+  }
+
+  #game-root #minimap-panel {
+    top: var(--hud-top); right: var(--hud-right); width: var(--hud-map-size); height: var(--hud-map-size);
+    transform: none;
+  }
+  #game-root #minimap-panel.collapsed { width: 44px; height: 44px; }
+  #game-root #minimap-canvas { left: 2px; top: 2px; width: calc(100% - 4px); height: calc(100% - 4px); }
+  #game-root #minimap-collapse::before { inset: -12px; }
+  #game-root #minimap-panel.collapsed #minimap-dock { display: none; }
+  #game-root #minimap-dock { right: 0; left: auto; }
+  #game-root #minimap-dock :is(#map-btn, .tp-btn) { min-width: 44px; min-height: 44px; }
+
+  #game-root #sidepanel.collapsed {
+    top: var(--hud-nav-top); right: var(--hud-right); bottom: auto; left: auto; width: 52px;
+  }
+  #game-root #sidepanel.collapsed .tab-btn { min-width: 44px; min-height: 46px; }
+  #game-root #quickbar {
+    top: var(--hud-nav-top); right: calc(var(--hud-right) + 58px); bottom: auto; left: auto;
+    display: flex; flex-flow: row nowrap; gap: 5px; max-height: none; transform: none; margin: 0; padding: 0;
+  }
+  #game-root #quickbar > .qb-btn { width: 44px; height: 44px; }
+  #game-root #quickbar.open .qb-pop {
+    top: calc(100% + 8px); bottom: auto; right: 0;
+    max-height: max(92px, calc(100dvh - var(--hud-nav-top) - var(--pad-b) - 74px));
+  }
+  #game-root #combat-resources {
+    position: fixed; top: var(--hud-res-top); right: var(--hud-right); bottom: auto; left: auto;
+    display: flex; align-items: stretch; gap: 4px;
+  }
+  #game-root #combat-resources .orb {
+    position: relative; inset: auto; min-width: 46px; min-height: 44px; width: auto; height: auto;
+  }
+  #game-root #combat-resources .orb::before { inset: 0; }
+  #game-root #adrenaline {
+    position: fixed; top: calc(var(--hud-res-top) + 48px); right: var(--hud-right);
+    bottom: auto; left: auto; width: 124px; height: 16px;
+  }
+  #game-root #rep-pill {
+    top: auto; bottom: calc(var(--hud-log-bottom) + 52px); left: var(--hud-left); right: auto;
+    max-width: var(--hud-strip-width); transform: none;
+  }
+
+  #game-root #joystick { left: var(--hud-left); bottom: var(--pad-b); width: var(--hud-stick); height: var(--hud-stick); }
+  #game-root #joystick-knob { width: 42%; height: 42%; }
+  #game-root #ability-bar {
+    left: var(--hud-left); right: auto; top: auto; bottom: var(--auto-b); width: max-content;
+    margin: 0; padding: 0; transform: none;
+  }
+  #game-root #auto-menu-btn { min-height: 44px; max-width: 106px; }
+  #game-root #auto-menu-btn .am-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  #game-root #ability-bar .auto-row {
+    top: auto; bottom: 106px; left: 0; right: auto; width: max-content; transform: none;
+    max-width: calc(100dvw - var(--hud-left) - var(--hud-right));
+    max-height: max(96px, calc(100dvh - var(--auto-b) - 118px)); overflow: auto; overscroll-behavior: contain;
+  }
+  #game-root #chatbox {
+    left: var(--hud-left); right: auto; top: auto; bottom: var(--hud-log-bottom); transform: none;
+  }
+  #game-root #chatbox.collapsed { min-width: 64px; min-height: 44px; }
+  #game-root #chatbox.collapsed:has(#chat-peek:not(:empty)) { width: 106px; max-width: 106px; }
+  #game-root #chatbox:not(.collapsed) {
+    width: min(258px, calc(100dvw - var(--hud-left) - var(--hud-right))); max-width: none;
+    height: clamp(108px, calc(100dvh - var(--hud-log-bottom) - var(--hud-tracker-top) - 18px), 158px);
+  }
+  #game-root #attack-btn .atk-icon { font-size: 25px; }
+  #game-root #attack-btn::before { inset: -5px; }
+  #game-root #target-btn {
+    right: calc(var(--pad-r) + 3px); bottom: calc(var(--pad-b) + var(--atk) + 9px);
+  }
+  #game-root #ability-buttons .ability-btn :is(.ab-icon img, .ab-icon svg) { width: 26px; height: 26px; }
+  #game-root #ability-buttons .ability-btn:nth-child(1) { --ax: -62px; --ay: 0px; }
+  #game-root #ability-buttons .ability-btn:nth-child(2) { --ax: -118px; --ay: -8px; }
+  #game-root #ability-buttons .ability-btn:nth-child(3) { --ax: -73px; --ay: -49px; }
+  #game-root #ability-buttons .ability-btn:nth-child(4) { --ax: -123px; --ay: -59px; }
+  #game-root #ability-buttons .ability-btn:nth-child(5) { --ax: -76px; --ay: -100px; --sk: 48px; }
+  #game-root #interact-btn {
+    right: var(--pad-r); left: auto; bottom: calc(var(--pad-b) + var(--atk) + 62px);
+    width: 56px; height: 56px; min-height: 44px;
+  }
+  #game-root #quick-slot { right: calc(var(--pad-r) + 139px); bottom: calc(var(--pad-b) + 124px); width: 44px; height: 44px; }
+  #game-root #aim-cancel { right: var(--pad-r); bottom: calc(var(--pad-b) + 190px); width: 44px; height: 44px; }
+}
+
+/* Portrait opens the menu over the controls with a single scrolling body. */
+@media (pointer: coarse) and (orientation: portrait) {
+  #game-root #sidepanel:not(.collapsed), #game-root #sidepanel.wide:not(.collapsed) {
+    position: fixed; inset: auto 0 0; z-index: 70; width: min(100%, 560px); height: 56dvh;
+    max-width: none; max-height: 85dvh; margin: 0 auto; transform: none;
+    grid-template: auto auto minmax(0, 1fr) / minmax(0, 1fr); grid-template-areas: "head" "tabs" "body";
+    border-radius: 18px 18px 0 0; border-bottom: 0; padding-bottom: var(--sa-b);
+  }
+  #game-root #sidepanel.sheet-full:not(.collapsed) { height: 85dvh; }
+  #game-root #sidepanel:not(.collapsed) #panel-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  #game-root #sidepanel:not(.collapsed) #panel-body { height: auto; min-height: 0; max-height: none; contain: none; overscroll-behavior: contain; }
+  #game-root #sidepanel:not(.collapsed) .tab-btn { min-width: 0; min-height: 48px; }
+  #game-root #sidepanel:not(.collapsed) .sheet-handle {
+    display: block; position: absolute; top: 0; left: 36%; width: 28%; height: 44px; z-index: 1;
+    cursor: grab; touch-action: none;
+  }
+  #game-root #sidepanel:not(.collapsed) .sheet-handle::before {
+    top: 19px; left: 50%; width: 44px; height: 5px; margin: 0 0 0 -22px;
+  }
+}
+
+@media (pointer: coarse) and (orientation: portrait) and (prefers-reduced-motion: no-preference) {
+  body:not(.reduce-motion) #game-root #sidepanel:not(.collapsed) {
+    animation: uiSheetPop var(--dur-2) var(--ease-std); transform-origin: 50% 100%;
+  }
+  body:not(.reduce-motion) #game-root #sidepanel.ui-ghost.sheet-ghost { animation: uiSheetAway var(--dur-1) var(--ease-exit) forwards; }
+}
+
+/* In a short viewport, the navigation moves beside the map and the menu
+   opens from the right, leaving the joystick on the uncovered side. */
+@media (pointer: coarse) and (max-height: 500px) and (orientation: landscape) {
+  #game-root {
+    --hud-map-size: clamp(74px, 17dvw, 94px);
+    --hud-nav-member-r: calc(var(--hud-right) + var(--hud-map-size) + 8px);
+    --hud-res-right: calc(var(--hud-right) + 162px);
+    --hud-nav-width: 294px;
+    --hud-nav-top: var(--hud-top);
+    --hud-res-top: calc(var(--hud-top) + 62px);
+    --hud-stick: 92px;
+    --hud-log-bottom: var(--pad-b);
+    --atk: 62px;
+  }
+  #game-root #sidepanel.collapsed { right: var(--hud-nav-member-r); }
+  #game-root #quickbar { right: calc(var(--hud-nav-member-r) + 58px); }
+  #game-root #combat-resources, #game-root #adrenaline { right: var(--hud-res-right); }
+  #game-root:has(#minimap-panel.collapsed) #region-label {
+    top: var(--hud-res-top); right: var(--hud-right); max-width: 154px;
+  }
+  #game-root #quickbar.open .qb-pop { max-height: calc(100dvh - var(--hud-top) - var(--pad-b) - 62px); }
+  #game-root #rep-pill { bottom: calc(var(--auto-b) + 50px); }
+  body #game-root #quest-tracker {
+    max-height: clamp(28px, calc(100dvh - var(--hud-tracker-top) - var(--auto-b) - 50px), 84px);
+  }
+  #game-root #ability-bar .auto-row { left: calc(100% + 8px); bottom: 0; flex-flow: row wrap; max-width: min(320px, calc(100dvw - 124px)); }
+  #game-root #chatbox { left: calc(var(--hud-left) + var(--hud-stick) + 32px); }
+  #game-root #chatbox:not(.collapsed) {
+    width: clamp(124px, calc(100dvw - var(--hud-left) - var(--hud-right) - var(--hud-stick) - 270px), 256px);
+    height: min(144px, calc(100dvh - var(--pad-b) - var(--hud-top) - 46px));
+  }
+  #game-root #interact-btn { right: calc(var(--pad-r) + 177px); bottom: var(--pad-b); width: 52px; height: 52px; }
+  #game-root #ability-buttons .ability-btn:nth-child(5) { --ax: -155px; --ay: -107px; }
+  #game-root #quick-slot { right: calc(var(--pad-r) + 182px); bottom: calc(var(--pad-b) + 62px); }
+  #game-root #aim-cancel { right: calc(var(--pad-r) + 181px); bottom: calc(var(--pad-b) + 116px); }
+  #game-root #sidepanel:not(.collapsed), #game-root #sidepanel.wide:not(.collapsed) {
+    position: fixed; inset: 0 0 0 auto; z-index: 70; width: min(424px, 68dvw);
+    height: auto; max-width: none; max-height: none; transform: none;
+    grid-template-columns: 22px minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: "handle head" "handle tabs" "handle body";
+    border-radius: 18px 0 0 18px; border-right: 0; padding: var(--sa-t) var(--sa-r) var(--sa-b) 0;
+  }
+}
+
+/* A narrow mouse window still has keyboard shortcuts and scrolling content. */
+@media (pointer: fine) and (max-width: 540px) {
+  #game-root {
+    --hud-strip-width: calc(100% - 158px);
+    --hud-boss-row: 0px;
+    --hud-wave-row: 0px;
+  }
+  #game-root:has(#boss-bar:not(.hidden)) { --hud-boss-row: 56px; }
+  #game-root:has(#wave-hud:not(.hidden)) { --hud-wave-row: 54px; }
+  #game-root #hp-bar { top: 8px; left: 8px; bottom: auto; transform: none; width: var(--hud-strip-width); }
+  #game-root #minimap-panel { top: 8px; right: 8px; transform: none; }
+  #game-root:has(#minimap-panel:not(.collapsed)) #region-label { display: none; }
+  #game-root:has(#minimap-panel.collapsed) #region-label { top: 8px; left: auto; right: 44px; max-width: 100px; margin: 0; transform: none; }
+  body #game-root #boss-bar { top: 40px; left: 8px; width: var(--hud-strip-width); height: 48px; transform: none; }
+  #game-root #wave-hud { top: calc(40px + var(--hud-boss-row)); left: 8px; width: var(--hud-strip-width); min-width: 0; height: 48px; }
+  body #game-root #quest-tracker { top: calc(40px + var(--hud-boss-row) + var(--hud-wave-row)); left: 8px; max-width: var(--hud-strip-width); }
+  #game-root #quickbar { left: 8px; right: auto; width: min(302px, calc(100% - 74px)); gap: 3px; transform: none; }
+  #game-root #quickbar .qb-btn { min-width: 0; flex: 1 1 0; }
+  #game-root #sidepanel:not(.collapsed), #game-root #sidepanel.wide:not(.collapsed) {
+    position: fixed; inset: auto 0 0; width: 100%; height: min(56dvh, 360px); z-index: 70; max-width: none;
+    grid-template: auto auto minmax(0, 1fr) / minmax(0, 1fr); grid-template-areas: "head" "tabs" "body";
+    border-radius: 16px 16px 0 0; transform: none;
+  }
+  #game-root #sidepanel:not(.collapsed) #panel-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  #game-root #sidepanel:not(.collapsed) #panel-body { height: auto; min-height: 0; max-height: none; contain: none; }
+}

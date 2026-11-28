@@ -47,6 +47,11 @@
   <link rel="stylesheet" href="styles/heritage.css" />
   <!-- Compact HUD overrides: keep last (src/ui/compacthud.js) -->
   <link rel="stylesheet" href="styles/compact.css" />
+  <link rel="stylesheet" href="styles/hud.css" />
+  <link rel="stylesheet" href="styles/hud-desktop.css" />
+  <link rel="stylesheet" href="styles/hud-touch.css" />
+  <link rel="stylesheet" href="styles/hud-information.css" />
+  <link rel="stylesheet" href="styles/hud-panels.css" />
   <!-- modulepreload: the whole static import graph (node tools/modulepreload.mjs) -->
   <script>
   // Ask for every module at once (the browser would otherwise find them a few levels at a time).
@@ -393,21 +398,22 @@
         <span id="daynight-sun" class="dn-icon"></span>
         <span id="daynight-moon" class="dn-icon"></span>
       </div>
-      <button id="map-btn" title="Open world map (M)">MAP</button>
-      <div id="minimap-region"></div>
-      <div id="hp-orb" class="orb" title="Hitpoints"><span id="hp-orb-value">10</span><span class="orb-cap">HP</span></div>
-      <div id="prayer-orb" class="orb" title="Faith: full, it powers a Faith Burst (L)"><span id="prayer-orb-value">0</span><span class="orb-cap">Faith</span></div>
-      <div id="spec-orb" class="orb" title="Special attack — click to arm"><span id="spec-orb-value">100</span><span class="orb-cap">Special</span></div>
+      <div id="minimap-dock">
+        <div id="minimap-region"></div>
+        <nav class="hud-map-actions" aria-label="Travel">
+          <button type="button" id="map-btn" title="Open world map (M)" aria-keyshortcuts="M"><img class="ui-ic" src="assets/icons/ui-compass.webp" width="18" height="18" alt="" draggable="false" />Map</button>
+        </nav>
+      </div>
     </div>
 
-    <!-- Chat box (bottom-left) -->
+    <!-- Activity log (bottom-left) -->
     <div id="chatbox">
-      <div id="chat-head"><span id="chat-title">Chat</span><button id="chat-collapse" class="close-x" title="Collapse chat" aria-label="Collapse chat">&#9662;</button></div>
-      <div id="chat-log"></div>
+      <div id="chat-head"><span id="chat-title">Log</span><button type="button" id="chat-collapse" class="close-x" title="Collapse log" aria-label="Collapse log" aria-expanded="true" aria-controls="chat-log chat-tabs">&#9662;</button></div>
+      <div id="chat-log" role="region" aria-label="Activity messages" tabindex="0"></div>
       <div id="chat-tabs">
-        <span class="chat-tab active" data-filter="all">All</span>
-        <span class="chat-tab" data-filter="game">Game</span>
-        <span class="chat-tab" data-filter="combat">Combat</span>
+        <button type="button" class="chat-tab active" data-filter="all" aria-pressed="true">All</button>
+        <button type="button" class="chat-tab" data-filter="game" aria-pressed="false">Game</button>
+        <button type="button" class="chat-tab" data-filter="combat" aria-pressed="false">Combat</button>
       </div>
     </div>
 
@@ -470,8 +476,7 @@
     <div id="centre-hud">
       <!-- Active-combat ability bar (bottom-centre) -->
       <div id="ability-bar">
-        <!-- Phones: the three auto switches fold into this one button (see "Responsive layout" in main.css) -->
-        <button id="auto-menu-btn" aria-expanded="false" aria-controls="auto-row" title="Auto battle, gather and quest"><span class="am-dot" aria-hidden="true"></span>Auto</button>
+        <button type="button" id="auto-menu-btn" aria-expanded="false" aria-controls="auto-row" title="Auto battle, gather and quest"><span class="am-dot" aria-hidden="true"></span>Auto</button>
         <div class="auto-row" id="auto-row">
           <button id="auto-battle-btn" aria-keyshortcuts="T" class="ab-btn" aria-pressed="false" title="Auto battle (T): hunt monsters, eat when hurt and use your skills">
             <span class="ab-switch" aria-hidden="true"><i></i></span>
@@ -490,6 +495,10 @@
         <div id="adrenaline" title="Adrenaline — build it by landing and taking hits, spend it on abilities">
           <div id="adrenaline-fill"></div>
           <span id="adrenaline-label">ADRENALINE <b id="adrenaline-val">0%</b></span>
+        </div>
+        <div id="combat-resources">
+          <button type="button" id="prayer-orb" class="orb" title="Faith: full, it powers a Faith Burst (L)" aria-keyshortcuts="L"><span class="orb-cap">Faith</span><span id="prayer-orb-value">0</span></button>
+          <button type="button" id="spec-orb" class="orb disabled" title="Special attack — click to arm" aria-keyshortcuts="Q" aria-pressed="false"><span class="orb-cap">Special</span><span id="spec-orb-value">100</span></button>
         </div>
         <div id="ability-buttons"></div>
       </div>

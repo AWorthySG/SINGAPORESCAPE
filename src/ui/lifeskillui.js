@@ -54,7 +54,7 @@ export function openSkillContracts(ui) {
   ui.modal.kind = 'skillcontracts';
 }
 
-/** The Town and Grave buttons, added to the auto switches' card. */
+/** The Town and Grave buttons beside the world map. */
 class TeleportButtons {
   constructor(ui) {
     this.ui = ui;
@@ -64,18 +64,17 @@ class TeleportButtons {
   }
   _panel() {
     if (this.el || typeof document === 'undefined') return this.el;
-    const row = document.getElementById('auto-row');
-    if (!row) return null;
+    const travel = document.querySelector('#minimap-dock .hud-map-actions');
+    if (!travel) return null;
     const el = document.createElement('div');
     el.id = 'tp-row';
-    el.innerHTML = `<button id="tp-town" class="tp-btn" type="button" title="Teleport to Kampong Glam (${TOWN_KEY}): stand still for ${Teleports.secs(CAST_TICKS)}s; recharges in ${Math.round(TOWN_COOLDOWN_TICKS * 0.6 / 60 * 10) / 10} minutes">`
+    el.innerHTML = `<button id="tp-town" class="tp-btn" type="button" aria-keyshortcuts="${TOWN_KEY}" title="Teleport to Kampong Glam (${TOWN_KEY}): stand still for ${Teleports.secs(CAST_TICKS)}s; recharges in ${Math.round(TOWN_COOLDOWN_TICKS * 0.6 / 60 * 10) / 10} minutes">`
       + `${uiIconHTML('teleport-town', 26, 'tp-ic')}<b class="ab-label">Town <kbd>${TOWN_KEY}</kbd></b><span class="ab-status"></span></button>`
-      + `<button id="tp-grave" class="tp-btn hidden" type="button" title="Teleport to your gravestone (${GRAVE_KEY}): stand still for ${Teleports.secs(CAST_TICKS)}s">`
+      + `<button id="tp-grave" class="tp-btn hidden" type="button" aria-keyshortcuts="${GRAVE_KEY}" title="Teleport to your gravestone (${GRAVE_KEY}): stand still for ${Teleports.secs(CAST_TICKS)}s">`
       + `${uiIconHTML('teleport-grave', 26, 'tp-ic')}<b class="ab-label">Grave <kbd>${GRAVE_KEY}</kbd></b><span class="ab-status"></span></button>`;
     el.querySelector('#tp-town').addEventListener('click', () => this.game.teleports?.start('town'));
     el.querySelector('#tp-grave').addEventListener('click', () => this.game.teleports?.start('grave'));
-    const cfg = document.getElementById('auto-battle-cfg');
-    if (cfg) row.insertBefore(el, cfg); else row.appendChild(el);
+    travel.appendChild(el);
     this.el = el;
     return el;
   }

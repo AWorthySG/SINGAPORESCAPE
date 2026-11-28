@@ -1,0 +1,200 @@
+/* Mouse and keyboard: one dock for life, shortcuts and combat. Its centre
+   slides left only when the side panel would otherwise cover the controls. */
+@media (min-width: 541px) and (hover: hover) and (pointer: fine) {
+  #game-root {
+    --dock-edge: calc(12px + env(safe-area-inset-left, 0px));
+    --dock-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    --dock-panel-w: var(--panel-w);
+    --dock-panel-fit: max(var(--panel-w), min(720px, calc(50vw - 174px)));
+    --dock-right: calc(var(--dock-panel-w) + 24px + env(safe-area-inset-right, 0px));
+    --dock-width: min(462px, calc(100vw - var(--dock-right) - var(--dock-edge)));
+    --dock-left: min(calc((100vw - var(--dock-width)) / 2), calc(100vw - var(--dock-right) - var(--dock-width)));
+    --dock-auto-room: 132px;
+    --map-clearance: 258px;
+    --map-grave-row: 0px;
+  }
+  #game-root:has(#sidepanel.ps-big:not(.collapsed)) { --dock-panel-w: var(--dock-panel-fit); }
+  #game-root:has(#minimap-panel.collapsed) { --map-clearance: 66px; }
+  #game-root:has(#minimap-panel:not(.collapsed) #tp-grave:not(.hidden)) { --map-grave-row: 40px; }
+
+  /* Override the former split-window wrapper in compact.css too. */
+  #game-root #centre-hud,
+  #game-root:has(#sidepanel:not(.collapsed)) #centre-hud,
+  #game-root:has(#sidepanel.ps-big:not(.collapsed)) #centre-hud {
+    position: absolute;
+    inset: auto auto var(--dock-bottom) var(--dock-left);
+    transform: none;
+    z-index: 25;
+    display: flex;
+    flex-flow: row wrap;
+    gap: 6px 8px;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: var(--dock-width);
+    padding: 6px;
+    border: 1px solid var(--hud-line);
+    border-radius: 13px;
+    background: var(--hud-shell);
+    box-shadow: var(--hud-shadow);
+    pointer-events: none;
+  }
+  #game-root #centre-hud:has(#ability-bar.auto-open) { z-index: 65; }
+  #game-root #centre-hud > :is(#hp-bar, #quickbar, #ability-bar) {
+    position: static;
+    inset: auto;
+    margin: 0;
+    transform: none;
+  }
+  #game-root #centre-hud > #hp-bar {
+    flex: 1 0 116px;
+    position: relative;
+    width: auto;
+    min-width: 0;
+    height: 25px;
+    justify-content: center;
+    white-space: nowrap;
+  }
+  #game-root #centre-hud > #quickbar {
+    gap: 4px;
+    justify-content: end;
+  }
+  #quickbar .qb-btn:not(.qb-edit) { width: 30px; height: 30px; }
+  #quickbar .qb-btn :is(.ui-ic, svg) { width: 21px; height: 21px; }
+  #quickbar .qb-key { right: -2px; bottom: -3px; }
+
+  #game-root #centre-hud > #ability-bar {
+    flex: 0 0 100%;
+    display: grid;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    background: none;
+    grid-template: "auto btns resources" auto "auto btns adr" auto / minmax(64px, 1fr) max-content minmax(max-content, 1fr);
+    justify-items: stretch;
+    gap: 3px 8px;
+  }
+  #ability-bar #auto-menu-btn {
+    grid-area: auto;
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    height: 32px;
+    justify-content: center;
+    padding-inline: 7px;
+  }
+  #auto-menu-btn .am-dot { flex: none; }
+  #auto-menu-btn .am-text { overflow: hidden; text-overflow: ellipsis; }
+  #ability-bar #ability-buttons {
+    grid-area: btns;
+    justify-content: center;
+    gap: 4px;
+  }
+  #ability-bar .ability-btn { width: 42px; height: 42px; }
+  #ability-bar .ability-btn .ab-icon :is(img, svg) { width: 26px; height: 26px; }
+  #ability-bar #combat-resources {
+    grid-area: resources;
+    justify-content: center;
+  }
+  #ability-bar #combat-resources .orb { gap: 3px; padding-inline: 4px; }
+  #ability-bar #adrenaline {
+    grid-area: adr;
+    position: relative;
+    inset: auto;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* The Auto card is pinned to the dock so the whole toolbar remains usable. */
+  #ability-bar .auto-row, #ability-bar.auto-open .auto-row {
+    position: absolute;
+    inset: auto auto calc(100% + 7px) 0;
+    transform: none;
+    width: min(292px, 100%);
+    max-height: min(240px, calc(100dvh - var(--dock-auto-room)));
+    overflow-y: auto;
+    margin: 0;
+    box-sizing: border-box;
+  }
+  #ability-bar .auto-row { display: none; }
+  #ability-bar.auto-open .auto-row { display: flex; }
+  #ability-bar .auto-row :is(.ab-btn, #auto-battle-cfg) {
+    min-height: 32px;
+    padding: 4px 8px;
+  }
+  #ability-bar .auto-row .ab-btn + .ab-btn,
+  #ability-bar .auto-row #auto-battle-cfg {
+    border-top: 1px solid var(--aw-ink-faint);
+    border-left: 0;
+  }
+  #ability-bar .auto-row #play-hud {
+    min-height: 28px;
+    padding: 4px 8px;
+    border-left: 0;
+  }
+  #ability-bar .auto-row button:focus-visible { outline-offset: -3px; }
+
+  #game-root #chatbox {
+    left: var(--dock-edge);
+    bottom: var(--dock-bottom);
+    max-width: calc(var(--dock-left) - var(--dock-edge) - 10px);
+  }
+  #game-root #sidepanel {
+    max-height: max(74px, calc(100dvh - var(--map-clearance) - var(--map-grave-row) - 12px));
+  }
+  #game-root #boss-bar { width: min(400px, calc(100vw - 432px)); box-sizing: border-box; }
+  #game-root #boss-bar.normal { width: min(300px, calc(100vw - 432px)); }
+  body.boss-on #game-root #quest-tracker { max-width: min(270px, calc((100vw - 400px) / 2 - 22px)); }
+}
+
+@media (min-width: 541px) and (max-width: 1023px) and (hover: hover) and (pointer: fine),
+       (min-width: 541px) and (max-height: 500px) and (orientation: landscape) and (hover: hover) and (pointer: fine) {
+  #game-root { --dock-panel-w: var(--rail-w); }
+  #game-root:has(#sidepanel:not(.collapsed)) { --dock-panel-w: var(--docked-panel-w); }
+  #game-root:has(#sidepanel.ps-big:not(.collapsed)) { --dock-panel-w: max(var(--docked-panel-w), var(--dock-panel-fit)); }
+  #game-root #sidepanel { top: auto; bottom: var(--dock-bottom); transform: none; }
+}
+
+@media (min-width: 541px) and (max-width: 860px) and (hover: hover) and (pointer: fine) {
+  #game-root { --dock-auto-room: 184px; }
+  #game-root #centre-hud > #quickbar { justify-content: center; gap: 3px; }
+  #quickbar .qb-btn:not(.qb-edit) { width: 27px; height: 28px; }
+  #game-root #centre-hud > #ability-bar {
+    grid-template: "auto adr resources" auto "btns btns btns" auto / minmax(62px, 1fr) minmax(62px, 1fr) auto;
+    column-gap: 5px;
+  }
+  #ability-bar #adrenaline-label { letter-spacing: 0; }
+  #ability-bar .ability-btn { width: 37px; height: 37px; }
+  #ability-bar .ability-btn .ab-icon :is(img, svg) { width: 24px; height: 24px; }
+  #game-root #chatbox {
+    bottom: calc(var(--dock-bottom) + 154px);
+    max-width: min(290px, calc(100vw - var(--dock-right) - var(--dock-edge)));
+    max-height: max(50px, calc(100dvh - 278px));
+  }
+}
+
+@media (min-width: 541px) and (max-width: 760px) and (hover: hover) and (pointer: fine) {
+  #game-root #boss-bar, #game-root #boss-bar.normal {
+    left: var(--dock-edge);
+    width: min(340px, calc(100vw - 210px));
+    transform: none;
+    animation: none;
+  }
+  body.boss-on #game-root :is(#quest-tracker, #wave-hud) { top: 112px; max-width: 46vw; }
+}
+
+@media (min-width: 541px) and (max-width: 640px) and (hover: hover) and (pointer: fine) {
+  #ability-bar #adrenaline { height: 25px; }
+  #ability-bar #adrenaline-label { flex-direction: column; font-size: 9px; line-height: 1; }
+  #ability-bar #adrenaline-val { margin-left: 0; }
+}
+
+@media (min-width: 541px) and (max-height: 500px) and (hover: hover) and (pointer: fine) {
+  #game-root { --map-clearance: 187px; }
+  #game-root #minimap-panel:not(.collapsed) { scale: .85; transform-origin: top right; }
+  #game-root:has(#minimap-panel:not(.collapsed) #tp-grave:not(.hidden)) { --map-grave-row: 30px; }
+  #game-root #sidepanel.collapsed .tab-btn { min-height: 32px; }
+  #game-root:has(#boss-bar:not(.hidden)) #ability-bar.auto-open .auto-row {
+    max-height: max(72px, min(240px, calc(100dvh - 274px)));
+  }
+}
