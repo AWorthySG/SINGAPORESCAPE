@@ -2571,15 +2571,21 @@ export class UI {
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 2000);
       });
-      btn('Print / PDF', () => {
+      btn('Print / PDF', async () => {
         const w = window.open('', '_blank');
         if (!w) return;
         w.document.title = 'A-Worthy Adventure learning report';
+        const fontUrl = new URL('assets/fonts/nunito-latin-wght-normal.woff2', document.baseURI);
+        const style = w.document.createElement('style');
+        style.textContent = `@font-face { font-family: Nunito; src: url(${JSON.stringify(fontUrl.href)}) format("woff2"); font-weight: 200 1000; }`;
+        w.document.head.appendChild(style);
         const pre = w.document.createElement('pre');
-        pre.style.cssText = 'font:14px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;padding:24px';
+        pre.style.cssText = 'font:14px/1.5 Nunito,system-ui,sans-serif;white-space:pre-wrap;padding:24px';
         pre.textContent = rep.text;
         w.document.body.appendChild(pre);
-        w.print();
+        // Wait for the popup's own font set before capturing the report.
+        await w.document.fonts.load('14px Nunito').catch(() => {});
+        if (!w.closed) w.print();
       }, 'ride');
       body.appendChild(row);
       body.insertAdjacentHTML('beforeend', '<div class="modal-hint">Hand this in through your LMS (paste it into an assignment, or upload the downloaded file).</div>');
@@ -2932,7 +2938,7 @@ export class UI {
       <div class="cb-card-head"><h3>Combat controls</h3><button class="cb-perks" type="button">Skills &amp; perks</button></div>
       <div class="cb-control-row">
         <label class="auto-retal"><input type="checkbox" id="auto-retal-cb"> Auto retaliate</label>
-        <button class="cb-attributes-jump" type="button" aria-controls="combat-attributes">Attributes <span aria-hidden="true">↓</span></button>
+        <button class="cb-attributes-jump" type="button" aria-controls="combat-attributes">Attributes</button>
       </div>
       <p class="style-note"></p>
     </section>
@@ -3217,7 +3223,7 @@ export class UI {
     if (!cls) return;
     this.openModal(`${cls.name}: skills and perks`, (body) => {
       const art = heroArtSrc(cls.id);
-      body.innerHTML = `<div class="sg-head"><span class="class-pic">${art ? `<img src="${art}" alt="" width="48" height="48">` : itemIconSVG(starterWeapon(cls.id), 40)}</span>`
+      body.innerHTML = `<div class="cb-perks-panel"><div class="sg-head"><span class="class-pic">${art ? `<img src="${art}" alt="" width="48" height="48">` : itemIconSVG(starterWeapon(cls.id), 40)}</span>`
         + `<div><b>${cls.name} · ${WEAPON_TYPE_NAMES[cls.weapon]}</b><span>${cls.desc}</span></div></div>`
         + this._skillsSection(cls)
         + `<div class="cp-head"><b>Perks</b></div><div class="cp-list">${classPerks(cls.id).map((p) => `<div class="cp-row"><span class="cp-ic">${p.icon}</span><span><b>${p.label}</b> ${p.text}</span></div>`).join('')}</div>`
@@ -3230,7 +3236,7 @@ export class UI {
             + classPassives(cls.id, lvl).map((p) => `<div class="cp-row${p.rank ? '' : ' locked'}"><span class="cp-ic">${p.rank ? tabIconSVG('achievements', 20) : '🔒'}</span><span><b>${escapeHtml(p.name)}${p.rank > 1 ? ` (Rank ${p.rank})` : ''}</b> ${escapeHtml(p.desc)} · <i>${skName} ${p.unlockAt}${p.rank ? '' : ' to unlock'}, ranks up every 300 levels after</i></span></div>`).join('')
             + '</div>';
         })()
-        + '<div class="modal-hint">Every class can use any armour, tools and the learning perks in the Knowledge Codex.</div>';
+        + '<div class="modal-hint">Every class can use any armour, tools and the learning perks in the Knowledge Codex.</div></div>';
     });
     this.modal.kind = 'classperks';
   }

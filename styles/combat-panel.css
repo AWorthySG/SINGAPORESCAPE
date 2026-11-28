@@ -1,5 +1,5 @@
 /* One rail and one scroll area for the Combat, Blessings and Stats views. */
-#game-root #sidepanel {
+#game-root :is(#sidepanel, #modal-window:has(.cb-perks-panel)) {
   --combat-ink: #243932;
   --combat-muted: #536258;
   --combat-paper: #fffdf7;
@@ -7,6 +7,26 @@
   --combat-teal: #27554b;
   --combat-gold: #805b29;
   --combat-well: #f7edd9;
+  --combat-control-bg: #f6e6c6;
+  --combat-control-ink: #243932;
+  --combat-control-edge: #886a43;
+  --combat-control-hover: #ead4aa;
+  --combat-selected-bg: #1d493f;
+  --combat-selected-ink: #fffdf5;
+  --combat-selected-hover: #153b32;
+  --combat-locked-bg: #eee9df;
+  --combat-locked-ink: #504e42;
+  --combat-locked-edge: #80745f;
+  --combat-focus: #704519;
+}
+
+#game-root :is(#panel-subtabs[data-tab="combat"], #combat-panel, #prayer-panel, #stats-panel, .cb-perks-panel) {
+  font-family: var(--font);
+}
+
+#game-root :is(#panel-subtabs[data-tab="combat"], #combat-panel, #prayer-panel, #stats-panel, .cb-perks-panel)
+  :is(button, summary, input, kbd) {
+  font-family: inherit;
 }
 
 #game-root #sidepanel #panel-body:has(> #panel-subtabs[data-tab="combat"]) {
@@ -27,11 +47,12 @@
   gap: 4px;
   min-height: 42px;
   padding: 4px 5px;
-  border: 1px solid var(--combat-line);
+  border: 1px solid var(--combat-control-edge);
   border-radius: 9px;
-  background: var(--combat-paper);
-  color: var(--combat-ink);
+  background: var(--combat-control-bg);
+  color: var(--combat-control-ink);
   font-size: var(--fs-sm);
+  font-weight: 900;
   line-height: 1.15;
   letter-spacing: 0;
 }
@@ -39,15 +60,23 @@
 #game-root #sidepanel #panel-subtabs[data-tab="combat"] .subtab-btn[data-view="prayer"] { flex-grow: 1.18; }
 
 #game-root #sidepanel #panel-subtabs[data-tab="combat"] .subtab-btn[aria-selected="true"] {
-  border-color: var(--combat-teal);
-  background: var(--combat-teal);
-  color: #fffdf5;
-  box-shadow: inset 0 -2px #c2a16b;
+  border-color: var(--combat-selected-bg);
+  background: var(--combat-selected-bg);
+  color: var(--combat-selected-ink);
+  box-shadow: inset 0 -2px #d2ae70;
 }
 
 #game-root #sidepanel #panel-subtabs[data-tab="combat"] .subtab-btn .panel-key {
   margin-left: 0;
   padding-inline: 2px;
+  border-color: var(--combat-control-edge);
+  background: var(--combat-paper);
+  color: var(--combat-ink);
+}
+
+#game-root #sidepanel #panel-subtabs[data-tab="combat"] .subtab-btn:focus-visible {
+  outline: 2px solid var(--combat-focus);
+  outline-offset: 2px;
 }
 
 #panel-subtabs .combat-tab-icon {
@@ -64,8 +93,7 @@
 
 @media (hover: hover) {
   #game-root #sidepanel #panel-subtabs[data-tab="combat"] .subtab-btn[aria-selected="false"]:hover {
-    border-color: #bba17b;
-    background: var(--combat-well);
+    background: var(--combat-control-hover);
   }
 }
 
@@ -140,7 +168,20 @@
 #combat-panel :is(.cb-utility, .cb-contracts, .cb-matchups, .cb-spellbook) { display: grid; gap: 7px; }
 
 #combat-panel .cb-control-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 5px 8px; }
-#combat-panel .auto-retal { width: fit-content; min-height: 36px; margin: 0; font-weight: 800; cursor: var(--cur-pointer); }
+#combat-panel .auto-retal {
+  width: fit-content;
+  min-height: 38px;
+  margin: 0;
+  padding: 4px 9px;
+  border: 1px solid var(--combat-control-edge);
+  border-radius: 8px;
+  background: var(--combat-control-bg);
+  color: var(--combat-control-ink);
+  font-size: var(--fs-sm);
+  font-weight: 850;
+  cursor: var(--cur-pointer);
+}
+#combat-panel .auto-retal:has(input:focus-visible) { outline: 2px solid var(--combat-focus); outline-offset: 2px; }
 #combat-panel .auto-retal input { width: 17px; height: 17px; margin: 0; accent-color: var(--combat-teal); }
 #combat-panel :is(.style-note, .cb-matchups p, .cb-contract-note, .cb-contract-status, .cb-reset-status) {
   margin: 0;
@@ -150,16 +191,27 @@
 }
 
 #combat-panel :is(.cb-perks, .cb-attributes-jump, .st-reset) {
-  min-height: 34px;
+  min-height: 38px;
   margin: 0;
   padding: 4px 10px;
-  border: 1px solid #cdb490;
+  border: 1px solid var(--combat-control-edge);
   border-radius: 8px;
-  background: var(--combat-well);
-  color: var(--combat-ink);
+  background: var(--combat-control-bg);
+  color: var(--combat-control-ink);
   box-shadow: none;
   font-size: var(--fs-sm);
-  font-weight: 800;
+  font-weight: 900;
+}
+
+#combat-panel .cb-attributes-jump::after {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-inline-start: 6px;
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  transform: translateY(-2px) rotate(45deg);
 }
 
 #combat-panel .cb-race-row { display: grid; gap: 4px; font-size: var(--fs-xs); }
@@ -184,34 +236,47 @@
   min-width: 0;
   min-height: 44px;
   padding: 7px 8px;
-  border: 1px solid #deceb0;
+  border: 1px solid var(--combat-control-edge);
   border-radius: 8px;
-  background: #faf5e9;
-  color: var(--combat-ink);
+  background: var(--combat-control-bg);
+  color: var(--combat-control-ink);
   box-shadow: none;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-md);
 }
 
 #combat-panel .cb-spell-list .spell-auto { grid-column: 1 / -1; }
-#combat-panel .cb-spell-list .cb-spell.active { border-color: #86ae9d; background: #e5f0e9; }
-#combat-panel .cb-spell-list .cb-spell:disabled { border-color: #e2dacc; background: #f6f1e8; color: #536258; cursor: var(--cur-default); }
+#combat-panel .cb-spell-list .cb-spell.active:not(:disabled) {
+  border-color: var(--combat-selected-bg);
+  background: var(--combat-selected-bg);
+  color: var(--combat-selected-ink);
+}
+#combat-panel .cb-spell-list .cb-spell:disabled {
+  border-color: var(--combat-locked-edge);
+  background: var(--combat-locked-bg);
+  color: var(--combat-locked-ink);
+  cursor: var(--cur-default);
+}
 #combat-panel .cb-spell-list .sp-text { gap: 2px; }
 #combat-panel .cb-spell-name { font-weight: 900; }
-#combat-panel .cb-spell-list .style-skill { color: var(--combat-muted); font-size: var(--fs-xs); font-weight: 650; }
-#combat-panel .cb-spell-status { align-self: flex-start; padding: 1px 5px; border-radius: 4px; background: #edf0e4; color: #28554b; font-size: var(--fs-xs); font-weight: 850; }
-#combat-panel .cb-spell[data-ready="false"] .cb-spell-status { background: #f2e4cb; color: #6b471b; }
+#combat-panel .cb-spell-list .style-skill { color: #394d44; font-size: var(--fs-sm); font-weight: 700; line-height: 1.35; }
+#combat-panel .cb-spell-list .cb-spell.active:not(:disabled) .style-skill { color: #e2eee4; }
+#combat-panel .cb-spell-list .cb-spell:disabled .style-skill { color: var(--combat-locked-ink); }
+#combat-panel .cb-spell-status { align-self: flex-start; padding: 2px 6px; border-radius: 4px; background: #e9f2e5; color: #22493a; font-size: var(--fs-xs); font-weight: 900; }
+#combat-panel .cb-spell[data-ready="false"] .cb-spell-status { background: #f5d79b; color: #513813; }
+#combat-panel .cb-spell:disabled .cb-spell-status { background: #ddd4c3; color: var(--combat-locked-ink); }
 
 #combat-panel .merc-hire, #combat-panel .st-all {
   width: fit-content;
-  min-height: 38px;
+  max-width: 100%;
+  min-height: 40px;
   margin: 0;
   padding: 5px 11px;
-  border: 1px solid var(--combat-teal);
+  border: 1px solid var(--combat-selected-bg);
   border-radius: 8px;
-  background: var(--combat-teal);
-  color: #fffdf5;
+  background: var(--combat-selected-bg);
+  color: var(--combat-selected-ink);
   box-shadow: none;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-md);
   font-weight: 900;
 }
 
@@ -226,20 +291,47 @@
 #combat-panel .cb-stats .st-btns { grid-column: 2; grid-row: 1 / span 2; gap: 4px; }
 #combat-panel .cb-stats .st-btns [data-n="1"] { min-width: 44px; }
 #combat-panel .cb-stats .st-eff { color: var(--combat-muted); font-size: var(--fs-sm); line-height: 1.35; opacity: 1; }
-#combat-panel .cb-stats .st-add { min-width: 44px; min-height: 40px; border: 1px solid #c3a471; background: #f8e6bf; color: var(--combat-ink); box-shadow: none; }
+#combat-panel .cb-stats .st-add { min-width: 44px; min-height: 40px; border: 1px solid var(--combat-control-edge); background: #f1ce86; color: var(--combat-control-ink); box-shadow: none; }
 #combat-panel .cb-stats .st-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 8px; margin: 8px 0 0; color: var(--combat-muted); opacity: 1; }
 #combat-panel .cb-stats .st-foot p { margin: 0; }
 #combat-panel .cb-stats .st-foot p:first-child { flex-basis: 100%; }
 #combat-panel :is(.cb-contract-status, .cb-reset-status):empty { display: none; }
-#combat-panel :is(.merc-hire, .st-reset, .st-add):disabled { border-color: #ded7c6; background: #f2eddf; color: #6c6d61; cursor: var(--cur-default); opacity: 1; }
-#combat-panel :is(button, input):focus-visible { outline: 2px solid #9c692d; outline-offset: 2px; }
+#combat-panel :is(.merc-hire, .st-reset, .st-add):disabled { border-color: var(--combat-locked-edge); background: var(--combat-locked-bg); color: var(--combat-locked-ink); cursor: var(--cur-default); opacity: 1; }
+#combat-panel button:focus-visible, #combat-attributes-title:focus-visible { outline: 2px solid var(--combat-focus); outline-offset: 2px; }
 
 @media (pointer: coarse) {
   #combat-panel :is(.auto-retal, .cb-perks, .cb-attributes-jump, .st-reset, .merc-hire, .st-all, .cb-stats .st-add) { min-height: 44px; }
 }
 
 @media (hover: hover) {
-  #combat-panel .cb-spell-list .cb-spell:not(:disabled):hover { border-color: #8ca397; background: #e9f0e7; }
-  #combat-panel :is(.cb-perks, .cb-attributes-jump, .st-add, .st-reset):not(:disabled):hover { border-color: #af885a; background: #f3e5c7; }
-  #combat-panel :is(.merc-hire, .st-all):not(:disabled):hover { background: #1d443b; }
+  #combat-panel .cb-spell-list .cb-spell:not(.active, :disabled):hover,
+  #combat-panel .auto-retal:hover,
+  #combat-panel :is(.cb-perks, .cb-attributes-jump, .st-add, .st-reset):not(:disabled):hover { background: var(--combat-control-hover); }
+  #combat-panel .cb-spell-list .cb-spell.active:not(:disabled):hover,
+  #combat-panel :is(.merc-hire, .st-all):not(:disabled):hover { background: var(--combat-selected-hover); }
 }
+
+/* The panel header belongs to the Combat views while their rail is open. */
+#game-root #sidepanel:has(#panel-subtabs[data-tab="combat"]) #panel-head button:not(:disabled) {
+  border-color: var(--combat-control-edge);
+  background: var(--combat-control-bg);
+  color: var(--combat-control-ink);
+}
+
+#game-root #sidepanel:has(#panel-subtabs[data-tab="combat"]) #panel-head button:disabled {
+  border-color: var(--combat-locked-edge);
+  background: var(--combat-locked-bg);
+  color: var(--combat-locked-ink);
+  opacity: 1;
+}
+
+#game-root #sidepanel:has(#panel-subtabs[data-tab="combat"]) #panel-head button:focus-visible {
+  outline: 2px solid var(--combat-focus);
+  outline-offset: 2px;
+}
+
+#modal-body .cb-perks-panel .cp-row { color: var(--combat-ink); }
+#modal-body .cb-perks-panel .cp-row > span:last-child { color: #485953; font-size: var(--fs-md); }
+#modal-body .cb-perks-panel .sk-meta { color: #485953; font-size: var(--fs-sm); opacity: 1; }
+#modal-body .cb-perks-panel .cp-row.locked { opacity: 1; background: var(--combat-locked-bg); }
+#modal-body .cb-perks-panel .cp-row.locked :is(.sk-meta, i) { color: var(--combat-locked-ink); }

@@ -128,8 +128,8 @@
 .piano-staff-line { stroke: #8b7866; stroke-width: .85; }
 .piano-bar { stroke: #3c3028; stroke-width: 1.25; }
 .piano-clef { fill: none; stroke: #302923; stroke-width: 2.1; stroke-linecap: round; }
-.piano-time-signature { fill: #302923; font: 700 16px Georgia, serif; }
-.piano-key-signature, .piano-accidental { fill: #302923; font: 14px Georgia, serif; }
+.piano-time-signature { fill: #302923; font: 800 16px var(--font); }
+.piano-key-signature, .piano-accidental { fill: #302923; font: 14px var(--font); }
 .piano-accidental, .piano-written-label { text-anchor: middle; }
 .piano-written-label { fill: #41372c; font-size: 11px; font-weight: 750; }
 .piano-written-note { color: #302923; }
