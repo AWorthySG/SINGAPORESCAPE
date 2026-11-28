@@ -26,7 +26,35 @@ import { toolLadder } from '../src/game/tools.js';
 import { gatherSources, diveSpotList, guideEntries, GATHER_SKILLS, SKILL_GUIDES } from '../src/game/skillguide.js';
 import { xpRate } from '../src/game/xprate.js';
 import { chebyshev } from '../src/core/utils.js';
-import { diveShoreAt } from '../src/render/diveart.js';
+import { TICK_MS } from '../src/config.js';
+import { breathShown, diveShoreAt, drawDiveRipples } from '../src/render/diveart.js';
+
+test('the breath bar refills steadily over the actual surface pause', () => {
+  const action = { type: 'dive', maxBreath: 10, breath: 0, surface: SURFACE_TICKS };
+  const g = { player: { action }, tickAcc: 0 };
+  assert.deepEqual(breathShown(g), { frac: 0, up: true });
+  g.tickAcc = TICK_MS / 2;
+  assert.equal(breathShown(g).frac, 0.5 / SURFACE_TICKS);
+  g.tickAcc = TICK_MS;
+  const past = breathShown(g).frac;
+  action.surface--; g.tickAcc = 0;
+  assert.equal(breathShown(g).frac, past, 'crossing a tick boundary does not jump');
+  g.tickAcc = TICK_MS * 0.98;
+  assert.ok(breathShown(g).frac > 0.98);
+  action.surface = 0; action.breath = action.maxBreath;
+  assert.deepEqual(breathShown(g), { frac: 1, up: false });
+});
+
+test('the painted reef ripple grows around the buoy and keeps its anchor', () => {
+  const rings = [];
+  const ctx = { globalAlpha: 1, save() {}, restore() {}, beginPath() {}, stroke() {}, ellipse: (...args) => rings.push(args) };
+  const reef = { x: 12, y: 20 };
+  drawDiveRipples(ctx, reef, 100, 80, 0);
+  drawDiveRipples(ctx, reef, 100, 80, 50);
+  assert.equal(rings.length, 4);
+  for (const [x, y] of rings) assert.deepEqual([x, y], [112, 87]);
+  assert.notEqual(rings[0][2], rings[2][2], 'the same ring grows across frames');
+});
 
 function fakeStorage() {
   const m = new Map();

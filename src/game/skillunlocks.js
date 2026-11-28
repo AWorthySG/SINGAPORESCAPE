@@ -93,13 +93,13 @@ export function skillTeleportOf(game, skill) {
 export const skillTeleportWait = (game) => Math.max(0, (game._skillTpReady || 0) - (game.tickCount || 0));
 
 /** Move the player to the nearest free tile around (x, y): shared by the skill and home teleports. */
-export function teleportPlayer(game, x, y, text) {
+export function teleportPlayer(game, x, y, text, { sparkle = true } = {}) {
   const tile = game._nearestFree?.(x, y) || (game.world.isBlocked(x, y) ? null : { x, y });
   if (!tile) { game.msg('The way there is blocked.'); return false; }
   const p = game.player;
   p.stopNow?.(); p.clearAction?.();
   p.x = p.tx = tile.x; p.y = p.ty = tile.y; p.progress = 0; p.moving = false; p.path = [];
-  game.spawnSparkle?.(p, '#8fd6ff', 14);
+  if (sparkle) game.spawnSparkle?.(p, '#8fd6ff', 14);
   if (text) game.msg(text, 'system');
   game.bus.emit('sfx', 'travel:teleport');
   game.updateRegion?.();

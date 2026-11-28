@@ -37,6 +37,7 @@
 import { TICK_MS, TILE, COMBAT_BEAT_MS } from '../config.js';
 import { ITEMS } from '../data/items.js';
 import { classAccent } from '../data/classColours.js';
+import { agilityClipId } from '../data/objects.js';
 import { itemIconImage } from './icons.js';
 import { bestTool } from '../game/tools.js';
 import { drawEmptyArm, drawHeroStrikeSpark, hasEmptyArm } from './heroAnimArt.js';
@@ -51,6 +52,8 @@ const EASE = {
   // Hold the last value and jump on the key (the painted arm back at rest).
   step: (x) => (x < 1 ? 0 : 1),
 };
+const TAU = 2 * Math.PI;
+const wrapWrist = (angle) => angle < -Math.PI ? angle + TAU : angle > Math.PI ? angle - TAU : angle;
 
 export const HERO_CHANNELS = ['bx', 'by', 'lean', 'squash', 'crouch', 'liftF', 'liftB', 'hand', 'off', 'prop',
   'sword', 'back', 'strike', 'reach', 'strike2', 'reach2', 'draw', 'release', 'charge', 'cast', 'kick2', 'trail', 'trail2', 'impact', 'bend',
@@ -75,6 +78,8 @@ function sampleTrack(keys, u) {
 // Mitten-arm angles: 0 hangs down, ~1.5 points at the target, ~3 is overhead.
 // Looping clips end where they start; the strike is the 'snap' key at `beat`.
 const skill = (beat, fx, tracks, more = {}) => ({ dur: 'tick', loop: true, beat, hands: true, fx, tracks, ...more });
+// One crossing lasts less than the 600 ms skill tick, including on chained laps.
+const obstacle = (tracks, beat = 0.5) => skill(beat, null, tracks, { dur: 520, loop: false });
 /** A tool's impact spark: a pulse at each beat (strength 0..1), drawn at the tool's head. */
 function sparkAt(...hits) {
   const keys = [[0, 0]];
@@ -217,7 +222,7 @@ const CLIPS = {
   // the right way up).
   cook: skill(0.7, 'puff', {
     hand: [[0, 1.4], [0.2, 1.45], [0.3, 1.35], [0.4, 1.45], [0.6, 1.25], [0.7, 1.75, 'snap'], [0.8, 1.55], [0.9, 1.4], [1, 1.4]],
-    prop: [[0, 0], [0.2, 0.15], [0.3, -0.1], [0.4, 0.15], [0.6, 0.25], [0.7, -1.2, 'snap'], [0.82, -3.1, 'out'], [0.83, 3.18, 'lin'], [0.95, 0.05], [1, 0]],
+    prop: [[0, 0], [0.2, 0.15], [0.3, -0.1], [0.4, 0.15], [0.6, 0.25], [0.7, -1.2, 'snap'], [0.82, -3.1, 'out'], [0.95, -TAU], [1, -TAU]],
     off: [[0, 0.8], [1, 0.8]],
     crouch: [[0, 2], [0.6, 2.5], [0.7, 1.2, 'snap'], [0.85, 2], [1, 2]],
     by: [[0, 0], [0.65, 0], [0.72, -1, 'out'], [0.85, 0, 'in'], [1, 0]],
@@ -295,6 +300,63 @@ const CLIPS = {
     bx: [[0, 0], [0.3, -0.8], [0.55, -0.6], [0.7, 1.2, 'snap'], [1, 0]],
     liftF: [[0, 0], [0.15, 1.5], [0.3, 0], [1, 0]], liftB: [[0, 0], [0.35, 0], [0.45, 1.5], [0.55, 0], [1, 0]],
   }, { upright: true }),
+  // Pull through the water, then reach down to the reef on the gather beat.
+  dive: skill(0.7, 'splash', {
+    hand: [[0, 1.35], [0.24, 2.05], [0.44, 1.15], [0.7, 0.55, 'snap'], [0.86, 1.05], [1, 1.35]],
+    off: [[0, 0.75], [0.28, 0.3], [0.48, 1.7], [0.7, 1.3], [1, 0.75]],
+    crouch: [[0, 3.5], [0.42, 6], [0.7, 7.5], [1, 3.5]],
+    lean: [[0, 0.18], [0.42, 0.22], [0.7, 0.32], [1, 0.18]],
+    bx: [[0, 0], [0.42, 1.5], [0.7, 3], [1, 0]],
+  }),
+  dive_surface: skill(0.5, null, {
+    hand: [[0, 0.75], [0.3, 0.9], [0.6, 0.82], [1, 0.75]],
+    off: [[0, 0.6], [0.3, 0.78], [0.6, 0.72], [1, 0.6]],
+    crouch: [[0, 2.5], [0.3, 1], [0.6, 2], [1, 2.5]],
+    squash: [[0, 0], [0.3, -0.04], [0.62, 0.025], [1, 0]],
+    lean: [[0, 0.09], [0.3, -0.02], [0.62, 0.06], [1, 0.09]],
+  }, { dur: 1000 }),
+  // The off hand steadies the find while the brush makes two small passes.
+  restore: skill(0.7, 'clods', {
+    hand: [[0, 1.12], [0.18, 1.42], [0.32, 1.0, 'out'], [0.58, 1.48], [0.7, 1.02, 'out'], [1, 1.12]],
+    off: [[0, 1.36], [0.5, 1.43], [1, 1.36]],
+    prop: [[0, 0.1], [0.18, -0.15], [0.32, 0.42], [0.58, -0.2], [0.7, 0.45], [1, 0.1]],
+    crouch: [[0, 2], [0.35, 2.5], [0.72, 3], [1, 2]],
+    lean: [[0, 0.12], [0.34, 0.16], [0.72, 0.18], [1, 0.12]],
+  }),
+  excavate: skill(0.72, 'clods', {
+    hand: [[0, 0.65], [0.18, 1.1], [0.32, 0.35, 'out'], [0.54, 1.15], [0.72, 0.32, 'snap'], [0.88, 0.9], [1, 0.65]],
+    off: [[0, 0.7], [0.4, 0.75], [0.72, 0.92], [1, 0.7]],
+    prop: [[0, 0.08], [0.32, 0.4], [0.54, 0.05], [0.72, 0.52, 'snap'], [1, 0.08]],
+    crouch: [[0, 4.5], [0.32, 5.1], [0.72, 5.8, 'snap'], [1, 4.5]],
+    lean: [[0, 0.15], [0.32, 0.24], [0.54, 0.16], [0.72, 0.28, 'snap'], [1, 0.15]],
+  }),
+  // Feed a log into a stationary saw, then draw back for the next cut.
+  saw: skill(0.72, 'shavings', {
+    hand: [[0, 1.02], [0.18, 1.35], [0.4, 1.05], [0.72, 1.72, 'out'], [1, 1.02]],
+    off: [[0, 0.92], [0.18, 1.24], [0.4, 0.95], [0.72, 1.56, 'out'], [1, 0.92]],
+    bx: [[0, 0], [0.4, -1], [0.72, 2.5, 'out'], [1, 0]],
+    lean: [[0, 0.06], [0.4, -0.06], [0.72, 0.17, 'out'], [1, 0.06]],
+  }, { upright: true }),
+  kiln: skill(0.72, 'puff', {
+    hand: [[0, 0.55], [0.32, 1.1], [0.72, 1.6, 'out'], [1, 0.55]],
+    off: [[0, 0.45], [0.32, 0.95], [0.72, 1.48, 'out'], [1, 0.45]],
+    crouch: [[0, 0], [0.4, 2], [0.72, 3.5], [1, 0]],
+    lean: [[0, 0.02], [0.45, 0.14], [0.72, 0.2], [1, 0.02]],
+  }, { upright: true }),
+  build: skill(0.72, 'shavings', {
+    hand: [[0, 1.05], [0.26, 1.43], [0.36, 1.05, 'snap'], [0.58, 1.84], [0.72, 0.95, 'snap'], [1, 1.05]],
+    off: [[0, 1.28], [0.36, 1.28], [0.72, 1.13], [1, 1.28]],
+    prop: [[0, 0.25], [0.26, -0.12], [0.36, 0.52, 'snap'], [0.58, -0.36], [0.72, 0.6, 'snap'], [1, 0.25]],
+    crouch: [[0, 1.5], [0.58, 0.8], [0.72, 2.3, 'snap'], [1, 1.5]],
+    lean: [[0, 0.06], [0.58, -0.05], [0.72, 0.13], [1, 0.06]],
+  }),
+  // Set the dish on the counter, leaving it there as the hands draw back.
+  serve: skill(0.62, null, {
+    hand: [[0, 0.7], [0.25, 1.18], [0.62, 1.75, 'out'], [0.68, 1.75], [1, 0.7]],
+    off: [[0, 0.6], [0.25, 1.08], [0.62, 1.6, 'out'], [0.68, 1.6], [1, 0.6]],
+    bx: [[0, 0], [0.62, 1.7, 'out'], [0.68, 1.7], [1, 0]],
+    lean: [[0, 0], [0.62, 0.15, 'out'], [0.68, 0.15], [1, 0]],
+  }, { dur: 780, loop: false, upright: true, releaseProp: 0.68 }),
   // A quick dart of the hand at the stall, then tucked away.
   stall: skill(0.7, 'coin', {
     hand: [[0, 0.5], [0.55, 1.2], [0.7, 2.0, 'snap'], [0.85, 0.4, 'snap'], [1, 0.5]],
@@ -323,7 +385,7 @@ const CLIPS = {
     off: [[0, 0.3], [1, 0.3]],
     crouch: [[0, 0], [0.25, 6], [0.85, 6], [1, 0]],
     lean: [[0, 0], [0.25, 0.18], [0.85, 0.18], [1, 0]],
-  }, { dur: 900, loop: false, upright: true }),
+  }, { dur: 900, loop: false, upright: true, releaseProp: 0.6 }),
   // (Harvesting: two tugs on the stalk, then it gives and is lifted high.)
   farm_harvest: skill(0.7, 'leafbits', {
     hand: [[0, 0.3], [0.3, 0.2], [0.4, 0.55, 'snap'], [0.48, 0.2], [0.56, 0.6, 'snap'], [0.62, 0.2], [0.7, 2.4, 'snap'], [1, 1.2]],
@@ -331,35 +393,43 @@ const CLIPS = {
     crouch: [[0, 0], [0.3, 5], [0.4, 4, 'snap'], [0.48, 5.5], [0.56, 4, 'snap'], [0.62, 6], [0.7, 1, 'snap'], [1, 0]],
     lean: [[0, 0], [0.3, 0.16], [0.4, 0.05, 'snap'], [0.48, 0.16], [0.56, 0.04, 'snap'], [0.62, 0.18], [0.7, -0.15, 'snap'], [1, 0]],
     by: [[0, 0], [0.66, 0], [0.74, -2, 'out'], [0.86, 0, 'in'], [1, 0]],
-  }, { dur: 900, loop: false }),
+  }, { dur: 900, loop: false, upright: true, takeProp: 0.7 }),
   // Agility, by kind of obstacle.
-  agility_balance: skill(0.5, null, {
+  agility_balance: obstacle({
     // Arms out wide, see-sawing against the wobble.
     hand: [[0, 1.7], [0.25, 1.95], [0.5, 1.5], [0.75, 1.85], [1, 1.7]], off: [[0, -1.5], [0.25, -1.25], [0.5, -1.75], [0.75, -1.35], [1, -1.5]],
     lean: [[0, 0.1], [0.5, -0.1], [1, 0.1]],
     liftF: [[0, 0], [0.25, 2], [0.5, 0], [1, 0]], liftB: [[0, 0], [0.5, 0], [0.75, 2], [1, 0]],
-  }, { dur: 1200 }),
-  agility_climb: skill(0.5, null, {
+  }),
+  agility_climb: obstacle({
     hand: [[0, 2.9], [0.5, 2.3], [1, 2.9]], off: [[0, 2.3], [0.5, 2.9], [1, 2.3]],
     by: [[0, 0], [0.25, -2], [0.5, 0], [0.75, -2], [1, 0]],
     liftF: [[0, 3], [0.5, 0], [1, 3]], liftB: [[0, 0], [0.5, 3], [1, 0]],
-  }, { dur: 900 }),
-  agility_rope: skill(0.5, null, {
+  }),
+  agility_stairs: obstacle({
+    hand: [[0, 0.9], [0.32, 1.4], [0.7, 0.65], [1, 0.9]],
+    off: [[0, 0.7], [0.32, 0.45], [0.7, 1.3], [1, 0.7]],
+    lean: [[0, 0.08], [0.28, 0.16], [0.72, 0.13], [1, 0]],
+    by: [[0, 0], [0.3, -3], [0.48, -1], [0.72, -4], [1, 0]],
+    liftF: [[0, 0], [0.3, 4], [0.48, 0], [1, 0]],
+    liftB: [[0, 0], [0.48, 0], [0.72, 4], [1, 0]],
+  }),
+  agility_rope: obstacle({
     hand: [[0, 3.0], [1, 3.0]], off: [[0, 2.8], [1, 2.8]],
     lean: [[0, 0.25], [0.5, -0.25], [1, 0.25]], bx: [[0, 3], [0.5, -3], [1, 3]], by: [[0, -3], [0.5, -4], [1, -3]],
     liftF: [[0, 3], [1, 3]], liftB: [[0, 3], [1, 3]],
-  }, { dur: 1200 }),
-  agility_ledge: skill(0.5, null, {
+  }),
+  agility_ledge: obstacle({
     hand: [[0, 1.9], [1, 1.9]], off: [[0, 1.9], [1, 1.9]],
     lean: [[0, -0.05], [1, -0.05]], bx: [[0, 0], [0.5, 1.5], [1, 0]],
     liftF: [[0, 0], [0.25, 2], [0.5, 0], [1, 0]], liftB: [[0, 0], [0.5, 0], [0.75, 2], [1, 0]],
-  }, { dur: 1000 }),
-  agility_zip: skill(0.5, null, {
+  }),
+  agility_zip: obstacle({
     hand: [[0, 3.1], [1, 3.1]], off: [[0, 3.0], [1, 3.0]],
     lean: [[0, 0.12], [1, 0.12]], by: [[0, -3], [0.5, -4], [1, -3]],
     liftF: [[0, 4], [1, 4]], liftB: [[0, 3], [1, 3]],
-  }, { dur: 800 }),
-  agility_jump: skill(0.55, null, {
+  }),
+  agility_jump: obstacle({
     hand: [[0, 0.5], [0.4, 0.2], [0.6, 2.6, 'snap'], [0.9, 0.6], [1, 0.5]],
     off: [[0, 0.4], [0.4, 0.1], [0.6, 2.4, 'snap'], [0.9, 0.5], [1, 0.4]],
     // A deep crouch, a spring off both feet, feet tucked at the top of the
@@ -369,24 +439,61 @@ const CLIPS = {
     squash: [[0, 0], [0.4, 0.08], [0.55, -0.1, 'snap'], [0.7, 0], [0.9, 0.12, 'snap'], [1, 0]],
     lean: [[0, 0], [0.4, 0.12], [0.55, -0.05], [0.72, 0.08], [0.9, 0.12], [1, 0]],
     liftF: [[0, 0], [0.55, 1], [0.68, 5], [0.85, 0], [1, 0]], liftB: [[0, 0], [0.55, 1], [0.68, 5], [0.85, 0], [1, 0]],
-  }, { dur: 1200 }),
+  }, 0.55),
+  agility_hop: obstacle({
+    // Two short hops, using opposite feet on the stones.
+    hand: [[0, 0.7], [0.27, 1.8], [0.48, 0.8], [0.7, 1.7], [1, 0.7]],
+    off: [[0, 0.6], [0.27, 1.1], [0.48, 0.6], [0.7, 1.4], [1, 0.6]],
+    by: [[0, 0], [0.14, 0], [0.3, -6, 'out'], [0.48, 0, 'in'], [0.68, -6, 'out'], [0.88, 0, 'in'], [1, 0]],
+    crouch: [[0, 0], [0.13, 2], [0.3, 0], [0.48, 2.8], [0.68, 0], [0.88, 2.2], [1, 0]],
+    liftF: [[0, 0], [0.28, 4], [0.48, 0], [1, 0]],
+    liftB: [[0, 0], [0.48, 0], [0.68, 4], [1, 0]],
+  }),
+  agility_slide: obstacle({
+    // Sit back with heels out, then plant them to stand at the bottom.
+    hand: [[0, 0.65], [0.24, -0.55], [0.72, -0.4], [1, 0.45]],
+    off: [[0, 0.6], [0.24, -0.3], [0.72, -0.25], [1, 0.4]],
+    crouch: [[0, 0], [0.24, 8], [0.72, 8], [0.88, 3], [1, 0]],
+    lean: [[0, 0], [0.24, -0.36], [0.72, -0.28], [1, 0]],
+    squash: [[0, 0], [0.24, 0.15], [0.72, 0.11], [1, 0]],
+    bx: [[0, 0], [0.24, 0], [0.72, 5, 'in'], [1, 0]],
+    liftF: [[0, 0], [0.24, 4], [0.68, 3], [0.88, 0], [1, 0]],
+  }),
+  agility_portal: obstacle({
+    // Lead with both hands and tip forward before landing on the other side.
+    hand: [[0, 0.5], [0.22, 0.7], [0.48, 2.4, 'snap'], [0.74, 2.65], [1, 0.65]],
+    off: [[0, 0.45], [0.22, 0.6], [0.48, 2.3, 'snap'], [0.74, 2.55], [1, 0.6]],
+    lean: [[0, 0], [0.22, -0.08], [0.52, 0.72, 'in'], [0.7, 0.82], [1, 0]],
+    by: [[0, 0], [0.27, 0], [0.5, -7, 'out'], [0.74, 4, 'in'], [1, 0]],
+    bx: [[0, 0], [0.25, -1.6], [0.58, 6, 'snap'], [0.76, 7], [1, 0]],
+    crouch: [[0, 0], [0.23, 4], [0.48, 0, 'snap'], [0.82, 4], [1, 0]],
+    liftF: [[0, 0], [0.5, 4], [0.74, 4], [1, 0]],
+    liftB: [[0, 0], [0.5, 5], [0.74, 5], [1, 0]],
+  }),
   // Kneeling at the monument (or the statue) with hands together.
   pray: skill(0.5, 'holy', {
     hand: [[0, 0.3], [0.25, 1.3], [0.85, 1.3], [1, 0.3]], off: [[0, 0.3], [0.25, 1.25], [0.85, 1.25], [1, 0.3]],
     crouch: [[0, 0], [0.25, 6], [0.85, 6], [1, 0]],
     lean: [[0, 0], [0.25, 0.14], [0.85, 0.14], [1, 0]],
   }, { dur: 1400, loop: false }),
+  rest: skill(0.5, null, {
+    hand: [[0, 0.35], [0.24, 0.65], [0.74, 0.6], [1, 0.35]],
+    off: [[0, 0.24], [0.24, 0.45], [0.74, 0.4], [1, 0.24]],
+    crouch: [[0, 0], [0.24, 5.6], [0.76, 5.6], [1, 0]],
+    lean: [[0, 0], [0.23, 0.1], [0.5, -0.07], [0.76, -0.04], [1, 0]],
+    squash: [[0, 0], [0.4, -0.03], [0.71, 0.015], [1, 0]],
+  }, { dur: 1200, loop: false }),
   // Bones laid in the ground, or raised up as an offering.
   bury: skill(0.6, 'clods', {
     hand: [[0, 0.4], [0.35, 1.0], [0.6, 0.3, 'snap'], [1, 0.4]], off: [[0, 0.3], [0.35, 0.8], [1, 0.3]],
     crouch: [[0, 0], [0.35, 5], [0.8, 5], [1, 0]],
     lean: [[0, 0], [0.35, 0.16], [0.8, 0.16], [1, 0]],
-  }, { dur: 900, loop: false, upright: true }),
+  }, { dur: 900, loop: false, upright: true, releaseProp: 0.6 }),
   offer: skill(0.55, 'holy', {
     hand: [[0, 0.4], [0.5, 2.4], [0.65, 2.2], [1, 0.4]], off: [[0, 0.3], [0.5, 2.3], [0.65, 2.1], [1, 0.3]],
     by: [[0, 0], [0.5, -1.5], [1, 0]],
     lean: [[0, 0], [0.5, -0.08], [1, 0]],
-  }, { dur: 1100, loop: false, upright: true }),
+  }, { dur: 1100, loop: false, upright: true, releaseProp: 0.55 }),
   // Standing still: a slow, small sway on top of the rig's own breathing.
   idle: { dur: 3200, loop: true, tracks: {
     squash: [[0, 0], [0.5, 0.015], [1, 0]],
@@ -810,12 +917,14 @@ export const FISHING = {
   lobster_pot: { cast: 'fish_cage_lower', wait: 'fish_cage', haul: 'fish_cage_raise', waitMin: 600 },
   harpoon: { cast: null, wait: 'fish_harpoon', haul: 'fish_harpoon_throw', waitMin: 500 },
 };
-// With no catch reported (the bus missing), the haul plays after this anyway.
-const FISH_WAIT_MAX = 2600;
-const AGILITY_CLIP = { agility_balance: 'agility_balance', agility_net: 'agility_climb', agility_rope: 'agility_rope', agility_ledge: 'agility_ledge', agility_zip: 'agility_zip' };
-// Every player action that is a life skill (the rest: walking, talking, shops).
+// Player actions with their own life-skill clips. A stall serves when a dish is sold.
 export const SKILL_ACTION_TYPES = ['woodcut', 'mine', 'fish', 'cook', 'cookdish', 'smelt', 'smith', 'craft', 'hunt', 'dive', 'excavate',
   'recipe', 'firemake', 'farm', 'thieve', 'stall', 'agility', 'pray', 'rest', 'bury', 'offer'];
+
+function constructionClip(a) {
+  const station = a.recipe?.at?.[0] || a.obj?.def?.type;
+  return station === 'saw' ? 'saw' : station === 'kiln' ? 'kiln' : 'build';
+}
 /** The clip for a player action, or null for anything that isn't a life skill. */
 export function actionClipId(a) {
   if (!a) return null;
@@ -829,10 +938,10 @@ export function actionClipId(a) {
     case 'smith': return 'smith';
     case 'craft': return 'craft';
     case 'hunt': return 'hunt';
-    case 'dive': return 'hunt';   // crouched at the water's edge, reaching down to the reef
-    case 'recipe': return a.skill === 'herblore' ? 'herb' : a.skill === 'construction' ? 'smith' : a.skill === 'hawkering' ? 'stir' : 'fletch';   // building: hammering
-    case 'hawk': return 'stir';   // at your hawker stall's wok
-    case 'excavate': return 'farm_dig';   // digging carefully with a trowel
+    case 'dive': return 'dive';
+    case 'recipe': return a.skill === 'herblore' ? 'herb' : a.skill === 'construction' ? constructionClip(a)
+      : a.skill === 'hawkering' ? 'stir' : a.skill === 'archaeology' ? 'restore' : a.recipe?.tool === 'knife' ? 'fletch' : 'craft';
+    case 'excavate': return 'excavate';
     case 'firemake': return 'firemake';
     case 'farm': {
       const o = a.obj;
@@ -841,8 +950,9 @@ export function actionClipId(a) {
     }
     case 'thieve': return 'pickpocket';
     case 'stall': return 'stall';
-    case 'agility': return AGILITY_CLIP[a.obj?.objId] || 'agility_jump';
-    case 'pray': case 'rest': return 'pray';
+    case 'agility': return agilityClipId(a.obj);
+    case 'pray': return 'pray';
+    case 'rest': return 'rest';
     case 'bury': return 'bury';
     case 'offer': return 'offer';
     default: return null;
@@ -875,8 +985,11 @@ export function actionPropId(game, a) {
     case 'smith': return itemWithTool(game, 'hammer');
     case 'craft': return a.recipe?.tool ? itemWithTool(game, a.recipe.tool) : first(a.recipe);
     case 'hunt': return itemWithTool(game, 'snare');
-    case 'recipe': return a.skill === 'herblore' ? first(a.recipe) : a.skill === 'hawkering' ? 'pot' : itemWithTool(game, a.skill === 'construction' ? 'hammer' : a.skill === 'archaeology' ? 'brush' : 'knife');
-    case 'hawk': return 'pot';
+    case 'recipe': {
+      if (a.skill === 'hawkering') return 'pot';
+      const tool = a.recipe?.tool || (a.skill === 'archaeology' ? 'brush' : null);
+      return tool ? itemWithTool(game, tool) : first(a.recipe);
+    }
     case 'excavate': return itemWithTool(game, 'trowel');
     case 'firemake': return itemWithTool(game, 'tinderbox');
     case 'farm': return a.seed || null;
@@ -891,10 +1004,12 @@ export function sampleHeroClip(id, u, info = {}) {
   const clip = CLIPS[id] || CLIPS.idle;
   const ch = {};
   for (const name of HERO_CHANNELS) ch[name] = sampleTrack(clip.tracks[name], u);
+  ch.prop = wrapWrist(ch.prop);
   ch.mix = clip.hands ? 1 : 0;
   // The clip walks the painted attack arms through their pictures (arc).
   ch.paint = clip.tracks.arc || clip.tracks.arc2 ? 1 : 0;
-  return { id, u, kind: info.kind || (clip.hands ? 'skill' : 'combat'), ch, tool: info.tool || null,
+  const tool = u >= (clip.takeProp ?? 0) && u < (clip.releaseProp ?? Infinity) ? info.tool || null : null;
+  return { id, u, kind: info.kind || (clip.hands ? 'skill' : 'combat'), ch, tool,
     upright: !!clip.upright, trail: clip.trail || null, trail2: clip.trail2 || null, dust: !!clip.dust, tween: clip.tween ?? 1, guardIn: !!clip.guardIn,
     jobClass: info.jobClass, low: !!info.low, calm: !!info.calm, weapon: info.weapon || null, offhand: info.offhand || null };
 }
@@ -911,8 +1026,9 @@ const _watched = new WeakSet();
 function stateOf(p) {
   let st = _states.get(p);
   if (!st) {
-    st = { id: null, u: 0, t0: 0, from: null, out: null, one: null, pending: null, prevAction: null, prevClip: null, prevAt: false, prop: null, propFor: null,
-      swings: 0, lastSk: -1, fish: null, caught: null,
+    st = { id: null, u: 0, t0: 0, from: null, out: null, lastTool: null, lastUpright: false, one: null, pending: null,
+      prevAction: null, prevRecipe: null, prevRaw: null, prevClip: null, prevAt: false, prop: null, propFor: null,
+      swings: 0, lastSk: -1, skillSwing: false, fish: null, caught: null, crossing: null,
       blowAt: -1, blowId: null, blowMs: 0, blowShot: false, stopMs: 0, hitTimes: [] };
     _states.set(p, st);
   }
@@ -933,9 +1049,19 @@ export function blendHeroFrame(st, frame, now) {
     const w = EASE.io(k), ch = frame.ch, f = st.from;
     // The painted arms' picture walk, the spin and the swooshes jump rather than blend: an
     // eased arc from follow-through back to rest would replay the swing backwards.
-    for (const name in ch) if (!NO_BLEND.has(name)) ch[name] = f[name] + (ch[name] - f[name]) * w;
+    for (const name in ch) if (!NO_BLEND.has(name)) {
+      const delta = ch[name] - f[name];
+      ch[name] = name === 'prop' ? wrapWrist(f[name] + wrapWrist(delta) * w) : f[name] + delta * w;
+    }
+    // The tool fades with the work arm, without disappearing out of its fist.
+    if (ch.mix > 0.01 && !frame.tool && st.lastTool) {
+      frame.tool = st.lastTool;
+      frame.upright = st.lastUpright;
+    }
   } else st.from = null;
   st.out = frame.ch;
+  st.lastTool = frame.tool;
+  st.lastUpright = frame.upright;
   return frame;
 }
 
@@ -944,6 +1070,7 @@ function atWork(p, a) {
   if (p.isMoving) return false;
   if (a.type === 'firemake') return a.tile && p.x === a.tile.x && p.y === a.tile.y;
   const o = a.obj;
+  if (a.type === 'stall' && o?.depleted) return false;
   return !!o && Math.max(Math.abs(p.x - o.x), Math.abs(p.y - o.y)) <= 1;
 }
 
@@ -960,16 +1087,21 @@ function watch(game) {
   game.bus.on('equipment', retool);
   // A boss falling earns the same cheer (and the painted victory face).
   game.bus.on('sfx', (e) => { if (e === 'bossdie') stateOf(game.player).pending = { id: 'cheer', at: 0 }; });
+  game.bus.on('skillpose', (e) => {
+    if (!e) return;
+    const id = e.id || actionClipId(e.action);
+    if (!CLIPS[id]?.hands) return;
+    const st = stateOf(game.player);
+    if (e.agility) st.crossing = { id, start: null, target: e.target };
+    else st.pending = { id, at: 0, action: e.action, prop: e.prop ?? actionPropId(game, e.action), target: e.target ?? e.action?.obj };
+  });
   game.bus.on('xp', (e) => {
     const p = game.player, st = stateOf(p);
-    // Bones buried (or offered) from the pack: there's no action to follow, so
-    // the clip starts part-way in (already stooping) and lands just after.
-    if (e?.skill === 'prayer' && !p.action) st.pending = { id: 'bury', at: 0.35, prop: 'bones' };
     // Fishing draws its own splashes, timed to the line (drawFishingGear).
     if (e?.skill !== 'fishing') beatFx(game, e?.skill, p.action || st.prevAction);
   });
   // A fish landed (skilling.js resolveFish): the next haul brings this one in.
-  game.bus.on('fishcatch', (e) => { stateOf(game.player).caught = { id: e?.id || null }; });
+  game.bus.on('fishcatch', (e) => { if (e?.id) stateOf(game.player).caught = e; });
 }
 
 /** This frame's animation for the player: which clip, how far through, blended. */
@@ -981,23 +1113,35 @@ export function heroAnimFrame(game, now) {
   const a = p.action;
   const low = !!game.lowFx;
   const jobClass = game.jobClass;
-  // An action that just resolved on arrival (or a gathering one that just
-  // finished) plays its clip out from the beat, instead of cutting to idle.
+  // Continuous work finishes the motion already on screen. One-shot actions
+  // explicitly report a successful pose, including those resolved on click.
   if (st.prevAction && st.prevAction !== a && !p.isMoving) {
     const id = st.prevClip;
-    if (id && (ARRIVAL.has(st.prevAction.type) || st.prevAt)) {
+    if (id && st.prevAction.type !== 'fish' && st.prevAt) {
       const clip = CLIPS[id];
-      const arrival = ARRIVAL.has(st.prevAction.type);
-      st.one = { id, start: now - (arrival ? 0 : clip.beat * dur(clip)), prop: st.prop };
+      const u = st.id === id ? st.u : clip.beat;
+      st.one = { id, start: now - u * dur(clip), prop: st.prop };
     }
   }
   if (st.pending) {
-    const clip = CLIPS[st.pending.id];
-    st.one = { id: st.pending.id, start: now - st.pending.at * dur(clip), prop: st.pending.prop || null };
+    const { id, at, action, prop, target } = st.pending;
+    if (!action || action !== a || !atWork(p, a)) {
+      const previous = st.prevAction;
+      const sameWork = action && previous && (action === previous || (previous.type === action.type && previous.obj === action.obj && st.prop === prop));
+      const u = sameWork && id === st.id ? st.u : at;
+      st.one = { id, start: now - u * dur(CLIPS[id]), prop: prop || null, target };
+    }
     st.pending = null;
   }
   // Remember what the action was (and whether the hero had got to it).
   if (a !== st.prevAction) { st.prevAction = a; st.prevClip = actionClipId(a); st.prevAt = false; st.fish = null; }
+  // "Do all" swaps recipes inside the same action object.
+  if (a?.recipe !== st.prevRecipe || a?.rawId !== st.prevRaw) {
+    st.prevRecipe = a?.recipe;
+    st.prevRaw = a?.rawId;
+    st.prevClip = actionClipId(a);
+    st.propFor = null;
+  }
   if (a && a !== st.propFor) { st.propFor = a; st.prop = actionPropId(game, a); }
   const sk = p.swingProgress ? p.swingProgress() : -1;
   // What's in each hand: the rigs draw the off-hand weapon and a second hand
@@ -1008,28 +1152,49 @@ export function heroAnimFrame(game, now) {
   const held = { jobClass, low, calm: !!game.reduceMotion, weapon: type, offhand: dual ? game.equipment.get('shield') : null };
   // Count attacks (a new swing starts over from 0), so dual wielders alternate
   // clips; each attack's clip then runs on its own clock (blowU).
-  if (sk >= 0 && (st.lastSk < 0 || sk < st.lastSk - 0.05)) {
+  // Only a targeted swing or an attack already in progress replaces the
+  // work pose with a weapon. The life-skill channels act on their own clock.
+  const skillSwing = !!st.prevClip && !p.target;
+  if (!skillSwing && sk >= 0 && (st.lastSk < 0 || sk < st.lastSk - 0.05 || (st.skillSwing && p.target))) {
     st.swings++;
     startBlow(game, st, weaponClipId(type, dual, st.swings - 1), now);
   }
   st.lastSk = sk;
+  st.skillSwing = skillSwing && sk >= 0;
   const bu = blowU(game, st, now);
+  // A lap queues its next walk on the same tick that credits the crossing.
+  // Keep the clip over that departure so the animation never delays the route.
+  const cross = st.crossing;
+  const crossClip = cross && CLIPS[cross.id];
+  const crossAge = cross?.start == null ? 0 : now - cross.start;
+  const crossing = crossClip && bu < 0 && p.alive !== false && !(game.playerStun > 0)
+    && (a?.type === 'agility' || (!a && !p.isMoving)) && crossAge < dur(crossClip);
+  if (cross && !crossing) st.crossing = null;
   let frame;
   if (bu >= 0) {
     frame = sampleHeroClip(st.blowId, bu, { kind: 'combat', ...held });
     st.one = null;
-  } else if (a && st.prevClip && atWork(p, a) && !ARRIVAL.has(a.type)) {
+  } else if (crossing) {
+    if (cross.start === null) {
+      cross.start = now;
+      if (!p.isMoving) faceWork(p, cross.target);
+    }
+    frame = sampleHeroClip(cross.id, crossAge / dur(crossClip), { kind: 'skill', ...held });
+    st.one = null;
+  } else if (a && a.type !== 'agility' && st.prevClip && atWork(p, a) && !ARRIVAL.has(a.type) && !(game.playerStun > 0)) {
     st.prevAt = true;
-    faceWork(p, a);
+    faceWork(p, a.obj);
     if (a.type === 'fish' && FISHING[a.obj?.def?.tool || 'net']) frame = fishFrame(p, st, a, now, held);
     else {
-      const clip = CLIPS[st.prevClip];
+      const id = a.type === 'dive' && a.surface > 0 ? 'dive_surface' : st.prevClip;
+      const clip = CLIPS[id];
       const u = clip.dur === 'tick' ? ((game.tickAcc || 0) / TICK_MS + clip.beat) % 1 : (now % clip.dur) / clip.dur;
-      frame = sampleHeroClip(st.prevClip, u, { kind: 'skill', tool: st.prop, ...held });
+      frame = sampleHeroClip(id, u, { kind: 'skill', tool: st.prop, ...held });
     }
     st.one = null;
   } else if (st.one && !p.isMoving && now - st.one.start < dur(CLIPS[st.one.id])) {
     const clip = CLIPS[st.one.id];
+    faceWork(p, st.one.target);
     frame = sampleHeroClip(st.one.id, (now - st.one.start) / dur(clip), { kind: clip.hands ? 'skill' : 'pose', tool: st.one.prop, ...held });
   } else {
     st.one = null;
@@ -1113,7 +1278,9 @@ function fishFrame(p, st, a, now, held) {
     else if (f.phase === 'haul' && el >= dur(CLIPS[P.haul])) {
       f.phase = P.cast ? 'cast' : 'wait'; f.t0 += dur(CLIPS[P.haul]); f.n++; f.id = null; st.caught = null;
     } else if (f.phase === 'wait' && el < P.waitMin) { st.caught = null; break; }   // too soon: let it bob a while
-    else if (f.phase === 'wait' && (st.caught || el >= FISH_WAIT_MAX)) { f.phase = 'haul'; f.t0 = now; f.id = st.caught?.id || null; st.caught = null; }
+    else if (f.phase === 'wait' && st.caught && (!st.caught.objId || st.caught.objId === f.obj?.objId)) {
+      f.phase = 'haul'; f.t0 = now; f.id = st.caught.id; st.caught = null;
+    }
     else break;
   }
   const id = f.phase === 'cast' ? P.cast : f.phase === 'haul' ? P.haul : P.wait;
@@ -1138,8 +1305,7 @@ export function attachFishing(anim, o) {
 }
 
 /** Turn to face the thing being worked (left/right only), with the usual turn. */
-function faceWork(p, a) {
-  const o = a.obj;
+function faceWork(p, o) {
   if (!o || o.x === p.x || !p.noteFacing) return;
   const dx = Math.sign(o.x - p.x);
   if (dx === p.faceX) return;
@@ -1156,7 +1322,8 @@ const FX = {
 };
 function beatFx(game, skillId, a) {
   if (game.lowFx || !game._pushParticle) return;
-  const kind = FX[skillId];
+  const recipeFx = a?.type === 'recipe' && a.skill === skillId ? CLIPS[actionClipId(a)]?.fx : null;
+  const kind = recipeFx || FX[skillId];
   if (!kind) return;
   const o = a?.obj, p = game.player;
   const pc = p.renderCenter ? p.renderCenter() : { x: p.x * TILE + TILE / 2, y: p.y * TILE + TILE / 2 };
@@ -1220,6 +1387,7 @@ const PROPS = {
 const HELD = { grip: [0.5, 0.62], tip: [0.5, 0.1], size: 16 };   // anything else: held up in the fist
 // A tiered tool (an iron axe...) is held like its tier-1 tool: its sticker copies that one's shape and angle.
 const propOf = (id) => PROPS[id] || PROPS[ITEMS[id]?.toolBase] || null;
+const propReach = (p) => Math.hypot(p.tip[0] - p.grip[0], p.tip[1] - p.grip[1]) * p.size;
 // A borrowed sticker drawn with its metal tint, baked once into a canvas (a
 // filter on every frame would cost too much). The plain image without a DOM.
 const _tintedProps = new Map();
@@ -1305,7 +1473,7 @@ function toolInHand(c, anim, tool, hx, hy, phi, wrist, upright) {
     // The head is where the sticker's tip lies from the grip, along the turn drawProp gave it.
     const P = propOf(tool) || HELD;
     const want = (upright || !propOf(tool) ? -Math.PI / 2 : dir) + wrist;
-    const reach = Math.hypot(P.tip[0] - P.grip[0], P.tip[1] - P.grip[1]) * P.size * 0.85;
+    const reach = propReach(P);
     star(c, hx + Math.cos(want) * reach, hy + Math.sin(want) * reach, 1.5 + k * 4, k);
   }
 }
@@ -1330,16 +1498,21 @@ const SKILL_SHOULDER = { brawler: [13, -13, -1], monk: [10.5, -6, 1.7] };
 export const armInFront = (jobClass) => !!SKILL_SHOULDER[jobClass];
 /** The life-skill arms for a painted rig: the back one before the body (after
  *  it where armInFront says so), the front one (with the tool) after it. `y`
- *  is the shoulder height. */
-export function drawHeroArm(c, anim, side, y = -11) {
-  const ch = anim.ch, a = ch.mix;
+ *  is the shoulder height. A work-only body passes its fitted [x, y, sleeve]
+ *  and keeps its arms visible as the pose blends. */
+export function drawHeroArm(c, anim, side, y = -11, joint = null) {
+  const ch = anim.ch, a = joint ? 1 : ch.mix;
   if (!(a > 0.01)) return;
-  const sleeve = SLEEVE[anim.jobClass] || '#C0392B';
+  const sleeve = joint ? joint[2] : SLEEVE[anim.jobClass] || '#C0392B';
   const [fx, bx, dy] = SKILL_SHOULDER[anim.jobClass] || [8, -7, 0];
+  const front = side === 'front';
+  const sx = joint ? joint[0] : front ? fx : bx;
+  const sy = joint ? joint[1] : y + dy;
+  const jobClass = joint ? null : anim.jobClass;
   const prev = c.globalAlpha;
   c.globalAlpha = prev * Math.min(1, a);
-  if (side === 'back') mittenArm(c, bx, y + dy, ch.off, sleeve, null, 0, false, null, anim.jobClass);
-  else mittenArm(c, fx, y + dy, ch.hand, sleeve, anim.tool, ch.prop, anim.upright, anim, anim.jobClass);
+  if (front) mittenArm(c, sx, sy, ch.hand, sleeve, anim.tool, ch.prop, anim.upright, anim, jobClass);
+  else mittenArm(c, sx, sy, ch.off, sleeve, null, 0, false, null, jobClass);
   c.globalAlpha = prev;
 }
 
@@ -1480,8 +1653,8 @@ const lerp2 = (a, b, s) => [a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s];
 const arc2 = (a, b, s, h) => [a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s - Math.sin(Math.PI * s) * h];
 
 // Is the gear in the hand (rather than out on the water) at this point?
-const netInHand = (f) => (f.phase === 'cast' && f.k < 0.5) || (f.phase === 'haul' && f.k > 0.78);
-const potInHand = (f) => (f.phase === 'cast' && f.k < 0.42) || (f.phase === 'haul' && f.k > 0.82);
+const netInHand = (f) => (f.phase === 'cast' && f.k < 0.5) || (f.phase === 'haul' && f.k >= 0.78);
+const potInHand = (f) => (f.phase === 'cast' && f.k < 0.42) || (f.phase === 'haul' && f.k >= 0.82);
 const harpoonInHand = (f) => !(f.phase === 'haul' && f.k >= 0.3 && f.k < 0.86);
 
 /** The gear in the front hand (at hx, hy, pointing along ang). */
@@ -1494,13 +1667,19 @@ function heldGear(c, anim, hx, hy, ang) {
     const tip = drawRodArt(c, anim.tool, hx, hy, ang, anim.ch.bend, anim.low) || drawRod(c, hx, hy, ang, anim.ch.bend);
     f.tip = devicePoint(c, tip[0], tip[1]);
   } else if (f.tool === 'net') {
+    f.tip = devicePoint(c, hx, hy + 3);
     if (netInHand(f)) drawNetBundle(c, hx, hy + 3);
   } else if (f.tool === 'lobster_pot') {
+    f.tip = devicePoint(c, hx + 1, hy + 6);
     if (potInHand(f)) drawIcon(c, anim.tool || 'lobster_pot', hx + 1, hy + 6, 15);
-  } else if (harpoonInHand(f)) {
-    c.save(); c.translate(hx, hy);
-    drawProp(c, anim.tool || 'harpoon', ang, 0, false);
-    c.restore();
+  } else {
+    const id = anim.tool || 'harpoon', reach = propReach(propOf(id) || PROPS.harpoon);
+    f.tip = devicePoint(c, hx + Math.cos(ang) * reach, hy + Math.sin(ang) * reach);
+    if (harpoonInHand(f)) {
+      c.save(); c.translate(hx, hy);
+      drawProp(c, id, ang, 0, false);
+      c.restore();
+    }
   }
 }
 
@@ -1695,8 +1874,8 @@ function sunkPot(c, id, x, y, d) {
 /** The harpoon in flight (or stuck in the water), its point at (x, y), aimed along ang. */
 function flyingHarpoon(c, id, x, y, ang) {
   const img = itemIconImage(id);
+  const P = propOf(id) || PROPS.harpoon, size = P.size;
   if (img && img.complete && img.naturalWidth) {
-    const P = PROPS.harpoon, size = 26;
     c.save(); c.translate(x, y);
     c.rotate(ang - Math.atan2(P.tip[1] - P.grip[1], P.tip[0] - P.grip[0]));
     c.drawImage(propImage(img), -P.tip[0] * size, -P.tip[1] * size, size, size);
@@ -1704,7 +1883,8 @@ function flyingHarpoon(c, id, x, y, ang) {
     return;
   }
   c.strokeStyle = INK; c.lineWidth = 2;
-  c.beginPath(); c.moveTo(x, y); c.lineTo(x - Math.cos(ang) * 18, y - Math.sin(ang) * 18); c.stroke();
+  const reach = propReach(P);
+  c.beginPath(); c.moveTo(x, y); c.lineTo(x - Math.cos(ang) * reach, y - Math.sin(ang) * reach); c.stroke();
 }
 /** The caught fish (its own sticker, else a little silver fish) flipping
  *  from the water at a into the hero at b, s 0..1. Returns where it is. */
@@ -1726,7 +1906,7 @@ function fishFlip(c, id, a, b, s, face, low) {
 /** Everything out at the water for a fishing hero: call after the hero (so
  *  heldGear has marked the hand and rod tip), with the hero's centre (hx, hy)
  *  in the same drawing space. Driven by anim.fish (see fishFrame). */
-export function drawFishingGear(c, anim, hx, hy) {
+export function drawFishingGear(c, anim, hx, hy, waterX = hx, waterY = hy) {
   const f = anim?.fish;
   if (!f) return;
   const low = !!anim.low, k = f.k, t = f.t, face = f.face;
@@ -1734,7 +1914,7 @@ export function drawFishingGear(c, anim, hx, hy) {
   const tip = toLocal(c, f.tip) || (f.tool === 'rod' ? [hx + face * 20, hy - 26] : hand);
   // The line lands a little beyond the middle of the spot (so it reads clear of
   // the spot's own painted ripples); the net and pot nearer the bank.
-  const W = [hx + f.tx + f.jx + face * (f.tool === 'rod' ? 7 : 2), hy + f.ty + f.jy + 2];
+  const W = [waterX + f.tx + f.jx + face * (f.tool === 'rod' ? 7 : 2), waterY + f.ty + f.jy + 2];
   const chest = [hx, hy - 6];
   const fx = !low;   // the water's extras: ripples, splashes, bubbles, sparkles
   c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
@@ -1742,7 +1922,10 @@ export function drawFishingGear(c, anim, hx, hy) {
   if (f.tool === 'rod') {
     if (f.phase === 'cast') {
       if (k < 0.47) { const B = [tip[0], tip[1] + 6]; line(c, tip, B, 0); bobber(c, B[0], B[1]); }
-      else if (k < 0.8) { const s = (k - 0.47) / 0.33, B = arc2(tip, W, s, 18); line(c, tip, B, 3 * (1 - s)); bobber(c, B[0], B[1]); }
+      else if (k < 0.8) {
+        const s = (k - 0.47) / 0.33, B = arc2([tip[0], tip[1] + 6], W, s, 18);
+        line(c, tip, B, 3 * Math.sin(Math.PI * s)); bobber(c, B[0], B[1]);
+      }
       else {
         const s = (k - 0.8) / 0.2;
         if (fx) { ripple(c, W[0], W[1], s); splash(c, W[0], W[1], s); }
@@ -1768,34 +1951,37 @@ export function drawFishingGear(c, anim, hx, hy) {
         if (fx) splash(c, out[0], out[1], s * 2);
         line(c, tip, fishFlip(c, f.id, out, chest, s, face, low), 0);
       } else {
-        const s = (k - 0.82) / 0.18, B = [tip[0], tip[1] + 6 * s];
+        const s = (k - 0.82) / 0.18, B = lerp2(chest, [tip[0], tip[1] + 6], EASE.out(s));
         line(c, tip, B, 0); bobber(c, B[0], B[1]); sparkle(s);
       }
     }
   } else if (f.tool === 'net') {
-    const rim = [W[0] - face * 11, W[1]], out = lerp2(W, hand, 0.25);
+    const rim = (p, radius) => [p[0] - face * radius * (11 / 13), p[1]], out = lerp2(W, tip, 0.25);
     if (f.phase === 'cast') {
       if (k >= 0.5 && k < 0.8) {
         // Flung out, the net spins open in the air and flattens as it lands.
-        const s = (k - 0.5) / 0.3, C = arc2(hand, W, s, 16), r = 3 + 10 * EASE.out(s);
-        line(c, hand, C, 2, true); drawNet(c, C[0], C[1], r, r * (0.85 - 0.45 * s), 1, low);
+        const s = (k - 0.5) / 0.3, C = arc2(tip, W, s, 16), r = 3 + 10 * EASE.out(s);
+        line(c, hand, rim(C, r), 2 * Math.sin(Math.PI * s), true); drawNet(c, C[0], C[1], r, r * (0.85 - 0.45 * s), 1, low);
       } else if (k >= 0.8) {
         const s = (k - 0.8) / 0.2;
         if (fx) { ripple(c, W[0], W[1], s, 1.4); splash(c, W[0], W[1], s, 7); }
-        line(c, hand, rim, 5 * s, true); drawNet(c, W[0], W[1], 13, 5, 1 - 0.35 * s, low);
+        line(c, hand, rim(W, 13), 5 * s, true); drawNet(c, W[0], W[1], 13, 5, 1 - 0.35 * s, low);
       }
     } else if (f.phase === 'wait') {
-      drawNet(c, W[0], W[1], 13 + Math.sin(t * 0.004) * 0.6, 5, 0.65, low);
+      const r = 13 + Math.sin(t * 0.004) * 0.6;
+      drawNet(c, W[0], W[1], r, 5, 0.65, low);
       if (fx) bubbles(c, W[0], W[1], t);
-      line(c, hand, rim, 5 + Math.sin(t * 0.002) * 1.5, true);
+      line(c, hand, rim(W, r), 5 + Math.sin(t * 0.002) * 1.5, true);
     } else {
       if (k < 0.45) {
         // Drawn in hand over hand, the net closing round the catch.
         const s = k / 0.45, C = lerp2(W, out, s);
         if (fx) splash(c, W[0], W[1], s * 2);
-        drawNet(c, C[0], C[1], 13 - 8 * s, 5 - s, 0.65 + 0.35 * s, low); line(c, hand, [C[0] - face * (13 - 8 * s), C[1]], 0, true);
+        const r = 13 - 8 * s;
+        const knot = lerp2(rim(C, r), [C[0], C[1] - 6], s * s);
+        drawNet(c, C[0], C[1], r, 5 - s, 0.65 + 0.35 * s, low); line(c, hand, knot, 5 * (1 - s), true);
       } else if (k < 0.78) {
-        const s = (k - 0.45) / 0.33, C = arc2(out, hand, s, 14);
+        const s = (k - 0.45) / 0.33, C = arc2(out, tip, s, 14);
         line(c, hand, [C[0], C[1] - 6], 0, true); drawBag(c, C[0], C[1]);
         if (fx) drips(c, C[0], C[1] + 5, t);
       }
@@ -1804,13 +1990,18 @@ export function drawFishingGear(c, anim, hx, hy) {
     }
   } else if (f.tool === 'lobster_pot') {
     const pot = anim.tool || 'lobster_pot', out = lerp2(W, hand, 0.2);
+    const surface = [W[0], W[1] - 3];
+    const sunkKnot = (depth) => [W[0], Math.min(W[1] + 2, surface[1] - 6 + depth)];
     if (f.phase === 'cast') {
-      if (k >= 0.42 && k < 0.62) { const s = (k - 0.42) / 0.2, C = arc2(hand, W, s, 12); line(c, hand, [C[0], C[1] - 6], 2, true); drawIcon(c, pot, C[0], C[1], 15); }
+      if (k >= 0.42 && k < 0.62) {
+        const s = (k - 0.42) / 0.2, C = arc2(tip, surface, s, 12);
+        line(c, hand, [C[0], C[1] - 6], 2 * Math.sin(Math.PI * s), true); drawIcon(c, pot, C[0], C[1], 15);
+      }
       else if (k >= 0.62) {
         // Let down on its rope, sinking out of sight.
         const s = (k - 0.62) / 0.38, d = s * 14;
         if (fx) { ripple(c, W[0], W[1] + 3, s, 1.2); splash(c, W[0], W[1], s * 1.4); }
-        line(c, hand, [W[0], W[1] - 6 + d], 3, true); sunkPot(c, pot, W[0], W[1], d);
+        line(c, hand, sunkKnot(d), 5 * s, true); sunkPot(c, pot, W[0], W[1], d);
       }
     } else if (f.phase === 'wait') {
       if (fx) { ripple(c, W[0], W[1] + 3, (t % 1600) / 1600); bubbles(c, W[0], W[1] + 2, t); }
@@ -1822,10 +2013,10 @@ export function drawFishingGear(c, anim, hx, hy) {
       if (k < 0.5) {
         const s = k / 0.5, d = 14 * (1 - s);
         if (fx) ripple(c, W[0], W[1] + 3, (t % 500) / 500);
-        line(c, hand, [W[0], W[1] - 6 + d], 0, true); sunkPot(c, pot, W[0], W[1], d);
+        line(c, hand, sunkKnot(d), 5 * (1 - s), true); sunkPot(c, pot, W[0], W[1], d);
         if (fx && s > 0.6) drips(c, W[0], W[1] - 2, t);
       } else if (k < 0.82) {
-        const s = (k - 0.5) / 0.32, C = arc2(W, hand, s, 10);
+        const s = (k - 0.5) / 0.32, C = arc2(surface, tip, s, 10);
         line(c, hand, [C[0], C[1] - 6], 0, true); drawIcon(c, pot, C[0], C[1], 15);
         if (fx) drips(c, C[0], C[1] + 6, t);
       }
@@ -1840,20 +2031,25 @@ export function drawFishingGear(c, anim, hx, hy) {
       c.fillStyle = 'rgba(20,40,60,0.3)'; c.beginPath(); c.ellipse(sx, sy, 5, 1.8, Math.cos(a) * 0.3, 0, Math.PI * 2); c.fill();
     }
     if (f.phase === 'haul') {
+      const reach = propReach(propOf(id) || PROPS.harpoon);
+      const heldAim = f.tip ? Math.atan2(tip[1] - hand[1], tip[0] - hand[0]) : aim;
+      const knot = (p, angle) => [p[0] - Math.cos(angle) * reach, p[1] - Math.sin(angle) * reach];
+      const sunk = [W[0], W[1] + 4];
       if (k >= 0.3 && k < 0.4) {
-        const s = (k - 0.3) / 0.1, P = arc2(hand, W, s, 6);
-        line(c, hand, P, 2, true); flyingHarpoon(c, id, P[0], P[1], aim + (s - 0.5) * 0.5 * face);
+        const s = (k - 0.3) / 0.1, P = arc2(tip, sunk, s, 6), angle = heldAim + wrapWrist(aim - heldAim) * s;
+        line(c, hand, knot(P, angle), 2 * Math.sin(Math.PI * s), true); flyingHarpoon(c, id, P[0], P[1], angle);
       } else if (k >= 0.4 && k < 0.62) {
         // Struck home: it stands quivering in the water.
         const s = (k - 0.4) / 0.22;
         if (fx) { ripple(c, W[0], W[1], s, 1.2); splash(c, W[0], W[1], s * 1.4, 6); }
-        line(c, hand, W, 1, true);
+        const angle = aim + Math.sin(t * 0.08) * 0.08 * Math.sin(Math.PI * s);
+        line(c, hand, knot(sunk, angle), Math.sin(Math.PI * s), true);
         c.save(); c.beginPath(); c.rect(W[0] - 30, W[1] - 40, 60, 41); c.clip();
-        flyingHarpoon(c, id, W[0], W[1] + 4, aim + Math.sin(t * 0.08) * 0.08 * (1 - s));
+        flyingHarpoon(c, id, sunk[0], sunk[1], angle);
         c.restore();
       } else if (k >= 0.62 && k < 0.86) {
-        const s = (k - 0.62) / 0.24, P = arc2(W, hand, s, 8);
-        line(c, hand, P, 3 * (1 - s), true); flyingHarpoon(c, id, P[0], P[1], aim);
+        const s = (k - 0.62) / 0.24, P = arc2(sunk, tip, s, 8), angle = aim + wrapWrist(heldAim - aim) * s;
+        line(c, hand, knot(P, angle), 3 * Math.sin(Math.PI * s), true); flyingHarpoon(c, id, P[0], P[1], angle);
       }
       if (k >= 0.62 && k < 0.9) fishFlip(c, f.id, W, chest, (k - 0.62) / 0.28, face, low);
       sparkle((k - 0.9) / 0.1);

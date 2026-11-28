@@ -3,6 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { HERO_RIG_PARTS, HERO_RIG_CLASSES, heroRigSrc, swordsmanPose, heroRigPose, drawHeroRig } from '../src/render/heroRig.js';
+import { sampleHeroClip } from '../src/render/heroanim.js';
+import { drawHeroBack } from '../src/render/heroAnimArt.js';
 
 test('Swordsman rig artwork is complete', () => {
   for (const part of HERO_RIG_PARTS) assert.ok(existsSync(new URL('../' + heroRigSrc(part), import.meta.url)), part);
@@ -112,9 +114,7 @@ test('Rogue and Samurai caches are isolated and preserve canvas opacity', () => 
 
 // The Monk wears its open palm glove only when equipped. The opposite fist
 // chambers during the palm strike, and the rear view keeps its close stance.
-test('the Monk: bare hands without gloves, the palm over a chambered fist, feet apart from behind', async () => {
-  const { sampleHeroClip } = await import('../src/render/heroanim.js');
-  const { drawHeroBack } = await import('../src/render/heroAnimArt.js');
+test('the Monk: bare hands without gloves, the palm over a chambered fist, feet apart from behind', () => {
   const previous = globalThis.Image;
   globalThis.Image = class { constructor() { this.complete = true; this.naturalWidth = 100; this.naturalHeight = 100; } };
   try {
@@ -181,6 +181,42 @@ test('Swordsman guards with an outward sword and shows the buckler only when shi
     assert.ok(render({ hasShield: true }).includes(back));
     const shieldless = render({ hasShield: false });
     assert.ok(!shieldless.includes(back) && shieldless.some((src) => src.endsWith('swordsman_hand.webp')));
+  } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
+});
+
+test('hero rigs follow equipped off-hand daggers and shields', () => {
+  const previous = globalThis.Image;
+  globalThis.Image = class { constructor() { this.complete = true; this.naturalWidth = 100; this.naturalHeight = 100; } };
+  try {
+    const drawn = [], opacity = [];
+    const ctx = {
+      globalAlpha: 1,
+      save() { opacity.push(this.globalAlpha); }, restore() { this.globalAlpha = opacity.pop(); },
+      translate() {}, rotate() {}, scale() {},
+      drawImage(img) { if (this.globalAlpha > 0.01) drawn.push(img.src); },
+    };
+    const paint = (jobClass, opts, rear = false) => {
+      drawn.length = 0;
+      assert.ok((rear ? drawHeroBack : drawHeroRig)(ctx, { jobClass, hasWeapon: true, backView: rear, ...opts }));
+      return drawn.map((src) => src.split('/').pop());
+    };
+    const single = paint('rogue', { offhandWeapon: false, dualWield: false });
+    assert.ok(single.includes('rogue_hand.webp') && !single.includes('rogue-back.webp'));
+    assert.ok(paint('rogue', { offhandWeapon: true, dualWield: true }).includes('rogue-back.webp'));
+    const punch = sampleHeroClip('punch', 0.68, { jobClass: 'rogue', kind: 'combat' });
+    const offOnly = paint('rogue', { hasWeapon: false, offhandWeapon: true, dualWield: false, anim: punch });
+    assert.ok(offOnly.includes('rogue-back.webp') && offOnly.includes('rogue_hand.webp'), 'a sole off-hand dagger stays in guard');
+    assert.ok(offOnly.every((src) => !/^rogue_off|^rogue-strike/.test(src)), 'an unarmed clip cannot draw an off-hand stab');
+    const attack = sampleHeroClip('stab_dual', 0.72, { jobClass: 'rogue', kind: 'combat', weapon: 'dagger', low: true });
+    assert.ok(paint('rogue', { offhandWeapon: true, dualWield: true, anim: attack }).some((src) => src.startsWith('rogue_off')));
+    for (const jobClass of ['paladin', 'knight']) {
+      assert.ok(paint(jobClass, { hasShield: true }).includes(`${jobClass}-back.webp`));
+      const empty = paint(jobClass, { hasShield: false });
+      assert.ok(empty.includes(`${jobClass}_hand.webp`) && !empty.includes(`${jobClass}-back.webp`));
+    }
+    assert.ok(paint('knight', { hasShield: true }, true).includes('knight_backother.webp'));
+    const emptyRear = paint('knight', { hasShield: false }, true);
+    assert.ok(emptyRear.includes('knight_hand.webp') && !emptyRear.includes('knight_backother.webp'));
   } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
 });
 

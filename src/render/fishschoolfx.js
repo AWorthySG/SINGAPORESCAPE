@@ -19,11 +19,13 @@ function fish(ctx, x, y, ang, s) {
 
 /**
  * Draw `school` ({ from, until }) centred on (cx, cy) in screen pixels.
- * `tick` is the game's tick count, so it fades in as it arrives and out as it leaves.
+ * `tick` includes the current tick's progress, so it fades in and out smoothly.
  */
 export function drawFishSchool(ctx, cx, cy, timeMs, school, tick, low = false) {
   const left = school.until - tick, age = tick - school.from;
-  const k = Math.max(0.15, Math.min(1, age / 3, left / 3));   // ~2s fade at each end
+  const fade = Math.max(0, Math.min(1, age / 3, left / 3));   // ~2s fade at each end
+  if (!fade) return;
+  const k = fade * fade * (3 - 2 * fade);
   const R = TILE * 1.15;
   ctx.save();
   ctx.globalAlpha = 0.6 * k;

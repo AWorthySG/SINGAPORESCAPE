@@ -16,10 +16,11 @@ import { resolveCraft, resolveDish, resolveSmith, resolveRecipe } from '../src/g
 import { CRAFT } from '../src/data/crafting.js';
 import { DISHES } from '../src/data/cooking.js';
 import { SMITH } from '../src/data/smithing.js';
-import { FLETCH, POTIONS } from '../src/data/trades.js';
+import { CROP_BY_ID, FLETCH, POTIONS, farmProgress } from '../src/data/trades.js';
 import { ITEMS } from '../src/data/items.js';
 import { recipesFor, itemEntry } from '../src/game/skillguide.js';
 import { itemIconSVG } from '../src/render/icons.js';
+import { drawObjectSprite } from '../src/render/sprites.js';
 import { HOME_PRICE, HOME_UPGRADES } from '../src/game/home.js';
 import { chebyshev } from '../src/core/utils.js';
 
@@ -133,6 +134,20 @@ test('farming and firemaking unlocks apply', () => {
   g.inventory.add('chilli_seed', 1);
   assert.ok(g.plantSeed(patch, 'chilli_seed'));
   assert.ok(patch.growLeft < 50, `quicker growth (${patch.growLeft})`);
+  assert.equal(patch.growTotal, patch.growLeft, 'the animation uses the adjusted planting time');
+  assert.equal(farmProgress(patch), 0, 'a fast-growing crop still starts as newly planted');
+  patch.growLeft--;
+  assert.ok(farmProgress(patch) > 0 && farmProgress(patch) < 0.15, 'one tick is still the planted stage');
+  patch.growLeft = 0;
+  assert.equal(farmProgress(patch), 1, 'the final tick makes it ripe');
+});
+
+test('the drawn farm fallback starts a fast-growing plant at the planted size', () => {
+  const tips = [];
+  const ctx = new Proxy({ lineTo: (x, y) => tips.push([x, y]) }, { get: (t, k) => t[k] ?? (() => {}) });
+  const patch = { x: 0, y: 0, objId: 'farm_patch', def: { type: 'farm' }, crop: 'chilli', growLeft: 18, growTotal: 18 };
+  drawObjectSprite(ctx, patch, 0, 0, 0);
+  assert.deepEqual(tips[3], [-8, -2]);
 });
 
 test('past level 99 every unlock keeps growing, to x1.5 at level 9999 and on to about x2.51 at 30,000', () => {
@@ -296,7 +311,9 @@ test('the home, its chest, tiers and crops survive a save', () => {
   g.inventory.add('pearl', 4);
   h.deposit('pearl');
   const patch = g.world.objects.filter((o) => o.objId === 'farm_patch' && o.home)[3];
-  patch.crop = 'chilli'; patch.growLeft = 7;
+  patch.crop = 'chilli'; patch.growLeft = 7; patch.growTotal = 31;
+  const oldPatch = g.world.objects.find((o) => o.def.type === 'farm' && !o.home);
+  oldPatch.crop = 'chilli'; oldPatch.growLeft = 19;
   h.teleport();
   assert.ok(saveGame(g));
 
@@ -307,6 +324,11 @@ test('the home, its chest, tiers and crops survive a save', () => {
   assert.equal(g2.home.count('pearl'), 4);
   const p2 = g2.world.objectAt(patch.x, patch.y);
   assert.equal(p2?.crop, 'chilli', 'the crop in a home patch is back');
+  assert.equal(p2.growTotal, 31, 'the crop keeps the rate it was planted with');
+  assert.equal(farmProgress(p2), 1 - 7 / 31);
+  const oldCrop = g2.world.objectAt(oldPatch.x, oldPatch.y);
+  assert.equal(oldCrop.growLeft, 19, 'older saves keep their exact remaining growing time');
+  assert.equal(farmProgress(oldCrop), 1 - 19 / CROP_BY_ID.chilli[3], 'older saves had nominally timed art');
   assert.ok(g2.home.tpWait() > 0, 'the teleport is still recharging');
   // An older save without a home loads with no house.
   const g3 = new Game();

@@ -72,6 +72,13 @@ for (const c of CROPS) {
 }
 export const CROP_BY_ID = Object.fromEntries(CROPS.map((c) => [c[0], c]));
 export const CROP_BY_SEED = Object.fromEntries(CROPS.map((c) => [`${c[0]}_seed`, c]));
+// New crops remember their actual, perk-adjusted growing time. Old saved
+// crops only know the time left, so keep their original nominal scale.
+export function farmProgress(patch) {
+  if (!patch.crop) return 0;
+  const total = patch.growTotal || CROP_BY_ID[patch.crop]?.[3];
+  return total ? Math.max(0, Math.min(1, 1 - (patch.growLeft || 0) / total)) : 1;
+}
 export const cropFor = (id) => {
   const c = CROP_BY_ID[id];
   return c && { id: c[0], name: c[1], level: c[2], grow: c[3], plantXp: c[4], harvestXp: c[5], yield: c[6], heal: c[7], value: c[8], color: c[9], seed: `${c[0]}_seed` };

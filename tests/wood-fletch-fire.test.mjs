@@ -222,7 +222,7 @@ test('endgame fletching: every bow, staff, wand, rifle, crossbow and arrow of ea
       assert.ok(said.some((m) => m.includes(`Fletching level of ${r.level}`)));
       setLevel(g, 'fletching', r.level);
       g.startRecipe('fletching', r, bench); step(g, 1);
-      assert.equal(actionClipId({ type: 'recipe', skill: 'fletching', recipe: r }), 'fletch');
+      assert.equal(actionClipId({ type: 'recipe', skill: 'fletching', recipe: r }), r.tool === 'knife' ? 'fletch' : 'craft');
       step(g, 2);
       assert.equal(g.inventory.count(r.result), r.qty, `fletched ${r.result}`);
       for (const [id] of r.inputs) assert.equal(g.inventory.count(id), 0, `using up the ${id}`);

@@ -1199,6 +1199,22 @@ body.reduce-motion :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #mo
 .island-chart { margin-block: .75rem; }
 .island-chart span { padding: .3rem .5rem; background: #eee2cb; border-radius: .4rem; }
 .island-chart .current { color: white; background: var(--island-accent); }
+.island-chart .passed { background: #dce9df; }
+.island-voyage { position: relative; height: 42px; border-radius: 10px; background: #dceef0; }
+.island-voyage::before { content: ''; position: absolute; inset: 50% 8% auto; border-top: 1px dashed #6196a0; }
+.island-voyage i { position: absolute; top: 50%; width: 7px; height: 7px; border-radius: 50%; background: #a74737; transform: translate(-50%, -50%); }
+.island-boat { position: absolute; inset: 0; pointer-events: none; transform: translate(var(--to), var(--to-side)); }
+.island-boat img { position: absolute; width: 36px; height: 28px; object-fit: contain; top: 50%; left: 0; transform: translate(-50%, -50%); }
+.island-voyage .steering { animation: islandSteer .28s ease-in-out; }
+@keyframes islandSteer { from { transform: translate(var(--from), var(--from-side)); } }
+.island-chart .island-note { background: #e4dbc8; color: var(--island-accent); transform: translateY(var(--pitch)); animation: islandNote .36s ease-out; }
+@keyframes islandNote { from { opacity: .45; transform: translateY(calc(var(--pitch) + 5px)); } }
+.island-swatch.just-printed { animation: islandPrint .4s ease-out; }
+@keyframes islandPrint { from { opacity: .4; transform: scaleX(.85); } }
+body.reduce-motion :is(.island-voyage .steering, .island-chart .island-note, .island-swatch.just-printed) { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  :is(.island-voyage .steering, .island-chart .island-note, .island-swatch.just-printed) { animation: none; }
+}
 .island-status:not(:empty) { padding: .65rem 0; font-weight: 800; }
 .island-swatch {
   display: inline-block;

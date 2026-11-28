@@ -456,7 +456,10 @@ export function drawHeroBack(ctx, opts = {}) {
   put(body, b.body);
   const buckler = b.buckler && opts.hasShield !== false ? image(`${classId}_backbuckler`) : null;
   const held = loaded(buckler) ? buckler : other;
-  if (held) {
+  if (classId === 'knight' && opts.hasShield === false) {
+    const [sx, sy] = b.other;
+    drawEmptyArm(ctx, classId, sx, sy + breathe, -0.65 + step * 0.25, 10);
+  } else if (held) {
     // The off arm hangs from its shoulder, a little out from the body, and swings as the hero walks.
     const [sx, sy, w, h, px, py, fx, fy] = held === buckler ? b.buckler : b.other;
     const natural = Math.atan2(fy - py, fx - px);

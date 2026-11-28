@@ -225,6 +225,7 @@ export class HawkerStall {
     this.serveReady = this.t + this.service().ticks;
     if (!quick) g.bus.emit('sfx', 'make:hawker');
     g.spawnSparkle?.(g.player, '#ffd24a', c.vip ? 12 : 5);
+    g.bus.emit('skillpose', { id: 'serve', prop: c.order, target: this.obj });
     g.addHitsplat?.(g.player, 0, { text: `+${coins.toLocaleString('en-GB')} coins` });
     if (c.vip) g.msg(`${c.name} is delighted: a ${tip.toLocaleString('en-GB')}-coin tip!`, 'level');
     if (this.streak > 0 && this.streak % 50 === 0) g.msg(`Serving streak: ${this.streak}! The tips keep getting better.`, 'level');

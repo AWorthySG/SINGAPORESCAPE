@@ -158,6 +158,30 @@ test('every set piece has its picture; landmarks span their footprint and loops 
   assert.equal(frames.size, 4, [...frames].join(' '));
 });
 
+test('a cold animated prop requests the whole loop and holds paint while the next frame decodes', () => {
+  const PreviousImage = globalThis.Image;
+  const frames = new Map();
+  globalThis.Image = class {
+    set src(url) { this.url = url; frames.set(url, this); }
+    get src() { return this.url; }
+    get naturalWidth() { return this.complete ? 100 : 0; }
+    get naturalHeight() { return 100; }
+  };
+  try {
+    const id = 'five_foot_lantern', def = OBJECTS[id], obj = { objId: id, def, x: 0, y: 0 };
+    const { ctx, drawn } = drawingCtx();
+    const first = `assets/world/obj-${id}-0.webp`, second = `assets/world/obj-${id}-1.webp`;
+    drawObjectSprite(ctx, obj, 50, 50, 0);
+    assert.equal(frames.size, def.frames);
+    frames.get(first).complete = true;
+    drawObjectSprite(ctx, obj, 50, 50, def.frameMs);
+    assert.equal(drawn.at(-1).src, first);
+    frames.get(second).complete = true;
+    drawObjectSprite(ctx, obj, 50, 50, def.frameMs);
+    assert.equal(drawn.at(-1).src, second);
+  } finally { globalThis.Image = PreviousImage; }
+});
+
 test("Kampong Glam's plaza props stand clear of its paths, townsfolk and dig spots, and every tile stays reachable", async () => {
   const { CLUE_SPOTS } = await import('../src/data/clues.js');
   const { REGION_GIVERS } = await import('../src/data/regionQuests.js');

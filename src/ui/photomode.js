@@ -56,6 +56,7 @@ export class PhotoMode {
     this.game = game; this.canvas = canvas;
     this.state = 'off';   // off | framing | preview
     this.blob = null; this.url = null;
+    this.capture = null;
     this.logo = null;   // the mascot for the postcard's corner: asked for when postcard mode first opens, not at start-up
     this._build();
   }
@@ -119,31 +120,37 @@ export class PhotoMode {
 
   frame() {
     if (!this.logo && typeof Image === 'function') { this.logo = new Image(); this.logo.src = 'assets/mascot-login.webp'; }
+    this.capture = null;
     this.state = 'framing';
     this.game.photoMode = true;   // your own name shows over your head for the picture (renderer.js)
     document.body.classList.add('photo-on');
-    this.el.classList.remove('hidden', 'previewing');
+    this.el.classList.remove('hidden', 'previewing', 'flashing');
     this.el.classList.add('framing');
   }
 
   close() {
     this.state = 'off';
+    this.capture = null;
     this.game.photoMode = false;
     document.body.classList.remove('photo-on');
     this.el.classList.add('hidden');
-    this.el.classList.remove('framing', 'previewing');
+    this.el.classList.remove('framing', 'previewing', 'flashing');
     if (this.url) { URL.revokeObjectURL(this.url); this.url = null; }
     this.blob = null;
   }
 
   snap() {
+    if (this.state !== 'framing' || this.capture) return;
     const make = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
     const cv = buildPostcard(this.game, this.canvas, make, { vw: window.innerWidth, vh: window.innerHeight, logo: this.logo && this.logo.complete && this.logo.naturalWidth ? this.logo : null });
     if (!cv) return;
+    this.capture = cv;
     const subject = recordIslandPhoto(this.game);
     this.el.classList.remove('flashing'); void this.el.offsetWidth; this.el.classList.add('flashing');
     this.game.audio?.play?.('pickup');   // a little shutter click
     const done = (blob) => {
+      if (this.capture !== cv) return;
+      this.capture = null;
       if (!blob) return;
       this.blob = blob;
       if (this.url) URL.revokeObjectURL(this.url);

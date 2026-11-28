@@ -223,3 +223,18 @@ test('drawing a school is cheap canvas work, simpler in low graphics', () => {
   assert.ok(full > 0 && full < 200, `a handful of shapes (${full} calls)`);
   assert.ok(calls < full, 'low graphics draws less');
 });
+
+test('a school fades to zero rather than vanishing at the tick it leaves', () => {
+  const s = { from: 20, until: 70 };
+  const alphaAt = (tick) => {
+    const alphas = [];
+    const ctx = new Proxy({ fill: () => alphas.push(ctx.globalAlpha) }, { get: (t, k) => (k in t ? t[k] : () => {}) });
+    drawFishSchool(ctx, 100, 100, 1234, s, tick, true);
+    return alphas[0] || 0;
+  };
+  assert.equal(alphaAt(20), 0);
+  assert.ok(alphaAt(20.5) > 0 && alphaAt(20.5) < alphaAt(21.5));
+  assert.equal(alphaAt(40), 0.6);
+  assert.ok(alphaAt(69.99) > 0 && alphaAt(69.99) < 0.0001);
+  assert.equal(alphaAt(70), 0);
+});

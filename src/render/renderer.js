@@ -293,6 +293,7 @@ export class Renderer {
     // The decorative extras (reflections, critters, weather particles, the
     // second foam layer) also step down while frames run slow (governor.js).
     const trim = !!(game.lowFx || game.fxTrim);
+    const calm = !motionOK(game);
 
     // Opaque canvas: paint, don't clear (one fill: a second, paler one under it was never seen).
     // Tilted, the ground is drawn flat into the depth view's canvas first (warped on below).
@@ -340,7 +341,7 @@ export class Renderer {
       this.critters.drawGround(ctx, ox, oy);
       this.amb.update(game, fdt, timeMs, ox, oy, vw, vh, night, this.weather.state, trim);
       const mo = this._moteOpts || (this._moteOpts = {});
-      mo.low = !!game.lowFx; mo.trim = !!game.fxTrim; mo.calm = !!game.reduceMotion;
+      mo.low = !!game.lowFx; mo.trim = !!game.fxTrim; mo.calm = calm;
       this.motes.update(game, fdt, timeMs, ox, oy, vw, vh, night, this.weather.state, this.amb.wind, mo);
     }
 
@@ -361,12 +362,12 @@ export class Renderer {
     for (const o of visObjs) {
       if (o.def.footprint) continue;   // landmarks: below, by their own list
       // Harvest judder: a struck tree/rock wobbles briefly as the resource pops.
-      const jx = o.shakeT > 0 ? Math.sin(o.shakeT * 0.09) * 1.7 * (o.shakeT / 280) : 0;
+      const jx = !calm && o.shakeT > 0 ? Math.sin(o.shakeT * 0.09) * 1.7 * (o.shakeT / 280) : 0;
       const cx = o.x * TILE + TILE / 2 - ox + jx, cy = o.y * TILE + TILE / 2 - oy;
       const lit = night > 0.12 && isLightSource(o);
       const fade = this.react.alpha(o), upper = o.def.type === 'tree' && !o.depleted, lean = this.react.skew(o, timeMs) + this.amb.lean(o, timeMs);   // brushed, or in the breeze (ambient.js)
       // A spot's fish stops leaping while a school swirls there (fishCalm keeps when).
-      const still = o.def.type === 'fishing' && fishCalm(o, game.fishSchools?.at(o), timeMs);
+      const still = o.def.type === 'fishing' && (calm || fishCalm(o, game.fishSchools?.at(o), timeMs));
       drawables.push({ sortY: o.y + (o.def.overhead ? 0.9 : 0.4), z: 1, rise: o.def.type === 'tree' ? riseTree : 0, draw: () => {   // (a hanging lantern goes over your head)
         if (lit) {
           // A warm light pool blooms outward after dark — fires, furnaces,
@@ -380,11 +381,11 @@ export class Renderer {
           ctx.save();
           ctx.globalAlpha = upper ? 1 : fade;
           if (lean) { ctx.translate(cx, cy + 13); ctx.transform(1, 0, lean, 1, 0, 0); ctx.translate(-cx, -(cy + 13)); }
-          drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx, still, upper ? fade : 1);
+          drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx || calm, still, upper ? fade : 1);
           ctx.restore();
-        } else drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx, still);
+        } else drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx || calm, still);
         if (o.objId === 'bank_booth' && o.x === 51 && o.y === 48) drawHeritageBank(ctx, cx, cy);
-        if (o.objId === 'stall_food' && o.x === 64 && o.y === 62) drawMarketValance(ctx, cx, cy, timeMs, trim || game.reduceMotion);
+        if (o.objId === 'stall_food' && o.x === 64 && o.y === 62) drawMarketValance(ctx, cx, cy, timeMs, trim || calm);
       } });
     }
     // Landmarks stand on their front-left tile, but their picture spreads across
@@ -401,10 +402,11 @@ export class Renderer {
         else drawObjectSprite(ctx, o, cx, cy, timeMs);
       } });
     }
+    const fishSchoolTick = (game.tickCount || 0) + Math.max(0, Math.min(1, game.tickAcc / TICK_MS || 0));
     for (const sc of game.fishSchools?.list || []) {   // a school of fish at a spot (fishschool.js): one or two at most
       const o = sc.obj;
       if (o.x < x0 - 1 || o.x > x1 + 1 || o.y < y0 - 1 || o.y > y1 + 1) continue;
-      drawables.push({ sortY: o.y + 0.41, z: 1, draw: () => drawFishSchool(ctx, o.x * TILE + TILE / 2 - ox, o.y * TILE + TILE / 2 - oy, timeMs, sc, game.tickCount || 0, !!game.lowFx) });
+      drawables.push({ sortY: o.y + 0.41, z: 1, draw: () => drawFishSchool(ctx, o.x * TILE + TILE / 2 - ox, o.y * TILE + TILE / 2 - oy, timeMs, sc, fishSchoolTick, !!game.lowFx || calm) });
     }
     { const gr = game.play?.grave;   // your gravestone, where you last fell (playbalance.js)
       if (gr && gr.x >= x0 && gr.x <= x1 && gr.y >= y0 && gr.y <= y1) drawables.push({ sortY: gr.y + 0.3, z: 1, draw: () => drawGrave(ctx, gr.x * TILE + TILE / 2 - ox, gr.y * TILE + TILE * 0.8 - oy, timeMs) }); }
@@ -454,8 +456,6 @@ export class Renderer {
         || Math.max(n.y, n.ty) * TILE + TILE / 2 - oy < -m || Math.min(n.y, n.ty) * TILE + TILE / 2 - oy > vh + m) continue;
       near.push(n);
     }
-    // Reduce motion (the setting or the browser's): struck monsters don't shudder or fidget.
-    const calm = !motionOK(game);
     const creatureSun = !trim && this.depth.ok ? shadowVec(dayPhase, this._creatureSun || (this._creatureSun = {})) : null;
     for (const n of near) {
       if (!n.alive && !(n.deathT > 0)) continue;
@@ -583,26 +583,29 @@ export class Renderer {
       // fish flipping in) goes over the hero and over the spot, whichever is nearer.
       if (anim?.fish) {
         const sy = Math.max(c.y / TILE, (anim.fish.oy ?? 0) + 0.4) + 0.001;
-        drawables.push({ sortY: sy, z: 3, draw: () => drawFishingGear(ctx, anim, cx + off.x, cy + off.y) });
+        drawables.push({ sortY: sy, z: 3, draw: () => drawFishingGear(ctx, anim, cx + off.x, cy + off.y, cx, cy) });
       }
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
         drawSunShadow(ctx, cx, cy + 13, 10, 4.5, sun, footfall(game.player.walkPhase, game.player.isMoving) * (game.player.running ? 0.8 : 0.5));
         if (al?.aura) this._auraBack(cx + off.x, cy + off.y, al, timeMs);
         const sk = game.player.swingProgress();
         if (sk >= 0 && game.combatMode() === 'magic') this._castRing(cx, cy + 12, sk);
+        const offhand = game.equipment.get('shield'), dualWield = game.equipment.isDualWielding();
+        const offhandWeapon = !!offhand && !!getItem(offhand).equip?.weaponType;
         drawPlayer(ctx, cx + off.x, cy - 2 + off.y, {
-          anim,
+          anim, calm,
           time: timeMs, facing: game.player.facing, fx: game.player.faceX, entity: game.player, hurt: heroHurt,
           moving: game.player.isMoving, swingK: sk,
           hasBody: !!game.equipment.get('body'), hasWeapon: !!game.equipment.get('weapon'), weaponType: game.combatMode(),
           hasCape: !!game.equipment.get('cape'), hasHelm: !!game.equipment.get('head'),
-          hasShield: !!game.equipment.get('shield') && !game.equipment.isDualWielding() && !/_quiver$/.test(game.equipment.get('shield')),   // a quiver is no shield
-          dualWield: game.equipment.isDualWielding(), prayerActive: !!game.burstActive?.(), jobClass: game.jobClass,
+          hasShield: !!offhand && !offhandWeapon && !/_quiver$/.test(offhand),
+          offhandWeapon,
+          dualWield, prayerActive: !!game.burstActive?.(), jobClass: game.jobClass,
           gait: { phase: game.player.walkPhase, move: game.player.animMove, run: game.player.running && game.player.isMoving,
             turn: game.player.turnT / TURN_MS },
         });
         if (game.islandLife?.scarf) drawIslandScarf(ctx, game.islandLife.scarf, cx + off.x, cy + off.y - 6, game.player.faceX);
-        if (heroHurt > 0) this._hurtFlash(cx + off.x, cy - 2 + off.y, 1, heroHurt);
+        if (heroHurt > 0 && !calm) this._hurtFlash(cx + off.x, cy - 2 + off.y, 1, heroHurt);
         if (al?.halo || al?.eyes) this._auraFront(cx + off.x, cy + off.y, al, timeMs);
       } });
     }
@@ -659,7 +662,7 @@ export class Renderer {
     this._drawOverheads(ox, oy, visObjs);
     if (pj) applyScreen(ctx, pj);
     this._drawHurtFlash(svw, svh);
-    if (!game.reduceMotion) game.cfx.drawPulse(ctx, svw, svh);
+    if (!calm) game.cfx.drawPulse(ctx, svw, svh);
     this._drawCinematics(svw, svh);
   }
 
@@ -772,7 +775,7 @@ export class Renderer {
     const cine = this.game.cine;
     if (!cine) return;
     const { ctx } = this;
-    if (cine.flash > 0 && !this.game.reduceMotion) {
+    if (cine.flash > 0 && motionOK(this.game)) {
       ctx.fillStyle = `rgba(255,252,240,${(0.5 * cine.flash / DEATH_FLASH_MS).toFixed(3)})`;
       ctx.fillRect(0, 0, vw, vh);
     }
@@ -905,14 +908,15 @@ export class Renderer {
 
   // Red screen edges when the player takes a hit.
   _drawHurtFlash(vw, vh) {
-    const { ctx, game } = this;
+    const { game } = this;
+    const movingEffects = motionOK(game);
     // Low-health heartbeat: a soft red edge pulse while below a quarter HP.
     if (game.player.alive && game.player.hp / Math.max(1, game.maxHp()) <= 0.25) {
-      const a = 0.10 + (Math.sin(performance.now() * 0.005) + 1) * 0.045;
+      const a = movingEffects ? 0.10 + (Math.sin(performance.now() * 0.005) + 1) * 0.045 : 0.145;
       this._edgeGlow('beat', 0.38, 0.74, '180,0,0', '170,10,10', +a.toFixed(3), vw, vh);
     }
     const h = game.player.strikeWait > 0 ? 0 : game.player.hurt;   // the screen flash waits for the blow too
-    if (!h || !game.player.alive || game.reduceMotion) return;   // Reduce motion: no flashes
+    if (!h || !game.player.alive || !movingEffects) return;
     const a = Math.min(0.45, (h / 200) * 0.45);
     this._edgeGlow('hurt', 0.32, 0.72, '180,0,0', '170,0,0', a, vw, vh);
   }

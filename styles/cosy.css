@@ -158,3 +158,4 @@ body.photo-on #game-root > :not(#game-canvas) { visibility: hidden !important; }
   border-radius: 50%; font-size: 26px; line-height: 1; color: var(--aw-ink); background: var(--aw-white); border: 2px solid var(--aw-ink);
 }
 @media (prefers-reduced-motion: reduce) { .pm-img { animation: none; } #photo-mode.flashing .pm-flash { animation: none; } }
+body.reduce-motion :is(.pm-img, #photo-mode.flashing .pm-flash) { animation: none; }

@@ -156,20 +156,27 @@ export function batched(game, fn) {
  *  Returns false (the station is done). */
 export function makeBatch(game, a, once) {
   let any = 0;
+  let worked;
+  const make = () => {
+    const made = batchOne(game, a, () => once(a));
+    if (made && !worked) worked = { type: a.type, skill: a.skill, recipe: a.recipe, rawId: a.rawId, obj: a.obj };
+    any += made;
+  };
   batched(game, () => {
-    any += batchOne(game, a, () => once(a));
+    make();
     while (a.all) {
       (a.done ||= new Set()).add(key(a));
       const nxt = nextJob(game, a.all, a.done);
       if (!nxt || nxt.type === 'smelt') break;
       Object.assign(a, { rawId: undefined, recipe: undefined, skill: undefined }, nxt);
-      any += batchOne(game, a, () => once(a));
+      make();
     }
   });
   if (any > 0) {
     const { skill } = makeInfo(a);
     game.bus.emit('sfx', `make:${skill === 'hawkering' ? 'hawker' : skill}`);
     game.spawnSparkle?.(game.player, '#ffd24a', 10);
+    game.bus.emit('skillpose', { action: worked, target: worked.obj });
   }
   return false;
 }
