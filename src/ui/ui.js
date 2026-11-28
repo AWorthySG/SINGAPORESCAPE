@@ -2575,16 +2575,19 @@ export class UI {
         const w = window.open('', '_blank');
         if (!w) return;
         w.document.title = 'A-Worthy Adventure learning report';
-        const fontUrl = new URL('assets/fonts/nunito-latin-wght-normal.woff2', document.baseURI);
-        const style = w.document.createElement('style');
-        style.textContent = `@font-face { font-family: Nunito; src: url(${JSON.stringify(fontUrl.href)}) format("woff2"); font-weight: 200 1000; }`;
-        w.document.head.appendChild(style);
         const pre = w.document.createElement('pre');
         pre.style.cssText = 'font:14px/1.5 Nunito,system-ui,sans-serif;white-space:pre-wrap;padding:24px';
         pre.textContent = rep.text;
         w.document.body.appendChild(pre);
-        // Wait for the popup's own font set before capturing the report.
-        await w.document.fonts.load('14px Nunito').catch(() => {});
+        // An about:blank popup can defer its own font requests until it is painted.
+        try {
+          const fontUrl = new URL('assets/fonts/nunito-latin-wght-normal.woff2', document.baseURI);
+          const response = await fetch(fontUrl, { signal: AbortSignal.timeout?.(3000) });
+          if (response.ok && !w.closed) {
+            const face = new w.FontFace('Nunito', await response.arrayBuffer(), { weight: '200 1000' });
+            w.document.fonts.add(await face.load());
+          }
+        } catch { /* The report can still print if the font request fails. */ }
         if (!w.closed) w.print();
       }, 'ride');
       body.appendChild(row);
