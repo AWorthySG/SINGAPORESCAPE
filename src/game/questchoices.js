@@ -67,6 +67,11 @@ export const choicePending = (game, key) => !!(game.story?.open?.has(key) && !ch
 /** Keys still waiting for you, in journal order. */
 export const pendingChoices = (game) => CHOICE_KEYS.filter((k) => choicePending(game, k));
 const isChapter = (key) => !!CHAPTER_CHOICES[key];
+/** A finished quest with no pending or recorded choice predates quest choices. */
+export function choiceUnavailable(game, key) {
+  if (!questChoice(key) || choicePick(game, key) || choicePending(game, key)) return false;
+  return isChapter(key) ? !!game.story?.done?.has(key) : game.quests?.[key]?.state === 'done';
+}
 /** Where a choice sits, for the journal: "Chapter 3" or the line's region. */
 export function choicePlace(key) {
   if (isChapter(key)) return `Chapter ${CHAPTERS.findIndex((c) => c.id === key) + 1}`;
