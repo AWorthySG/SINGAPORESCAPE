@@ -92,6 +92,38 @@ test('darkness and sky tints follow the clock: dark at midnight, amber at dusk, 
   assert.ok(skyWashes(0.63)[2][3] > 0.08, 'a warm haze through the late afternoon');
 });
 
+test('Marina Bay has a stronger gold sunset and a clear blue night', () => {
+  const draw = (zone, phase, night) => {
+    const lp = new LightPass();
+    lp.ok = true; lp.layer = { width: 0, height: 0 }; lp.g = recordingCtx();
+    const game = { currentZoneName: zone, dayPhase: () => phase, world: { objects: [] } };
+    lp.draw(recordingCtx(), game, ZONE_MOOD[zone], night, null, 0, 0, 320, 240, 0);
+    return lp;
+  };
+  const marina = draw('Marina Bay', 0.745, 0);
+  const reservoir = draw('MacRitchie Reservoir', 0.745, 0);
+  assert.ok(marina._sky[1][3] > reservoir._sky[1][3] + 0.1);
+  assert.ok(marina._sky[1][1] > 160 && marina._sky[1][2] < 85);
+  const moonlight = draw('Marina Bay', 0, 1)._dark;
+  assert.ok(moonlight[2] > 180 && moonlight[2] > moonlight[1] + 95);
+});
+
+test('Transit Road lamps and its hawker stall carry amber light with steady reduced motion', () => {
+  const transit = 'Transit Road, Nee Soon Camp';
+  const objects = [
+    { objId: 'lamp', x: 1, y: 2 }, { objId: 'lamp', x: 4, y: 2 },
+    { objId: 'hawker_stall_noodle', x: 4, y: 3 }, { objId: 'hawker_stall_noodle', x: 1, y: 3 },
+  ];
+  const game = { world: { objects, zoneAt: (x) => ({ name: x > 2 ? transit : 'Kampong Glam' }) }, reduceMotion: true };
+  const lp = new LightPass();
+  const light = lp.gather(game, 0, 0, 300, 250, 10).map((entry) => ({ ...entry }));
+  assert.equal(light.length, 3);
+  assert.equal(light[0].rgb, LIGHTS.lamp.rgb);
+  assert.ok(light[1].r > light[0].r && light[1].rgb[1] < light[0].rgb[1]);
+  assert.equal(light[2].y, 3.5 * TILE - 18);
+  assert.deepEqual(lp.gather(game, 0, 0, 300, 250, 520), light);
+});
+
 test('gathering lights at night finds the lamps in view, the hero and a fire; capped', () => {
   const g = freshGame();
   const lamp = g.world.objects.find((o) => o.objId === 'lamp');

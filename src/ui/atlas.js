@@ -5,6 +5,19 @@ export const ATLAS_PLACES = GEOGRAPHIC_PLACES.filter((place) => place.kind !== '
 const fantasyPlaces = GEOGRAPHIC_PLACES.filter((place) => place.kind === 'fictional');
 const accessOf = (place) => place.access || (place.stationId ? 'mrt' : 'walk');
 
+// A closer look at a landmark in the game, drawn from the existing place and world art.
+export const ATLAS_INSETS = {
+  kampong_glam: { art: 'world/obj-golden_dome_hall.webp', caption: 'Golden-domed hall' },
+  chinatown: { art: 'world/obj-chinese_temple.webp', caption: 'Chinatown temple' },
+  marina_bay: { art: 'world/obj-observation_wheel.webp', caption: 'Observation wheel' },
+  gardens: { art: 'world/obj-flower_dome.webp', caption: 'Flower Dome' },
+  macritchie: { art: 'places/macritchie.webp', caption: 'Reservoir canopy', scene: true },
+  sungei_buloh: { art: 'postcards/island-wetlands.webp', caption: 'Wetland boardwalk', scene: true },
+  transit_road: { art: 'places/transit-road.webp', caption: 'Transit Road at dusk', scene: true },
+  punggol: { art: 'world/obj-punggol_footbridge.webp', caption: 'Waterway footbridge' },
+  pulau_ubin: { art: 'postcards/island-ubin.webp', caption: 'Pulau Ubin landing', scene: true },
+};
+
 // Matches the north-up, 1200 × 800 atlas image in assets/maps.
 export function atlasPoint({ lon, lat }) {
   return { left: 100 * (lon - 103.57) / 0.56, top: 150 * (1.492 - lat) / 0.56 };
@@ -36,8 +49,13 @@ export function renderSingaporeAtlas(parent, currentZone, onTerrain, resolveDest
   atlas.innerHTML = `
     <div class="atlas-map" role="group" aria-label="Geographic map of Singapore">
       <img src="assets/maps/singapore-atlas.webp" alt="Singapore's coastline, Pulau Ubin, Pulau Tekong and the Southern Islands" width="1200" height="800" />
+      <img class="atlas-relief" src="assets/maps/singapore-atlas-relief.webp" alt="" width="1200" height="800" />
       <span class="atlas-north" aria-hidden="true">N</span>
       <span class="atlas-strait" aria-hidden="true">Singapore Strait</span>
+      <figure class="atlas-inset" hidden>
+        <img alt="" width="144" height="72" />
+        <figcaption></figcaption>
+      </figure>
     </div>
     <div class="atlas-destination">
       <label>Destination <select></select></label>
@@ -53,6 +71,9 @@ export function renderSingaporeAtlas(parent, currentZone, onTerrain, resolveDest
   const select = atlas.querySelector('select');
   const access = atlas.querySelector('.atlas-access');
   const showTerrain = atlas.querySelector('.wm-go');
+  const inset = atlas.querySelector('.atlas-inset');
+  const insetArt = inset.querySelector('img');
+  const insetCaption = inset.querySelector('figcaption');
   const pins = new Map();
   let place = GEOGRAPHIC_PLACES.find((p) => p.zone === currentZone || p.label === currentZone || STATION_BY_ID[p.stationId]?.name === currentZone) || ATLAS_PLACES[0];
   let destination;
@@ -93,6 +114,13 @@ export function renderSingaporeAtlas(parent, currentZone, onTerrain, resolveDest
       : accessOf(place) === 'mrt' ? 'In-game MRT and walking' : 'Walking route';
     const setting = place.kind === 'fictional' ? 'Fantasy district' : place.realLabel ? `Inspired by ${place.realLabel}` : '';
     access.textContent = [setting, route].filter(Boolean).join(' · ');
+    const detail = ATLAS_INSETS[place.id];
+    inset.hidden = !detail;
+    if (detail) {
+      insetArt.src = `assets/${detail.art}`;
+      insetCaption.textContent = detail.caption;
+      inset.classList.toggle('atlas-inset--scene', Boolean(detail.scene));
+    }
   }
   for (const pin of pins.values()) pin.setAttribute('aria-pressed', 'false');
   choose(place);

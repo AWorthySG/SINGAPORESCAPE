@@ -7,11 +7,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { buildWorld, TERRAIN } from '../src/data/world.js';
+import { geographicTile, legacyTile, geographicWorld } from '../src/data/worldlayout.js';
 import { World } from '../src/game/world.js';
 import { TILE } from '../src/config.js';
 import {
   BLEND_RANK, blendPlan, blendMask, scatterPlan, waterDetailPlan, shadowPlan, detailTable,
-  GROUND_DETAILS, DETAIL_ART, TerrainFx, tileHash, kerbPlan, paintGroundWash,
+  GROUND_DETAILS, DETAIL_ART, TerrainFx, tileHash, kerbPlan, paintGroundWash, districtGroundPlan, marinaGlintPlan, marinaPromenadePlan,
 } from '../src/render/terrainfx.js';
 
 let _world;
@@ -45,6 +46,56 @@ test('natural ground takes its regional palette and fades toward the border', ()
   assert.ok(edge[1] > 0 && edge[1] < coast[1]);
   assert.deepEqual(casts('Sentosa Beach', TERRAIN.WATER, 0), []);
   assert.deepEqual(casts('Sentosa Beach', TERRAIN.STONE, 10), []);
+});
+
+test('district materials distinguish road, paving, forest, wetlands and beaches', () => {
+  const plan = (name, t, y = 4) => {
+    const zoneAt = () => ({ name, x0: 0, x1: 20, y0: 0, y1: 20 });
+    return districtGroundPlan({ zoneAt }, t, 10, y);
+  };
+  const transit = 'Transit Road, Nee Soon Camp';
+  assert.equal(plan(transit, TERRAIN.PATH).kind, 'asphalt');
+  assert.equal(plan(transit, TERRAIN.PATH, 10), null, 'the park trail stays earth');
+  assert.equal(plan(transit, TERRAIN.STONE).kind, 'slabs');
+  assert.ok(plan(transit, TERRAIN.STONE, 1).strength < plan(transit, TERRAIN.STONE).strength);
+  assert.equal(plan(transit, TERRAIN.STONE, 0), null, 'motifs fade out at the regional seam');
+  assert.notEqual(plan('Kampong Glam', TERRAIN.STONE).down, plan('Marina Bay', TERRAIN.STONE).down);
+  assert.equal(plan('Mandai Rainforest', TERRAIN.GRASS).kind, 'roots');
+  assert.equal(plan('MacRitchie Reservoir', TERRAIN.SAND).kind, 'silt');
+  assert.notEqual(plan('MacRitchie Reservoir', TERRAIN.SAND).ink, plan('Sungei Buloh Wetlands', TERRAIN.SAND).ink);
+  assert.equal(plan('Sentosa Beach', TERRAIN.SAND).kind, 'ripple');
+  assert.equal(plan('Changi Coast', TERRAIN.SAND).kind, 'shingle');
+  assert.equal(plan('Sentosa Beach', TERRAIN.WATER), null);
+});
+
+test('Marina skyline glints stay on the bay and agree across chunk boundaries', () => {
+  const w = world();
+  const full = marinaGlintPlan(w, 185, 158, 210, 190);
+  assert.ok(new Set(full.map((d) => d.colour)).size === 2, 'both waterfront landmarks cast a glimmer');
+  for (const { x, y } of full) assert.equal(w.terrainAt(Math.floor(x / TILE), Math.floor(y / TILE)), TERRAIN.WATER);
+  const strip = (x0, x1) => full.filter(({ x }) => Math.floor(x / TILE) >= x0 && Math.floor(x / TILE) < x1);
+  assert.deepEqual(marinaGlintPlan(w, 185, 158, 192, 190), strip(185, 192));
+  assert.deepEqual(marinaGlintPlan(w, 192, 158, 210, 190), strip(192, 210));
+  assert.deepEqual(marinaGlintPlan(w, 50, 30, 100, 60), []);
+});
+
+test('Marina promenade reaches the theatre and rail on land in both layouts', () => {
+  const legacy = world();
+  const geo = new World();
+  geo.build(geographicWorld(buildWorld()), { forward: geographicTile, reverse: legacyTile });
+  const a = legacy.authoredTile({ x: 180, y: 165 });
+  const b = geo.authoredTile(a);
+  const old = marinaPromenadePlan(legacy, a.x, a.y, a.x + 35, a.y + 10);
+  const current = marinaPromenadePlan(geo, b.x, b.y, b.x + 35, b.y + 10);
+  assert.ok(old.paved.has(167 * legacy.width + 192), 'paving shows in front of the theatre');
+  assert.ok(old.paved.has(169 * legacy.width + 201), 'paving reaches the rail');
+  assert.deepEqual(current.tiles, old.tiles.map((t) => geo.authoredTile(t)));
+  for (const { x, y } of current.tiles) assert.ok(![TERRAIN.WATER, TERRAIN.WOOD].includes(geo.terrainAt(x, y)));
+  const cut = b.x + 16;
+  const left = marinaPromenadePlan(geo, b.x, b.y, cut, b.y + 10);
+  const right = marinaPromenadePlan(geo, cut, b.y, b.x + 35, b.y + 10);
+  assert.deepEqual([...left.tiles, ...right.tiles], current.tiles);
+  assert.deepEqual(left.points, right.points, 'the curve lines up across the chunk seam');
 });
 
 test('grass feathers into the Peaks’ rock, while the same edge in town has a kerb', () => {

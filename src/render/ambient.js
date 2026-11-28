@@ -42,6 +42,19 @@ const PETALS = new Set(['Gardens by the Bay', 'Kampong Glam', 'Chinatown', 'Mari
 const TOWNS = new Set(['Kampong Glam', 'Chinatown', 'Marina Bay', 'Pulau Ubin', 'Kranji Farmlands', 'Punggol Waterway',
   'Transit Road, Nee Soon Camp']);
 const GRIM = new Set(['The Wilderness', 'Pulau Hantu', 'Tekong Badlands', 'The Shadow Rift']);
+const TRANSIT_ROAD = 'Transit Road, Nee Soon Camp';
+const MANDAI = 'Mandai Rainforest';
+const QUIET_WATER = new Set(['MacRitchie Reservoir', 'Sungei Buloh Wetlands', 'Changi Coast']);
+const CANOPY = new Set(['rain_tree', 'palm', 'mangrove_root']);
+const GROUND_ACCENT_CAP = 12;
+// The soft irregular pieces of each ground stamp, [x, y, r, height, opacity]
+// on a 64 px texture. The same small pictures are stretched and reused.
+const GROUND_STAMPS = {
+  'canopy-shade': ['28,53,44', [[23, 28, 22, 1, 0.65], [38, 35, 23, 0.92, 0.65], [49, 20, 15, 1.02, 0.5]]],
+  'canopy-sun': ['255,231,149', [[22, 21, 13, 0.65, 0.6], [40, 31, 17, 0.78, 0.5], [52, 24, 10, 0.9, 0.65], [30, 45, 10, 0.64, 0.45]]],
+  'wet-cool': ['186,220,239', [[21, 18, 18, 0.35, 0.65], [39, 29, 23, 0.35, 0.5], [26, 43, 18, 0.3, 0.52]]],
+  'wet-amber': ['255,184,99', [[29, 19, 19, 0.43, 0.8], [40, 31, 16, 0.34, 0.72], [25, 42, 12, 0.34, 0.52]]],
+};
 const LEAF_ART = ['leaf_green', 'leaf_lime', 'leaf_green', 'leaf_dry'];
 const PETAL_ART = ['petal_pink', 'frangipani', 'petal_pink', 'petal_red'];
 // Which flock flies over each kind of place: egrets over the wetlands and the
@@ -335,12 +348,76 @@ export class AmbientLife {
         cv.width = 80; cv.height = 64;
         g.scale(2, 2);
         drawCat(g, 20, 26, name);
+      } else if (GROUND_STAMPS[name]) {
+        cv.width = cv.height = 64;
+        const [rgb, blobs] = GROUND_STAMPS[name];
+        for (const [x, y, r, height, alpha] of blobs) {
+          g.save(); g.translate(x, y); g.scale(1, height);
+          const fade = g.createRadialGradient(0, 0, 0, 0, 0, r);
+          fade.addColorStop(0, `rgba(${rgb},${alpha})`);
+          fade.addColorStop(0.42, `rgba(${rgb},${alpha * 0.6})`);
+          fade.addColorStop(1, `rgba(${rgb},0)`);
+          g.fillStyle = fade; g.fillRect(-r, -r, r * 2, r * 2);
+          g.restore();
+        }
       }
     }
     return (this._sprites[name] = cv);
   }
 
   // ---------------- Drawing ----------------
+
+  /** Diffuse ground light anchored to trees and lamps, below the actors. */
+  drawDistrictGround(ctx, objs, ox, oy) {
+    if (!this.on || !objs?.length) return;
+    if (this._zone === MANDAI) this._canopy(ctx, objs, ox, oy);
+    else if (this._zone === TRANSIT_ROAD) this._pavement(ctx, objs, ox, oy);
+  }
+
+  _canopy(ctx, objs, ox, oy) {
+    const daylight = this._day * (1 - clamp01(this._gloom * 1.5));
+    if (daylight < 0.12) return;
+    const shade = this._sprite('canopy-shade'), sun = this._sprite('canopy-sun');
+    if (!shade || !sun) return;
+    let n = 0;
+    ctx.save();
+    for (const o of objs) {
+      if (o.depleted || (o.def.type !== 'tree' && !CANOPY.has(o.objId))) continue;
+      const h = tileHash(o.x, o.y, 83);
+      if (h > 0.56 || this._world.zoneAt?.(o.x, o.y)?.name !== MANDAI) continue;
+      const size = 100 + h * 68;
+      const x = o.x * TILE + TILE / 2 - ox, y = o.y * TILE + TILE - oy;
+      ctx.globalAlpha = 0.34 * daylight;
+      ctx.drawImage(shade, x - size * 0.45, y - size * 0.31, size, size * 0.63);
+      ctx.globalAlpha = 0.27 * daylight;
+      ctx.drawImage(sun, x + 3, y - size * 0.19, size * 0.8, size * 0.53);
+      if (++n >= GROUND_ACCENT_CAP) break;
+    }
+    ctx.restore();
+  }
+
+  _pavement(ctx, objs, ox, oy) {
+    const cool = this._sprite('wet-cool'), amber = this._sprite('wet-amber');
+    if (!cool || !amber) return;
+    const wet = clamp01(this._gloom * 2.2);
+    const dark = clamp01((this._night - 0.22) / 0.44);
+    let n = 0;
+    ctx.save();
+    for (const o of objs) {
+      if (o.objId !== 'lamp' || this._world.zoneAt?.(o.x, o.y)?.name !== TRANSIT_ROAD) continue;
+      const terrain = this._world.terrainAt(o.x, o.y);
+      if (terrain !== TERRAIN.PATH && terrain !== TERRAIN.STONE) continue;
+      const x = o.x * TILE + TILE / 2 - ox, y = o.y * TILE + TILE / 2 - oy;
+      ctx.globalAlpha = 0.27 + wet * 0.32;
+      ctx.drawImage(cool, x - 23, y - 12, 46, 42);
+      if (dark > 0.02) {
+        ctx.globalAlpha = dark * (0.48 + wet * 0.32);
+        ctx.drawImage(amber, x - 21, y - 10, 42, 43);
+      }
+      if (++n >= GROUND_ACCENT_CAP) break;
+    }
+    ctx.restore();
+  }
 
   /** On the ground, under everyone: water glints, flock shadows, hawker cats,
    *  town birds pecking. `objs` are the objects in view. */
@@ -385,7 +462,8 @@ export class AmbientLife {
     const w = this._water, n = w.length >> 1;
     if (!n) return;
     const day = this._day, clear = 1 - clamp01(this._gloom * 1.4);
-    const strength = (day * 0.95 + (1 - day) * 0.5) * clear;
+    const water = QUIET_WATER.has(this._zone) ? 0.68 : 1;
+    const strength = (day * 0.95 + (1 - day) * 0.5) * clear * water;
     if (strength < 0.05) return;
     // (The painted sparkle once it has loaded, else the baked twinkle.)
     const img = fxLoop('particle', 'sparkle', 0, 0, 0, 0) ? null : this._sprite(day > 0.5 ? 'glint' : 'moonglint');
@@ -397,7 +475,7 @@ export class AmbientLife {
       const k = Math.floor(tileHash(i, cyc, 21) * n) * 2;
       const rip = fxLoop('particle', 'ripple', 0, 0, 0, f);
       if (!rip) break;
-      ctx.globalAlpha = Math.sin(f * Math.PI) * 0.75 * (0.4 + 0.6 * clear);
+      ctx.globalAlpha = Math.sin(f * Math.PI) * 0.75 * (0.4 + 0.6 * clear) * water;
       ctx.drawImage(rip, w[k] * TILE + 3 - ox, w[k + 1] * TILE + 12 - oy, 26, 10);
       this.drawn++;
     }

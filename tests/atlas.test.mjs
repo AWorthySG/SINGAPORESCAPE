@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { ATLAS_PLACES, atlasDestination, atlasPoint } from '../src/ui/atlas.js';
+import { ATLAS_INSETS, ATLAS_PLACES, atlasDestination, atlasPoint } from '../src/ui/atlas.js';
 import { GEOGRAPHIC_PLACES, GEOGRAPHIC_PLACE_BY_ID } from '../src/data/geography.js';
 import { buildWorld } from '../src/data/world.js';
 import { World } from '../src/game/world.js';
@@ -18,6 +19,18 @@ test('the Singapore atlas is north-up and places its islands on the right sides 
   for (const place of ATLAS_PLACES) {
     const { left, top } = atlasPoint(place);
     assert.ok(left > 0 && left < 100 && top > 0 && top < 100, `${place.label} is inside the atlas`);
+  }
+});
+
+test('the painted atlas relief retains the base map size and the landmark insets use existing art', () => {
+  const relief = readFileSync(new URL('../assets/maps/singapore-atlas-relief.webp', import.meta.url));
+  assert.equal(relief.toString('ascii', 12, 16), 'VP8X');
+  assert.ok(relief[20] & 0x10, 'the relief layer has transparency');
+  assert.deepEqual([relief.readUIntLE(24, 3) + 1, relief.readUIntLE(27, 3) + 1], [1200, 800]);
+  for (const [id, { art, caption }] of Object.entries(ATLAS_INSETS)) {
+    assert.ok(ATLAS_PLACES.some((p) => p.id === id), `${id} has a geographic pin`);
+    assert.ok(existsSync(new URL(`../assets/${art}`, import.meta.url)), art);
+    assert.ok(caption);
   }
 });
 

@@ -10,7 +10,8 @@
 const CACHE = 'awa-v1';
 const CORE = ['./', 'index.html', 'styles/main.css', 'styles/title.css', 'styles/story.css', 'styles/heritage.css',
   'src/main.js', 'manifest.webmanifest', 'assets/logo.svg', 'assets/logo-mark.svg',
-  'assets/title/transit-road-evening.webp', 'assets/education-gold-nib.webp', 'assets/maps/singapore-atlas.webp'];
+  'assets/title/transit-road-evening.webp', 'assets/education-gold-nib.webp',
+  'assets/maps/singapore-atlas.webp', 'assets/maps/singapore-atlas-relief.webp'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).catch(() => {}).then(() => self.skipWaiting()));
