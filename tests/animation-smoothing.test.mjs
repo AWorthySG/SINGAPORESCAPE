@@ -92,6 +92,20 @@ test('a monster turning round squashes through edge-on instead of flipping in on
   assert.ok(worst < 0.5, `horizontal scale changes by ${worst.toFixed(2)} in one frame`);
 });
 
+test('reversing a turn keeps the pose both before and after passing edge-on', () => {
+  for (const dt of [24, 104]) {
+    const n = new Character(5, 5);
+    n.facing = { dx: -1, dy: 0 };
+    n.noteFacing();
+    n.update(dt);
+    const before = creatureFrame(n, 1000);
+    n.facing = { dx: 1, dy: 0 };
+    n.noteFacing();
+    const reversed = creatureFrame(n, 1000);
+    assert.ok(jump(before, reversed).lin < 1e-9, `the width stays put ${dt}ms into a turn`);
+  }
+});
+
 test('moving straight up or down keeps the last left/right facing', () => {
   const n = new Character(5, 5);
   n.setPath([{ x: 4, y: 5 }]);

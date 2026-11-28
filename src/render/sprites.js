@@ -11,7 +11,7 @@ import { drawPictureTool, drawWeaponTrail } from './heroanim.js';
 import { drawHeroBack, heroBackReady } from './heroAnimArt.js';
 import { heroLit, bakeRim } from './herolight.js';
 import { poseBlender } from './poseBlend.js';
-import { swingBeats, turnWidth, turnHop, lookAround, breath, heroWalk, heroView } from './motionkit.js';
+import { swingBeats, turnWidth, turnFacing, turnHop, lookAround, breath, heroWalk, heroView, smooth, travelPhase } from './motionkit.js';
 import { animSeed, animTempo, stepLift, stepRock, fidget, hitFlash, flinch, telegraphGlow, telegraphShake, telegraphCrouch, fidgetLand } from './creatureanim.js';
 import { CREATURE_RIGS, TOWN_IDLE, bossRig, stride, gaitPhase } from './creatureRigs.js';
 import { RIG_INK, rigSize, inkPart, inkRig, shadeCreatureBody } from './rigink.js';
@@ -95,8 +95,10 @@ function staged(ctx, cx, cy, opts, draw, planted = false) {
   // (motionkit.js).
   const turn = g ? g.turn : opts.turn;
   if (turn > 0) {
-    fx *= (opts.anim?.calm ? 1 : turnWidth(turn) * (turn > 0.5 ? -1 : 1));
-    if (!opts.calm && !opts.anim?.calm) bob -= turnHop(turn);
+    if (!opts.anim?.calm) {
+      fx = turnFacing(fx, turn);
+      if (!opts.calm) bob -= turnHop(turn);
+    }
   }
   ctx.save();
   ctx.translate(cx, cy + bob);
@@ -130,7 +132,7 @@ const SHADOW_BOX = { x0: -12, y0: -12, w: 24, h: 24 };
 
 // ================= CREATURES =================
 // Give the repainted monster art fresh URLs for players with the old art cached.
-const monsterArtRevision = (id) => id === 'eternal_wyrm' ? '?v=4' : '?v=3';
+const monsterArtRevision = (id) => (id === 'eternal_wyrm' || id === 'strangler_fig_mother' ? '?v=4' : '?v=3');
 
 // Archetypes shipped as painted PNG art (assets/creatures/<sprite>.png). When the
 // image has loaded these replace the vector archetype for every monster of that
@@ -297,7 +299,15 @@ export const townArt = () => new Set(TOWN_ART);
 // The painted monsters and bosses are single pictures, so they are brought to
 // life by moving and stretching the whole sticker about its feet (y = 13).
 const FLOATERS = new Set(['ghost', 'wisp', 'bat', 'jellyfish', 'insect']);
-export const creatureFloats = (sprite) => FLOATERS.has(sprite);
+// Some species use an archetype for combat but have a different body plan.
+const FAMILY_MOTION = {
+  weaver_ant: { puppet: 'scuttle', grounded: true },
+  kopitiam_cockroach: { puppet: 'legs', grounded: true },
+  paddy_locust: { puppet: 'legs', grounded: true },
+  colugo: { puppet: null, posture: 'glide' },
+  giant_clam: { puppet: null, posture: 'shell' },
+};
+export const creatureFloats = (sprite, family) => FLOATERS.has(sprite) && !FAMILY_MOTION[family]?.grounded;
 const FEET = 13;
 // The attack lunge eases across a swing that restarts part-way (poseBlend.js).
 const blendCreature = poseBlender();
@@ -307,12 +317,15 @@ function creaturePose(c, opts, t, seed) {
   const ph = seed * 0.37;                       // every creature on its own rhythm (and tempo)
   const ak = opts.attackK ?? -1;
   let dx = 0, dy = 0, rot = 0, sx = 1, sy = 1;
-  const floats = creatureFloats(opts.sprite);
+  const floats = creatureFloats(opts.sprite, opts.family);
   if (floats) dy -= 2 + Math.sin(t * 0.0032 + ph) * 2.2;   // ghosts and fliers hover
   // A springy hop while walking (squash as the feet land, stretch at the top
   // of the stride) and breathing at rest, crossfaded by the eased walk weight
   // so starting and stopping never jolt. An attack plays on top of either.
   const m = opts.move ?? (opts.moving ? 1 : 0);
+  const posture = FAMILY_MOTION[opts.family]?.posture;
+  if (posture === 'glide') rot += Math.sin(travelPhase(t, opts.walk, 0.0025, 0.005) + ph) * 0.07;
+  if (posture === 'shell') rot += Math.sin((opts.walk ?? 0) * Math.PI) * 0.05 * m;
   // In step with its feet when it has a walk phase: squashed as a foot plants,
   // stretched mid-stride.
   const hop = (typeof opts.walk === 'number' ? stepLift(opts.walk) : Math.abs(Math.sin(t * 0.018 + seed))) * 0.06 - 0.03;
@@ -391,7 +404,7 @@ const RIGS = {
     kind: 'species', fit: 0.86,
     order: ['tail', 'back_far', 'front_far', 'body', 'back_near', 'front_near', 'head'],
     parts: {
-      tail: { piv: [0.1938, 0.6502], swing: (t, o) => Math.sin(t * (o.moving ? 0.012 : 0.005)) * (o.moving ? 0.16 : 0.1) },
+      tail: { piv: [0.1938, 0.6502], swing: (t, o) => Math.sin(travelPhase(t, o.walk, 0.005, 0.012)) * (0.1 + 0.06 * (o.move ?? (o.moving ? 1 : 0))) },
       back_far: { piv: [0.3322, 0.4148], swing: leg(1) },
       front_far: { piv: [0.609, 0.6054], swing: leg(0) },
       back_near: { piv: [0.361, 0.426], swing: leg(0) },
@@ -406,7 +419,7 @@ const RIGS = {
   eternal_wyrm: {
     order: ['tail', 'claw', 'base', 'head'],
     parts: {
-      tail: { piv: [0.4152, 0.7822], swing: (t, o) => Math.sin(t * (o.moving ? 0.009 : 0.0045)) * 0.12 },
+      tail: { piv: [0.4152, 0.7822], swing: (t, o) => Math.sin(travelPhase(t, o.walk, 0.0045, 0.009)) * 0.12 },
       claw: { piv: [0.6989, 0.6441], swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return a ? -0.14 * a.wind + 0.12 * a.hit : Math.sin(t * 0.0035 + 1) * 0.05; } },
       head: { piv: [0.4571, 0.3255], swing: (t, o) => {
         const a = atkPhase(o.attackK ?? -1);
@@ -498,7 +511,7 @@ const RIGS = {
   shadow_panther: bossRig('shadow_panther', { fit: 0.820,
     order: ['tail', 'limb2', 'limb', 'base', 'head', 'gem'],
     piv: { base: [0.4936, 0.6949], head: [0.6809, 0.493], limb: [0.7046, 0.7612], limb2: [0.429, 0.7445], tail: [0.4272, 0.517], gem: [0.8147, 0.2968], head_roar: [0.6809, 0.493], limb_strike: [0.7046, 0.7612] } }),
-  duyung_queen: bossRig('duyung_queen', { fit: 0.903,
+  duyung_queen: bossRig('duyung_queen', { fit: 0.903, strikeJoin: -0.35,
     order: ['tail', 'limb2', 'limb', 'base', 'head', 'gem'],
     piv: { base: [0.5373, 0.6687], head: [0.4853, 0.5777], limb: [0.7111, 0.6825], limb2: [0.6049, 0.5143], tail: [0.553, 0.6942], gem: [0.5522, 0.2087], head_roar: [0.4853, 0.5777], limb_strike: [0.7111, 0.6825] } }),
   coney_behemoth: bossRig('coney_behemoth', { fit: 0.790,
@@ -608,7 +621,7 @@ export function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null, re
   for (let i = 0; i < n; i++) {
     const name = order[i], part = rig.parts[name];
     // Some parts swap to another picture for a moment (a mouth opening to bite, a claw opening).
-    const img = part && part.alt && part.swap(opts) ? imgs[part.alt] : imgs[name];
+    const img = part && part.alt && part.swap(opts, t) ? imgs[part.alt] : imgs[name];
     P.img[i] = img; P.k[i] = res > 0 ? inkPart(img, w, h, res) : null;
     // The part turned by `a` and grown by `gr` about its joint (px, py):
     // translate(px, py) rotate(a) scale(gr) translate(-px, -py), after B.
@@ -849,6 +862,7 @@ const PUPPET_KIND = {
 const HEAD_TOP = new Set(['humanoid', 'greenman', 'undead', 'golem', 'demon', 'fowl', 'mantis', 'primate']);
 const TAILED = new Set(['beast', 'hound', 'rodent', 'reptile']);
 export const puppetKinds = () => ({ ...PUPPET_KIND });
+export const creaturePuppetKind = (sprite, family) => (FAMILY_MOTION[family] ? FAMILY_MOTION[family].puppet : PUPPET_KIND[sprite]);
 
 /** The sprite's rest silhouette for its ground shadow, shared with the drawing cache. */
 export function creatureCastImage(npcId, def) {
@@ -1000,12 +1014,13 @@ function drawPuppet(c, src, kind, inf, opts, t, seed) {
     // edges were smoothed; small nudges over the full body leave none.
     blit(x0, y0, bw, bh + 1);
     if (tail) {
-      const sway = Math.sin(t * (m > 0.3 ? 0.012 : 0.004) + ph) * (m > 0.3 ? 1.1 : 0.6);
+      const sway = Math.sin(travelPhase(t, opts.walk, 0.004, 0.012) + ph) * (0.6 + m * 0.5);
       mover(tail.x, tail.y, tail.w, tail.h, -Math.abs(sway) * 0.3, sway);
     }
     // Head: nods with each step, glances about when idle, lunges forward to bite.
     const a = atkPhase(opts.attackK ?? -1);
-    const idleLook = Math.sin(t * 0.0011 + ph) > 0.55 ? Math.sin(t * 0.004 + ph) * 0.7 : 0;
+    const glance = smooth((Math.sin(t * 0.0011 + ph) - 0.55) / 0.2);
+    const idleLook = Math.sin(t * 0.004 + ph) * 0.7 * glance;
     let hx = idleLook * (1 - m), hy = -Math.abs(sw) * 1.1 * m + Math.sin(t * 0.0026 + ph) * 0.35 * (1 - m);
     if (a) { hx += (top ? 0.8 : 2.4) * a.hit - 0.9 * a.wind; hy += 0.9 * a.wind - 0.6 * a.hit; }
     mover(head.x, head.y, head.w, head.h, hx, hy);
@@ -1022,19 +1037,20 @@ function drawPuppet(c, src, kind, inf, opts, t, seed) {
     mover(fx, y0, x1 - fx, c2 - y0 + 1, a ? 1.6 * a.hit : 0, a ? -2 * a.wind + 1 * a.hit : Math.sin(t * 0.003 + ph) * 0.3);
   } else if (kind === 'wings') {
     // The top of the picture (the wings) stretches up and down about the back.
-    const spd = opts.sprite === 'insect' ? 0.05 : opts.sprite === 'bat' ? 0.02 : (m > 0.3 ? 0.012 : 0.006);
+    const flap = opts.sprite === 'insect' ? t * 0.05 : opts.sprite === 'bat' ? t * 0.02 : travelPhase(t, opts.walk, 0.006, 0.012);
     const hb = Math.round((y1 - y0) * 0.45), yb = y0 + hb;
     blit(x0, yb, x1 - x0, y1 - yb);
-    const sy = 1 + Math.sin(t * spd + ph) * 0.2;
+    const sy = 1 + Math.sin(flap + ph) * 0.2;
     c.drawImage(src, x0, y0, x1 - x0, hb, ST_X0 + x0 / R, ST_Y0 + yb / R - (hb / R) * sy, (x1 - x0) / R, (hb / R) * sy);
   } else if (kind === 'slither' || kind === 'swim') {
     // A wave travels head to tail (the tail end, on the left, swings most when swimming).
     // Snakes get finer strips and a gentler wave, so their outline stays smooth.
-    const sn = kind === 'slither', n = sn ? 16 : 10, w = (x1 - x0) / n, spd = m > 0.3 ? 0.012 : 0.005;
-    const amp = (m > 0.3 ? 1.6 : 0.9) * (sn ? 0.75 : 1);
+    const sn = kind === 'slither', n = sn ? 16 : 10, w = (x1 - x0) / n;
+    const wave = travelPhase(t, opts.walk, 0.005, 0.012) + ph;
+    const amp = (0.9 + m * 0.7) * (sn ? 0.75 : 1);
     for (let i = 0; i < n; i++) {
       const k = kind === 'swim' ? 1 - i / n : 1;
-      blit(Math.floor(x0 + i * w), y0, Math.ceil(w) + 1, y1 - y0, 0, Math.sin(t * spd + ph - i * (sn ? 0.47 : 0.75)) * amp * k);
+      blit(Math.floor(x0 + i * w), y0, Math.ceil(w) + 1, y1 - y0, 0, Math.sin(wave - i * (sn ? 0.47 : 0.75)) * amp * k);
     }
   } else if (kind === 'float' || kind === 'sway') {
     // Horizontal ripples: ghosts trail more at the bottom, plants sway more at the top.
@@ -1102,7 +1118,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
     const simg = bimg || speciesImage(opts.family);
     const pimg = simg || creatureImage(opts.sprite);
     const col = opts.color || '#8a8a8a';
-    opts.rock = true; // monsters rock side-to-side as they move (a gait cue)
+    opts.rock = !FAMILY_MOTION[opts.family]?.posture; // a gait cue for creatures that step
     return staged(ctx, cx, cy, opts, (c) => {
       if (opts.boss && !opts.pet) bossAura(c, opts.time || 0, col);   // a pet (pets.js) is a boss in miniature, without the menace
       const t = opts.time || 0;
@@ -1151,7 +1167,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       const sticker = ready ? monsterSticker(key, drawBody) : null;
       if (sticker) {
         // Packs keep their body bob and lunges in low graphics with a single sticker.
-        const kind = (bimg || simg) && !opts.still && (opts.boss || fullParts) ? PUPPET_KIND[opts.sprite] : null;
+        const kind = (bimg || simg) && !opts.still && (opts.boss || fullParts) ? creaturePuppetKind(opts.sprite, opts.family) : null;
         const inf = kind ? puppetInfo(key, sticker) : null;
         const put = (img) => (inf ? drawPuppet(c, img, kind, inf, opts, t, sd) : c.drawImage(img, ST_X0, ST_Y0, ST_W, ST_H));
         put(sticker);

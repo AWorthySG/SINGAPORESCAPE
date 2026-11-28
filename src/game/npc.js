@@ -104,6 +104,7 @@ export class NPC extends Character {
     this._weakTag = undefined;    // the one hit number on it that wears "weak!" (renderer.js)
     this.stopFrom = undefined; this.stopUntil = undefined; this.squashK = undefined; this.squashDir = undefined;
     this.deathT = undefined; this.spawnT = undefined; this.castT = undefined; this.castCol = undefined;
+    this._fallCenter = null;
     // ...and what other parts of the game hang on some of them later (wounds,
     // a boss's scaling and mechanic, a Water slow, a resident's or event's
     // marks, greetings), so the crowd stays one shape for the loops that read
@@ -311,6 +312,9 @@ export class NPC extends Character {
   }
 
   die() {
+    // Stop the route immediately without snapping the falling sprite from
+    // between two tiles back to the last tile it reached.
+    this._fallCenter = this.moving ? this.renderCenter() : null;
     this.alive = false;
     this.target = null;
     this.stopNow();
@@ -320,8 +324,15 @@ export class NPC extends Character {
     this.brand = null;    // ...and so do Holy Fire's brands
   }
 
+  renderCenter() {
+    return this._fallCenter ?? super.renderCenter();
+  }
+
   update(dt) {
-    if (!this.alive && this.deathT > 0) this.deathT = Math.max(0, this.deathT - dt);
+    if (!this.alive && this.deathT > 0) {
+      this.deathT = Math.max(0, this.deathT - dt);
+      if (this.deathT === 0) this._fallCenter = null;
+    }
     if (this.spawnT > 0) this.spawnT = Math.max(0, this.spawnT - dt);
     if (this.castT > 0) this.castT = Math.max(0, this.castT - dt);   // a boss's signature-move flourish
     super.update(dt);
@@ -330,6 +341,7 @@ export class NPC extends Character {
   respawn() {
     this.alive = true;
     this.deathT = 0;
+    this._fallCenter = null;
     this.spawnT = 350; // ms of fade-in, so a respawn doesn't pop into view
     this._weakTag = undefined;   // a new foe: its first weak hit says so again
     // Restore any enrage-mutated stats, re-applying this spawn's overrides so

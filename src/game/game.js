@@ -1090,10 +1090,11 @@ export class Game {
     });
   }
 
-  /** Point an attacker's lunge toward a tile and start the swing animation. */
-  _swingToward(attacker, tx, ty) {
+  /** Point the swing at the target's drawn centre, or the centre of an object tile. */
+  _swingToward(attacker, target) {
     const c = attacker.renderCenter();
-    let dx = (tx * TILE + TILE / 2) - c.x, dy = (ty * TILE + TILE / 2) - c.y;
+    const to = target.renderCenter?.() ?? { x: target.x * TILE + TILE / 2, y: target.y * TILE + TILE / 2 };
+    const dx = to.x - c.x, dy = to.y - c.y;
     const m = Math.hypot(dx, dy) || 1;
     attacker.lungeDX = dx / m; attacker.lungeDY = dy / m;
     // Your swing lasts about as long as the gap between your attacks (within
@@ -2099,7 +2100,7 @@ export class Game {
     const { max } = playerAttackVsNpc(this.skills, this.equipment, this.player.style, npc.def, 'main');
     const pm = this.prayerMult();
     const baseMax = Math.round(max * pm.str);
-    this._swingToward(this.player, npc.x, npc.y);
+    this._swingToward(this.player, npc);
 
     // Fold together special attack + armed ability + style-weakness bonuses.
     const mods = this._offensiveMods(npc, 'melee');
@@ -2790,7 +2791,7 @@ export class Game {
     const pm = this.prayerMult();
     const mods = this._offensiveMods(npc, 'dance');
     const fancy = mods.spec || mods.ability;
-    this._swingToward(p, npc.x, npc.y);
+    this._swingToward(p, npc);
     this.bus.emit('sfx', `atk:${this.weaponType() || 'whip'}`);
     const range = this.attackRange();
     const targets = mods.ability?.sweep
@@ -3149,7 +3150,7 @@ export class Game {
     const baseMax = Math.round(max * pr * (wpn.weaponType === 'longbow' ? LONGBOW_DMG : wpn.weaponType === 'rifle' ? RIFLE_DMG : 1));
     const mods = this._offensiveMods(npc, 'ranged');
     const fancy = mods.spec || mods.ability;
-    this._swingToward(this.player, npc.x, npc.y);
+    this._swingToward(this.player, npc);
     let total = 0, raw = 0;   // raw: before crits, for the ricochet
     // A shortbow looses a spread of three arrows each shot, each at SHORTBOW_ARROW_DMG
     // of a full arrow (half its old reach is the trade, see items.js).
@@ -3293,7 +3294,7 @@ export class Game {
     if (el.chaos) dmg = Math.max(1, Math.round(dmg * (el.chaos.min + Math.random() * (el.chaos.max - el.chaos.min))));
     const raw = dmg;   // the splash rolls its own crits
     const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
-    this._swingToward(this.player, npc.x, npc.y);
+    this._swingToward(this.player, npc);
     // (`el` lets the renderer draw a Priest's beam, falling blade or ground circle, a stored Wrath's swell: render/classfx.js.)
     this._projectile(npc, (c.crit || fancy) ? spell.critTint || spell.tint : spell.tint, 'bolt', 0, !!(c.crit || fancy),   // the element's colour, brighter and bigger for a crit
       { el: spell.element, power: el.retribution ? ClassEl.wrathBonus(this) : 0 });
@@ -3652,7 +3653,7 @@ export class Game {
   resolveNpcAttack(npc, opts = {}) {
     const p = this.player;
     if (!p.alive) return;
-    this._swingToward(npc, p.x, p.y);
+    this._swingToward(npc, p);
     // Dealt now, but shown as the blow lands: your flinch, number and sparks
     // wait for the foe's swing to reach you (visual only; motionkit.js).
     p.strikeWait = strikeLead(npc.swingDur); p.strikeFresh = true;
@@ -5323,7 +5324,7 @@ export class Game {
    *  now but keeps its normal roll timing, so tapping fast can't gather faster. */
   _kickoff(a) {
     if (INSTANT_ACTIONS.has(a.type)) { this.resolvePlayerAction(); return; }
-    if (a.obj && GATHER_ACTIONS.has(a.type)) this._swingToward(this.player, a.obj.x, a.obj.y);
+    if (a.obj && GATHER_ACTIONS.has(a.type)) this._swingToward(this.player, a.obj);
   }
 
   // ---------------- Auto battle ----------------

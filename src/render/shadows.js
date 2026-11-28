@@ -66,7 +66,7 @@ const WIDE_CREATURES = new Set(['crab', 'reptile', 'scorpion', 'serpent', 'spide
 // The contact patch stays under the footprint. A hovering creature throws a
 // softer, separated shadow, while a broad body needs a wider patch of shade.
 export function drawCreatureContact(ctx, cx, cy, sc, def, sun, squash, spawn, contactOnly) {
-  const floats = creatureFloats(def.sprite), wide = WIDE_CREATURES.has(def.sprite);
+  const floats = creatureFloats(def.sprite, def.family), wide = WIDE_CREATURES.has(def.sprite);
   const rx = wide ? 13 : def.boss ? 12.5 : 10;
   const ry = wide ? 3.8 : def.boss ? 5.5 : 4.5;
   const a0 = ctx.globalAlpha;
