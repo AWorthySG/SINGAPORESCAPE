@@ -36,6 +36,10 @@ function measures(score) {
   return bars;
 }
 
+export function pianoStaffStarts(score) {
+  return measures(score).filter((_, i) => i % MEASURES_PER_STAFF === 0).map(([note]) => note?.index ?? 0);
+}
+
 const line = (x1, y1, x2, y2, css = '') => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"${css ? ` class="${css}"` : ''}/>`;
 
 // A treble clef drawn with paths so its shape does not depend on a symbol font being installed.

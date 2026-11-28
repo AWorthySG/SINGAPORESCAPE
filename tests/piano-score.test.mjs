@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pianoKeyboardHTML, pianoMidiForKey, pianoNoteName, pianoStaffHTML } from '../src/ui/piano-score.js';
+import { pianoKeyboardHTML, pianoMidiForKey, pianoNoteName, pianoStaffHTML, pianoStaffStarts } from '../src/ui/piano-score.js';
 
 test('the piano has eight natural keys, five sharps, and a distinct shortcut for each pitch', () => {
   const keys = pianoKeyboardHTML();
@@ -21,6 +21,7 @@ test('the two-measure sheet shows note lengths, key signature and the active not
       { midi: 66, beats: 3 }, { midi: 67, beats: 3 } ],
   };
   const first = pianoStaffHTML(score, 1);
+  assert.deepEqual(pianoStaffStarts(score), [0, 4]);
   assert.match(first, /Measures 1–2 of 3/);
   assert.match(first, /G major, 3\/4 time/);
   assert.equal((first.match(/piano-staff-line/g) ?? []).length, 5);

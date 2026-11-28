@@ -3,6 +3,7 @@ import { TICK_MS } from '../config.js';
 import { getItem } from '../data/items.js';
 import { DIRECT_PASSAGE_CERTIFICATE, SAILING_PRACTICE } from '../data/sailing.js';
 import { encoreNotes, musicBeatQuality, musicChartByKey, musicChartNotes } from '../data/islandmusic.js';
+import { pianoScoreById } from '../data/piano.js';
 import { TEXTILE_PROJECTS, TEXTILE_SWATCHES } from '../data/textiles.js';
 import { OBJECTS } from '../data/objects.js';
 import { teleportPlayer, unlockFx } from './skillunlocks.js';
@@ -363,6 +364,18 @@ export function islandMusicAvailable(game, chart) {
 }
 
 const matchesScore = (notes, score) => Array.isArray(notes) && notes.length === score.length && score.every((note, i) => note === notes[i]);
+
+export function pianoLessonAvailable(game, scoreOrId) {
+  const score = pianoScoreById(typeof scoreOrId === 'string' ? scoreOrId : scoreOrId?.id);
+  return !!(score && islandReady(game) && musicStage(game) && game.skills.level('music') >= score.level);
+}
+
+/** A score can be practised at the player's pace, but only the complete melody earns XP. */
+export function finishPianoLesson(game, id, notes) {
+  const score = pianoScoreById(id);
+  if (!pianoLessonAvailable(game, score) || !matchesScore(notes, score.notes.map(({ midi }) => midi))) return null;
+  return earnIslandPractice(game, 'music', `piano:${score.id}`, score.xp, { message: `You play ${score.name} on the piano.` });
+}
 
 export function performIslandMusic(game, key, notes, { mode = 'guided', timings, elapsed } = {}) {
   const chart = musicChartByKey(key);

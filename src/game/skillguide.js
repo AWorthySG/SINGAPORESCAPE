@@ -17,6 +17,7 @@ import { HOME_UPGRADES } from './home.js';
 import { ISLAND_LIFE, LANDINGS, PATTERNS, PHOTO_ASSIGNMENTS, TUNES, VOYAGES } from '../data/islandlife.js';
 import { MUSIC_PROJECTS, musicTuneChart } from '../data/islandmusic.js';
 import { PHOTO_WALKS } from '../data/photowalks.js';
+import { PIANO_SCORES } from '../data/piano.js';
 import { SAILING_PRACTICE } from '../data/sailing.js';
 import { TEXTILE_PROJECTS } from '../data/textiles.js';
 import { SIGNATURE, ORDER_BY_ID, STALL_RENT } from '../data/hawkering.js';
@@ -218,6 +219,7 @@ const ISLAND_ENTRIES = {
   ],
   music: [
     ...TUNES.map((t) => ({ ...t, detail: `Play at your own pace at a hawker stage for XP and ${t.tip} coins.` })),
+    ...PIANO_SCORES.map((s) => ({ ...s, detail: 'Play the piano score at a Music stage to earn XP.' })),
     ...['variation', 'duet'].map((style) => ({ ...musicTuneChart('kopi', style), detail: 'Play a different version of a tune you have learned.' })),
     ...MUSIC_PROJECTS.map((set) => ({ ...set, detail: 'Perform a set of tunes you have played before.' })),
   ],

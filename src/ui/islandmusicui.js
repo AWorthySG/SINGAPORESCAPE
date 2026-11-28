@@ -5,6 +5,7 @@ import { lifePerkText } from '../game/lifeperks.js';
 import { nextUnlock, skillTeleport, skillTeleportOf } from '../game/skillunlocks.js';
 import { skillIconSVG } from '../render/icons.js';
 import { bindIslandMarket, islandMarketHTML, islandProgressHTML } from './islandprogressui.js';
+import { openIslandPiano } from './islandpianoui.js';
 
 const NOTE_NAMES = ['Low', 'Middle', 'High'];
 const button = (label, key, disabled = false, attrs = '') => `<button type="button" class="wm-go" data-music="${key}"${disabled ? ' disabled' : ''}${attrs}>${label}</button>`;
@@ -109,7 +110,8 @@ export function openIslandMusic(ui, openSkill) {
     const reward = milestone || teleport ? row('Skill perks', milestone ? `Level ${milestone.level} · ${milestone.desc}` : 'All skill perks earned', teleport ? button('Skill teleport', 'teleport', !islandReady(game)) : '') : '';
     const stageList = `<h3>Stages</h3>${stages}`, tuneList = `<h3>Tunes</h3>${tunes}`;
     return `<p>${book.tunes.length ? 'Choose a tune at a stage. Guided play earns full XP.' : 'Visit Kampong Glam hawker lane and learn Kopi Waltz. Follow the notes at your own pace.'}</p>
-      ${islandProgressHTML(game, 'music')}${at ? tuneList + stageList : stageList + tuneList}${islandMarketHTML(game, 'music')}
+      ${islandProgressHTML(game, 'music')}${row('Piano', 'Play a score to earn Music XP, or try the keyboard.', button('Open piano', 'piano'))}
+      ${at ? tuneList + stageList : stageList + tuneList}${islandMarketHTML(game, 'music')}
       <p class="music-progression">Variations at level 25 · Duets at level 50</p>
       <h3>Stage sets</h3>${projects}${reward}`;
   };
@@ -136,6 +138,7 @@ export function openIslandMusic(ui, openSkill) {
     const split = key.indexOf(':'), act = split < 0 ? key : key.slice(0, split), id = split < 0 ? '' : key.slice(split + 1);
     message = '';
     let focus = key;
+    if (act === 'piano') { cancelPreview(); openIslandPiano(ui, () => openIslandMusic(ui, openSkill)); return; }
     if (act === 'go') {
       const stage = STAGES.find((entry) => entry.id === id);
       if (stage && game.travelToTile(islandSiteTile(game.world, stage))) { ui.closeModal(); return; }
