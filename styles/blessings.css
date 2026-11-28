@@ -1,68 +1,208 @@
-/* The Prayer panel as a Blessings loadout, and the Faith orb (src/ui/blessingsui.js).
-   Tap targets are at least 44px tall, for phones. */
-
-#prayer-panel .bl-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-#prayer-panel .bl-faith { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-#prayer-panel .bl-faith-bar {
-  height: 12px; border-radius: 999px; overflow: hidden;
-  background: var(--aw-sun-bg); border: 2px solid var(--aw-ink);
+/* Faith, equipped blessings and the Prayer catalogue share the combat-side palette. */
+#prayer-panel {
+  --bl-ink: var(--combat-ink, #243932);
+  --bl-muted: var(--combat-muted, #536258);
+  --bl-paper: var(--combat-paper, #fffdf7);
+  --bl-line: var(--combat-line, #e2d3b8);
+  --bl-teal: var(--combat-teal, #27554b);
+  --bl-gold: var(--combat-gold, #805b29);
+  --bl-well: var(--combat-well, #f7edd9);
+  display: grid;
+  gap: 10px;
+  color: var(--bl-ink);
 }
-#prayer-panel .bl-faith-bar i { display: block; height: 100%; width: 0; background: var(--aw-sun); transition: width .3s ease; }
-#prayer-panel .bl-faith-text { font-size: var(--fs-xs); font-weight: 900; color: var(--aw-text); }
+
+#prayer-panel .bl-overview,
+#prayer-panel .bl-loadout {
+  border: 1px solid var(--bl-line);
+  border-radius: 12px;
+  background: var(--bl-paper);
+  padding: 9px;
+}
+
+#prayer-panel .bl-heading {
+  margin: 0;
+  color: var(--bl-ink);
+  font-size: var(--fs-sm);
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+#prayer-panel .bl-head { display: flex; align-items: center; gap: 7px; }
+#prayer-panel .bl-faith { flex: 1; min-width: 0; display: grid; gap: 3px; }
+#prayer-panel .bl-faith-value { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 5px; }
+
+#prayer-panel .bl-faith-bar {
+  height: 7px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--bl-well);
+}
+#prayer-panel .bl-faith-bar i { display: block; height: 100%; width: 0; background: #b38340; transition: width .25s ease; }
+#prayer-panel .bl-faith-text { color: var(--bl-ink); font-size: var(--fs-xs); font-weight: 800; font-variant-numeric: tabular-nums; }
+#prayer-panel .bl-faith-state { color: var(--bl-muted); font-size: var(--fs-cap); font-weight: 750; }
 
 #prayer-panel .bl-burst {
-  flex: none; min-height: 44px; min-width: 76px; padding: 0 10px;
-  border-radius: 12px; border: 2px solid var(--aw-ink);
-  background: var(--aw-card); color: var(--aw-text-sec);
-  font: inherit; font-weight: 900; cursor: pointer; opacity: .7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  gap: 4px;
+  min-height: 44px;
+  padding: 4px 6px;
+  border: 1px solid var(--bl-line);
+  border-radius: 9px;
+  background: var(--bl-well);
+  color: var(--bl-gold);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 850;
+  cursor: var(--cur-default, default);
 }
-#prayer-panel .bl-burst { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
-#prayer-panel .bl-burst .bl-burst-ic { width: 24px; height: 24px; object-fit: contain; }
+#prayer-panel .bl-burst .bl-burst-ic { width: 20px; height: 20px; object-fit: contain; }
 #prayer-panel .bl-burst kbd, #prayer-orb .orb-key {
   font: inherit; font-size: var(--fs-badge); padding: 0 3px; border-radius: 4px;
   border: 1px solid currentColor; opacity: .8;
 }
-#prayer-panel .bl-burst.ready {
-  opacity: 1; color: var(--aw-text); background: var(--aw-sun);
-  box-shadow: 0 0 0 3px var(--aw-sun-bg), 0 0 12px rgba(245, 184, 46, .8);
-  animation: bl-glow 1.4s ease-in-out infinite;
-}
-#prayer-panel .bl-burst-info { font-size: var(--fs-xs); color: var(--aw-text-sec); margin-bottom: 8px; }
+#prayer-panel .bl-burst.ready { border-color: var(--bl-teal); background: var(--bl-teal); color: white; cursor: var(--cur-pointer); }
+#prayer-panel .bl-burst.active:not(.ready) { border-color: #a8bbae; background: #e7f0e9; color: var(--bl-teal); }
 
-#prayer-panel .bl-slots-label { font-size: var(--fs-xs); color: var(--aw-text-sec); margin-bottom: 4px; }
-#prayer-panel .bl-slots-label b { color: var(--aw-text); }
-#prayer-panel .bl-slots { display: flex; gap: 4px; margin-bottom: 10px; }
+#prayer-panel .bl-burst-info {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 7px;
+}
+#prayer-panel .bl-burst-info > div {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 4px;
+  border-top: 1px solid var(--bl-line);
+}
+#prayer-panel .bl-burst-info b { color: var(--bl-gold); font-size: var(--fs-xs); }
+#prayer-panel .bl-burst-info span { color: var(--bl-muted); font-size: var(--fs-cap); line-height: 1.15; }
+
+#prayer-panel .bl-slots-label,
+#prayer-panel .bl-catalogue-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 8px;
+}
+#prayer-panel .bl-slots-label > span { font-size: var(--fs-xs); color: var(--bl-muted); }
+#prayer-panel .bl-slots-label > span b { color: var(--bl-ink); }
+#prayer-panel .bl-slots { display: grid; grid-template-columns: repeat(var(--bl-columns), minmax(0, 1fr)); gap: 4px; margin-top: 6px; }
 #prayer-panel .bl-slot {
-  flex: 1 1 0; min-width: 0; min-height: 44px; border-radius: 10px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  font: inherit; font-size: var(--fs-cap); font-weight: 800; text-align: center; padding: 2px;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--bl-line);
+  border-radius: 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font: inherit;
+  font-size: var(--fs-cap);
+  font-weight: 790;
+  line-height: 1.12;
+  text-align: center;
+  padding: 3px 2px;
 }
-#prayer-panel .bl-slot.filled {
-  background: var(--aw-sun-bg); border: 2px solid var(--aw-sun);
-  color: var(--aw-text); cursor: pointer;
-}
-#prayer-panel .bl-slot.filled:hover { border-color: var(--aw-ink); }
-#prayer-panel .bl-slot-ic { display: flex; }
-/* Each slot sits in the painted ring frame (see-through centre): behind a
-   blessing's icon, or on its own in an empty slot. A missing picture leaves the plain slot. */
-#prayer-panel .bl-slot.filled .bl-slot-ic, #prayer-panel .bl-slot.empty {
+#prayer-panel .bl-slot.filled { border-color: #9eb8a8; background: #e8f1eb; color: var(--bl-teal); cursor: var(--cur-pointer); }
+#prayer-panel .bl-slot.filled:hover { border-color: var(--bl-teal); }
+#prayer-panel .bl-slot-ic { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; }
+#prayer-panel .bl-slot-ic img { width: 22px; height: 22px; object-fit: contain; }
+#prayer-panel .bl-slot-name { max-width: 100%; }
+#prayer-panel .bl-slot.empty { min-height: 52px; justify-content: flex-end; border-style: dashed; color: var(--bl-gold); position: relative; }
+#prayer-panel .bl-slot.empty::before {
+  content: '';
+  position: absolute;
+  top: 5px;
+  width: 23px;
+  height: 23px;
   background: url('../assets/icons/icon-blessing-slot.webp') center / contain no-repeat;
+  opacity: .48;
+  pointer-events: none;
 }
-#prayer-panel .bl-slot.filled .bl-slot-ic { width: 30px; height: 30px; align-items: center; justify-content: center; }
-#prayer-panel .bl-slot.empty { background-origin: content-box; }
-#prayer-panel .bl-slot-ic img { width: 22px; height: 22px; }
-#prayer-panel .bl-slot-name { max-width: 100%; text-overflow: ellipsis; }
-#prayer-panel .bl-slot.empty { border: 2px dashed var(--aw-sun); color: var(--aw-text-sec); }
-/* The word "Empty" was written across the ring (wider than its open centre):
-   the ring sits at the top of the slot and the word under it. */
-#prayer-panel .bl-slot.empty { min-height: 52px; justify-content: flex-end; line-height: 1.1; background-position: center top; background-size: auto calc(100% - 13px); }
-#prayer-panel .bl-slot.locked { border: 2px dashed rgba(36, 50, 74, .25); color: var(--aw-text-sec); opacity: .6; }
+#prayer-panel .bl-slot.locked { background: #f5f1e8; color: var(--bl-muted); }
+#prayer-panel .bl-slot.locked small { font-size: inherit; font-weight: 650; }
+#prayer-panel .bl-total { display: grid; gap: 2px; margin-top: 7px; padding-top: 6px; border-top: 1px solid var(--bl-line); font-size: var(--fs-xs); }
+#prayer-panel .bl-total span { color: var(--bl-muted); }
 
-#prayer-panel .prayer-cell { min-height: 44px; box-sizing: border-box; }
-/* The loadout's combined bonus, and a row's "Stacks with ..." / "Swaps out ..." note. */
-#prayer-panel .bl-total { font-size: var(--fs-xs); color: var(--aw-text-sec); margin: -4px 0 8px; }
-#prayer-panel .bl-total b { color: var(--aw-text); }
-#prayer-panel .pr-hint { display: block; font-size: var(--fs-cap); font-weight: 800; color: var(--aw-sun-deep); }
+#prayer-panel .bl-rules { color: var(--bl-muted); font-size: var(--fs-xs); }
+#prayer-panel .bl-rules summary { cursor: var(--cur-pointer); min-height: 32px; padding-block: 6px; font-weight: 800; color: var(--bl-gold); }
+#prayer-panel .bl-rules[open] { flex-basis: 100%; }
+#prayer-panel .bl-rules p { margin: 0 0 5px; line-height: 1.45; }
+
+#prayer-panel .bl-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  margin: 4px 0 6px;
+}
+#prayer-panel .bl-filters button {
+  min-height: 44px;
+  min-width: 0;
+  padding: 3px 1px;
+  border: 1px solid var(--bl-line);
+  border-radius: 7px;
+  background: var(--bl-paper);
+  color: var(--bl-ink);
+  font: inherit;
+  font-size: var(--fs-cap);
+  font-weight: 850;
+  cursor: var(--cur-pointer);
+}
+#prayer-panel .bl-filters button[aria-pressed="true"] { border-color: var(--bl-teal); background: var(--bl-teal); color: white; }
+#prayer-panel .bl-filters button:hover { border-color: var(--bl-teal); }
+
+#prayer-panel .prayer-grid { gap: 5px; }
+#prayer-panel .prayer-cell {
+  min-height: 44px;
+  width: 100%;
+  gap: 7px;
+  padding: 7px;
+  border: 1px solid var(--bl-line);
+  border-radius: 9px;
+  background: var(--bl-paper);
+  color: var(--bl-ink);
+  font: inherit;
+  box-shadow: none;
+  transform: none;
+}
+#prayer-panel .prayer-cell:not([aria-disabled="true"]):hover { border-color: var(--bl-teal); box-shadow: none; transform: none; }
+#prayer-panel .prayer-cell.active { border-color: #a2bdab; background: #ebf4ed; }
+#prayer-panel .prayer-cell.locked { background: #f7f4ec; border-style: solid; }
+#prayer-panel .prayer-cell[aria-disabled="true"] { cursor: var(--cur-default, default); }
+#prayer-panel .prayer-cell .pr-ic img { width: 26px; height: 26px; }
+#prayer-panel .prayer-cell .pr-top { align-items: flex-start; gap: 3px; color: var(--bl-ink); }
+#prayer-panel .prayer-cell .pr-top b { line-height: 1.2; font-size: var(--fs-xs); font-weight: 850; }
+#prayer-panel .prayer-cell .pr-lvl {
+  max-width: 45%;
+  flex: none;
+  padding: 2px 5px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--bl-gold);
+  background: var(--bl-well);
+  text-align: center;
+}
+#prayer-panel .prayer-cell.active .pr-lvl { color: var(--bl-teal); background: #dcebe0; }
+#prayer-panel .prayer-cell[aria-disabled="true"] .pr-lvl { color: var(--bl-muted); background: #eee9db; }
+#prayer-panel .prayer-cell .pr-effect { color: var(--bl-ink); font-weight: 730; }
+#prayer-panel .prayer-cell .pr-detail { color: var(--bl-muted); font-size: var(--fs-cap); }
+#prayer-panel .prayer-cell .pr-hint { color: var(--bl-gold); font-size: var(--fs-cap); font-weight: 820; margin-top: 2px; }
+#prayer-panel .bl-empty-list { margin: 0; padding: 9px; border: 1px dashed var(--bl-line); border-radius: 8px; color: var(--bl-muted); font-size: var(--fs-xs); }
+#prayer-panel :is(button, summary, .bl-heading):focus-visible { outline: 2px solid var(--bl-teal); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  #prayer-panel .bl-faith-bar i { transition: none; }
+}
+body.reduce-motion #prayer-panel .bl-faith-bar i { transition: none; }
 
 /* The Faith orb: a Burst ready glows, and a running Burst lights it up. */
 #prayer-orb { cursor: pointer; }

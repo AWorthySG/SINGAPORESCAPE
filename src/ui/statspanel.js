@@ -1,50 +1,107 @@
-// The Stats tab's markup, built from statSheet() (src/game/statsheet.js) as a
-// plain string so it needs no DOM: ui.js puts it on the page, and the tests
-// build it headlessly. Rows with a breakdown are <details>, so a tap opens the
-// sources on phones; the same breakdown is in the row's title for mouse hover.
 import { fmtTime } from '../game/statsheet.js';
 import { fmtWorth } from '../game/statworth.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-/** "Crit chance % 12%: Gear +5% + Prayer +5% ..." for hover. */
-const hoverText = (r) => `${r.label} ${r.text}${r.parts.length ? ': ' + r.parts.map(([l, v]) => `${l} ${v}`).join(' + ') : ''}${r.note ? ` (${r.note})` : ''}`;
+const OVERVIEW_ROWS = [
+  ['maxhit'], ['interval', 'Attack pace'], ['maxhp'], ['reduce', 'Damage reduction'],
+];
 
-function rowHTML(r, open) {
-  const head = `<span class="st-label">${esc(r.label)}</span><span class="st-val">${esc(r.text)}</span>`;
-  if (!r.parts.length && !r.note) return `<div class="st-row" data-row="${r.id}">${head}</div>`;
-  const parts = r.parts.map(([l, v]) => `<div class="st-part"><span>${esc(l)}</span><span>${esc(v)}</span></div>`).join('');
-  return `<details class="st-row st-more" data-row="${r.id}" title="${esc(hoverText(r))}"${open.has(r.id) ? ' open' : ''}>`
-    + `<summary>${head}</summary><div class="st-parts">${parts}${r.note ? `<div class="st-note">${esc(r.note)}</div>` : ''}</div></details>`;
+const EFFECT_GROUPS = [
+  ['consumable', 'Food & potions'], ['blessing', 'Blessings'], ['combat', 'Combat buffs'], ['slayer', 'Slayer'],
+];
+
+function overviewHTML(sheet) {
+  const rows = new Map(sheet.sections.flatMap(({ rows }) => rows.map((row) => [row.id, row])));
+  const metrics = OVERVIEW_ROWS.map(([id, label]) => {
+    const row = rows.get(id);
+    return row ? `<div class="st-metric" data-stat="${id}"><dt>${esc(label || row.label)}</dt><dd>${esc(row.text)}</dd></div>` : '';
+  }).join('');
+  return `<section class="st-overview" aria-label="Combat overview">
+    <div class="st-overview-top"><h3>Combat overview</h3><span class="st-mode" title="Fighting style">${esc(sheet.modeName)}</span></div>
+    <dl class="st-metrics">${metrics}</dl>
+  </section>`;
 }
 
-/** "What 1 point is worth" (statworth.js worthTable): each offensive stat's
- *  +1 as % more damage for you, the best one picked out, and why. */
+function rowHTML(row, open) {
+  const head = `<span class="st-label">${esc(row.label)}</span><span class="st-val">${esc(row.text)}</span>`;
+  if (!row.parts.length && !row.note) return `<div class="st-row" data-row="${row.id}">${head}</div>`;
+  const parts = row.parts.map(([label, value]) => `<div class="st-part"><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('');
+  const sources = row.parts.map(([label, value]) => `${label} ${value}`).join(' · ');
+  const hint = [`${row.label} ${row.text}`, sources, row.note].filter(Boolean).join(' — ');
+  return `<details class="st-row st-more" data-row="${row.id}" data-stats-disclosure="row:${row.id}" title="${esc(hint)}"${open.has(row.id) ? ' open' : ''}>
+    <summary>${head}</summary>
+    <div class="st-parts">${parts ? `<dl>${parts}</dl>` : ''}${row.note ? `<p class="st-note">${esc(row.note)}</p>` : ''}</div>
+  </details>`;
+}
+
+function sectionHTML(id, title, content, { open = false, meta = '' } = {}) {
+  return `<details class="st-sec" data-sec="${id}" data-stats-disclosure="section:${id}"${open ? ' open' : ''}>
+    <summary><span>${esc(title)}</span>${meta ? `<span class="st-meta">${esc(meta)}</span>` : ''}</summary>
+    <div class="st-content">${content}</div>
+  </details>`;
+}
+
+/** The effect of +1 point on expected damage against the comparison target. */
 export function worthBoxHTML(w) {
   const rows = w.rows.map((r) => `<div class="st-row st-w${r.key === w.best ? ' best' : ''}" data-worth="${r.key}">`
-    + `<span class="st-label">+1 ${esc(r.label)}${r.key === w.best ? ' <b class="st-best">best</b>' : ''}</span><span class="st-val">${fmtWorth(r.worth)}</span></div>`).join('');
-  const tiers = w.tiers.map((t) => `${t.tier} (${Math.round(t.armour * 100)}%) ${fmtWorth(t.worth)}`).join(' · ');
-  return `<div class="st-sec st-worth" data-sec="worth"><div class="st-head">What 1 point is worth</div>`
-    + `<div class="st-worth-sub">% more damage for you, right now</div>${rows}`
-    + `<div class="st-note">${esc(w.why)}</div>`
-    + `<div class="st-note">Armour pierce is against a boss your level (${Math.round(w.armour * 100)}% armour). Per armour tier: ${esc(tiers)}.</div></div>`;
+    + `<dt class="st-label">+1 ${esc(r.label)}${r.key === w.best ? ' <b class="st-best">Best</b>' : ''}</dt><dd class="st-val">${fmtWorth(r.worth)}</dd></div>`).join('');
+  const tiers = w.tiers.map((t) => `<div class="st-part"><dt>${esc(t.tier)} (${Math.round(t.armour * 100)}%)</dt><dd>${fmtWorth(t.worth)}</dd></div>`).join('');
+  return sectionHTML('worth', 'What 1 point is worth', `
+    <p class="st-guide">Estimated damage gain for your current build.</p>
+    <dl class="st-worth">${rows}</dl>
+    <p class="st-note">${esc(w.why)}</p>
+    <div class="st-parts"><p class="st-guide">Armour pierce against a boss your level (${Math.round(w.armour * 100)}% armour)</p><dl>${tiers}</dl></div>`);
 }
 
-/** The whole tab. `open` is the set of row ids whose breakdown is showing;
- *  `worth` (statworth.js worthTable) adds the "What 1 point is worth" box. */
+function effectsHTML(effects) {
+  const groups = EFFECT_GROUPS.map(([kind, title]) => {
+    const rows = effects.filter((effect) => effect.kind === kind);
+    if (!rows.length) return '';
+    return `<section class="st-effect-group"><h4>${esc(title)}</h4><ul>${rows.map((effect) => `
+      <li class="st-fx${effect.off ? ' off' : ''}">
+        <div class="st-fx-top"><b>${esc(effect.name)}</b>${effect.left == null ? '' : `<span class="st-fx-time">${fmtTime(effect.left)}</span>`}</div>
+        ${effect.detail ? `<p class="st-fx-detail">${esc(effect.detail)}</p>` : ''}
+        ${effect.off ? `<p class="st-fx-off">Inactive · ${esc(effect.off)}</p>` : ''}
+      </li>`).join('')}</ul></section>`;
+  }).join('');
+  const active = effects.filter((effect) => !effect.off).length;
+  return sectionHTML('effects', 'Active effects', groups || '<p class="st-guide">No effects running.</p>', { meta: active ? `${active} running` : 'None' });
+}
+
+/** Stats and their sources stay in native disclosures for touch and keyboard. */
 export function statsPanelHTML(sheet, open = new Set(), worth = null) {
-  let html = `<div class="st-mode"><span>Fighting style: <b>${esc(sheet.modeName)}</b></span><span class="st-hint">Tap a stat for its sources</span></div>`;
-  for (const sec of sheet.sections) {
-    if (!sec.rows.length) continue;
-    html += `<div class="st-sec" data-sec="${sec.id}"><div class="st-head">${esc(sec.title)}</div>${sec.rows.map((r) => rowHTML(r, open)).join('')}</div>`;
-    if (sec.id === 'offence' && worth) html += worthBoxHTML(worth);
+  let html = overviewHTML(sheet);
+  for (const section of sheet.sections) {
+    if (!section.rows.length) continue;
+    html += sectionHTML(section.id, section.title, section.rows.map((row) => rowHTML(row, open)).join(''), {
+      open: section.rows.some((row) => open.has(row.id)),
+    });
   }
-  html += '<div class="st-sec" data-sec="effects"><div class="st-head">Active effects</div>';
-  if (!sheet.effects.length) html += '<div class="st-empty">No potions, meals, buffs or prayers running.</div>';
-  for (const e of sheet.effects) {
-    html += `<div class="st-fx${e.off ? ' off' : ''}"><div class="st-fx-top"><b>${esc(e.name)}</b>`
-      + `<span class="st-fx-time">${e.left != null ? fmtTime(e.left) : ''}</span></div>`
-      + `<div class="st-fx-detail">${esc(e.detail)}${e.off ? ` <i>(${esc(e.off)})</i>` : ''}</div></div>`;
+  return html + effectsHTML(sheet.effects) + (worth ? worthBoxHTML(worth) : '');
+}
+
+export function refreshStatsPanel(el, sheet, worth, previous) {
+  const html = statsPanelHTML(sheet, new Set(), worth);
+  if (previous === html) return html;
+
+  const selector = 'details[data-stats-disclosure]';
+  const open = new Set([...el.querySelectorAll(`${selector}[open]`)].map((detail) => detail.dataset.statsDisclosure));
+  const active = el.ownerDocument?.activeElement;
+  const focused = active && el.contains(active) ? active.closest(selector) : null;
+  const section = focused?.closest('[data-sec]')?.dataset.sec;
+  const scroller = el.closest('#panel-body');
+  const scroll = scroller?.scrollTop;
+  el.innerHTML = html;
+
+  // Timers can redraw the sheet while someone has a nested source open or focused.
+  const details = [...el.querySelectorAll(selector)];
+  for (const detail of details) detail.open = open.has(detail.dataset.statsDisclosure);
+  if (focused) {
+    const restored = details.find((detail) => detail.dataset.statsDisclosure === focused.dataset.statsDisclosure)
+      || details.find((detail) => detail.dataset.sec === section);
+    restored?.querySelector('summary')?.focus({ preventScroll: true });
   }
-  return html + '</div>';
+  if (Number.isFinite(scroll)) scroller.scrollTop = scroll;
+  return html;
 }
