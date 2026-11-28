@@ -272,7 +272,7 @@ for (const [id, r] of Object.entries(RESIDENTS)) if (!TOWN_ART.has(id) && TOWN_A
 const townFile = (id) => (TOWN_ART.has(id) ? id : TOWN_ALIAS[id] || null);
 // Keep a resident's new portrait and idle layers together in the offline cache.
 const REPAINTED_TOWN_ART = new Set(['banker', 'guide', 'hawker', 'pest_officer', 'shopkeeper', 'skills_tutor']);
-const townArtRevision = (id) => REPAINTED_TOWN_ART.has(id) ? '?v=2' : '';
+const townArtRevision = (id) => REPAINTED_TOWN_ART.has(id) ? '?v=3' : '';
 export const townArtSrc = (id) => TOWN_ART.has(id) ? `assets/creatures/townsfolk/${id}.webp${townArtRevision(id)}` : null;
 const _townImg = {};
 function townImage(id) {
@@ -1187,7 +1187,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
 }
 
 // ---- Townsfolk idle ----
-// The body (eyes open or shut) and near arm (hanging, or raised to wave) are
+// The body, optional blink and near arm (hanging, or raised to wave) are
 // composed into a frame (no white sticker rim: just the navy ink line), and each frame
 // is cached, so a frame costs one blit; breathing is a gentle stretch at draw time.
 const _townRigs = {};
@@ -1224,7 +1224,7 @@ function townFrame(id, d, imgs, h, blink, arm, ang) {
 function drawTownIdle(c, id, imgs, h, t, seed) {
   const d = TOWN_IDLE[id];
   const ph = Math.abs(seed * 37) % 10000;   // each townsperson on their own rhythm
-  const blink = (t + ph) % 4300 < 150;
+  const blink = !!d.piv.body_blink && (t + ph) % 4300 < 150;
   // Every so often a friendly wave (or, without a loose arm, a little nod of
   // the whole body); otherwise the arm hangs, stirring a little.
   const w = ((t + ph * 1.3) % 12000) / 1800, greet = w < 1 ? Math.sin(w * Math.PI) : 0;

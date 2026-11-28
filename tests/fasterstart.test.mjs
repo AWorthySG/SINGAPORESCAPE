@@ -110,15 +110,15 @@ test('the world is hidden once the sky is in, and drawn again when the camera go
 
 test('a townsperson asks for their idle parts with their picture, not a round trip later', () => {
   const ctx = new Proxy({}, { get: (o, k) => (k in o ? o[k] : () => {}), set: (o, k, v) => { o[k] = v; return true; } });
-  assert.deepEqual(townIdleParts('pest_officer'), ['body', 'body_blink'], 'Aziz blinks with both hands on his equipment');
+  assert.deepEqual(townIdleParts('pest_officer'), ['body'], 'Aziz keeps his smiley eyes and both hands on his equipment');
   for (const id of ['banker', 'pest_officer']) {
     const n = asked.length;
     try { drawCreature(ctx, id, 0, 0, { time: 0 }); } catch { /* headless: nothing to draw into */ }
     const srcs = asked.slice(n).map((i) => i.src);
-    assert.ok(srcs.includes(`assets/creatures/townsfolk/${id}.webp?v=2`), 'the current picture');
+    assert.ok(srcs.includes(`assets/creatures/townsfolk/${id}.webp?v=3`), 'the current picture');
     const parts = townIdleParts(id);
-    assert.ok(parts.length > 1);
-    for (const p of parts) assert.ok(srcs.includes(`assets/creatures/townsfolk/idle/${id}_${p}.webp?v=2`), `${p} asked for at once with the same revision`);
+    assert.ok(parts.includes('body'));
+    for (const p of parts) assert.ok(srcs.includes(`assets/creatures/townsfolk/idle/${id}_${p}.webp?v=3`), `${p} asked for at once with the same revision`);
   }
   // Low graphics never draws the idle parts, so never asks for them.
   const m = asked.length;
