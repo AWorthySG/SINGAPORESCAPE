@@ -33,6 +33,7 @@ test('the playable map arranges the districts and islands north-up, with a match
   east('punggol', 'transit_road'); east('coney', 'punggol'); east('pulau_ubin', 'coney'); east('pulau_tekong', 'pulau_ubin');
   north('punggol', 'coney'); north('pulau_ubin', 'coney');
   east('jurong', 'tuas'); east('bukit_timah', 'jurong'); east('macritchie', 'bukit_timah');
+  east('macritchie', 'mandai'); east('macritchie', 'transit_road'); east('chinatown', 'transit_road');
   north('kampong_glam', 'chinatown'); east('kampong_glam', 'chinatown');
   east('kampong_glam', 'temasek'); north('kampong_glam', 'temasek'); north('temasek', 'chinatown');
   east('marina_bay', 'chinatown'); east('gardens', 'marina_bay'); north('marina_bay', 'gardens');

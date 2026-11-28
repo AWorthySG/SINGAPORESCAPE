@@ -15,7 +15,7 @@ export const GEOGRAPHIC_WIDTH = 1032, GEOGRAPHIC_HEIGHT = 680;
 // catchment below it and the inhabited islands out in the straits.
 const DISTRICTS = {
   bukit_timah: [[0, 0, 94, 43], [245, 262]],
-  macritchie: [[0, 44, 43, 82], [340, 249]],
+  macritchie: [[0, 44, 43, 82], [448, 249]],
   kampong_glam: [[44, 44, 72, 82], [485, 315]],
   chinatown: [[73, 44, 94, 82], [488, 379]],
   sentosa: [[0, 83, 94, 112], [390, 434]],
@@ -30,7 +30,7 @@ const DISTRICTS = {
   gardens: [[300, 0, 399, 99], [597, 376]],
   coney: [[300, 100, 399, 203], [751, 94]],
   // Transit is a separate parcel cut from its former Kranji envelope.
-  transit_road: [[431, 149, 458, 168], [499, 109]],
+  transit_road: [[431, 149, 458, 168], [469, 109]],
   punggol: [[400, 0, 539, 89], [600, 90]],
   kranji: [[400, 90, 539, 179], [298, 42]],
   mandai: [[400, 180, 539, 279], [374, 143]],
@@ -201,7 +201,8 @@ const FERRIES = [
   ['peaks-crossing', 'Celestial Peaks crossing', 'temasek', 'celestial_peaks'],
 ];
 
-const DIRECTIONS = ['→', '↘', '↓', '↙', '←', '↖', '↑', '↗'];
+const ARROWS = '→↘↓↙←↖↑↗';
+const DIRECTIONS = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'];
 const WAYFINDING = new Map([
   ['Bukit Timah ↑', [['bukit_timah', 'Bukit Timah']]],
   ['MacRitchie ←', [['macritchie', 'MacRitchie']]],
@@ -222,19 +223,19 @@ function signPost(original, moved, ferryLinks) {
   if (local) {
     const sign = local.map(([id, label]) => {
       const launch = ferryLinks.find((f) => f.to.placeId === id)?.from;
-      return `${direction(moved, launch || geographicTile(...ANCHORS[id]))} ${label}${launch ? ' ferry' : ''}`;
+      return `${label}${launch ? ' ferry' : ''} (${direction(moved, launch || geographicTile(...ANCHORS[id]))})`;
     }).join(' · ');
     return { ...moved, sign };
   }
   const isTransit = original.sign.startsWith('Transit Road, Nee Soon Camp ·');
-  if (!isTransit && !DIRECTIONS.includes(original.sign[0])) return moved;
+  if (!isTransit && !ARROWS.includes(original.sign[0])) return moved;
   const station = STATIONS.find((s) => Math.max(Math.abs(s.x - original.x), Math.abs(s.y - original.y)) <= 3);
   if (!station) return moved;
   const roads = [...ROADS, ...CAUSEWAYS].flatMap(([a, b]) => a === station.id ? [b] : b === station.id ? [a] : []);
-  const names = roads.map((id) => `${direction(moved, geographicTile(...ANCHORS[id]))} ${GEOGRAPHIC_PLACE_BY_ID[id].label}`);
+  const names = roads.map((id) => `${GEOGRAPHIC_PLACE_BY_ID[id].label} (${direction(moved, geographicTile(...ANCHORS[id]))})`);
   for (const link of ferryLinks) {
-    if (link.from.placeId === station.id) names.push(`${direction(moved, link.from)} Ferry to ${link.to.name}`);
-    if (link.to.placeId === station.id) names.push(`${direction(moved, link.to)} Ferry to ${link.from.name}`);
+    if (link.from.placeId === station.id) names.push(`Ferry to ${link.to.name} (${direction(moved, link.from)})`);
+    if (link.to.placeId === station.id) names.push(`Ferry to ${link.from.name} (${direction(moved, link.to)})`);
   }
   if (isTransit) names.unshift(station.name);
   return names.length ? { ...moved, sign: names.join(' · ') } : moved;
