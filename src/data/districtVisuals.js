@@ -18,6 +18,7 @@ export const DISTRICT_VISUALS = {
   'The Shadow Rift': ['#69407D', '#F0E4F3', 'Rift obelisk', 'obj-rift_obelisk.webp'],
   'Punggol Waterway': ['#365B8F', '#E6EDF9', 'Waterway footbridge', 'obj-punggol_footbridge.webp'],
   'Kranji Farmlands': ['#756420', '#F6EFCE', 'Kranji farmhouse', 'obj-kranji_farmhouse.webp'],
+  'Transit Road, Nee Soon Camp': ['#38615D', '#EBEFDD', 'Transit Road Flats', 'obj-hdb_block.webp'],
   'Mandai Rainforest': ['#2C6946', '#DBEEDC', 'Canopy course', 'obj-canopy_course_treetop_walk.webp'],
   'Tuas Docklands': ['#4D5C71', '#E4EDF0', 'Gantry crane', 'obj-gantry_crane.webp'],
   'Temasek Ruins': ['#825033', '#F2E7D6', 'Palace of Temasek', 'obj-temasek_palace_dig.webp'],
@@ -28,4 +29,20 @@ export const DISTRICT_VISUALS = {
 
 export function districtVisual(name) {
   return Object.hasOwn(DISTRICT_VISUALS, name) ? DISTRICT_VISUALS[name] : null;
+}
+
+// The field guide can use a landscape painting or the landmark already in play.
+const DISTRICT_SCENERY = {
+  'Kampong Glam': 'assets/places/kampong-glam.webp',
+  Chinatown: 'assets/places/chinatown.webp',
+  'MacRitchie Reservoir': 'assets/places/macritchie.webp',
+  'Marina Bay': 'assets/places/marina-bay.webp',
+  'Transit Road, Nee Soon Camp': 'assets/places/transit-road.webp',
+};
+
+export function districtArtwork(name) {
+  const district = districtVisual(name);
+  if (!district) return null;
+  const [ink, paper, landmark, file] = district;
+  return { ink, paper, landmark, src: `assets/world/${file}`, scenery: DISTRICT_SCENERY[name] };
 }

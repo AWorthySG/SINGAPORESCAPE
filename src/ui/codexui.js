@@ -24,6 +24,7 @@ import { masteryProgress, masterySummary, earnedTitles, setTitle, MASTERY_TIERS,
 import { codexSwitchHTML, renderCompendium, defaultCompendiumState } from './compendiumui.js';
 import { renderEncyclopedia, ENCY_VIEWS } from './encyclopediaui.js';
 import { creatureFlavour } from '../data/flavour.js';
+import { districtArtwork } from '../data/districtVisuals.js';
 
 export const PAGE_SIZE = 40;
 
@@ -133,7 +134,12 @@ const stat = (label, value, hint = '') => `<div class="cx-stat"${hint ? ` title=
 export function codexEntryHTML(game, id) {
   const e = codexEntry(game, id);
   const where = e.zones.length ? e.zones.map((z) => `<span class="cx-zone" role="button" tabindex="0" data-ency="region:${esc(z)}">${esc(z)}</span>`).join('') : '<span class="cx-zone">Unknown</span>';
-  const head = `<div class="cx-entry-top">${artHTML(id, 'cx-art', e.discovered)}<div class="cx-entry-id">` +
+  const habitats = e.zones.map(districtArtwork).filter(Boolean);
+  const habitat = habitats.find((art) => art.scenery) || habitats[0];
+  const palette = habitat ? ` style="--district-ink:${habitat.ink};--district-paper:${habitat.paper}"` : '';
+  const scene = habitat?.scenery ? `<img class="cx-habitat-scene" src="${esc(habitat.scenery)}" alt="" loading="lazy" decoding="async">` : '';
+  const head = `<div class="cx-entry-top cx-creature-entry${e.boss ? ' is-boss' : ''}"${palette}>` +
+    `<div class="cx-creature-stage">${scene}${artHTML(id, 'cx-art', e.discovered)}</div><div class="cx-entry-id">` +
     `<div class="cx-entry-name">${e.discovered ? esc(e.name) : '???'}${e.boss ? ' <span class="cx-tag boss">Boss</span>' : ''}</div>` +
     `<div class="cx-entry-lvl">Level ${formatNumber(e.level)}` +
     (e.discovered ? ` · <span title="${esc(e.race.desc)}">${e.race.icon} ${esc(e.race.name)}</span>` : '') + '</div>' +

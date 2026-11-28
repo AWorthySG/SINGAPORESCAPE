@@ -96,6 +96,19 @@ test('undiscovered entries hide drops and stats; a kill discovers them', () => {
   assert.equal(codexProgress(game).seen, 1);
 });
 
+test('the creature portrait uses its habitat painting while undiscovered creatures stay silhouettes', () => {
+  const game = freshGame();
+  const id = 'chicken';
+  assert.ok(codexEntry(game, id).zones.includes('Kampong Glam'));
+  const hidden = codexEntryHTML(game, id);
+  assert.match(hidden, /class="cx-habitat-scene" src="assets\/places\/kampong-glam\.webp" alt=""/);
+  assert.match(hidden, /cx-silhouette/);
+  game.kills[id] = 1;
+  const discovered = codexEntryHTML(game, id);
+  assert.match(discovered, /class="cx-art"/);
+  assert.doesNotMatch(discovered, /cx-silhouette/);
+});
+
 test('stats shown match the definition, in the scaled numbers the game uses', () => {
   const game = freshGame();
   const big = CODEX_IDS.find((id) => !getNpc(id).boss && getNpc(id).level > 500);
