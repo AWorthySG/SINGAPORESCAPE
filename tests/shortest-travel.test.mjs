@@ -62,9 +62,11 @@ test('the map takes an affordable MRT saving and falls back to the shortest lega
   game.inventory.remove('coins', game.inventory.count('coins'));
   const walking = findTravelRoute(game.pathCfg(), start, [destination]);
   assert.ok(walking.path.length > 0);
-  assert.equal(planTravel(game, [destination]).distance, walking.distance);
+  const withoutFare = planTravel(game, [destination]);
+  assert.equal(withoutFare.distance, walking.distance);
+  assert.equal(withoutFare.ferry, undefined, 'a round trip through a ferry would add distance');
   assert.ok(game.travelToTile(destination));
-  assert.deepEqual(game.player.path, walking.path);
+  assert.deepEqual(game.player.path, withoutFare.path);
   game._placePlayer(start.x, start.y);
   game.inventory.add('coins', MRT_FARE);
   assert.equal(planTravel(game, [destination]).st?.id, stop.id);
@@ -76,5 +78,5 @@ test('the map takes an affordable MRT saving and falls back to the shortest lega
   game.npcs = [{ alive: true, target: game.player }];
   assert.equal(planTravel(game, [destination]).st, undefined);
   assert.ok(game.travelToTile(destination));
-  assert.deepEqual(game.player.path, walking.path);
+  assert.deepEqual(game.player.path, withoutFare.path);
 });

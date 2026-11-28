@@ -6321,7 +6321,8 @@ export class Game {
     const approach = this._plannedWalk(tile, 1);
     if (approach) return this._startWalk(approach);
     const range = this.world.isBlocked(tile.x, tile.y) ? 1 : 0;
-    return this._followTravel(planTravel(this, [tile], { range }), (path) => this._startWalk(path), () => this.walkTo(tile));
+    const trip = planTravel(this, [tile], { range }) || (!range && planTravel(this, [tile], { range: 1 }));
+    return this._followTravel(trip, (path) => this._startWalk(path), () => this.walkTo(tile));
   }
 
   _startWalk(path) {
