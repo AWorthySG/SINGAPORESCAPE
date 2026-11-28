@@ -36,10 +36,11 @@ function recordArt() {
   };
 }
 
-function direction(draw) {
+function direction(draw, frame) {
   const corners = [[draw.dx, draw.dy], [draw.dx + draw.w, draw.dy], [draw.dx, draw.dy + draw.h], [draw.dx + draw.w, draw.dy + draw.h]];
   const length = ([x, y]) => Math.hypot(x, y);
-  const tip = corners.reduce((a, b) => length(a) >= length(b) ? a : b);
+  const tip = frame.length === 6 ? [draw.dx + frame[4], draw.dy + frame[5]]
+    : corners.reduce((a, b) => length(a) >= length(b) ? a : b);
   return { angle: draw.angle + Math.atan2(tip[1], tip[0]), reach: draw.scale * length(tip) };
 }
 
@@ -59,10 +60,11 @@ test('painted arm cuts stay on the shoulder and keep a shared swing direction wi
       assert.ok(draw.scale >= 0.90 && draw.scale <= 1.10, `${id} stays close to painted size`);
       return draw;
     };
-    for (const cut of [1.5, 2.5]) {
+    const frames = hand === 'main' ? art.swing : art.off;
+    for (const [cut, from, to] of [[1.5, 'wind', 'mid'], [2.5, 'mid', 'follow']]) {
       const before = artAt(cut - 0.001), after = artAt(cut + 0.001);
       assert.notEqual(before.src, after.src);
-      const a = direction(before), b = direction(after);
+      const a = direction(before, frames[from]), b = direction(after, frames[to]);
       assert.ok(Math.cos(a.angle - b.angle) > 0.9999, `${id} ${hand} smoothly crosses the ${cut} cut`);
       if (id === 'swordsman') assert.ok(Math.abs(a.reach - b.reach) < 0.2, 'the blade keeps a continuous reach');
     }
@@ -92,9 +94,14 @@ test('rear swings turn the painted torso and weapon together over grounded feet'
   assert.ok(wind[2].angle < 0 && release[2].angle > 0);
   assert.ok(wind.at(-1).src.endsWith('_backarm.webp'));
   assert.ok(release.at(-1).src.endsWith('_backstrike.webp'));
-  for (const draws of [wind, release]) {
+  const back = ANIM_ART.swordsman.back;
+  const [sx, sy] = back.weaponShoulder;
+  for (const [draws, pose] of [[wind, back.arm], [release, back.strike]]) {
     const { x, y, angle } = draws[2];
-    assert.deepEqual([draws.at(-1).x, draws.at(-1).y, draws.at(-1).angle], [x, y, angle]);
+    const arm = draws.at(-1), c = Math.cos(angle), s = Math.sin(angle);
+    assert.ok(Math.abs(arm.x - (x + sx * c - sy * s)) < 1e-9);
+    assert.ok(Math.abs(arm.y - (y + sx * s + sy * c)) < 1e-9);
+    assert.equal(arm.angle, angle + pose[4]);
   }
 }));
 

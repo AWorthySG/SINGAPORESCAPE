@@ -10,10 +10,11 @@
 // - back: the hero seen from behind, for walking up the screen.
 // - hand: an empty-hand arm, for life skills (it holds the tool) and for a
 //   hero with no weapon equipped.
-// Every picture size is in game units. An arm is [w, h, px, py]: its size and
-// the shoulder (the pivot) inside it; a back-view part is [x, y, w, h] from
-// the hero's feet (the off arm, which hangs from its shoulder, is [shoulder
-// x, y, w, h, then the shoulder and the fist in the picture]); a hand is
+// Every picture size is in game units. An arm is [w, h, px, py], with optional
+// blade tip [tx, ty] after the shoulder pivot. A back-view part is [x, y, w, h]
+// from the hero's feet. For a pivoted rear sword, `weaponShoulder` locates the
+// joint and `arm` / `strike` give [w, h, px, py, angle]. The rear off arm uses
+// [shoulder x, y, w, h, then its image shoulder and fist]; a hand is
 // [w, h, shoulder x, y, fist x, y]. A class may say where its back view's
 // feet stand (`backFeet`: [left x, right x, width]); otherwise they sit where
 // most heroes' do.
@@ -27,18 +28,46 @@ import { classAccent } from '../data/classColours.js';
 import { heroLit } from './herolight.js';
 import { heroWalk } from './motionkit.js';
 
+// Centres of the Brawler's visible sleeve openings in the side-on torso.
+// Guard, strike and work arms all turn around these same joints.
+export const BRAWLER_SHOULDERS = { front: [18.5, -9], back: [-8.4, -11.1] };
+
 export const ANIM_ART = {
-  swordsman: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [24.7, 31.5, 8.3, 27.6], mid: [33.7, 24.7, 4.4, 5.1], follow: [41, 24.3, 4.8, 5.7] }, back: { body: [-17.5, -33.4, 34.7, 37.3], other: [1.9, -4.3, 21.2, 19.5, 18, 3.8, 3.3, 16], buckler: [-10, -10, 20, 18.7, 16, 4.5, 6.5, 11.4], arm: [-7.3, -37.9, 28.3, 38.3], strike: [-6.8, -22.1, 41.2, 23.2] }, hand: [11, 12, 8.7, 1.6, 1.9, 10.3] },
+  swordsman: {
+    faces: ['body', 'hurt', 'blink', 'victory'],
+    swing: { wind: [24.7, 31.5, 8.3, 27.6, 23.5, 1], mid: [33.7, 24.7, 4.4, 5.1, 32.5, 23.4], follow: [41, 24.3, 4.8, 5.7, 40, 22] },
+    back: {
+      body: [-17.5, -33.4, 34.7, 37.3],
+      other: [11.8, -11.2, 16.5, 15.2, 11.4, 3.9, 4.2, 11.6],
+      buckler: [11.8, -11.2, 20, 18.7, 15.5, 3.4, 7.8, 12.7],
+      weaponShoulder: [-5.6, -12],
+      arm: [28.3, 38.3, 6.7, 31.5, -1.03],
+      strike: [41.2, 23.2, 7.5, 17.5, 0],
+    },
+    hand: [11, 12, 8.7, 1.6, 1.9, 10.3],
+  },
   rogue: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [19.8, 24, 9, 21.3], mid: [28, 13.7, 3.1, 4.5], follow: [27.5, 19.8, 3.5, 4.1] }, off: { wind: [22.3, 22.5, 3.2, 16.7], mid: [27.3, 13.7, 2.8, 5.4], follow: [26.3, 14.3, 3, 4.3] }, back: { body: [-16.7, -34.8, 34, 38.2], other: [11.3, -17.2, 18.7, 18.5, 2.8, 2.7, 15.4, 15.2], arm: [-15.1, -37.9, 26, 24.8], strike: [-14.6, -20.8, 24, 21.3] }, hand: [10.7, 12.2, 1.9, 1.6, 8.9, 10.1] },
   samurai: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [20.8, 35.3, 15.3, 31.6], mid: [37, 25.7, 4.3, 6.9], follow: [43.7, 20.8, 4.8, 6.9] }, back: { body: [-12.9, -34.6, 27.5, 39.7], other: [-3.2, -1.5, 14.5, 11.8, 1.7, 3.4, 12.8, 7.5], arm: [0.6, -27.1, 21.2, 29.3], strike: [1.4, -6.8, 32.5, 13.8] }, hand: [11.5, 11.2, 1.6, 1.8, 9.7, 9.3] },
   corsair: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [25.8, 35.5, 20.3, 31.7], mid: [36.3, 27.5, 2.6, 19.8], follow: [43.5, 19.8, 3.7, 4.8] }, off: { wind: [26.5, 33.5, 5.1, 29.7], mid: [34.8, 25.3, 4.2, 20.5], follow: [42.2, 14, 4.4, 5.2] }, back: { body: [-14.9, -37.8, 29.8, 43.7], other: [-4.6, -10.6, 19.8, 14.2, 1.9, 4.3, 17.3, 9.4], arm: [-0.4, -36.9, 21.3, 29.8], strike: [1.2, -21.6, 29.8, 16.8] }, hand: [11.2, 11.2, 9.6, 1.6, 1.8, 9.3] },
   paladin: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [35.7, 29.3, 32.2, 26.1], mid: [35.3, 23.2, 2.7, 6.7], follow: [41.3, 24, 4.7, 5.5] }, back: { body: [-16.3, -37.8, 32.5, 43.7], other: [-8, -24.4, 15.2, 18.2, 11, 2.1, 3, 15.5], arm: [-9.3, -28.6, 23.8, 34.2], strike: [-23.8, -30.6, 35.8, 20.3] }, hand: [10.5, 11.8, 8.8, 1.5, 1.9, 10.1] },
-  knight: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [24.7, 28.3, 21.3, 19.5], mid: [38.5, 23.3, 4.6, 5.7], follow: [42.3, 22.2, 4.9, 6.1] }, back: { body: [-13.8, -37.8, 27.7, 43.7], other: [-5.6, -4.2, 19.2, 22.2, 15.4, 2.6, 6.5, 18.8], arm: [1.6, -33.4, 19.3, 33], strike: [1.8, -14.8, 34.8, 17.3] }, hand: [11.5, 11.8, 2.1, 1.8, 9.3, 10.1] },
+  knight: {
+    faces: ['body', 'hurt', 'blink', 'victory'],
+    swing: { wind: [24.7, 28.3, 8.34, 21.31, 1.17, 1], mid: [38.5, 23.3, 5.83, 4.33, 36.5, 20.5], follow: [42.3, 22.2, 5.83, 5, 40.3, 18.9] },
+    back: { body: [-13.8, -37.8, 27.7, 43.7], other: [-5.8, -11.9, 19.2, 22.2, 13.9, 4.17, 13.36, 12.86],
+      arm: [3.6, -36.8, 19.3, 33], strike: [3.67, -19.8, 34.8, 17.3], joint: [9.6, -11.8] },
+    hand: [11.5, 11.8, 2.1, 1.8, 9.3, 10.1],
+  },
   berserker: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [44.5, 44.3, 20.9, 41], mid: [53.2, 30.3, 4.2, 23.9], follow: [52.7, 31.3, 4.2, 7.4] }, back: { body: [-19.1, -37.8, 38.2, 43.7], other: [-6.2, -31.9, 20.3, 23, 16.8, 2.9, 4, 19.4], arm: [-21.4, -36.7, 41, 44], strike: [-0.4, -43, 44.7, 33.7] }, hand: [10.8, 11.8, 2, 1.5, 8.9, 10] },
   juggernaut: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [37, 41.5, 16.4, 37.2], mid: [48.3, 30.3, 3.5, 8.2], follow: [53.2, 29.2, 4.1, 8.1] }, back: { body: [-15.5, -37.8, 31, 43.7], other: [-2.4, -11.9, 17.5, 27.7, 11.8, 2.6, 4.5, 24.5], arm: [-21, -34, 39.2, 28.3], strike: [-1.2, -18.1, 35.8, 31.2] }, hand: [11.5, 12.3, 2.8, 1.8, 9.3, 10.6] },
   gladiator: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [27, 42, 11, 37.5], mid: [47.3, 28.2, 5.6, 6.3], follow: [49.3, 26.7, 5.7, 6] }, back: { body: [-16.3, -37.8, 32.5, 43.7], other: [-5.4, -9.1, 24.2, 18.2, 2.1, 6.3, 21.3, 9.2], arm: [1.1, -38.3, 32.2, 34], strike: [0.7, -17.2, 45.7, 15.7] }, hand: [11.5, 11.7, 2.1, 1.8, 9.7, 9.8] },
   lancer: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [55, 46.7, 7.7, 36.9], mid: [57.2, 41.8, 7.3, 7.5], follow: [66.2, 30.5, 6.7, 12] }, back: { body: [-16.7, -37.8, 33.3, 43.7], other: [-0.6, 0.9, 20.2, 20, 4.6, 3.2, 16.5, 16.7], arm: [-4.1, -31.6, 43.2, 38.5], strike: [-5.5, -9.9, 59.8, 18.3] }, hand: [11.5, 11.2, 1.8, 1.6, 9.5, 9.4] },
-  brawler: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [17.8, 21.5, 3.2, 18.8], mid: [22.7, 20, 2.8, 16.6], follow: [29.5, 21.2, 3.4, 17.2] }, back: { body: [-24.1, -37.8, 48.2, 43.7], other: [-0.5, -3.8, 27.8, 29.8, 5.3, 4.7, 22.8, 25.3], arm: [-18.2, -37, 31.8, 37.2], strike: [-5, -12.3, 43.7, 33] }, hand: [11.5, 11.3, 1.9, 1.5, 9.5, 9.5] },
+  brawler: {
+    faces: ['body', 'hurt', 'blink', 'victory'],
+    swing: { wind: [17.8, 21.5, 2, 15.9], mid: [22.7, 20, 2.1, 14.5], follow: [29.5, 21.2, 2.1, 15.5] },
+    back: { body: [-24.1, -37.8, 48.2, 43.7], joint: [-20.8, -10.5], other: [7.7, -11, 14.5, 15.5, 6.3, 4.9, 11.9, 13.2],
+      arm: [-17, -17.3, 20.4, 23.8], strike: [-5.9, -5.5, 27.1, 20.5] },
+    hand: [11.5, 11.3, 1.4, 3.3, 9.5, 9.5],
+  },
   halberdier: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [36.3, 40.8, 9.4, 28.2], mid: [58, 33.2, 6.4, 7.9], follow: [64.3, 33, 7.1, 8.3] }, back: { body: [-15.6, -37.8, 31.2, 43.7], other: [-6.5, -8.7, 15.3, 15.7, 3, 2.6, 12.7, 12.9], arm: [1, -41.6, 22.2, 48.3], strike: [-0.2, -17.5, 40, 26.7] }, hand: [11.7, 11.8, 2.2, 1.8, 9.5, 10.1] },
   dancer: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [32.2, 42.5, 12.1, 36], mid: [40.7, 34.8, 7.4, 25.9], follow: [62.7, 33.3, 8.8, 22.9] }, back: { body: [-20, -37.8, 40, 43.7], other: [-13.8, -26.6, 22.7, 14.3, 2.2, 3.5, 19.8, 4.5], arm: [-25.5, -33.2, 47.5, 39.2], strike: [-30.6, -33.9, 49.2, 18.7] }, hand: [11, 10.8, 9.6, 1.5, 1.7, 9.2] },
   merchant: { faces: ['hurt', 'blink', 'victory'], swing: { wind: [24.7, 26.8, 3.8, 22.9], mid: [35.3, 20.8, 3.7, 4.7], follow: [44.2, 13.2, 4.3, 4.8] }, back: { body: [-11.3, -37.6, 22.5, 43.2], other: [4.8, 3.9, 14.7, 23.7, 11.2, 2.3, 4.4, 20.8], arm: [-8.1, -19.3, 19.3, 26.2], strike: [-8.6, -0.1, 26.8, 25] }, hand: [6.7, 13.8, 2.4, 1.2, 1.7, 12.2] },
@@ -188,8 +217,8 @@ export function swingPhase(ch, hand = 'main', kind = 'melee') {
 const ARC_REST = 0.4, ARC_GUARD = 3.6;
 const ARC_JOIN = 0.22;
 const PHASES = ['wind', 'mid', 'follow'];
-// Where each painted arm points: from the shoulder to the picture's corner
-// farthest from it (the weapon's tip, near enough), as an angle and a length,
+// Where each painted arm points: from the shoulder to its measured weapon tip
+// (or the farthest corner when unmeasured), as an angle and a length,
 // unwrapped so wind-up -> mid -> follow-through runs one way round.
 // (Worked out once per arm and kept, like the loaded pictures in armPics:
 // these are looked up every frame of a swing, so nothing is built per frame.)
@@ -201,13 +230,18 @@ function armGeo(classId, hand) {
   const frames = hand === 'off' ? ANIM_ART[classId].off : ANIM_ART[classId].swing;
   g = { dir: [0, 0, 0], len: [0, 0, 0], sense: 1 };
   PHASES.forEach((k, i) => {
-    const [w, h, px, py] = frames[k];
-    let best = -1;
-    for (const [x, y] of [[0, 0], [w, 0], [0, h], [w, h]]) {
-      const d = Math.hypot(x - px, y - py);
-      if (d > best) { best = d; g.dir[i] = Math.atan2(y - py, x - px); }
+    const [w, h, px, py, tx, ty] = frames[k];
+    if (tx != null && ty != null) {
+      g.dir[i] = Math.atan2(ty - py, tx - px);
+      g.len[i] = Math.hypot(tx - px, ty - py);
+    } else {
+      let best = -1;
+      for (const [x, y] of [[0, 0], [w, 0], [0, h], [w, h]]) {
+        const d = Math.hypot(x - px, y - py);
+        if (d > best) { best = d; g.dir[i] = Math.atan2(y - py, x - px); }
+      }
+      g.len[i] = best;
     }
-    g.len[i] = best;
     if (i) g.dir[i] = g.dir[i - 1] + wrap(g.dir[i] - g.dir[i - 1]);
   });
   // Which way round the swing travels (+1 forward and down, the usual).
@@ -469,7 +503,31 @@ export function drawHeroBack(ctx, opts = {}) {
     ctx.restore();
   }
   const hit = ch ? (ch.strike > 0.5 || ch.release > 0.05 || ch.cast > 0.2 || ch.strike2 > 0.5) : (opts.swingK ?? -1) >= 0.4;
-  put(hit ? strike : arm, hit ? b.strike : b.arm, step * 0.6);
+  if (b.weaponShoulder) {
+    // Both painted sword arms and the empty hand meet the same rear shoulder.
+    const [sx, sy] = b.weaponShoulder;
+    if (opts.hasWeapon === false) drawEmptyArm(ctx, classId, sx, sy + breathe, -0.38 - step * 0.25, 10);
+    else {
+      const [w, h, px, py, guard] = hit ? b.strike : b.arm;
+      ctx.save(); ctx.translate(sx, sy + breathe); ctx.rotate(guard + step * 0.07);
+      ctx.drawImage(heroLit(hit ? strike : arm), -px, -py, w, h);
+      ctx.restore();
+    }
+  } else if (classId === 'brawler') {
+    const [sx, sy] = b.joint;
+    if (opts.hasWeapon === false) drawEmptyArm(ctx, classId, sx, sy + breathe, -0.6 - step * 0.2 - (hit ? 0.7 : 0), hit ? 12 : 9);
+    else {
+      // The claw cuts were painted in opposite directions. Match their inner
+      // cuffs at the same shoulder before letting the planted body turn.
+      ctx.save(); ctx.translate(sx, sy + breathe); ctx.rotate(step * 0.12);
+      if (hit) ctx.scale(-1, 1);
+      ctx.drawImage(heroLit(hit ? strike : arm), ...(hit ? b.strike : b.arm));
+      ctx.restore();
+    }
+  } else if (classId === 'knight' && opts.hasWeapon === false) {
+    const [sx, sy] = b.joint;
+    drawEmptyArm(ctx, classId, sx, sy + breathe, 0.35 - step * 0.25 + (ch?.strike || 0) * 0.8, 10);
+  } else put(hit ? strike : arm, hit ? b.strike : b.arm, step * 0.6);
   ctx.restore();
   return true;
 }
