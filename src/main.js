@@ -64,6 +64,7 @@ game.input = input;
 game.audio = new Sfx(game.bus);
 // The ambience beds follow the region you're in and the hour.
 game.audio.ambienceSource = () => ({ zone: game.currentZoneName, night: 1 - game.daylightFactor() });
+game.audio.musicSource = () => title.active ? 'Singapore' : game.currentZoneName;
 // Routine combat sounds sit a little lower while auto battle runs the fight.
 game.audio.autoSource = () => game.autoBattle;
 // Web Audio needs a user gesture to start; unlock on the first interaction.
