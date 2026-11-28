@@ -142,8 +142,15 @@ test('odd values in a save are skipped, not used', () => {
   assert.deepEqual(snapshotUiMemory({}).win, {});
 });
 
-test('Esc closes the top-most thing only: the menu, then the window', () => {
+test('Esc closes the top-most thing only, including the Auto popover', () => {
   const ui = fakeUI(newGame());
+  let autoOpen = true;
+  ui._closeAutoMenu = (restoreFocus) => {
+    assert.equal(restoreFocus, true);
+    const wasOpen = autoOpen;
+    autoOpen = false;
+    return wasOpen;
+  };
   ui.openModal('Bank of Singapore', (b) => { b.innerHTML = 'x'; });
   ui.el.contextMenu.classList.remove('hidden');
   assert.equal(closeTopWindow(ui), 'menu');
@@ -153,6 +160,7 @@ test('Esc closes the top-most thing only: the menu, then the window', () => {
   assert.ok(ui.modal);
   assert.equal(closeTopWindow(ui), 'window');
   assert.equal(ui.modal, null);
+  assert.equal(closeTopWindow(ui), 'auto');
   assert.equal(closeTopWindow(ui), null, 'nothing left to close');
   // The class picker can't be escaped.
   ui.openModal('Choose Your Class', () => {});

@@ -5,27 +5,28 @@ import './seed.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import {
-  autoLabel, chatQuiet, regionShown, trackerSig, trackerDozing, CompactHud,
-  CHAT_QUIET_MS, REGION_SHOW_MS, TRACKER_DOZE_MS,
-} from '../src/ui/compacthud.js';
+import { autoLabel, lootExcerpt, regionShown, CompactHud, LOOT_PEEK_MS, REGION_SHOW_MS } from '../src/ui/compacthud.js';
 
 const css = readFileSync(new URL('../styles/compact.css', import.meta.url), 'utf8');
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
 test('the Auto button names what is switched on, and a waiting grave', () => {
   assert.equal(autoLabel({}), 'Auto');
-  assert.equal(autoLabel({ battle: true }), 'Battle');
+  assert.equal(autoLabel({ battle: true }), 'Auto Battle');
+  assert.equal(autoLabel({ gather: true }), 'Auto Gather');
+  assert.equal(autoLabel({ quest: true }), 'Auto Quest');
   assert.equal(autoLabel({ battle: true, quest: true }), 'Battle + Quest');
   assert.equal(autoLabel({ battle: true, gather: true, quest: true }), 'Auto: all');
   assert.equal(autoLabel({ grave: true }), 'Auto · Grave');
 });
 
-test('the chat goes quiet only after a spell with no news, and never while in use', () => {
-  assert.equal(chatQuiet({ now: 1000, lastAt: 0 }), false);
-  assert.equal(chatQuiet({ now: CHAT_QUIET_MS, lastAt: 0 }), true);
-  assert.equal(chatQuiet({ now: CHAT_QUIET_MS * 2, lastAt: 0, hovered: true }), false, 'hover keeps it open');
-  assert.equal(chatQuiet({ now: CHAT_QUIET_MS * 2, lastAt: 0, focused: true }), false, 'typing / tabbing keeps it open');
+test('the folded log previews pickups and named drops', () => {
+  assert.equal(lootExcerpt('You loot: 2 x Copper ore.', 'game'), 'Loot · 2 x Copper ore');
+  assert.equal(lootExcerpt('You pick up a Rusty sword.', 'game'), 'Loot · a Rusty sword');
+  assert.equal(lootExcerpt('Signature drop! Crown (for Guardian)', 'level'), 'Signature drop! Crown (for Guardian)');
+  assert.equal(lootExcerpt('You deal 14 damage.', 'combat'), '');
+  assert.equal(lootExcerpt('Talk to Auntie Mei.', 'system'), '');
+  assert.equal(lootExcerpt(null), '');
 });
 
 test('the area name shows on arrival, and always while the minimap is folded', () => {
@@ -34,15 +35,29 @@ test('the area name shows on arrival, and always while the minimap is folded', (
   assert.equal(regionShown({ now: REGION_SHOW_MS * 9, changedAt: 0, minimapFolded: true }), true);
 });
 
-test('objectives doze when nothing new comes up: walking, kills and streaks are not news', () => {
-  assert.equal(trackerSig('Wild Hornbill 0/11 42m Bat 0/18 1.2km'), trackerSig('Wild Hornbill 0/11 41m Bat 0/18 1.1km'));
-  assert.equal(trackerSig('Wild Hornbill 0/11 42m'), trackerSig('Wild Hornbill 1/11 42m'), 'a kill counted is not news');
-  assert.equal(trackerSig('XP ×2.25 streak 232 · night'), trackerSig('XP ×2.5 streak 233 · night'), 'a growing streak is not news');
-  assert.notEqual(trackerSig('Wild Hornbill 0/11'), trackerSig('Wild Hornbill 0/11 Dire Mud crab 0/12'), 'a new goal is news');
-  assert.equal(trackerSig('Next stop'), 'Next stop', 'words keep their letters');
-  assert.equal(trackerDozing({ now: TRACKER_DOZE_MS - 1, changedAt: 0 }), false);
-  assert.equal(trackerDozing({ now: TRACKER_DOZE_MS, changedAt: 0 }), true);
-  assert.equal(trackerDozing({ now: TRACKER_DOZE_MS + 10, changedAt: 0, wokeAt: TRACKER_DOZE_MS }), false, 'a tap wakes it for a while');
+test('routine chatter leaves the loot preview and the log state alone', () => {
+  const handlers = {};
+  const classes = new Set(['collapsed']);
+  const root = { classList: { toggle() {} } };
+  const chat = { classList: { toggle: (name) => classes.add(name) } };
+  const peek = {};
+  const elements = { 'game-root': root, chatbox: chat, 'chat-head': { querySelector: () => ({ after() {} }) } };
+  const game = { bus: { on: (event, fn) => { handlers[event] = fn; } } };
+  const hud = new CompactHud({ game });
+  globalThis.document = { getElementById: (id) => elements[id], createElement: () => peek };
+  peek.setAttribute = () => {};
+  try {
+    handlers.chat({ text: 'You loot: 2 x Copper ore.', cls: 'game' });
+    assert.equal(peek.textContent, 'Loot · 2 x Copper ore');
+    handlers.chat({ text: 'You deal 14 damage.', cls: 'combat' });
+    assert.equal(peek.textContent, 'Loot · 2 x Copper ore');
+    hud._lootAt -= LOOT_PEEK_MS + 1;
+    handlers.tick();
+    assert.equal(peek.textContent, '');
+    assert.deepEqual([...classes], ['collapsed']);
+  } finally {
+    delete globalThis.document;
+  }
 });
 
 test('headless: the compact HUD subscribes and its tick is harmless without a DOM', () => {
@@ -54,10 +69,12 @@ test('headless: the compact HUD subscribes and its tick is harmless without a DO
   assert.ok(hud);
 });
 
-test('compact.css loads last, keeps hit areas and is well formed', () => {
+test('the HUD information styles load after responsive layout and keep the base hit areas', () => {
   const links = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map((m) => m[1]);
-  assert.equal(links.at(-1), 'styles/compact.css', 'linked after every other stylesheet');
-  const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(links.indexOf('styles/compact.css') < links.indexOf('styles/hud-touch.css'));
+  assert.ok(links.indexOf('styles/hud-touch.css') < links.indexOf('styles/hud-information.css'));
+  const info = readFileSync(new URL('../styles/hud-information.css', import.meta.url), 'utf8');
+  const bare = (css + info).replace(/\/\*[\s\S]*?\*\//g, '');
   let depth = 0;
   for (const ch of bare) { if (ch === '{') depth++; else if (ch === '}') { depth--; assert.ok(depth >= 0); } }
   assert.equal(depth, 0, 'every { is closed');

@@ -1,0 +1,290 @@
+/* Shared HUD surfaces. The layout sheets place these pieces for mouse and touch. */
+#game-root {
+  --hud-enamel: #2b504e;
+  --hud-enamel-deep: #132d30;
+  --hud-teal: #396962;
+  --hud-gold: #d6b47d;
+  --hud-line: #9f8258;
+  --hud-warm: #eddec2;
+  --hud-ivory: #fff7e7;
+  --hud-shell: linear-gradient(150deg, #294b49, #182f32 85%);
+  --hud-paper: linear-gradient(155deg, #fff9ec, #f3e5cc);
+  --hud-shadow: 0 2px 0 #0f272b, 0 5px 12px rgb(15 39 43 / 24%);
+}
+
+/* Travel sits below the original round map and moves with its fold state. */
+#minimap-panel:not(.collapsed) #minimap-canvas {
+  box-shadow: 0 0 0 1px var(--hud-gold), 0 0 0 3px var(--hud-enamel-deep), var(--hud-shadow);
+}
+#minimap-dock {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 21;
+  padding: 5px;
+  border: 1px solid var(--hud-line);
+  border-radius: 10px;
+  background: var(--hud-shell);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-ivory);
+}
+#minimap-panel.collapsed #minimap-dock { display: none; }
+#minimap-panel #minimap-dock #minimap-region {
+  position: static;
+  margin: 0 0 4px;
+  padding: 1px 2px 2px;
+  transform: none;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: break-word;
+  font-size: var(--fs-xs);
+  line-height: 1.16;
+  color: inherit;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+#minimap-panel #minimap-dock #minimap-region.wild { color: #ffc2ad; }
+#minimap-panel #minimap-dock #minimap-region::before,
+#minimap-panel #minimap-dock #minimap-region::after { content: none; }
+.hud-map-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+#minimap-dock #tp-row { display: contents; }
+#minimap-dock :is(#map-btn, #tp-row .tp-btn) {
+  position: static;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 31px;
+  padding: 3px 5px;
+  border: 1px solid #547670;
+  border-radius: 6px;
+  background: #365652;
+  color: var(--hud-ivory);
+  box-shadow: inset 0 1px rgb(255 255 255 / 9%);
+  font: 850 var(--fs-xs) / 1.08 var(--font);
+  letter-spacing: 0;
+}
+#minimap-dock #map-btn,
+#minimap-dock #tp-row .tp-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+#minimap-dock #tp-row .tp-btn.hidden { display: none; }
+#minimap-dock #tp-row .tp-btn:not(.hidden):hover,
+#minimap-dock #map-btn:hover { background: #4a746b; }
+#minimap-dock #map-btn::before { content: none; }
+#minimap-dock :is(#map-btn img, #tp-row .tp-ic) {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+#minimap-dock #tp-row .tp-btn {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+#minimap-dock #tp-row #tp-town { flex-basis: 34%; }
+#minimap-dock #tp-row #tp-grave { flex-basis: 100%; }
+#minimap-dock #tp-row :is(kbd, .ab-status:empty) { display: none; }
+#minimap-dock #tp-row .ab-status {
+  flex: 1 0 100%;
+  text-align: center;
+  font-size: var(--fs-cap);
+  color: #efddbc;
+}
+#minimap-dock #tp-row .tp-btn.wait .ab-label { opacity: 1; }
+#minimap-dock #tp-row .tp-btn.on { border-color: var(--hud-gold); }
+
+/* Combat uses a single health meter, tactile ability slots and small resources. */
+#hp-bar {
+  background: var(--hud-enamel-deep);
+  border: 1px solid var(--hud-line);
+  border-radius: 7px;
+  box-shadow: inset 0 1px rgb(255 255 255 / 14%);
+}
+#hp-bar .hpb-track { inset: 2px; border-radius: 4px; background: #294447; }
+#hp-bar .hpb-fill, #hp-bar .hpb-trail { border-radius: inherit; }
+#hp-bar .hpb-fill { background: linear-gradient(180deg, #418469, #2a574e); }
+#hp-bar.mid .hpb-fill { background: linear-gradient(180deg, #9e713d, #6c4a2b); }
+#hp-bar.low .hpb-fill { background: linear-gradient(180deg, #a74b47, #712f30); }
+body.cb-safe #hp-bar .hpb-fill { background: #005686; }
+body.cb-safe #hp-bar.mid .hpb-fill { background: #805b2b; }
+body.cb-safe #hp-bar.low .hpb-fill { background: #984900; }
+#hp-bar .hpb-trail { background: #af855f; }
+#hp-bar :is(.hpb-ic, .hpb-num, .hpb-ward) {
+  color: var(--hud-ivory);
+  text-shadow: 0 1px 2px #0b2223, 0 0 3px #0b2223;
+}
+#hp-bar .hpb-ward { color: #ffdb8e; }
+
+#game-root #ability-bar #auto-menu-btn {
+  padding-inline: 8px;
+  color: var(--hud-ivory);
+  background: #2e514f;
+  border: 1px solid #68837a;
+  border-radius: 6px;
+  box-shadow: inset 0 1px rgb(255 255 255 / 10%);
+  font-size: var(--fs-xs);
+  font-weight: 850;
+}
+#game-root #ability-bar #auto-menu-btn:is(:hover, [aria-expanded="true"], .running) { background: #426f61; }
+#game-root #ability-bar #auto-menu-btn[aria-expanded="true"] { border-color: var(--hud-gold); }
+#game-root #ability-bar #auto-menu-btn .am-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  background: #a0aea3;
+}
+#game-root #ability-bar #auto-menu-btn.running .am-dot { background: #a6e1ad; }
+#game-root #ability-bar #auto-menu-btn.grave .am-dot { background: #ffd68d; }
+#game-root #auto-menu-btn .am-text {
+  white-space: normal;
+  line-height: 1.1;
+  text-align: center;
+}
+#ability-bar .auto-row {
+  background: var(--hud-paper);
+  border: 1px solid var(--hud-line);
+  border-radius: 9px;
+  box-shadow: var(--hud-shadow);
+}
+#ability-bar .auto-row :is(.ab-switch, .ab-btn, #auto-battle-cfg) { border-color: #bcab8e; }
+#ability-bar .auto-row .ab-btn.on { color: var(--hud-enamel-deep); background: #d6e7d6; }
+
+#combat-resources {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+#combat-resources .orb {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: auto;
+  height: 26px;
+  min-width: 49px;
+  padding: 0 6px;
+  border: 1px solid #71887d;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #365950 calc(var(--fill, 0) * 100%), #254544 0);
+  box-shadow: inset 0 -2px #153234;
+  color: var(--hud-ivory);
+  font: 850 var(--fs-cap) / 1 var(--font);
+  font-variant-numeric: tabular-nums;
+  pointer-events: auto;
+}
+#combat-resources #spec-orb.disabled { display: none; }
+#combat-resources .orb::after, #combat-resources .orb::before { content: none; }
+#combat-resources .orb .orb-cap {
+  display: inline;
+  position: static;
+  padding: 0;
+  border: 0;
+  transform: none;
+  background: none;
+  box-shadow: none;
+  color: #e7d7bb;
+  font: inherit;
+}
+#combat-resources :is(#prayer-orb-value, #spec-orb-value)::after { content: "%"; }
+#combat-resources .orb .orb-burst, #combat-resources .orb .orb-key { display: none; }
+#combat-resources .orb:is(:hover, :active) { transform: none; background: #3e655e; }
+#combat-resources .orb:is(.ready, .armed, .active) {
+  color: #fff6db;
+  border-color: var(--hud-gold);
+  background: #536344;
+  box-shadow: inset 0 -2px #303c31;
+}
+#adrenaline {
+  border: 1px solid var(--hud-line);
+  border-radius: 5px;
+  background: #234140;
+  box-shadow: none;
+}
+#adrenaline-fill { background: linear-gradient(90deg, #9d5f2d, #9b773d); }
+#adrenaline-label, #adrenaline-label b { color: #fff5df; text-shadow: 0 1px 2px #292a25; }
+#adrenaline-label { letter-spacing: .3px; font-weight: 850; }
+#game-root #ability-buttons .ability-btn {
+  border: 1px solid #ac9474;
+  border-radius: 8px;
+  box-shadow: inset 0 1px #fffaf1, inset 0 -2px rgb(115 90 58 / 16%);
+}
+#game-root #ability-buttons .ability-btn.ready { border-color: #e0bb6a; }
+#game-root #ability-buttons .ability-btn.armed { border-color: #cce9c9; }
+#ability-buttons .ability-btn .ab-key { font-weight: 850; }
+
+/* The boss's cast keeps its own contrast and room under the life track. */
+#boss-bar {
+  border: 1px solid var(--hud-line);
+  border-radius: 9px;
+  background: var(--hud-shell);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-ivory);
+}
+#boss-bar #boss-bar-name { color: var(--hud-ivory); text-shadow: none; }
+#boss-bar #boss-bar-name .bb-lvl, #boss-bar #boss-bar-info { color: #ebdbbd; }
+#boss-bar #boss-bar-track { border: 1px solid #a37e66; background: #351f23; }
+#boss-bar #boss-bar-fill { background: linear-gradient(180deg, #ab5250, #773635); }
+#boss-bar.normal #boss-bar-fill { background: linear-gradient(180deg, #539770, #2f5c4c); }
+#boss-bar.champion #boss-bar-fill { background: linear-gradient(180deg, #b17e48, #81542c); }
+#boss-bar #boss-bar-cast { background: #344b52; box-shadow: inset 0 0 0 1px #5f8186; }
+#boss-bar #boss-bar-cast i { background: linear-gradient(90deg, #97ddda, #64b7ce); }
+#boss-bar.warn { border-color: #f4a780; }
+#boss-bar.warn #boss-bar-name, #boss-bar.enraged #boss-bar-name { color: #ffbca5; }
+#boss-bar #boss-bar-portrait { border-color: var(--hud-gold); }
+#boss-bar #boss-bar-life { color: #fff6e6; text-shadow: 0 1px 2px #27171a, 0 0 2px #27171a; }
+
+@media (pointer: coarse) {
+  #joystick {
+    border-color: var(--hud-gold);
+    background: radial-gradient(circle at 50% 35%, #416362, #1e3539);
+    box-shadow: var(--hud-shadow);
+    opacity: .88;
+  }
+  #joystick::before {
+    border: 1px solid #93afa4;
+    background: none;
+  }
+  #joystick-knob {
+    border-color: #8b7654;
+    background: linear-gradient(155deg, #fff4d9, #d3b68a);
+    box-shadow: 0 2px 0 #142c2f;
+  }
+  #joystick.active { border-color: var(--hud-ivory); }
+  #joystick.active #joystick-knob { box-shadow: 0 1px 0 #142c2f; }
+  #attack-btn {
+    border: 1px solid #f0be86;
+    background: linear-gradient(155deg, #aa5743, #7f3834);
+    color: #fff6e7;
+    box-shadow: 0 3px 0 #4f2425, 0 5px 12px #18181d40;
+  }
+  #attack-btn:is(.held, :active) { box-shadow: 0 1px 0 #4f2425; }
+  #target-btn {
+    border: 1px solid var(--hud-gold);
+    background: var(--hud-shell);
+    color: var(--hud-ivory);
+    box-shadow: var(--hud-shadow);
+  }
+  #minimap-dock :is(#map-btn, #tp-row .tp-btn), #combat-resources .orb { min-height: 44px; }
+  #minimap-dock :is(#map-btn, #tp-row .tp-btn) { padding-inline: 3px; }
+  #minimap-dock :is(#map-btn img, #tp-row .tp-ic) { width: 14px; height: 14px; }
+  #game-root #minimap-panel #minimap-dock { width: max(114px, 100%); }
+  #game-root #minimap-panel #minimap-dock:has(#tp-grave:not(.hidden)) { width: max(150px, 100%); }
+  #minimap-dock #tp-row :is(#tp-town, #tp-grave) { flex-basis: 0; }
+}
+@media (pointer: coarse) and (max-width: 540px) {
+  #minimap-dock :is(#map-btn img, #tp-row .tp-ic) { display: none; }
+}

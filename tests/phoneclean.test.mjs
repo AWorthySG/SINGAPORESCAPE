@@ -9,15 +9,14 @@ import { placeLane } from '../src/ui/noticelane.js';
 
 const box = (left, top, width, height) => ({ left, top, width, height, right: left + width, bottom: top + height });
 
-test('on a phone the tip lane stops short of the orbs under the minimap', () => {
-  // The iPhone 13 layout measured in the browser: the orbs reach left of the minimap.
+test('on a phone the tip lane stops short of the travel controls under the minimap', () => {
+  // The travel controls reach farther into the playfield than the map square.
   const b = {
     'boss-bar': box(6, 6, 250, 48), 'quest-tracker': box(6, 60, 218, 66), 'minimap-panel': box(262, 6, 122, 122),
-    'spec-orb': box(248, 150, 34, 34), 'prayer-orb': box(298, 150, 34, 34), 'hp-orb': box(348, 150, 34, 34),
-    sidepanel: box(328, 202, 56, 62), caps: [],
+    'minimap-dock': box(236, 128, 148, 72), quickbar: box(276, 208, 46, 44), sidepanel: box(328, 208, 56, 62),
   };
   const at = placeLane(b, 390, 'phone');
-  assert.ok(at.left + at.width <= 248 - 6, `ends at ${at.left + at.width}, before the Special orb at 248`);
+  assert.ok(at.left + at.width <= 236 - 6, `ends at ${at.left + at.width}, before the travel dock at 236`);
   assert.ok(at.width >= 200, 'still a usable width');
 });
 

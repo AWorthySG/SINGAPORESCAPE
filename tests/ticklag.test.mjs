@@ -195,9 +195,11 @@ test('a folded chat draws nothing, and shows the very same lines when it opens',
     const old = chatUi(g, ref);
     const ui = chatUi(g, dom.log);
     ui._collapse = { chat: true };
-    const btn = { addEventListener() {} };
-    UI.prototype._wireCollapse.call(ui, 'chat', dom.box, btn, 'chat');
+    const attrs = new Map();
+    const btn = { addEventListener() {}, setAttribute: (name, value) => attrs.set(name, value) };
+    UI.prototype._wireCollapse.call(ui, 'chat', dom.box, btn, 'log');
     assert.ok(dom.box.classes.has('collapsed'));
+    assert.equal(attrs.get('aria-expanded'), 'false');
     // Some lines while open first, then a long folded fight.
     ui._collapseApply.chat(false);
     for (let i = 0; i < 30; i++) { oldAddChat(old, texts[i], CLASSES[i % CLASSES.length]); ui.addChat(texts[i], CLASSES[i % CLASSES.length]); }
@@ -212,6 +214,7 @@ test('a folded chat draws nothing, and shows the very same lines when it opens',
     // Opening it draws its newest lines, as a log that drew every line would show.
     const scrolled = dom.log.scrollTop;
     ui._collapseApply.chat(false);
+    assert.equal(attrs.get('aria-expanded'), 'true');
     assert.deepEqual(lines(dom.log), lines(ref));
     assert.equal(dom.made.elements - made, CHAT_LINES, 'only the lines it can show are drawn');
     assert.equal(dom.log.scrollTop, scrolled, 'and it is left where it was, as before (the next line scrolls it)');

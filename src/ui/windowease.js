@@ -217,6 +217,7 @@ export function closeTopWindow(ui) {
   if (menu && !menu.classList.contains('hidden')) { ui.hideContextMenu(); return 'menu'; }
   if (ui._cardOpen) { ui.closeTouchCard(); return 'card'; }
   if (ui.modal && !ui.modal.locked) { ui.closeModal(); return 'window'; }
+  if (!ui.modal && ui._closeAutoMenu?.(true)) return 'auto';
   return null;
 }
 

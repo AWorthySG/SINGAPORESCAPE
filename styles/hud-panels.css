@@ -1,0 +1,116 @@
+/* The navigation reads as one enamel rail, and the open panel as ivory paper. */
+#game-root #sidepanel {
+  --panel-ink: #223b3b;
+  --panel-paper: #fffaed;
+  --panel-well: #f3e9d7;
+  --panel-line: #c7b08b;
+  --panel-select: #285953;
+  font-family: var(--font);
+}
+
+#game-root #sidepanel:not(.collapsed) {
+  border-color: var(--heritage-brass);
+  background: var(--panel-paper);
+  box-shadow: 0 3px 9px #162a3240, 0 12px 24px -14px #162a3273;
+}
+
+#game-root #sidepanel #panel-head {
+  color: var(--panel-ink);
+  background: linear-gradient(115deg, #f5e8cb, var(--panel-paper) 75%);
+  border-bottom-color: var(--panel-line);
+  box-shadow: none;
+}
+
+#game-root #sidepanel #panel-title {
+  font-family: var(--font);
+  text-shadow: none;
+}
+
+#game-root #sidepanel #panel-body {
+  color: var(--panel-ink);
+  background: var(--panel-paper);
+  scrollbar-color: #8d7656 var(--panel-well);
+}
+
+#game-root #sidepanel #panel-tabs {
+  background: #203e42;
+  border-color: #b99b6d;
+}
+
+#game-root #sidepanel #panel-tabs .tab-btn {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--panel-paper);
+}
+
+#game-root #sidepanel #panel-tabs .tab-btn:is(.active, [aria-selected="true"]) {
+  background: var(--panel-select);
+  border-color: #bfa77d;
+  box-shadow: inset 0 -1px #f0c987;
+  color: #fffdf5;
+}
+
+#game-root #sidepanel #panel-tabs .tab-btn .panel-key {
+  background: #193438;
+  border-color: #77958c;
+  color: #fff6e4;
+}
+
+#game-root #sidepanel #panel-subtabs .panel-key {
+  background: var(--panel-paper);
+  border-color: var(--panel-line);
+  color: var(--panel-ink);
+}
+
+#game-root #sidepanel :is(#panel-subtabs .subtab-btn, #inventory-bar .inv-tab, #inv-sort) {
+  background: #f7efde;
+  border-color: var(--panel-line);
+  box-shadow: none;
+  color: var(--panel-ink);
+}
+
+#game-root #sidepanel :is(#panel-subtabs .subtab-btn, #inventory-bar .inv-tab):is(.active, [aria-selected="true"]) {
+  background: var(--panel-select);
+  border-color: var(--panel-select);
+  box-shadow: inset 0 -1px #d3b480;
+  color: #fffdf5;
+}
+
+#game-root #sidepanel #inventory-grid .inv-slot:not(.filled) {
+  background: var(--panel-well);
+  border-color: #d9c8aa;
+  box-shadow: none;
+}
+
+#game-root #sidepanel #inventory-grid .inv-slot.filled {
+  background: #fffdf5;
+  border-color: #b49a72;
+  box-shadow: none;
+}
+
+#game-root #sidepanel #inventory-grid .inv-slot:has(> .q-pip) {
+  box-shadow: inset 0 0 0 2.5px var(--qc, transparent);
+}
+
+#game-root #sidepanel #inventory-grid .inv-slot .qty {
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px #fffdf5, 0 -1px #fffdf5, 1px 0 #fffdf5, -1px 0 #fffdf5;
+}
+
+@media (hover: hover) {
+  #game-root #sidepanel #panel-tabs .tab-btn:not(.active, [aria-selected="true"]):hover {
+    background: #2b5053;
+    border-color: #64837d;
+  }
+
+  #game-root #sidepanel :is(#panel-subtabs .subtab-btn, #inventory-bar .inv-tab, #inv-sort):not(.active, [aria-selected="true"]):hover {
+    background: #efe0c2;
+    border-color: #a18355;
+  }
+
+  #game-root #sidepanel #inventory-grid .inv-slot.filled:hover {
+    background: #faf0d8;
+    border-color: var(--panel-select);
+  }
+}

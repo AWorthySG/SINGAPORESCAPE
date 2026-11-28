@@ -17,6 +17,7 @@ import { installLinks } from './ui/links.js';
 import { handleGameShortcut, keyboardBlocked } from './ui/keyboard.js';
 import { FxGovernor, slowFrames, shouldScaleDown, judgeFrames, TRIM_OFF_HOLD } from './render/governor.js';
 import { preloadFx } from './render/fxart.js';
+import { clearNamePillCache } from './render/namepill.js';
 
 const VIEW_TILES = 15;        // tiles shown across the shorter side of the screen, at most
 const VIEW_TILES_LONG = 24;   // ...and along the longer side
@@ -93,6 +94,15 @@ ui.setPerf = (on) => {
 try { if (localStorage.getItem(PERF_KEY) === '1') showPerf(true); } catch { /* ignore */ }
 
 ui.init();
+// A slow font load can leave fallback letters baked into HUD bitmaps.
+// Let play start on time and repaint the cached labels once Nunito is ready.
+const hudFont = '900 12px Nunito';
+if (document.fonts && !document.fonts.check(hudFont)) {
+  document.fonts.load(hudFont).then(() => {
+    clearNamePillCache();
+    ui.refreshCanvasFonts();
+  }).catch(() => {});
+}
 game.start();
 title.attach(game);
 // The painted critters, particles, banners and plaques (fxart.js): the ones in

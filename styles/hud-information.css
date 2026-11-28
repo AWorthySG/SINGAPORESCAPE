@@ -1,0 +1,313 @@
+/* Objectives and activity use the same materials as the navigation and combat controls. */
+#game-root #quest-tracker {
+  grid-template: "title more" auto "rows rows" minmax(0, 1fr) / minmax(0, 1fr) auto;
+  gap: 2px 5px;
+  box-sizing: border-box;
+  padding: 5px 8px 7px;
+  border: 1px solid var(--hud-line);
+  border-inline-start: 3px solid var(--hud-line);
+  border-radius: 9px;
+  background: var(--hud-paper);
+  box-shadow: var(--hud-shadow);
+  color: var(--hud-enamel-deep);
+  font-size: var(--fs-sm);
+}
+
+#game-root #quest-tracker:not(.hidden) { display: grid; }
+
+#game-root #quest-tracker .trk-fold {
+  display: flex;
+  grid-area: title;
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: auto;
+  min-height: 24px;
+  gap: 3px;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0 2px;
+  font-size: var(--fs-xs);
+  letter-spacing: 0;
+  text-transform: none;
+  color: #414e43;
+}
+
+#game-root #quest-tracker .trk-fold::before,
+#game-root #quest-tracker .trk-more::before,
+#game-root #quest-tracker .trk-next::before { content: none; }
+
+#game-root #quest-tracker .trk-chev { color: inherit; padding: 0; }
+
+#game-root #quest-tracker .trk-rows {
+  display: grid;
+  grid-area: rows;
+  min-width: 0;
+  gap: 5px;
+}
+
+#game-root #quest-tracker.show-details .trk-rows {
+  max-height: min(36dvh, 230px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  pointer-events: auto;
+  scrollbar-width: thin;
+}
+
+#game-root #quest-tracker .trk-row {
+  display: block;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+#game-root #quest-tracker .trk-ic {
+  display: inline-block;
+  margin-inline-end: 4px;
+}
+
+#game-root #quest-tracker .trk-next {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+  gap: 2px 4px;
+  align-items: center;
+  min-height: 28px;
+  padding: 3px 4px;
+  background: #edf0dc;
+  border: 1px solid #8d9b81;
+  border-radius: 6px;
+  font: inherit;
+  text-align: start;
+  color: var(--hud-enamel-deep);
+}
+
+#game-root #quest-tracker .trk-next-text {
+  flex: 1 1 6.5em;
+  overflow: visible;
+  white-space: normal;
+}
+
+#game-root #quest-tracker .trk-go {
+  border: 0;
+  border-radius: 4px;
+  background: var(--hud-enamel);
+  color: var(--hud-ivory);
+  padding: 2px 5px;
+  white-space: nowrap;
+}
+
+#game-root #quest-tracker .trk-more {
+  grid-area: more;
+  min-height: 26px;
+  margin: 0;
+  padding: 1px 6px;
+  background: #f9efda;
+  border: 1px solid #baa57a;
+  border-radius: 5px;
+  color: #245045;
+  white-space: nowrap;
+}
+
+#game-root #quest-tracker :is(button, .trk-rows):focus-visible,
+#game-root #chatbox :is(button, #chat-log):focus-visible {
+  outline: 2px solid #236854;
+  outline-offset: -2px;
+}
+
+#game-root #notice-lane .nl-card {
+  border: 1px solid #9f8258;
+  border-inline-start: 3px solid #b58543;
+  border-radius: 8px;
+  background: var(--hud-paper);
+}
+
+#game-root #notice-lane .nl-tip {
+  border-inline-start-color: #35776f;
+  padding-block: 6px;
+}
+
+#game-root #notice-lane .nl-tip .nl-text {
+  display: block;
+  overflow-wrap: anywhere;
+  max-height: min(24dvh, 110px);
+  overflow: auto;
+}
+
+#game-root #notice-lane .nl-more { background: var(--hud-enamel); }
+#game-root #notice-lane .nl-leaving { pointer-events: none; }
+
+#game-root #chatbox {
+  box-sizing: border-box;
+  border: 1px solid var(--hud-line);
+  border-radius: 8px;
+  background: var(--hud-paper);
+  box-shadow: var(--hud-shadow);
+}
+
+#game-root #chatbox #chat-head {
+  gap: 5px;
+  padding: 0 4px 0 9px;
+  border-block-end: 1px solid var(--hud-line);
+  background: var(--hud-shell);
+  box-shadow: none;
+  color: var(--hud-ivory);
+  font-size: var(--fs-sm);
+}
+
+#game-root #chatbox #chat-title { flex: none; }
+#game-root #chatbox.collapsed #chat-head {
+  position: relative;
+  border-block-end: 0;
+  cursor: var(--cur-pointer);
+}
+
+#game-root #chatbox:not(.collapsed) { z-index: 62; }
+
+#game-root #chatbox #chat-collapse {
+  display: grid;
+  flex: none;
+  place-items: center;
+  min-width: 28px;
+  min-height: 28px;
+  margin-inline-start: auto;
+  padding: 0;
+  color: var(--hud-ivory);
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  box-shadow: none;
+}
+
+#game-root #chatbox #chat-collapse:hover,
+#game-root #chatbox #chat-collapse:focus-visible {
+  background: var(--hud-teal);
+  outline-color: var(--hud-gold);
+}
+
+#game-root #chatbox.collapsed #chat-collapse {
+  /* Keep the collapsed button's hit area anchored to the entire header. */
+  position: static;
+  transform: none;
+  translate: none;
+  scale: none;
+}
+#game-root #chatbox.collapsed #chat-collapse::before { content: ""; position: absolute; inset: 0; }
+
+#game-root #chatbox #chat-peek { display: none; }
+
+#game-root #chatbox.collapsed #chat-peek:not(:empty) {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 650;
+}
+
+#game-root #chatbox:not(.collapsed) #chat-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 4px;
+  border-block-start: 1px solid #c2ab84;
+  background: #ecdec2;
+}
+
+#game-root #chatbox .chat-tab {
+  min-width: max-content;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font: 750 var(--fs-xs) / 1.15 var(--font);
+}
+
+#game-root #chatbox .chat-tab[aria-pressed="true"] {
+  border-color: #7d927f;
+  background: #e1ebd7;
+  color: var(--hud-enamel-deep);
+}
+
+#game-root #chatbox #chat-log { font-size: var(--fs-sm); }
+
+#game-root #minimap-panel.collapsed #minimap-dock {
+  display: block;
+  height: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+#game-root #minimap-panel.collapsed #minimap-dock > :not(#xp-hud) { display: none; }
+
+#game-root #minimap-dock #xp-hud { top: calc(100% + 7px); right: 0; }
+
+#game-root #xp-hud .xph-count,
+#game-root #xp-hud .xph-ring {
+  background: var(--hud-paper);
+  color: var(--hud-enamel-deep);
+  border: 1px solid var(--hud-line);
+  box-shadow: var(--hud-shadow);
+}
+
+#game-root #xp-hud .xph-ring:is(.lvl, .lvl-still) {
+  box-shadow: 0 0 0 2px var(--hud-gold), 0 0 8px 2px rgb(214 180 125 / 70%);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  body:not(.boss-on) #game-root #quest-tracker { top: 44px; max-width: min(315px, 36vw); }
+  #game-root #chatbox.collapsed { min-width: 0; width: fit-content; }
+}
+
+@media (pointer: coarse) {
+  body #game-root #quest-tracker { max-height: none; overflow: visible; }
+  #game-root #quest-tracker .trk-fold { min-height: 32px; }
+  #game-root #quest-tracker :is(.trk-next, .trk-more) { min-height: 34px; }
+  #game-root #quest-tracker.show-details .trk-rows {
+    max-height: min(28dvh, 150px);
+  }
+  #game-root #chatbox.collapsed #chat-head { min-height: 42px; gap: 2px; }
+  #game-root #chatbox #chat-collapse { min-height: 42px; }
+  #game-root #chatbox.collapsed:has(#chat-peek:not(:empty)) #chat-head {
+    display: grid;
+    grid-template: "label control" 19px "preview preview" 15px / minmax(0, 1fr) auto;
+    align-content: center;
+    padding-inline: 6px;
+  }
+  #game-root #chatbox.collapsed:has(#chat-peek:not(:empty)) #chat-title { grid-area: label; }
+  #game-root #chatbox.collapsed:has(#chat-peek:not(:empty)) #chat-collapse {
+    grid-area: control;
+    min-height: 19px;
+  }
+  #game-root #chatbox.collapsed #chat-peek { grid-area: preview; }
+  #game-root #chatbox .chat-tab { min-height: 30px; }
+  #game-root #minimap-dock #xp-hud {
+    position: fixed;
+    top: calc(var(--hud-res-top) + 72px);
+    right: var(--hud-right);
+  }
+}
+
+@media (max-width: 360px) {
+  #game-root #quest-tracker .trk-fold,
+  #game-root #quest-tracker .trk-more { padding-inline: 2px; font-size: var(--fs-cap); }
+
+  #game-root #notice-lane .nl-tip {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+  #game-root #notice-lane .nl-tip .nl-ic { display: none; }
+  #game-root #notice-lane .nl-tip .nl-text { grid-column: 1 / -1; grid-row: 2; }
+  #game-root #notice-lane .nl-tip .nl-notips { grid-column: 1; grid-row: 1; align-self: center; }
+  #game-root #notice-lane .nl-tip .nl-more { grid-column: 2; grid-row: 1; }
+}
+
+@media (pointer: coarse) and (max-height: 500px) and (orientation: landscape) {
+  #game-root #quest-tracker.show-details .trk-rows {
+    max-height: clamp(40px, calc(100dvh - var(--hud-tracker-top) - var(--auto-b) - 54px), 124px);
+  }
+  #game-root #minimap-dock #xp-hud {
+    inset: auto auto calc(var(--pad-b) + 52px) calc(var(--hud-left) + var(--hud-stick) + 32px);
+    align-items: flex-start;
+  }
+  #game-root:has(#chatbox:not(.collapsed)) #minimap-dock #xp-hud { visibility: hidden; }
+}

@@ -235,20 +235,19 @@ test('the quick bar works its Eat slot out once per burst of bag changes', () =>
   assert.equal(drawn, 2, 'its own switches still redraw at once');
 });
 
-test('the chat peek shows the last news of a burst, checked once', () => {
+test('the folded log previews the latest loot in a burst, checked once', async () => {
   const on = {};
   const game = { bus: { on: (ev, fn) => { (on[ev] ||= []).push(fn); } } };
-  const queued = [];
-  const hud = new CompactHud({ game, _coalesce: (k, fn) => queued.push([k, fn]) });
+  const hud = new CompactHud({ game, _coalesce: UI.prototype._coalesce });
   let ticks = 0;
   hud.tick = () => { ticks++; };
   on.chat[0]({ text: 'You loot: a Rune scimitar.', cls: 'level' });
+  on.chat[0]({ text: 'You pick up 2 x Logs.', cls: 'game' });
   on.chat[0]({ text: 'You hit 12.', cls: 'combat' });
   on.chat[0]({ text: 'Kill streak 5!', cls: 'level' });
-  on.chat[0]({ text: '', cls: 'game' });
-  assert.equal(hud._peekText, 'Kill streak 5!', 'the last non-combat line (combat lines never wake it)');
-  assert.ok(queued.every(([k]) => k === 'chatpeek'));
-  queued.at(-1)[1]();
+  assert.equal(hud._lootText, 'Loot · 2 x Logs');
+  assert.equal(ticks, 0, 'the HUD waits until the burst is over');
+  await microtasks();
   assert.equal(ticks, 1);
 });
 

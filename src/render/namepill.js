@@ -37,6 +37,9 @@ export const PILL_CAP = 96;   // pills kept; the least recently drawn goes first
 
 const cache = new Map();
 
+/** Discard labels painted while the bundled font was still loading. */
+export function clearNamePillCache() { cache.clear(); }
+
 /** The scale a pill is painted at, for the camera's pixel ratio and zoom:
  *  rounded up to a half step, so a fight's slow zoom only repaints a pill
  *  once or twice rather than every frame. */

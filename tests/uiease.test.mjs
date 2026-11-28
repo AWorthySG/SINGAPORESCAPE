@@ -190,6 +190,10 @@ test('renderTracker draws the folded line and a tap on the header toggles it', (
   ui.renderTracker();
   assert.ok(!cls.has('hidden'), 'the starter bounties show');
   assert.ok(!cls.has('folded'));
+  assert.equal((el.innerHTML.match(/class="trk-row[ "]/g) || []).length, 1, 'only the lead objective is visible');
+  onClick({ target: { closest: (s) => (s === '.trk-more' ? {} : null) } });
+  assert.ok(cls.has('show-details'));
+  assert.ok((el.innerHTML.match(/class="trk-row[ "]/g) || []).length > 1, 'the full tracker is available on demand');
   onClick({ target: { closest: (s) => (s === '.trk-fold' ? {} : null) } });
   assert.ok(cls.has('folded'));
   assert.match(el.innerHTML, /objectives?</);
@@ -243,7 +247,7 @@ test('dragging the panel handle up makes it full; folding it resets to half', as
   panel.querySelector = (s) => (s === '.sheet-handle' ? handle : null);
   const prev = { document: globalThis.document, matchMedia: globalThis.matchMedia };
   globalThis.document = { getElementById: () => null };
-  globalThis.matchMedia = (q) => ({ matches: !q.includes('max-height: 500px)') || q.includes('pointer') });
+  globalThis.matchMedia = (q) => ({ matches: q.includes('(orientation: portrait)') });
   let folded = 0;
   try {
     UI.prototype._initSheets.call({ el: { sidepanel: panel, panelHead: head, modalTitle: null }, _collapseApply: { panel: () => { folded++; } } });

@@ -122,7 +122,7 @@ html, body {
   user-select: none; -webkit-user-select: none;
   cursor: var(--cur-default);
 }
-button, input, select, textarea { font-family: inherit; }
+button, input, select, textarea, kbd, code, pre, samp { font-family: inherit; }
 button, a, select, [role="button"] { cursor: var(--cur-pointer); }
 input, textarea { cursor: text; }
 
@@ -1585,7 +1585,7 @@ body.boss-on #tip-toast { top: 132px; }
     right: max(calc(6px + var(--sa-r)), calc(var(--pad-r) + var(--atk) / 2 - 52px));
     bottom: calc(var(--pad-b) + var(--atk) / 2 + 40px);
     background: var(--aw-card); color: var(--aw-ink); border: 2.5px solid var(--aw-ink);
-    box-shadow: 0 3px 0 rgba(34,48,74,.35); font: 900 20px/1 inherit; touch-action: none; user-select: none; -webkit-user-select: none;
+    box-shadow: 0 3px 0 rgba(34,48,74,.35); font: 900 20px/1 var(--font); touch-action: none; user-select: none; -webkit-user-select: none;
   }
   #target-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(34,48,74,.35); }
 
@@ -1852,7 +1852,7 @@ body.boss-on #tip-toast { top: 132px; }
 .rc-actions { justify-content: flex-start; flex-wrap: wrap; }
 .rc-verify { margin-top: 8px; font-size: var(--fs-sm); }
 .rc-verify summary { cursor: var(--cur-pointer); font-weight: 800; }
-.rc-verify textarea { width: 100%; margin-top: 6px; font: var(--fs-sm) ui-monospace, Menlo, monospace; border-radius: 8px; border: 1.5px solid var(--aw-ink); padding: 6px; box-sizing: border-box; }
+.rc-verify textarea { width: 100%; margin-top: 6px; font: var(--fs-sm) var(--font); border-radius: 8px; border: 1.5px solid var(--aw-ink); padding: 6px; box-sizing: border-box; }
 .rc-result.ok { color: var(--aw-plus); font-weight: 800; } .rc-result.no { color: var(--aw-minus); font-weight: 800; }
 /* Class perks: picker summary, Combat tab line and the full list */
 .class-perks { display: block; margin-top: 3px; font-size: var(--fs-xs); font-weight: 800; color: var(--aw-gold-text); }
@@ -2194,7 +2194,7 @@ body.boss-on #tip-toast { top: 132px; }
   display: block; width: 100%; box-sizing: border-box; resize: vertical; min-height: 96px;
   padding: var(--sp-3); border: var(--stroke) solid var(--aw-ink); border-radius: var(--r1);
   background: var(--aw-card); color: var(--aw-text); box-shadow: var(--shadow-sticker-sm);
-  font: var(--fs-sm)/1.4 ui-monospace, Menlo, monospace; word-break: break-all;
+  font: var(--fs-sm)/1.4 var(--font); word-break: break-all;
 }
 /* The page turns text selection off; the code must be selectable for the
    iOS Copy callout (and the execCommand fallback) to work. */
@@ -3907,7 +3907,7 @@ input[type="range"]:focus-visible { outline: 3px solid var(--aw-sun); outline-of
 
 
 /* Skills & perks window: each skill's key, cost and cooldown on its name line. */
-.sk-row kbd { display: inline-block; min-width: 1.4em; padding: 0 4px; border: 1px solid var(--aw-line, #c9bda3); border-radius: 4px; font: 800 11px/1.4 inherit; text-align: center; }
+.sk-row kbd { display: inline-block; min-width: 1.4em; padding: 0 4px; border: 1px solid var(--aw-line, #c9bda3); border-radius: 4px; font: 800 11px/1.4 var(--font); text-align: center; }
 .sk-row .sk-meta { font-style: normal; font-size: var(--fs-xs); opacity: .75; }
 .sk-row .cp-ic { flex: 0 0 auto; }
 .cp-list .cp-row { flex-direction: row; align-items: flex-start; justify-content: flex-start; gap: 8px; }

@@ -106,7 +106,7 @@ export const mapLabelPx = (screenPx, k, base) => Math.round(Math.max(base, scree
  *  beside the regions' own, so only their dots stay (a tap still names them). */
 export const MAP_GROVE_NAMES_K = 2.5;
 import { NoticeLane, afterLayout } from './noticelane.js';
-import { QuickSlot, interactCaption, trackerHTML, TRACKER_ROWS, TRACKER_ROWS_PHONE, sellSideSmall, loadTrackerFolded, saveTrackerFolded, sheetSnap } from './hudease.js';
+import { QuickSlot, interactCaption, trackerHTML, sellSideSmall, loadTrackerFolded, saveTrackerFolded, sheetSnap } from './hudease.js';
 import { QuickBar, typing } from './quickbar.js';
 import { openKeyboardControls } from './keyboard.js';
 import { districtVisual } from '../data/districtVisuals.js';
@@ -236,8 +236,6 @@ export class UI {
       daynightBadge: id('daynight-badge'),
       daynightSun: id('daynight-sun'),
       daynightMoon: id('daynight-moon'),
-      hpOrb: id('hp-orb'),
-      hpOrbVal: id('hp-orb-value'),
       prayerOrb: id('prayer-orb'),
       prayerOrbVal: id('prayer-orb-value'),
       runOrb: id('run-orb'),
@@ -300,7 +298,10 @@ export class UI {
     document.getElementById('auto-battle-btn')?.addEventListener('click', () => this.game.toggleAutoBattle());
     document.getElementById('auto-gather-btn')?.addEventListener('click', () => this.game.toggleAutoGather());
     document.getElementById('auto-quest-btn')?.addEventListener('click', () => this.game.toggleAutoQuest());
-    document.getElementById('auto-battle-cfg')?.addEventListener('click', () => this.openAutoSettings());
+    document.getElementById('auto-battle-cfg')?.addEventListener('click', () => {
+      this._closeAutoMenu?.(true);
+      this.openAutoSettings();
+    });
     this._initAutoMenu();
     this._initSheets();
     this._initPressHold();
@@ -674,6 +675,26 @@ export class UI {
     this._trkDirty = false;   // drawn now: a redraw queued by _trackerSoon has nothing left to do
     const g = this.game;
     const rows = [];
+    const activeQuest = (q) => g.quests[q.id]?.state === 'active';
+    const quest = QUESTS.find((q) => q.id === g.autoQuestId && activeQuest(q)) || QUESTS.find(activeQuest);
+    if (quest) {
+      const progress = quest.progress?.(g);
+      rows.push(`<div class="trk-row"><span class="trk-ic trk-quest">!</span>${escapeHtml(quest.name)}${progress ? ` <span class="trk-prog">${escapeHtml(progress)}</span>` : ''}</div>`);
+    }
+    if (g.slayer && g.slayer.task) {
+      const t = g.slayer.task;
+      rows.push(`<div class="trk-row"><span class="trk-ic trk-slayer">&#9760;</span>${Number(t.remaining) || 0} ${escapeHtml(t.name)} <span class="trk-buff" title="Slayer bonus against your task">+${g.slayerBonus().dmg}% dmg</span>${this._trkPointer((n) => n.def.family === t.family, `fam:${t.family}`)}</div>`);
+    }
+    rows.push(...eventTrackerRows(this));     // a world event under way
+    const next = whatNextTrackerRows(this);  // the first "What next?" goal, tap to start (whatnextui.js)
+    if (this._wnTrack?.goal?.kind === 'journey') rows.unshift(...next);
+    else rows.push(...next);
+    // Today's unfinished bounties (up to two), each with a pointer to the nearest target.
+    for (const t of (g.bounties?.list || []).filter((x) => !x.done).slice(0, 2)) {
+      rows.push(`<div class="trk-row"><span class="trk-ic trk-bounty">&#9733;</span>${escapeHtml(t.name)} <span class="trk-prog">${Number(t.have) || 0}/${Number(t.need) || 0}</span>${this._trkPointer((n) => n.npcId === t.id, `id:${t.id}`)}</div>`);
+    }
+    rows.push(...contractTrackerRows(this));   // today's Pest Control contracts
+    rows.push(...lifeTrackerRows(this));       // a gathering streak, today's skilling contracts (lifeskillui.js)
     const xb = g.xpBreakdown();
     if (xb.total > 1.001) {
       const parts = [];
@@ -682,26 +703,6 @@ export class UI {
       if (xb.night > 1) parts.push('night');
       if (xb.blessed > 1) parts.push('blessed');
       rows.push(`<div class="trk-row trk-xp"><span class="trk-ic">&#10022;</span><b>XP &times;${xb.total.toFixed(2)}</b> <span class="trk-prog">${parts.join(' · ')}</span></div>`);
-    }
-    if (g.slayer && g.slayer.task) {
-      const t = g.slayer.task;
-      rows.push(`<div class="trk-row"><span class="trk-ic trk-slayer">&#9760;</span>${Number(t.remaining) || 0} ${escapeHtml(t.name)} <span class="trk-buff" title="Slayer bonus against your task">+${g.slayerBonus().dmg}% dmg</span>${this._trkPointer((n) => n.def.family === t.family, `fam:${t.family}`)}</div>`);
-    }
-    // Today's unfinished bounties (up to two), each with a pointer to the nearest target.
-    for (const t of (g.bounties?.list || []).filter((x) => !x.done).slice(0, 2)) {
-      rows.push(`<div class="trk-row"><span class="trk-ic trk-bounty">&#9733;</span>${escapeHtml(t.name)} <span class="trk-prog">${Number(t.have) || 0}/${Number(t.need) || 0}</span>${this._trkPointer((n) => n.npcId === t.id, `id:${t.id}`)}</div>`);
-    }
-    rows.push(...eventTrackerRows(this));      // a world event under way
-    rows.push(...contractTrackerRows(this));   // today's Pest Control contracts
-    rows.push(...lifeTrackerRows(this));       // a gathering streak, today's skilling contracts (lifeskillui.js)
-    rows.push(...whatNextTrackerRows(this));   // the first "What next?" goal, tap to start (whatnextui.js)
-    for (const q of QUESTS) {
-      const st = g.quests[q.id];
-      if (st && st.state === 'active') {
-        const p = q.progress ? q.progress(g) : '';
-        rows.push(`<div class="trk-row"><span class="trk-ic trk-quest">!</span>${escapeHtml(q.name)}${p ? ` <span class="trk-prog">${escapeHtml(p)}</span>` : ''}</div>`);
-        break; // show one active quest at a time to stay compact
-      }
     }
     // Tap the header to fold it to one line; remembered on this device (hudease.js).
     if (this._trkFolded === undefined) {
@@ -714,16 +715,23 @@ export class UI {
         saveTrackerFolded(this._trkFolded);
         this.renderTracker();
       });
-      // Phones show two rows before "+N more", other screens three (hudease.js).
-      this._trkPhone = typeof matchMedia === 'function' ? matchMedia('(max-width: 540px) and (pointer: coarse)') : null;
     }
     // Redrawn every tick, but only rewritten when it reads differently (a
     // rewrite costs a style and layout pass even when nothing changed).
-    const max = this._trkPhone?.matches ? TRACKER_ROWS_PHONE : TRACKER_ROWS;
-    const html = trackerHTML(rows, this._trkFolded, { max, open: !!this._trkOpen });
-    if (html !== this._trkHTML) { this._trkHTML = html; el.innerHTML = html; }
+    const html = trackerHTML(rows, this._trkFolded, { max: 1, open: !!this._trkOpen });
+    if (html !== this._trkHTML) {
+      const active = el.ownerDocument?.activeElement;
+      const focused = active && el.contains(active) && ['trk-fold', 'trk-more', 'trk-next', 'trk-rows'].find((cls) => active.classList.contains(cls));
+      const scrollTop = el.querySelector?.('.trk-rows')?.scrollTop || 0;
+      this._trkHTML = html;
+      el.innerHTML = html;
+      const scroller = scrollTop && el.querySelector('.trk-rows');
+      if (scroller) scroller.scrollTop = scrollTop;
+      if (focused) (el.querySelector(`.${focused}`) || el.querySelector('.trk-fold'))?.focus({ preventScroll: true });
+    }
     el.classList.toggle('hidden', rows.length === 0);
     el.classList.toggle('folded', !!this._trkFolded);
+    el.classList.toggle('show-details', !this._trkFolded && !!this._trkOpen && rows.length > 1);
   }
 
   /** Arrow + distance from the player to the nearest living monster matching `pred`.
@@ -783,7 +791,7 @@ export class UI {
     this._collapse = this._loadCollapse();
     const id = (x) => document.getElementById(x);
     this._wireCollapse('panel', this.el.sidepanel, this.el.panelCollapse, 'panel');
-    this._wireCollapse('chat', id('chatbox'), id('chat-collapse'), 'chat');
+    this._wireCollapse('chat', id('chatbox'), id('chat-collapse'), 'log');
     this._wireCollapse('minimap', id('minimap-panel'), id('minimap-collapse'), 'minimap');
   }
 
@@ -800,11 +808,14 @@ export class UI {
       if (key === 'panel' && !collapsed) this._catchUpPanels();   // and so did the Gear, Combat, Journal and Awards views
       if (key === 'chat' && !collapsed) this._drawChat(false);   // the folded chat drew none of its new lines
       btn.innerHTML = glyphArtHTML('ui-collapse', collapsed ? '&#9656;' : '&#9662;', 16); // ▸ collapsed / ▾ expanded (the painted chevron turns, styles/compact.css)
-      btn.title = `${collapsed ? 'Expand' : 'Collapse'} ${label}${key === 'panel' ? ' (I)' : ''}`;
+      const action = `${collapsed ? 'Expand' : 'Collapse'} ${label}`;
+      btn.title = action + (key === 'panel' ? ' (I)' : '');
+      btn.setAttribute('aria-label', action);
+      btn.setAttribute('aria-expanded', String(!collapsed));
     };
-    // Touch and small windows start with room for play. A saved choice wins.
+    // Start with the activity log closed. Small windows fold the side panel too.
     const compact = typeof matchMedia === 'function' && matchMedia(COMPACT_MENU).matches;
-    if (this._collapse[key] === undefined && compact && (key === 'panel' || key === 'chat')) this._collapse[key] = true;
+    if (this._collapse[key] === undefined && (key === 'chat' || (compact && key === 'panel'))) this._collapse[key] = true;
     apply(!!this._collapse[key]);
     wired = true;
     this._collapseApply = this._collapseApply || {};
@@ -817,7 +828,7 @@ export class UI {
     });
   }
 
-  // Phones fold the Battle / Gather / Quest switches into one "Auto" button
+  // Fold the Battle / Gather / Quest switches into one "Auto" button
   // (the CSS hides the card unless #ability-bar has .auto-open). A tap anywhere
   // else folds it again, so the card never sits over the game for long.
   _initAutoMenu() {
@@ -826,9 +837,15 @@ export class UI {
     const btn = document.getElementById('auto-menu-btn');
     if (!bar || !btn) return;
     const set = (open) => { bar.classList.toggle('auto-open', open); btn.setAttribute('aria-expanded', open ? 'true' : 'false'); };
+    this._closeAutoMenu = (restoreFocus = false) => {
+      if (!bar.classList.contains('auto-open')) return false;
+      set(false);
+      if (restoreFocus) btn.focus({ preventScroll: true });
+      return true;
+    };
     btn.addEventListener('click', (e) => { e.stopPropagation(); set(!bar.classList.contains('auto-open')); });
     document.addEventListener('pointerdown', (e) => {
-      if (bar.classList.contains('auto-open') && !bar.contains(e.target)) set(false);
+      if (!bar.contains(e.target)) this._closeAutoMenu();
     }, true);
   }
 
@@ -906,19 +923,20 @@ export class UI {
     }, true);
   }
 
-  // Phones show the side panel and the big windows as sheets (see "Responsive
-  // layout" in main.css). Dragging the handle or header down (or sideways to
-  // the right for the landscape side sheet) past a short distance closes the
-  // sheet; a plain tap on the handle closes it too. Only runs while the sheet
-  // layout is in force, so desktop and tablets are untouched.
+  // Drag the handle or header down to close a bottom sheet, or to the right
+  // to close a short landscape side sheet. A tap on the handle also closes.
   _initSheets() {
     if (typeof document === 'undefined' || typeof matchMedia !== 'function') return;
     const phone = matchMedia('(pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px)');
-    const side = () => matchMedia('(max-height: 500px)').matches;   // landscape: the sheet slides in from the right
+    const portrait = matchMedia('(pointer: coarse) and (orientation: portrait)');
+    const sidePanel = matchMedia('(pointer: coarse) and (orientation: landscape) and (max-height: 500px)');
+    const sideWindow = matchMedia('(max-height: 500px)');
     // `snap`: the side panel opens at half height on an upright phone; dragging
     // its handle up snaps it full, down to half, further down folds it (hudease.js).
     const wire = (sheet, grips, close, isOpen, snap = false) => {
       if (!sheet) return;
+      const side = () => (snap ? sidePanel : sideWindow).matches;
+      const enabled = () => snap ? portrait.matches || sidePanel.matches : phone.matches;
       let start = null, d = 0, up = 0;
       const move = (e) => {
         if (!start) return;
@@ -949,7 +967,7 @@ export class UI {
         if (!g) continue;
         g.addEventListener('pointerdown', (e) => {
           // Anything pressable in the header (fold, close) keeps its own taps.
-          if (!phone.matches || !isOpen() || !sheetDragStarts(e.target)) return;
+          if (!enabled() || !isOpen() || !sheetDragStarts(e.target)) return;
           start = { x: e.clientX, y: e.clientY, handle: g.classList.contains('sheet-handle'), grip: g, captured: false, h: sheet.getBoundingClientRect?.().height || 0 };
           d = 0;
           sheet.style.transition = 'none';
@@ -1116,7 +1134,10 @@ export class UI {
   _bindChatTabs() {
     document.querySelectorAll('.chat-tab').forEach((t) => {
       t.addEventListener('click', () => {
-        document.querySelectorAll('.chat-tab').forEach((x) => x.classList.toggle('active', x === t));
+        document.querySelectorAll('.chat-tab').forEach((x) => {
+          x.classList.toggle('active', x === t);
+          x.setAttribute('aria-pressed', String(x === t));
+        });
         this.chatFilter = t.dataset.filter;
         this._applyChatFilter();
       });
@@ -3538,16 +3559,10 @@ export class UI {
     if (cl && cl._when !== when) { cl._when = when; cl.textContent = `${night ? '🌙' : '☀️'} Time of day: ${when}`; }
   }
 
-  // ---------------- Orbs ----------------
+  // ---------------- Health and combat resources ----------------
   renderHp() {
     const hp = this.game.player.hp;
     const max = this.game.maxHp();
-    this.el.hpOrbVal.textContent = hp;
-    const frac = max ? hp / max : 1;
-    // The orb fills like a jar (CSS reads --fill); the number keeps its deep
-    // sticker colour so it stays readable on the white disc at any level.
-    this.el.hpOrb.style.setProperty('--fill', Math.max(0, Math.min(1, frac)).toFixed(3));
-    this.el.hpOrb.classList.toggle('low', frac <= 0.25 && this.game.player.alive);
     renderHpBar(this, hp, max, this.game.player.alive, this.game.player.ward);   // the HUD's life bar (hpbar.js), and a Grace ward
   }
 
@@ -3565,6 +3580,7 @@ export class UI {
     let hasSpec = false;
     try { hasSpec = !!(id && getItem(id).spec); } catch { hasSpec = false; }
     this.el.specOrb.classList.toggle('armed', this.game.specArmed);
+    this.el.specOrb.setAttribute('aria-pressed', String(this.game.specArmed));
     this.el.specOrb.classList.toggle('disabled', !hasSpec);
     this.el.specOrb.style.setProperty('--fill', Math.max(0, Math.min(1, e / 100)).toFixed(3));
     this.el.specOrb.title = hasSpec
@@ -4967,6 +4983,11 @@ export class UI {
   }
 
   // ---------------- Minimap ----------------
+  refreshCanvasFonts() {
+    this._mmRing = undefined;
+    this._refreshModalIfOpen(['worldmap']);
+  }
+
   /** The whole map's terrain at one pixel per tile, built once (terrain never changes). */
   /** Once you're playing (the title gone, a few ticks in), bake the world
    *  map's picture in spare moments, so its first opening is quick (minimapart.js). */
