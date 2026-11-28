@@ -59,6 +59,7 @@ function el(tag = 'div') {
     insertBefore(c, ref) { c.parentNode = this; const i = this.children.indexOf(ref); this.children.splice(i < 0 ? this.children.length : i, 0, c); return c; },
     before(c) { const p = this.parentNode; if (!p) return; c.parentNode?.children && (c.parentNode.children = c.parentNode.children.filter((x) => x !== c)); c.parentNode = p; p.children.splice(p.children.indexOf(this), 0, c); },
     setAttribute(k, v) { this.attrs[k] = String(v); }, getAttribute(k) { return this.attrs[k]; },
+    removeAttribute(k) { delete this.attrs[k]; },
     addEventListener(t, fn) { (this.on[t] ||= []).push(fn); },
     click() { for (const fn of this.on.click || []) fn({ target: this }); },
     querySelector(sel) { return (this.sub[sel] ||= el()); },
