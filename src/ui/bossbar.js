@@ -10,6 +10,7 @@ import { mechLabel } from '../game/bossmech.js';
 import { hudNumber } from '../core/utils.js';
 import { TICK_MS } from '../config.js';
 import { portraitFor } from '../render/sprites.js';
+import { cutoutPortrait } from '../render/worldcutout.js';
 import { playIconHTML, mechIcon } from '../render/icons.js';
 import { foeDetails } from '../render/worldlabels.js';
 import { bossTypeOf } from '../game/combat.js';
@@ -175,7 +176,10 @@ export function renderBossBar(ui, boss) {
     if (pe) {
       pe.classList.toggle('none', !pr);
       const img = pe.querySelector('.bp-img');
-      img.style.backgroundImage = pr ? `url("${pr.src}")` : '';
+      img.style.backgroundImage = '';
+      if (pr) cutoutPortrait(pr.src, (src) => {
+        if (ui._bossPortraitFor === boss) img.style.backgroundImage = `url("${src}")`;
+      });
       img.style.backgroundPosition = pr ? pr.pos : '';
       img.style.backgroundSize = pr?.size || '';   // framed to the creature's painted area
       img.style.filter = pr?.tint || '';   // a borrowed picture, recoloured

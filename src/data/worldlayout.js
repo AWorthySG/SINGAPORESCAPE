@@ -4,6 +4,8 @@ import { findPath } from '../engine/pathfinding.js';
 import { GEOGRAPHIC_PLACE_BY_ID } from './geography.js';
 import { LANDINGS, LOOMS, STAGES } from './islandlife.js';
 import { getObject } from './objects.js';
+import { arrangeGathering } from './gatheringLayout.js';
+import { arrangeMining } from './miningLayout.js';
 import { STATIONS } from './transport.js';
 import { TERRAIN } from './world.js';
 
@@ -172,7 +174,7 @@ const SHORE_PATHS = [
   [[692, 555], [692, 563]], // Lazarus shore
 ];
 
-export const PORTS = {
+const PORTS = {
   changi: ['Changi Point Ferry Terminal', [293, 47]],
   pulau_ubin: ['Pulau Ubin Jetty', [193, 53]],
   pulau_tekong: ['Pulau Tekong', [258, 150]],
@@ -188,6 +190,7 @@ export const PORTS = {
   temasek: ['Temasek Camp', [261, 317]],
   celestial_peaks: ['The Celestial Peaks', [472, 319]],
 };
+export const PORT_SITES = Object.values(PORTS).map(([, site]) => site);
 const FERRIES = [
   ['changi-ubin', 'Pulau Ubin ferry', 'changi', 'pulau_ubin'],
   ['changi-tekong', 'Tekong game charter', 'changi', 'pulau_tekong'],
@@ -256,9 +259,8 @@ function openPositions(objects, npcSpawns) {
   return { blocked, reserved };
 }
 
-function makeNetwork(terrain, mainland, objects, npcSpawns) {
+function makeNetwork(terrain, mainland, { blocked, reserved }) {
   const W = GEOGRAPHIC_WIDTH, H = GEOGRAPHIC_HEIGHT, T = TERRAIN;
-  const { blocked, reserved } = openPositions(objects, npcSpawns);
   const idx = (x, y) => y * W + x;
   const tile = (p) => geographicTile(...p);
   const inBounds = (x, y) => x >= 0 && y >= 0 && x < W && y < H;
@@ -341,6 +343,86 @@ function makeNetwork(terrain, mainland, objects, npcSpawns) {
   return FERRIES.map(([id, name, from, to]) => ({ id, name, from: endpoint(from), to: endpoint(to) }));
 }
 
+const BANK_DIRS = [[0, -1], [-1, 0], [1, 0], [0, 1]];
+const SHORE_REGIONS = new Set(['Sungei Buloh Wetlands', 'Punggol Waterway', 'MacRitchie Reservoir']);
+
+function growOnShore(terrain, objects, zones, workAreas, { blocked, reserved }) {
+  const W = GEOGRAPHIC_WIDTH, H = GEOGRAPHIC_HEIGHT, T = TERRAIN;
+  const idx = (x, y) => y * W + x;
+  const inside = (x, y, o) => x >= o.x0 && x <= o.x1 && y >= o.y0 && y <= o.y1;
+  const zoneAt = (x, y) => zones.find((z) => inside(x, y, z));
+  const wet = (x, y) => terrain[idx(x, y)] === T.WATER;
+  const shore = new Set();
+  const cfg = { width: W, height: H, isBlocked: (x, y) => blocked[idx(x, y)] || wet(x, y) };
+  for (const tree of objects) {
+    if (!getObject(tree.objId).waterRoots) continue;
+    const z = zoneAt(tree.x, tree.y);
+    if (!SHORE_REGIONS.has(z?.name) || (z.name === 'MacRitchie Reservoir' && tree.objId !== 'willow')) continue;
+    if (workAreas.some((o) => inside(tree.x, tree.y, o))) continue;
+    let dest = null;
+    for (let r = 1; r <= 6 && !dest; r++) {
+      for (let dy = -r; dy <= r && !dest; dy++) for (let dx = -r; dx <= r && !dest; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const x = tree.x + dx, y = tree.y + dy, i = idx(x, y);
+        if (zoneAt(x, y) !== z || !wet(x, y) || reserved[i]) continue;
+        // Spread trees along the shallow side of the channel. There must be
+        // both water around the roots and a clear approach from the old bank.
+        if (BANK_DIRS.some(([a, b]) => shore.has(idx(x + a, y + b)))) continue;
+        if (!BANK_DIRS.some(([a, b]) => wet(x + a, y + b))) continue;
+        const bank = BANK_DIRS.map(([a, b]) => ({ x: x + a, y: y + b })).find((b) =>
+          zoneAt(b.x, b.y) === z && !cfg.isBlocked(b.x, b.y)
+          && ((b.x === tree.x && b.y === tree.y) || findPath(cfg, tree, b, { maxNodes: 160 }).length > 0));
+        if (bank) dest = { x, y };
+      }
+    }
+    if (!dest) continue;
+    blocked[idx(tree.x, tree.y)] = 0;
+    const i = idx(dest.x, dest.y);
+    shore.add(i);
+    reserved[i] = blocked[i] = 1;
+    tree.gatheringOrigin = { x: tree.x, y: tree.y };
+    Object.assign(tree, dest);
+  }
+}
+
+// The old starter woods moved with Bukit Timah. A small woodlot just outside
+// the Kampong Glam north gate puts level-one trees back within a short walk.
+function placeStarterGathering(terrain, objects, spawn, resourceZones, { blocked, reserved }) {
+  const wood = [], ore = [];
+  for (const [dx, dy] of [[-6, -12], [-5, -10], [-3, -11], [4, -12], [6, -10]]) {
+    const x = spawn.x + dx, y = spawn.y + dy, i = y * GEOGRAPHIC_WIDTH + x;
+    if (reserved[i] || terrain[i] !== TERRAIN.GRASS) continue;
+    objects.push({ objId: 'tree', x, y });
+    wood.push({ x, y });
+    reserved[i] = blocked[i] = 1;
+  }
+  // Small practice outcrop on the other side of the north approach.
+  const minerals = ['copper_rock', 'tin_rock', 'copper_rock', 'tin_rock', 'clay_rock'];
+  for (const [dx, dy] of [[-10, -13], [-12, -13], [-9, -15], [-11, -15], [-13, -15], [-14, -13], [-14, -16]]) {
+    if (!minerals.length) break;
+    const x = spawn.x + dx, y = spawn.y + dy, i = y * GEOGRAPHIC_WIDTH + x;
+    if (reserved[i] || terrain[i] !== TERRAIN.GRASS) continue;
+    terrain[i] = TERRAIN.SAND;
+    objects.push({ objId: minerals.shift(), x, y });
+    ore.push({ x, y });
+    reserved[i] = blocked[i] = 1;
+  }
+  for (const [id, name, skill, tiles, dx, dy] of [
+    ['kampong_woodlot', 'Kampong Woodlot', 'woodcutting', wood, -4, -11],
+    ['kampong_outcrop', 'Kampong Outcrop', 'mining', ore, -8, -13],
+  ]) {
+    if (!tiles.length) continue;
+    const cx = spawn.x + dx, cy = spawn.y + dy, i = cy * GEOGRAPHIC_WIDTH + cx;
+    if (!reserved[i] && terrain[i] === TERRAIN.GRASS) {
+      objects.push({ objId: 'sign', x: cx, y: cy, sign: name, art: `obj-sign-${skill}` });
+      reserved[i] = 1;
+    }
+    const xs = tiles.map((p) => p.x), ys = tiles.map((p) => p.y);
+    resourceZones.push({ id, name, skill, cx, cy, count: tiles.length,
+      x0: Math.min(cx, ...xs), x1: Math.max(cx, ...xs), y0: Math.min(cy, ...ys), y1: Math.max(cy, ...ys) });
+  }
+}
+
 export function geographicWorld(legacy) {
   tileIndex();
   const width = GEOGRAPHIC_WIDTH, height = GEOGRAPHIC_HEIGHT;
@@ -360,13 +442,34 @@ export function geographicWorld(legacy) {
     const a = geographicTile(x0, y0), b = geographicTile(x1, y1);
     return [a.x, a.y, b.x, b.y];
   });
-  const ferryLinks = makeNetwork(terrain, mainland, objects, npcSpawns);
+  const groves = legacy.groves.map(movedArea), resourceZones = legacy.resourceZones.map(movedArea);
+  const spawnPoint = movedPoint(legacy.spawnPoint), respawnPoint = movedPoint(legacy.respawnPoint);
+  const positions = openPositions(objects, npcSpawns);
+  const ferryLinks = makeNetwork(terrain, mainland, positions);
+  // Space ore within its authored sites first. The safety pass accounts for
+  // those final shapes, including any new stand tiles and narrow approaches.
+  arrangeMining({ width, height, terrain, objects, npcSpawns, zones, groves, resourceZones, spawnPoint, respawnPoint, ferryLinks },
+    { authoredTile: geographicTile, portSites: PORT_SITES });
+  for (const o of objects) {
+    if (!o.miningOrigin) continue;
+    const { x, y } = o.miningOrigin;
+    positions.blocked[y * width + x] = 0;
+    positions.blocked[o.y * width + o.x] = positions.reserved[o.y * width + o.x] = 1;
+  }
+  growOnShore(terrain, objects, zones, [...groves, ...resourceZones], positions);
+  const signedObjects = objects.map((o, i) => signPost(legacy.objects[i], o, ferryLinks));
+  placeStarterGathering(terrain, signedObjects, spawnPoint, resourceZones, positions);
+  const rail = STATIONS.filter((s) => !GEOGRAPHIC_PLACE_BY_ID[s.id]?.access).map(movedPoint);
+  arrangeGathering({ terrain, w: width, h: height, T: TERRAIN, objects: signedObjects, zones,
+    groves, resourceZones, spawns: npcSpawns, origins: [spawnPoint, ...rail], positions,
+    landings: ferryLinks.flatMap(({ from, to }) => [from, to]) });
+  for (const area of groves) area.count = signedObjects.filter((o) => o.objId === area.objId
+    && o.x >= area.x0 && o.x <= area.x1 && o.y >= area.y0 && o.y <= area.y1).length;
+  for (const area of resourceZones) area.count = signedObjects.filter((o) => getObject(o.objId).skill === area.skill
+    && o.x >= area.x0 && o.x <= area.x1 && o.y >= area.y0 && o.y <= area.y1).length;
   return {
     ...legacy, layout: 'singapore', width, height, terrain, npcSpawns, zones, towns, ferryLinks,
-    objects: objects.map((o, i) => signPost(legacy.objects[i], o, ferryLinks)),
-    landmarks: legacy.landmarks.map(movedPoint),
-    resourceZones: legacy.resourceZones.map(movedArea),
-    groves: legacy.groves.map(movedArea),
-    spawnPoint: movedPoint(legacy.spawnPoint), respawnPoint: movedPoint(legacy.respawnPoint),
+    objects: signedObjects, landmarks: legacy.landmarks.map(movedPoint), resourceZones, groves: groves.filter((g) => g.count > 0),
+    spawnPoint, respawnPoint,
   };
 }

@@ -1,11 +1,12 @@
 import { bossPracticeTip, knownBossMove } from './bosspractice.js';
 import { updateFirstJourney } from './firstjourney.js';
-import { agilityClipId, getObject } from '../data/objects.js';   // quest guides read node levels
+import { agilityClipId, getObject, OBJECTS } from '../data/objects.js';   // quest guides read node levels
+import { gatheringSource } from '../data/gatheringLayout.js';
 import { EventBus } from '../core/events.js';
 import { impactCue } from '../audio/impactProfile.js';
 import { goldenMult, goldenSkills, GOLDEN_HOUR_XP, SKILL_HOURS } from '../data/skillhours.js';
 import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
-import { geographicWorld, geographicTile, legacyTile } from '../data/worldlayout.js';
+import { geographicWorld, geographicTile, legacyTile, PORT_SITES } from '../data/worldlayout.js';
 import { arrangeMining } from '../data/miningLayout.js';
 import { compareGear, deltaText, gearRating, effectiveRating, offenceFirstScore, weaponStyle, reqLevel, swingBeats } from './gear.js';
 import { planCarry, applyCarry, carryMessages, scoreAfterCarry } from './carry.js';
@@ -112,7 +113,7 @@ import { bossToolDrop } from './bosstools.js';   // world bosses drop gathering 
 import { levelHaul } from './levelhaul.js';   // a bigger haul as your gathering level rises
 import { recordHarvest } from './jackpot.js';   // now and then a record harvest
 import { tickWarmth, warmthBonus } from './bonfire.js';   // bonfires and their warmth
-import { bestGatherNode, bestGatherPick, topGatherSource, gatherLevel, safeRouteCfg, safeToGather, specialNode } from './whatnext.js';   // auto gather's "the best you can" (Life skills)
+import { bestGatherNode, bestGatherPick, gatheringPickFor, gatheringTrip, topGatherSource, gatherLevel, safeRouteCfg, safeToGather, specialNode } from './whatnext.js';
 import { Teleports } from './teleports.js';   // the Town and Grave teleports
 import { Discovery } from './discovery.js';   // encyclopedia discoveries and their rewards
 import * as Rounds from './rounds.js';   // gun rounds and the ammo slot
@@ -474,7 +475,7 @@ export class Game {
     const authored = buildWorld();
     const isGeographic = layout === 'singapore';
     const data = isGeographic ? addArena(geographicWorld(authored), geographicTile) : addArena(authored);
-    arrangeMining(data, isGeographic ? geographicTile : undefined);
+    if (!isGeographic) arrangeMining(data, { portSites: PORT_SITES });
     this.world = new World(this.bus);
     this.world.build(data, isGeographic ? { forward: geographicTile, reverse: legacyTile } : undefined);
 
@@ -1710,8 +1711,7 @@ export class Game {
       this._gatherWaitSaid = obj.objId;
       return false;
     }
-    this._gatherAt(best);
-    return true;
+    return this._gatherAt(best);
   }
 
   /** Start on a node auto gather chose: a short walk, never an MRT ride. In
@@ -1719,14 +1719,15 @@ export class Game {
    *  out of danger (whatnext.js), and none while auto quest is on: it decides
    *  where you go (the two undid each other's trips). */
   _gatherAt(node) {
-    if (!this.autoGatherBest) return this.defaultObjectAction(node);
-    if (this.autoQuest || !safeToGather(this, node)) return false;
+    const best = !!this.autoGatherBest;
+    if (!best && (this.world.layout !== 'singapore' || specialNode(node))) return this.defaultObjectAction(node);
+    if ((best && this.autoQuest) || !safeToGather(this, node)) return false;
     this._routeCfg = safeRouteCfg(this);
     this._pathBudget = 150000;   // (the safe way round can be a long one)
     try { this.defaultObjectAction(node); } finally { this._routeCfg = null; this._pathBudget = 0; }
     const a = this.player.action;
     if (a?.obj !== node) return false;
-    a.best = true;   // the mode's own pick (see _tickContinuous)
+    if (best) a.best = true;   // the mode's own pick (see _tickContinuous)
     return true;
   }
 
@@ -1942,6 +1943,11 @@ export class Game {
    *  objects (anywhere on the island) and start on it (or `start(obj)`, the
    *  life skill shortcuts' "make everything you can here"). */
   goToNearest(objIds, start = null) {
+    if (this.world.layout === 'singapore' && objIds.some((id) => gatheringSource(OBJECTS[id]))) {
+      const found = this.player.alive && gatheringPickFor(this, objIds);
+      if (!found) { this.msg("I can't find a safe route to one of those.", 'system'); return false; }
+      return this.goToObject(found.obj, start && (() => start(found.obj)), found.trip);
+    }
     const ids = new Set(objIds);
     const here = this.playerTile();
     let best = null, bd = Infinity;
@@ -1960,13 +1966,22 @@ export class Game {
    *  if it planned to, and walks the safe way. */
   goToObject(obj, start = null, trip = null) {
     if (!this.player.alive) return false;
+    if (!trip && this.world.layout === 'singapore' && gatheringSource(obj.def) && !specialNode(obj)) {
+      trip = gatheringTrip(this, obj);
+      if (!trip) { this.msg("I can't find a safe route to that spot.", 'system'); return false; }
+    }
     if (!trip && this._ferryToward(obj, () => this.goToObject(obj, start))) return true;
     if (!trip) this._mrtHopToward(obj);
-    else if (trip.st) this.travelTo(trip.st.id, true);
+    else if (trip.st && !this.travelTo(trip.st.id, true)) return false;
     this._pathBudget = 150000;       // like quest trips, these can cross the whole map
     this._routeCfg = trip?.cfg || null;
     let r;
-    try { r = start ? start() : this.defaultObjectAction(obj); } finally { this._pathBudget = 0; this._routeCfg = null; }
+    try {
+      if (trip?.ferry) {
+        const landing = trip.ferry;
+        r = this.beginAction({ type: 'ferry', obj: landing, target: landing, onLand: () => this.goToObject(obj, start) }, landing, true);
+      } else r = start ? start() : this.defaultObjectAction(obj);
+    } finally { this._pathBudget = 0; this._routeCfg = null; }
     // (Making at a station is instant, so a "do all" beside one is already done.)
     const ok = !!this.player.action || this.player.isMoving || (!!start && r === true);
     this.msg(ok ? `You head for the ${obj.def.name.toLowerCase()}.` : "I can't find the way there.", 'system');

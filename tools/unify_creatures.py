@@ -1,5 +1,5 @@
 # Standardise a painted creature sticker:
-#  1. peel off its own white die-cut rim (the game adds one uniform border to every creature)
+#  1. peel off its white die-cut rim (the world draws a thin navy edge)
 #  2. tight-crop, bottom-align and scale to a common "visual mass"
 #  3. gently pull saturation / brightness / contrast toward shared targets
 import sys, numpy as np

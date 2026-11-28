@@ -38,7 +38,7 @@ export class World {
 
     this.objects = [];
     this.objectByTile = new Map();
-    this._miningOrigins = new Map();
+    this._gatheringOrigins = new Map();
     this.landmarks = [];   // the multi-tile set pieces, drawn by their own short list (renderer.js)
     this.groundItems = [];
     this.baseBlocked = new Uint8Array(this.width * this.height);
@@ -58,8 +58,11 @@ export class World {
       if (island) this.addObject('sign', o.x, o.y, { sign: island.name });
       else {
         if (o.miningOrigin) extra.miningOrigin = o.miningOrigin;
+        if (o.gatheringOrigin) extra.gatheringOrigin = o.gatheringOrigin;
         const obj = this.addObject(o.objId, o.x, o.y, extra);
-        if (o.miningOrigin) this._miningOrigins.set(this.idx(o.miningOrigin.x, o.miningOrigin.y), obj);
+        for (const p of [o.miningOrigin, o.gatheringOrigin]) {
+          if (p) this._gatheringOrigins.set(this.idx(p.x, p.y), obj);
+        }
       }
     }
     for (const { from, to } of this.ferryLinks) {
@@ -170,6 +173,7 @@ export class World {
   addObject(objId, x, y, extra = {}) {
     const def = getObject(objId);
     const inst = { uid: uid(), objId, def, x, y, depleted: false, respawnTimer: 0, ...extra };
+    if (def.waterRoots && this.terrainAt(x, y) === TERRAIN.WATER) inst.waterRoots = true;
     if (def.type === 'fire') inst.lifetime = FIRE_LIFETIME_TICKS;
     const ix = this._oix && this._oix.arr === this.objects && this._oix.len === this.objects.length ? this._oix : null;
     this._objRev = (this._objRev || 0) + 1;   // the object list changed (see emberSources)
@@ -217,9 +221,9 @@ export class World {
     return this.objectByTile.get(this.idx(x, y)) || null;
   }
 
-  /** Resolve a saved work target on a rock's former tile. */
-  miningNodeAtOrigin(x, y) {
-    return this._miningOrigins.get(this.idx(x, y));
+  /** Resolve a saved work target on a gathering site's former tile. */
+  gatheringNodeAtOrigin(x, y) {
+    return this._gatheringOrigins.get(this.idx(x, y));
   }
 
   // ---------------- Spatial index ----------------

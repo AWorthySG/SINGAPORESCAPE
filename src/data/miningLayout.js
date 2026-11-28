@@ -1,7 +1,6 @@
 import { LANDINGS, LOOMS, STAGES } from './islandlife.js';
 import { getObject } from './objects.js';
 import { TERRAIN } from './world.js';
-import { PORTS } from './worldlayout.js';
 
 const SIDES = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 const OFFSETS = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
@@ -17,7 +16,7 @@ function orderAt(x, y, salt) {
 
 /** Loosen the generated mining sites after the roads, structures and other
  * resources have their final positions. Work within their existing footprint. */
-export function arrangeMining(data, authoredTile = (x, y) => ({ x, y })) {
+export function arrangeMining(data, { authoredTile = (x, y) => ({ x, y }), portSites = [] } = {}) {
   const { width, height, terrain } = data;
   const index = (x, y) => y * width + x;
   const inBounds = (x, y) => x >= 0 && x < width && y >= 0 && y < height;
@@ -42,7 +41,7 @@ export function arrangeMining(data, authoredTile = (x, y) => ({ x, y })) {
   for (const { x, y } of [data.spawnPoint, data.respawnPoint]) reserve(x, y);
   // Keep port sites available in both layouts for the same rock arrangement.
   // The geographic map can also choose nearby fallbacks for its actual ferries.
-  for (const [, [x, y]] of Object.values(PORTS)) {
+  for (const [x, y] of portSites) {
     const site = authoredTile(x, y);
     reserve(site.x, site.y);
   }

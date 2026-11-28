@@ -18,6 +18,7 @@ import { swingBeats, turnWidth, turnFacing, turnHop, lookAround, breath, heroWal
 import { animSeed, animTempo, stepLift, stepRock, fidget, hitFlash, flinch, telegraphGlow, telegraphShake, telegraphCrouch, fidgetLand } from './creatureanim.js';
 import { CREATURE_RIGS, TOWN_IDLE, bossRig, stride, gaitPhase } from './creatureRigs.js';
 import { RIG_INK, rigSize, inkPart, inkRig, shadeCreatureBody } from './rigink.js';
+import { worldCutout } from './worldcutout.js';
 import { bakeBudget } from './governor.js';
 import { REGION_GIVERS } from '../data/regionQuests.js';
 import { RESIDENTS } from '../data/consequences.js';
@@ -777,7 +778,7 @@ function drawCreaturePng(c, img) {
   // Fit within 34 units tall and 64 wide (long bodies like crocodiles stay in their sticker box).
   const s = creatureArtScale(img);
   const w = img.naturalWidth * s, h = img.naturalHeight * s;
-  c.drawImage(img, -w / 2, 13.5 - h, w, h);
+  c.drawImage(worldCutout(img), -w / 2, 13.5 - h, w, h);
 }
 
 // ---------------- Monster stickers ----------------
@@ -2977,7 +2978,7 @@ export function drawWorldPicture(ctx, key, cx, footY) {
   if (!img || !img.complete || !img.naturalWidth) return false;
   const [mw, mh] = WORLD_ART[key], s = Math.min(mw / img.naturalWidth, mh / img.naturalHeight);
   const w = img.naturalWidth * s, h = img.naturalHeight * s;
-  ctx.drawImage(img, cx - w / 2, footY - h, w, h);
+  ctx.drawImage(worldCutout(img), cx - w / 2, footY - h, w, h);
   return true;
 }
 // A borrowed world picture recoloured by its `tint` (a CSS filter), baked once
@@ -2994,12 +2995,27 @@ export function tintedArt(img, tint) {
     try {
       const cv = document.createElement('canvas'); cv.width = img.naturalWidth; cv.height = img.naturalHeight;
       const g = cv.getContext('2d');
-      if (g && 'filter' in g) { g.filter = tint; g.drawImage(img, 0, 0); c = cv; }
+      if (g && 'filter' in g) { g.filter = tint; g.drawImage(worldCutout(img), 0, 0); c = cv; }
     } catch { c = null; }
   }
   _tinted.set(key, c);
   return c;
 }
+function drawRootWater(ctx, x, y, w) {
+  const r = Math.min(w * 0.28, 14);
+  ctx.save();
+  ctx.fillStyle = 'rgba(24,91,99,0.27)';
+  ellipse(ctx, x, y + 3, r, 3.8); ctx.fill();
+  ctx.strokeStyle = 'rgba(153,221,198,0.46)'; ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.ellipse(x, y + 1, r, 2.8, 0, Math.PI * 1.08, Math.PI * 1.74);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(x + 2, y + 4, r * 0.83, 2.5, 0, Math.PI * 0.11, Math.PI * 0.73);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawWorldArt(ctx, obj, img, key, cx, cy, time, upperAlpha, light, bend) {
   const [mw, mh, foot] = WORLD_ART[key];
   const t = obj.def.type;
@@ -3008,21 +3024,24 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time, upperAlpha, light, bend)
   const w = img.naturalWidth * s, h = img.naturalHeight * s;
   const shopDepth = isDepthShop(obj);
   const plant = foliageKind(obj);
-  if (!obj.def.footprint && !plant && t !== 'fishing' && t !== 'dive' && foot > 0) {   // plants and landmarks have soft shadows in the ground layer
+  const depth = obj.waterRoots ? (obj.depleted ? 0.22 : 0.13) : 0;
+  if (depth) drawRootWater(ctx, cx, cy + foot - h * depth, w);
+  else if (!obj.def.footprint && !plant && t !== 'fishing' && t !== 'dive' && foot > 0) {   // plants and landmarks have soft shadows in the ground layer
     ctx.fillStyle = 'rgba(34,48,74,0.16)';
     ellipse(ctx, cx, cy + foot - 1, Math.min(w * 0.42, 22), Math.min(h * 0.12, 5)); ctx.fill();
   }
   ctx.save();
   // Spent stalls, traps and fishing spots fade back; trees and rocks swap pictures instead.
   if (obj.depleted && t !== 'tree' && t !== 'rock') ctx.globalAlpha = 0.5;
-  if (obj.def.backdrop && 'filter' in ctx) img = tintedArt(img, 'saturate(.72) contrast(.88)') || img;
-  else if (obj.def.tint && !EVENT_KEYS.has(key) && 'filter' in ctx) img = tintedArt(img, obj.def.tint) || img;   // a borrowed picture, recoloured
-  if (look && look.tint && 'filter' in ctx) img = tintedArt(img, look.tint) || img;
+  const tint = obj.def.backdrop ? 'saturate(.72) contrast(.88)' : (!EVENT_KEYS.has(key) && obj.def.tint) || look?.tint;
+  img = (tint && 'filter' in ctx && tintedArt(img, tint)) || worldCutout(img);
   if (plant) {
     img = foliageArt(img);
     ctx.translate(cx, cy + foot);
     if (look?.flip) ctx.scale(-1, 1);
-    drawFoliage(ctx, img, -w / 2, -h, w, h, look?.flip ? -bend : bend, upperAlpha);
+    drawFoliage(ctx, img, -w / 2, -h, w, h, look?.flip ? -bend : bend, upperAlpha, depth);
+  } else if (depth) {
+    drawFoliage(ctx, img, cx - w / 2, cy + foot - h, w, h, 0, 1, depth);
   } else if (t === 'fishing') {
     // Fishing spots bob on the swell.
     const bob = Math.sin(time * 0.003 + obj.x + obj.y * 0.7) * 1.2;
@@ -3062,6 +3081,15 @@ export function drawObjectSprite(ctx, obj, cx, cy, time = 0, low = false, still 
     return;
   }
   if (obj.def.footprint) return;   // a landmark has no drawn stand-in: it appears once its picture loads
+  if (obj.waterRoots) {
+    const level = obj.depleted ? 6 : 8;
+    drawRootWater(ctx, cx, cy + level, obj.depleted ? 30 : 46);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(cx - 34, cy - 48, 68, 48 + level); ctx.clip();
+    drawObjectRaw(ctx, obj, cx, cy, time);
+    ctx.restore();
+    return;
+  }
   if (CACHED_OBJECTS.has(t)) {
     const key = `obj|${t}|${obj.objId}|${obj.def.ore || ''}|${obj.depleted ? 1 : 0}`;
     const img = cachedBitmap(key, OBJ_BOX, (g) => drawObjectRaw(g, obj, 0, 0, 0));
@@ -3080,8 +3108,8 @@ export function drawObjectSprite(ctx, obj, cx, cy, time = 0, low = false, still 
 }
 
 // Each kind of fishing spot holds one fish (fishspots.js), but most share one
-// of five pictures, so each spot shows its own fish: its painted item icon (no
-// new art) lies half-sunk in the water, bobbing, and every five to seven
+// of five pictures, so each spot shows its own fish: the painted item icon
+// lies half-sunk in the water, bobbing, and every five to seven
 // seconds ducks under and leaps out in a short arc, turning with it and
 // heading the other way each time, with rings where it leaves and lands. Each
 // spot keeps its own beat (from its tile), so a bay never leaps together. Low
@@ -3178,6 +3206,7 @@ function drawCatchBadge(ctx, obj, cx, cy, time, low = false, still = false) {
   const id = !obj.worldEvent && obj.def.catches?.[0]?.id;
   const img = id && itemIconImage(id);
   if (!img || !img.complete || !img.naturalWidth) return;
+  const fish = worldCutout(img);
   ctx.save();
   if (low) {   // a still badge beside the spot
     const bob = Math.sin(time * 0.003 + obj.x * 1.3 + obj.y) * 1.5;
@@ -3185,7 +3214,7 @@ function drawCatchBadge(ctx, obj, cx, cy, time, low = false, still = false) {
     ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(x, y, s * 0.62, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     if (img.tint) ctx.filter = img.tint;
-    ctx.drawImage(img, x - s / 2, y - s / 2, s, s);
+    ctx.drawImage(fish, x - s / 2, y - s / 2, s, s);
     ctx.restore();
     return;
   }
@@ -3212,7 +3241,7 @@ function drawCatchBadge(ctx, obj, cx, cy, time, low = false, still = false) {
     ctx.rotate(face === 'up' ? f.turn + Math.PI / 2 : f.turn);
     if (face === 'left') ctx.scale(-1, 1);
     if (img.tint) ctx.filter = img.tint;
-    ctx.drawImage(img, -s / 2, -s / 2, s, s);
+    ctx.drawImage(fish, -s / 2, -s / 2, s, s);
   } else {
     const shown = Math.min(1, 0.5 + f.lift / s);   // the share of it above the water line
     if (shown > 0) {
@@ -3224,7 +3253,7 @@ function drawCatchBadge(ctx, obj, cx, cy, time, low = false, still = false) {
       // Only what is above the water: the sticker's top rows (it barely tilts).
       ctx.translate(fx, fy); ctx.rotate(f.turn);
       if (img.tint) ctx.filter = img.tint;
-      ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight * shown, -s / 2, -s / 2, s, s * shown);
+      ctx.drawImage(fish, 0, 0, img.naturalWidth, img.naturalHeight * shown, -s / 2, -s / 2, s, s * shown);
     }
   }
   ctx.restore();
@@ -3258,7 +3287,9 @@ function drawObjectRaw(ctx, obj, cx, cy, time) {
     case 'agility': return agilityCourse(ctx, cx, cy);
     case 'stall': return stall(ctx, obj.objId, obj.depleted, cx, cy);
     case 'transport': return mrtStation(ctx, cx, cy);
-    case 'scenery': return scenery(ctx, obj.objId, cx, cy, time);
+    case 'scenery':
+      if (obj.objId === 'forest_tree') return tree(ctx, obj.art?.slice(5), false, cx, cy, time);
+      return scenery(ctx, obj.objId, cx, cy, time);
     default: return;
   }
 }

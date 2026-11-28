@@ -1,6 +1,7 @@
 import { bakeBudget } from './governor.js';
 
 const GARDEN_PLANTS = {
+  forest_tree: 'tree',
   palm: 'palm', leaning_palm: 'palm',
   bush: 'bush',
   flower: 'flower', bougainvillea_pot: 'flower', orchid_planter: 'flower',
@@ -53,12 +54,16 @@ export function foliageOffset(lean, height, fraction) {
 /**
  * Draw continuous bands of the sprite with a bend that increases up the stem.
  * The bottom remains anchored. The upper bands can fade when a player is behind.
+ * Below the waterline, the water shows through the submerged part of the roots.
  */
-export function drawFoliage(ctx, img, x, y, w, h, lean, upperAlpha) {
-  if (!lean && upperAlpha >= 1) { ctx.drawImage(img, x, y, w, h); return; }
+export function drawFoliage(ctx, img, x, y, w, h, lean, upperAlpha, depth = 0) {
+  if (!lean && upperAlpha >= 1 && !depth) { ctx.drawImage(img, x, y, w, h); return; }
   const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
   const root = Math.round(ih * 0.77);
-  const stops = lean ? [Math.round(root * 0.48), root, ih] : [root, ih];
+  const waterline = depth ? Math.round(ih * (1 - depth)) : ih;
+  const stops = lean ? [Math.round(root * 0.48), root] : upperAlpha < 1 ? [root] : [];
+  if (depth) stops.push(waterline);
+  stops.push(ih);
   let top = 0, dx = foliageOffset(lean, h, 1);
   for (const end of stops) {
     if (end <= top) continue;
@@ -66,6 +71,7 @@ export function drawFoliage(ctx, img, x, y, w, h, lean, upperAlpha) {
     const next = foliageOffset(lean, h, 1 - end / ih), shear = (next - dx) / dh;
     ctx.save();
     if (end <= root) ctx.globalAlpha *= upperAlpha;
+    if (top >= waterline) ctx.globalAlpha *= 0.48;
     if (shear) ctx.transform(1, 0, shear, 1, dx - yy * shear, 0);
     ctx.drawImage(img, 0, top, iw, end - top, x, yy, w, dh);
     ctx.restore();

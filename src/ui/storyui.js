@@ -9,6 +9,7 @@ import { getNpc } from '../data/npcs.js';
 import { getItem } from '../data/items.js';
 import { pageCount, spotTile, guardianKind } from '../game/lore.js';
 import { townPortrait, portraitFor } from '../render/sprites.js';
+import { cutoutPortrait } from '../render/worldcutout.js';
 import { choiceBadgeHTML, choiceLineHTML } from './pathui.js';   // each chapter's Good / Evil choice
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -156,7 +157,11 @@ export function installStoryUI(ui) {
       $('.ss-hint').textContent = s.i < s.lines.length - 1 ? 'Tap to continue' : 'Tap to close';
       const art = speakerArt(line.who), img = $('.ss-portrait img');
       $('.ss-portrait').classList.toggle('none', !art);
-      if (art) { img.src = art.src; img.style.filter = art.filter || ''; img.style.objectPosition = art.pos || '50% 20%'; }
+      if (art) {
+        img.removeAttribute('src');
+        cutoutPortrait(art.src, (src) => { if (shownLine === line) img.src = src; });
+        img.style.filter = art.filter || ''; img.style.objectPosition = art.pos || '50% 20%';
+      }
       if (!still) { const b = $('.ss-bubble'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
     }
   };
