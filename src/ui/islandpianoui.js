@@ -3,9 +3,25 @@ import { STAGES } from '../data/islandlife.js';
 import { PIANO_SCORES } from '../data/piano.js';
 import { finishPianoLesson, islandPractised, islandSiteTile, musicStage, pianoLessonAvailable } from '../game/islandlife.js';
 import { unlockFx } from '../game/skillunlocks.js';
-import { pianoKeyboardHTML, pianoMidiForKey, pianoNoteName, pianoStaffHTML, pianoStaffStarts } from './piano-score.js';
+import { pianoKeyboardHTML, pianoMidiForKey, pianoNoteName, pianoStaffHTML, pianoStaffStarts, pianoTimeSignature } from './piano-score.js';
 
 const action = (name, id) => `<button type="button" class="wm-go" data-piano-action="${id}">${name}</button>`;
+
+const SCORE_GROUPS = [
+  { label: 'First tunes · Levels 1–9', min: 1, max: 9 },
+  { label: 'Developing · Levels 10–24', min: 10, max: 24 },
+  { label: 'Intermediate · Levels 25–49', min: 25, max: 49 },
+  { label: 'Advanced · Level 50+', min: 50, max: Infinity },
+];
+
+function scoreOptions(selected) {
+  return SCORE_GROUPS.map(({ label, min, max }) => {
+    const scores = PIANO_SCORES.filter(({ level }) => level >= min && level <= max).sort((a, b) => a.level - b.level);
+    if (!scores.length) return '';
+    const options = scores.map(({ id, name, level }) => `<option value="${id}"${id === selected ? ' selected' : ''}>${name} · Level ${level}</option>`);
+    return `<optgroup label="${label}">${options.join('')}</optgroup>`;
+  }).join('');
+}
 
 export function openIslandPiano(ui, onBack = () => ui.closeModal()) {
   const game = ui.game;
@@ -18,8 +34,7 @@ export function openIslandPiano(ui, onBack = () => ui.closeModal()) {
 
     body.innerHTML = `<section class="island-panel island-piano">
       <div class="piano-controls">
-        <label class="piano-score-picker">Score <select data-piano-score>${PIANO_SCORES.map((entry) =>
-          `<option value="${entry.id}">${entry.name} · Level ${entry.level}</option>`).join('')}</select></label>
+        <label class="piano-score-picker">Score <select data-piano-score>${scoreOptions(score.id)}</select></label>
         <div class="piano-actions island-actions">
           ${action('Play score', 'practice')}${action('Hear score', 'listen')}${action('Free play', 'free')}
         </div>
@@ -37,6 +52,7 @@ export function openIslandPiano(ui, onBack = () => ui.closeModal()) {
     const panel = body.querySelector('.island-piano');
     const keyboard = panel.querySelector('[data-piano-keys]');
     const keys = new Map([...keyboard.querySelectorAll('[data-piano-midi]')].map((key) => [Number(key.dataset.pianoMidi), key]));
+    const accidentalKey = keys.get(70), accidentalPitch = accidentalKey.querySelector('.piano-pitch');
     const controls = Object.fromEntries([...panel.querySelectorAll('[data-piano-action]')].map((button) => [button.dataset.pianoAction, button]));
     const staff = panel.querySelector('[data-piano-staff]');
     const status = panel.querySelector('[data-piano-status]');
@@ -54,10 +70,17 @@ export function openIslandPiano(ui, onBack = () => ui.closeModal()) {
       staff.innerHTML = pianoStaffHTML(score, current, { showNames });
       const next = showNames && mode === 'practice' && playbackIndex === null ? score.notes[played.length]?.midi : null;
       for (const [midi, key] of keys) key.toggleAttribute('data-piano-next', midi === next);
+      const accidental = pianoNoteName(70, score.keySignature);
+      if (accidentalPitch.textContent !== accidental) {
+        accidentalPitch.textContent = accidental;
+        accidentalKey.setAttribute('aria-label', score.keySignature === 'F' ? 'B flat 4' : 'A sharp 4');
+      }
       const level = game.skills.level('music'), stage = musicStage(game);
       const progress = practising ? ` · ${played.length} of ${score.notes.length} notes` : '';
       const mastered = islandPractised(game, 'music', `piano:${score.id}`) ? ' · Completed' : '';
-      meta.textContent = `Music ${level} · ${score.beatsPerBar}/4 · ${score.bpm} BPM${mastered}${progress}`;
+      const meter = pianoTimeSignature(score);
+      const tempo = meter[1] === 8 ? `♩ = ${score.bpm}` : `${score.bpm} BPM`;
+      meta.textContent = `Music ${level} · ${meter.join('/')} · ${tempo}${mastered}${progress}`;
       controls.practice.disabled = !pianoLessonAvailable(game, score);
       controls.practice.textContent = mode === 'practice' ? 'Restart score' : mode === 'complete' ? 'Play again' : 'Play score';
       controls.travel.hidden = !!stage;
@@ -80,7 +103,7 @@ export function openIslandPiano(ui, onBack = () => ui.closeModal()) {
     function nextMessage(prefix = '') {
       if (!showNames) { status.textContent = `${prefix}Read the highlighted note on the staff.`; return; }
       const midi = score.notes[played.length].midi;
-      const name = midi === 60 ? 'C4' : midi === 72 ? 'C5' : pianoNoteName(midi);
+      const name = midi === 60 ? 'C4' : midi === 72 ? 'C5' : pianoNoteName(midi, score.keySignature);
       status.textContent = `${prefix}Next note ${name}.`;
     }
 

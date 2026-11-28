@@ -5,6 +5,10 @@ const LOW_C = 60, HIGH_C = 72;
 const STAFF_BOTTOM = 58, LINE = 9;
 const STAFF_WIDTH = 366, STAFF_LEFT = 16, STAFF_RIGHT = 352;
 const MEASURES_PER_STAFF = 2;
+const KEY_MARK = {
+  F: '<text class="piano-key-signature" x="42" y="44">♭</text>',
+  G: '<text class="piano-key-signature" x="42" y="28">♯</text>',
+};
 
 const pitchIndex = (midi) => Number.isInteger(midi) && midi >= LOW_C && midi <= HIGH_C ? midi - LOW_C : -1;
 export const pianoNoteName = (midi, keySignature) => keySignature === 'F' && midi === 70 ? 'B♭' : PITCHES[pitchIndex(midi)] ?? '';
@@ -38,7 +42,7 @@ function measures(score) {
 }
 
 export function pianoStaffStarts(score) {
-  return measures(score).filter((_, i) => i % MEASURES_PER_STAFF === 0).map(([note]) => note?.index ?? 0);
+  return score.measureStarts.filter((_, i) => i % MEASURES_PER_STAFF === 0);
 }
 
 const line = (x1, y1, x2, y2, css = '') => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"${css ? ` class="${css}"` : ''}/>`;
@@ -54,6 +58,7 @@ function writtenNote(note, x, next, key, showNames) {
   const inKey = (key === 'G' && midi === 66) || (key === 'F' && midi === 70);
   const up = step < 6, stem = up ? x + 4.1 : x - 4.1, tip = y + (up ? -24 : 24);
   const dotted = beats === .75 || beats === 1.5 || beats === 3;
+  const flags = beats === .25 ? [0, up ? 5 : -5] : beats < 1 ? [0] : [];
   const classes = index === next ? ' is-current' : index < next ? ' is-complete' : '';
   return `<g class="piano-written-note${classes}" data-piano-note="${index}"${index === next ? ' aria-current="step"' : ''}>
     ${index === next ? `<rect class="piano-note-cue" x="${x - 12}" y="5" width="24" height="76" rx="5"/>` : ''}
@@ -61,7 +66,7 @@ function writtenNote(note, x, next, key, showNames) {
     ${accidental && !inKey ? `<text class="piano-accidental" x="${x - 10}" y="${y + 4}">${accidental}</text>` : ''}
     <ellipse class="${beats >= 2 ? 'piano-open-head' : 'piano-filled-head'}" cx="${x}" cy="${y}" rx="${beats >= 4 ? 5.5 : 4.6}" ry="3.15" transform="rotate(-18 ${x} ${y})"/>
     ${beats < 4 ? line(stem, y, stem, tip, 'piano-stem') : ''}
-    ${beats < 1 ? `<path class="piano-flag" d="M${stem} ${tip}q${up ? 12 : 9} ${up ? 7 : -7} ${up ? 4 : 5} ${up ? 13 : -14}"/>` : ''}
+    ${flags.map((offset) => `<path class="piano-flag" d="M${stem} ${tip + offset}q${up ? 12 : 9} ${up ? 7 : -7} ${up ? 4 : 5} ${up ? 13 : -14}"/>`).join('')}
     ${dotted ? `<circle class="piano-dot" cx="${x + 8.5}" cy="${step % 2 === 0 ? y - 4.5 : y}" r="1.5"/>` : ''}
     ${showNames ? `<text class="piano-written-label" x="${x}" y="87">${pianoNoteName(midi, key)}</text>` : ''}
   </g>`;
@@ -76,7 +81,7 @@ export function pianoStaffHTML(score, nextIndex = 0, { showNames = true } = {}) 
   const last = start + system.length;
   const measuresLabel = last - start === 1 ? `Measure ${last}` : `Measures ${start + 1}–${last}`;
   const [numerator, denominator] = pianoTimeSignature(score);
-  const keyMark = { F: '<text class="piano-key-signature" x="42" y="44">♭</text>', G: '<text class="piano-key-signature" x="42" y="28">♯</text>' }[score.keySignature] ?? '';
+  const keyMark = KEY_MARK[score.keySignature] ?? '';
   const left = keyMark ? 77 : 68;
   const width = (STAFF_RIGHT - left) / MEASURES_PER_STAFF;
   const noteWidth = width - 18;
