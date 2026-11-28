@@ -92,6 +92,13 @@ test('landings, looms and stages have art and Interact opens the right skill', (
   const signs = g.world.objects.filter((o) => o.objId === 'sign').map((o) => o.sign || '');
   assert.equal(signs.filter((s) => s.startsWith('Sailing landing')).length, 2);
   assert.equal(signs.filter((s) => s.startsWith('Shell shallows')).length, 2);
+  const dock = LANDINGS.changi;
+  const threats = g.npcs.filter((n) => n.attackable && n.def.aggressive
+    && g.world.zoneAt(n.spawnX, n.spawnY)?.name === 'Changi Coast');
+  for (const n of threats) {
+    const distance = Math.max(Math.abs(n.spawnX - dock.x), Math.abs(n.spawnY - dock.y));
+    assert.ok(distance > n.wander + (n.def.aggroRange || 4) + 2, `${n.name} stays clear of the boarding area`);
+  }
 });
 
 test('advanced voyages unlock in route order and freight can pay once per route per day', () => {
