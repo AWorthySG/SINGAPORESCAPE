@@ -1,3 +1,7 @@
+import { COAST_THEMES } from './musicCoast.js';
+import { GREEN_THEMES } from './musicGreen.js';
+import { WILD_THEMES } from './musicWild.js';
+
 // Heard on the title screen and on roads between named regions.
 const ISLAND_THEME = {
   title: 'Between the Islands',
@@ -20,7 +24,12 @@ const ISLAND_THEME = {
   ],
 };
 
-export const MUSIC_THEMES = Object.freeze({ Singapore: ISLAND_THEME });
+export const MUSIC_THEMES = Object.freeze({
+  Singapore: ISLAND_THEME,
+  ...COAST_THEMES,
+  ...GREEN_THEMES,
+  ...WILD_THEMES,
+});
 
 export function musicTheme(zone) {
   return Object.hasOwn(MUSIC_THEMES, zone) ? MUSIC_THEMES[zone] : ISLAND_THEME;

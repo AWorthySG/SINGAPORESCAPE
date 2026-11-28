@@ -5,6 +5,8 @@
 import { AmbienceBed, ambienceMix } from './ambience.js';
 import { ACTION_SOUNDS } from './actionSounds.js';
 import { ABILITY_SOUNDS, ELEMENT_SOUNDS, HURT_SOUNDS, IMPACT_SOUNDS, impactCrit } from './combatSounds.js';
+import { RegionMusic } from './regionMusic.js';
+import { musicTheme } from './musicThemes.js';
 
 const MUTE_KEY = 'singaporescape:muted';
 const MUSIC_KEY = 'singaporescape:music';
@@ -16,8 +18,7 @@ const SFX_VOL_KEY = 'singaporescape:sfxVolume';
 const MUSIC_VOL_KEY = 'singaporescape:musicVolume';
 const MASTER = 0.16;
 const MUSIC_VOL = 0.5; // relative to master
-// Gentle A-minor pentatonic — kampong evening kalimba.
-const SCALE = [220, 261.63, 293.66, 329.63, 392, 440, 523.25];
+const MUSIC_UPDATE_MS = 120;
 
 // ---- Shaping the sounds of a fight ----
 // A busy auto battle asked for 10 to 50 sounds a second: a swing and a hit on
@@ -64,7 +65,8 @@ export class Sfx {
     this.master = null;
     this.musicGain = null;
     this.sfxGain = null;           // every sound effect goes through this, so its own slider sets them all
-    this.musicTimer = null;
+    this.music = null;
+    this.musicSource = null;      // set by main: () => the current region name
     this.muted = this._loadMuted();
     this.volume = this._loadVolume();   // 0..1, scales everything
     this.musicOn = this._loadMusic();
@@ -145,47 +147,18 @@ export class Sfx {
   }
   _loadAmbience() { try { return localStorage.getItem(AMBIENCE_KEY) !== '0'; } catch { return true; } }
 
-  // ---------------- Ambient music (generative, very sparse) ----------------
+  // ---------------- Region soundtrack ----------------
   _startMusic() {
-    if (!this.ctx || this.musicTimer) return;
-    // A breathing low pad: two slightly-detuned sines under everything.
-    const pad = this.ctx.createGain();
-    pad.gain.value = 0.05;
-    pad.connect(this.musicGain);
-    for (const f of [110, 110.7, 164.8]) {
-      const o = this.ctx.createOscillator();
-      o.type = 'sine'; o.frequency.value = f;
-      o.connect(pad); o.start();
-    }
-    const lfo = this.ctx.createOscillator();
-    const lfoG = this.ctx.createGain();
-    lfo.frequency.value = 0.05; lfoG.gain.value = 0.02;
-    lfo.connect(lfoG); lfoG.connect(pad.gain); lfo.start();
-    // Sparse kalimba plucks with a soft echo; plenty of rests.
-    let step = 0;
-    this.musicTimer = setInterval(() => {
-      if (!this.ctx || this.muted || !this.musicOn) return;
-      step++;
-      if (this._random() < 0.42) return; // rest
-      const n = SCALE[Math.floor(this._random() * SCALE.length)];
-      this._mtone(n, 1.4, 0.16);
-      this._mtone(n, 1.2, 0.06, 0.34);              // echo
-      if (step % 4 === 0 && this._random() < 0.5) this._mtone(n * 1.5, 1.2, 0.07, 0.12); // fifth
-    }, 2100);
+    if (!this.ctx || this.music) return;
+    this.music = new RegionMusic(this.ctx, this.musicGain, musicTheme);
+    this._musicTick();
+    setInterval(() => this._musicTick(), MUSIC_UPDATE_MS);
   }
 
-  _mtone(freq, dur, vol, t0 = 0) {
-    if (!this.ctx) return;
-    const t = this.ctx.currentTime + t0;
-    const o = this.ctx.createOscillator();
-    const g = this.ctx.createGain();
-    o.type = 'triangle';
-    o.frequency.setValueAtTime(freq, t);
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(this.musicGain);
-    o.start(t); o.stop(t + dur + 0.05);
+  _musicTick() {
+    if (this.ctx?.state !== 'running' || !this.musicSource) return;
+    const audible = this.musicOn && !this.muted && this.volume > 0 && this.musicVolume > 0;
+    this.music.update(this.musicSource(), audible);
   }
 
   toggleMusic() {
