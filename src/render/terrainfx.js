@@ -16,10 +16,12 @@
 
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
-import { drawObjectSprite, drawCreature, drawPlayer } from './sprites.js';
+import { drawCreature, drawPlayer, worldArtBox } from './sprites.js';
 import { paintHeritageTiles } from './heritagewalk.js';
 import { paintDiveShoreTiles } from './diveart.js';
 import { GroundTouch } from './groundtouch.js';
+import { foliageKind } from './foliage.js';
+import { shoreReflections, waterBelow, WaterDepth } from './waterdepth.js';
 
 /** A stable 0..1 hash of a tile (and an optional salt). */
 export function tileHash(x, y, s = 0) {
@@ -764,8 +766,8 @@ export function waterDetailPlan(world, tx0, ty0, tx1, ty1) {
 // the tile centre, strength]. Fires, farm patches and fishing spots get none
 // (they flicker, grow or float).
 const SHADOW = {
-  tree: [24, 9, 15, 0.42], rock: [16, 6, 12, 0.32], bush: [13, 5, 11, 0.22], flower: [8, 3.2, 10, 0.16],
-  palm: [14, 5.5, 13, 0.26], lamp: [7, 3, 13, 0.2], sign: [8, 3, 12, 0.18], fence: [18, 5, 12, 0.18],
+  tree: [24, 10, 14, 0.49], rock: [16, 6, 12, 0.32], bush: [15, 6, 12, 0.28], flower: [10, 4, 12, 0.24],
+  palm: [17, 7, 14, 0.35], lamp: [7, 3, 13, 0.2], sign: [8, 3, 12, 0.18], fence: [18, 5, 12, 0.18],
   wall: [20, 7, 12, 0.34], ruin: [21, 8, 12, 0.34], building: [26, 9.5, 14, 0.36], small: [13, 5, 11, 0.2],
 };
 const NO_SHADOW = new Set(['fire', 'farm', 'fishing']);
@@ -775,7 +777,7 @@ function shadowKind(o) {
   const t = o.def.type;
   if (NO_SHADOW.has(t)) return null;
   if (t === 'tree' || t === 'rock') return t;
-  if (t === 'scenery') return SHADOW[o.objId] ? o.objId : 'small';
+  if (t === 'scenery') return foliageKind(o) ?? (SHADOW[o.objId] ? o.objId : 'small');
   if (t === 'hunt') return 'small';
   return 'building';
 }
@@ -972,6 +974,8 @@ export class TerrainFx {
   /** `factory(w, h)` makes a canvas; by default document.createElement. */
   constructor(factory) {
     this.factory = factory;
+    this.waterDepth = new WaterDepth((w, h) => makeCanvas(w, h, this.factory));
+    this._reflectedArt = {};
     this._masks = new Map();      // blend, foam and relief masks by edge shape
     this._sprites = new Map();    // ground detail sprites by id
     this._scratch = null;         // one tile, for masking a neighbour's ground
@@ -1265,13 +1269,7 @@ export class TerrainFx {
     // 4. What's drawn each frame: lily pads and reeds, foam, and the spots
     //    where tall things stand over water (their reflections).
     const water = waterDetailPlan(world, tx0, ty0, tx1, ty1);
-    const refl = [];
-    for (const s of shadows) {
-      if (s.x < tx0 || s.x >= tx1 || s.y < ty0 || s.y >= ty1) continue;
-      if (!REFLECTS.has(s.kind)) continue;
-      const tiles = waterBelow(world, s.x, s.y);
-      if (tiles.length) refl.push({ o: world.objectAt(s.x, s.y), tiles });
-    }
+    const refl = opts.low ? [] : shoreReflections(world, tx0, ty0, tx1, ty1);
     const fm = foam && foam[0] ? { a: foam[0].c, b: foam[1] ? foam[1].c : null, rects: foamRects(foamCells, tx1 - tx0, ty1 - ty0) } : null;
     if (!fm && !water.length && !refl.length) return null;
     return { foam: fm, water, refl, x: ox, y: oy, w: (tx1 - tx0) * TILE, h: (ty1 - ty0) * TILE };
@@ -1293,8 +1291,16 @@ export class TerrainFx {
       for (const d of fx.water) {
         const x = d.px - ox, y = d.py - oy;
         if (x < -20 || y < -24 || x > vw + 20 || y > vh + 24) continue;
-        const bob = low ? 0 : Math.sin(timeMs * 0.0018 + d.ph) * 0.7;
-        this._stamp(ctx, d, x, y + bob);
+        const drift = low ? 0 : Math.sin(timeMs * 0.0018 + d.ph);
+        if (d.id === 'reed' && drift) {
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.transform(1, 0, drift * 0.085, 1, 0, 0);
+          this._stamp(ctx, d, 0, 0);
+          ctx.restore();
+        } else {
+          this._stamp(ctx, d, x + drift * 0.7, y + drift * 0.44);
+        }
       }
     }
   }
@@ -1337,18 +1343,26 @@ export class TerrainFx {
    * above it appear upside down below them, faded and gently rippling,
    * clipped to the water tiles. Skipped in low graphics.
    */
-  drawReflections(ctx, game, chunks, ox, oy, vw, vh, timeMs) {
+  drawReflections(ctx, game, chunks, ox, oy, vw, vh, timeMs, still = false) {
     if (game.lowFx || game.fxTrim || !ctx.clip) return;   // also left out while frames run slow (governor.js)
     const w = game.world;
+    const surfaceTime = still ? 0 : timeMs;
     for (const ch of chunks) {
       const fx = ch && ch.fx;
       if (!fx || !fx.refl.length) continue;
       for (const r of fx.refl) {
-        const o = r.o;
-        if (!o || w.objectAt(o.x, o.y) !== o) continue;
-        const cx = o.x * TILE + TILE / 2 - ox, cy = o.y * TILE + TILE / 2 - oy;
-        if (cx < -80 || cx > vw + 80 || cy < -40 || cy > vh + 120) continue;
-        this._reflect(ctx, r.tiles, ox, oy, cx, cy + 14, timeMs, o.x, () => drawObjectSprite(ctx, o, cx, cy, timeMs));
+        const { o, width, tiles } = r;
+        if (o.depleted || w.objectAt(o.x, o.y) !== o) continue;
+        const cx = (o.x + width / 2) * TILE - ox, cy = (o.y + 0.5) * TILE - oy;
+        const margin = width * TILE * 0.7 + TILE;
+        if (cx < -margin || cx > vw + margin || cy < -5 * TILE || cy > vh) continue;
+        const art = worldArtBox(o, timeMs, this._reflectedArt);
+        if (!art || art.h < 14) continue;
+        ctx.save();
+        this._clipWater(ctx, tiles, ox, oy);
+        ctx.globalAlpha *= 0.52;
+        this.waterDepth.drawMirror(ctx, art, cx, cy + art.foot, surfaceTime, o.x * 0.83 + o.y * 0.16);
+        ctx.restore();
       }
     }
     // Characters: the hero and anyone nearby standing on the bank.
@@ -1373,7 +1387,7 @@ export class TerrainFx {
       const tiles = waterBelow(w, Math.round(c.x / TILE - 0.5), Math.round(c.y / TILE - 0.5));
       if (!tiles.length) continue;
       const sc = (p.def && p.def.scale) || 1;
-      this._reflect(ctx, tiles, ox, oy, cx, cy + 12 * sc, timeMs, p.x, () => {
+      this._reflect(ctx, tiles, ox, oy, cx, cy + 12 * sc, surfaceTime, p.x, () => {
         if (p === game.player) {
           drawPlayer(ctx, cx, cy - 2, { time: timeMs, facing: p.facing, fx: p.faceX, entity: p, moving: p.isMoving, jobClass: game.jobClass,
             hasWeapon: !!game.equipment?.get('weapon'), weaponType: game.combatMode ? game.combatMode() : 'melee' });
@@ -1385,19 +1399,23 @@ export class TerrainFx {
     }
   }
 
+  _clipWater(ctx, tiles, ox, oy) {
+    ctx.beginPath();
+    for (const [x, y] of tiles) ctx.rect(x * TILE - ox, y * TILE - oy, TILE, TILE);
+    ctx.clip();
+  }
+
   // Draw `draw()` flipped about the foot line `fy`, squashed, faded and
   // rippling in a few horizontal bands, clipped to the given water tiles.
   _reflect(ctx, tiles, ox, oy, cx, fy, timeMs, seed, draw) {
     ctx.save();
-    ctx.beginPath();
-    for (const [x, y] of tiles) ctx.rect(x * TILE - ox, y * TILE - oy, TILE, TILE);
-    ctx.clip();
-    ctx.globalAlpha = 0.26;
-    const BANDS = 3, BH = 26;
+    this._clipWater(ctx, tiles, ox, oy);
+    const alpha = ctx.globalAlpha, BANDS = timeMs ? 2 : 1, BH = 28;
     for (let b = 0; b < BANDS; b++) {
       ctx.save();
       ctx.beginPath(); ctx.rect(cx - 90, fy + b * BH, 180, b === BANDS - 1 ? 200 : BH); ctx.clip();
-      const sway = Math.sin(timeMs * 0.0024 + b * 1.7 + seed) * (1 + b * 0.8);
+      ctx.globalAlpha = alpha * (0.27 - b * 0.13);
+      const sway = timeMs ? Math.sin(timeMs * 0.0024 + b * 1.7 + seed) * (0.6 + b * 1.1) : 0;
       ctx.translate(cx + sway, fy);
       ctx.scale(1, -0.72);
       ctx.translate(-cx, -fy);
@@ -1405,15 +1423,5 @@ export class TerrainFx {
       ctx.restore();
     }
     ctx.restore();
-    ctx.globalAlpha = 1;
   }
-}
-
-// Kinds of object tall enough to cast a reflection.
-const REFLECTS = new Set(['tree', 'palm', 'lamp', 'wall', 'building', 'sign', 'bush']);
-// The water tiles a reflection of something standing on (x, y) can fall on.
-function waterBelow(world, x, y) {
-  const out = [];
-  for (let dy = 1; dy <= 3; dy++) for (let dx = -1; dx <= 1; dx++) if (world.terrainAt(x + dx, y + dy) === TERRAIN.WATER && world.inBounds?.(x + dx, y + dy) !== false) out.push([x + dx, y + dy]);
-  return out;
 }

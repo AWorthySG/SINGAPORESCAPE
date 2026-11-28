@@ -50,7 +50,7 @@ import { Critters } from './critters.js';
 import { LightPass } from './lighting.js';
 import { CosyLight } from './cosylight.js';
 import { Atmosphere } from './atmosphere.js';
-import { AmbientLife } from './ambient.js';
+import { AmbientLife, swayLean } from './ambient.js';
 import { AirMotes } from './airmotes.js';
 import { RegionPostcards, titleRoom } from './postcard.js';
 import { Weather } from './weather.js';
@@ -296,6 +296,7 @@ export class Renderer {
     // second foam layer) also step down while frames run slow (governor.js).
     const trim = !!(game.lowFx || game.fxTrim);
     const calm = !motionOK(game);
+    const stillWater = trim || calm;
 
     // Opaque canvas: paint, don't clear (one fill: a second, paler one under it was never seen).
     // Tilted, the ground is drawn flat into the depth view's canvas first (warped on below).
@@ -316,14 +317,14 @@ export class Renderer {
       // Blit the cached static terrain chunks for the visible slice, then animate water.
       this._drawTerrainChunks(ox, oy, vw, vh);
       // (The animated water layer carries the shoreline foam when it can.)
-      const foamDone = this._drawWaterOverlay(x0, y0, x1, y1, ox, oy, timeMs);
-      // Shoreline foam, lily pads and reeds, and reflections (terrainfx.js).
       if (this.tfx && this._visChunks) {
-        this.tfx.drawWater(ctx, this._visChunks, ox, oy, vw, vh, timeMs, trim, !foamDone);
-        this.tfx.drawReflections(ctx, game, this._visChunks, ox, oy, vw, vh, timeMs);
+        this.tfx.drawReflections(ctx, game, this._visChunks, ox, oy, vw, vh, timeMs, stillWater);
       }
+      // Brushstrokes, foam and water plants stay above the reflections.
+      const foamDone = this._drawWaterOverlay(x0, y0, x1, y1, ox, oy, timeMs, stillWater);
+      if (this.tfx && this._visChunks) this.tfx.drawWater(ctx, this._visChunks, ox, oy, vw, vh, timeMs, stillWater, !foamDone);
     } else {
-      this._drawTerrain(x0, y0, x1, y1, ox, oy, timeMs);
+      this._drawTerrain(x0, y0, x1, y1, ox, oy, stillWater ? 0 : timeMs);
     }
     this.weather.update(game, fdt);
     const sky = 1 - this.weather.state.gloom * 0.84;
@@ -333,7 +334,8 @@ export class Renderer {
     if (worldSun?.on) {
       // A tall object can still cast into the view when its base is off-screen.
       const casters = W.objectsIn ? W.objectsIn(x0 - 2, y0 - 1, x1 + 2, y1 + 2, this._casters || (this._casters = [])) : W.objects;
-      this.depth.castShadows(ctx, casters, W.landmarks, ox, oy, vw, vh, dayPhase, timeMs, ground ? this.depth.G : dpr, sky);
+      const lean = calm ? null : (o) => swayLean(o, timeMs, this.amb.wind) + this.react.skew(o, timeMs);
+      this.depth.castShadows(ctx, casters, W.landmarks, ox, oy, vw, vh, dayPhase, timeMs, ground ? this.depth.G : dpr, sky, lean);
     }
     drawHomeAlbum(ctx, game, ox, oy, vw, vh);
     const service = game.player.alive && heritageService(game.world, game.player);
@@ -381,7 +383,8 @@ export class Renderer {
       const jx = !calm && o.shakeT > 0 ? Math.sin(o.shakeT * 0.09) * 1.7 * (o.shakeT / 280) : 0;
       const cx = o.x * TILE + TILE / 2 - ox + jx, cy = o.y * TILE + TILE / 2 - oy;
       const lit = night > 0.12 && isLightSource(o);
-      const fade = this.react.alpha(o), upper = o.def.type === 'tree' && !o.depleted, lean = this.react.skew(o, timeMs) + this.amb.lean(o, timeMs);   // brushed, or in the breeze (ambient.js)
+      const fade = this.react.alpha(o), upper = o.def.type === 'tree' && !o.depleted;
+      const lean = trim || calm ? 0 : this.react.skew(o, timeMs) + this.amb.lean(o, timeMs);
       // A spot's fish stops leaping while a school swirls there (fishCalm keeps when).
       const still = o.def.type === 'fishing' && (calm || fishCalm(o, game.fishSchools?.at(o), timeMs));
       drawables.push({ sortY: o.y + (o.def.overhead ? 0.9 : 0.4), z: 1, rise: o.def.type === 'tree' ? riseTree : 0, draw: () => {   // (a hanging lantern goes over your head)
@@ -392,14 +395,13 @@ export class Renderer {
           const r = (20 + night * 12) * flick;
           this.atmos.pool(ctx, cx, cy - 4, r, LIT_RGB, 0.32 * night);   // a baked sprite, not a gradient a frame
         }
-        if (fade < 1 || lean) {
-          // See-through while you're behind it; a brushed bush leans about its base.
+        if (fade < 1) {
+          // See-through while you're behind it, with the tree trunk still in view.
           ctx.save();
           ctx.globalAlpha = upper ? 1 : fade;
-          if (lean) { ctx.translate(cx, cy + 13); ctx.transform(1, 0, lean, 1, 0, 0); ctx.translate(-cx, -(cy + 13)); }
-          drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx || calm, still, upper ? fade : 1, buildingLight);
+          drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx || calm, still, upper ? fade : 1, buildingLight, lean);
           ctx.restore();
-        } else drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx || calm, still, 1, buildingLight);
+        } else drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx || calm, still, 1, buildingLight, lean);
         if (o.objId === 'bank_booth' && o.x === bank.x && o.y === bank.y) drawHeritageBank(ctx, cx, cy);
         if (o.objId === 'stall_food' && o.x === market.x && o.y === market.y) drawMarketValance(ctx, cx, cy, timeMs, trim || calm);
       } });
@@ -1543,6 +1545,7 @@ export class Renderer {
     if (!g) return null;
     const tx0 = cx0 * TERRAIN_CHUNK, ty0 = cy0 * TERRAIN_CHUNK;
     const tx1 = Math.min(w.width, tx0 + TERRAIN_CHUNK), ty1 = Math.min(w.height, ty0 + TERRAIN_CHUNK);
+    const fx = this.tfx || (this.tfx = new TerrainFx());
     for (let y = ty0; y < ty1; y++) {
       for (let x = tx0; x < tx1; x++) {
         const t = w.terrainAt(x, y);
@@ -1557,13 +1560,13 @@ export class Renderer {
           if (t !== TERRAIN.WATER) this._tileDetail(g, t, x, y, sx, sy, h);
         }
         paintGroundWash(g, w, t, x, y, sx, sy);
+        if (t === TERRAIN.WATER) fx.waterDepth.drawBed(g, w, x, y, sx, sy);
         if (t === TERRAIN.STONE && !naturalStone(w, x, y)) this._tileEdges(g, w, t, x, y, sx, sy);
       }
     }
     // Soft edges between grounds, small ground details, contact shadows and
     // the water's extras (terrainfx.js), baked into the chunk once.
     // It runs a few rows at a time over the next frames (see _polishChunk).
-    const fx = this.tfx || (this.tfx = new TerrainFx());
     cnv.fx = null;
     cnv.fxJob = fx.bakeSteps(g, w, tx0, ty0, tx1, ty1, (sg, t) => this._groundFill(sg, t), { low: !!this.game.lowFx });
     return cnv;
@@ -1658,9 +1661,10 @@ export class Renderer {
     }
   }
 
-  _drawWaterOverlay(x0, y0, x1, y1, ox, oy, timeMs) {
+  _drawWaterOverlay(x0, y0, x1, y1, ox, oy, timeMs, still = false) {
     const { ctx, game } = this;
     const w = game.world;
+    const surfaceTime = still ? 0 : timeMs;
     // The shimmer is slow, so redraw it into an offscreen layer ~11 times a
     // second (or when the view crosses a tile) and blit that layer every frame.
     // The shoreline foam (terrainfx.js) is painted into the same layer: drawn
@@ -1672,7 +1676,7 @@ export class Renderer {
       const wc = this._waterCache || (this._waterCache = { cv: document.createElement('canvas'), t: -1e9 });
       const g = wc.cv.getContext && wc.cv.getContext('2d');
       if (g) {
-        if (wc.x0 !== x0 || wc.y0 !== y0 || wc.cols !== cols || wc.rows !== rows || wc.dpr !== dpr || timeMs - wc.t >= 90 || timeMs < wc.t) {
+        if (wc.x0 !== x0 || wc.y0 !== y0 || wc.cols !== cols || wc.rows !== rows || wc.dpr !== dpr || wc.still !== still || timeMs - wc.t >= 90 || timeMs < wc.t) {
           const W = Math.ceil(cols * TILE * dpr), H = Math.ceil(rows * TILE * dpr);
           // Only the box that holds water or foam is cleared, painted and
           // copied to the screen: away from the sea that is a shoreline's
@@ -1702,19 +1706,19 @@ export class Renderer {
           for (let y = y0; y <= y1; y++) {
             for (let x = x0; x <= x1; x++) {
               if (w.terrainAt(x, y) !== TERRAIN.WATER) continue;
-              this._water(g, w, x, y, (x - x0) * TILE, (y - y0) * TILE, timeMs, true);
+              this._water(g, w, x, y, (x - x0) * TILE, (y - y0) * TILE, surfaceTime, true);
               growBox(box, (x - x0) * TILE, (y - y0) * TILE, TILE + 1, TILE + 1);
               wc.any = true;
             }
           }
-          if (this.tfx && this._visChunks && this.tfx.drawFoam(g, this._visChunks, x0 * TILE, y0 * TILE, cols * TILE, rows * TILE, timeMs, game.lowFx || game.fxTrim, box)) wc.any = true;
+          if (this.tfx && this._visChunks && this.tfx.drawFoam(g, this._visChunks, x0 * TILE, y0 * TILE, cols * TILE, rows * TILE, surfaceTime, still, box)) wc.any = true;
           // A pixel of slack all round (the foam overlaps by one, smoothing
           // reaches a little further), kept inside the layer.
           if (wc.any) {
             box.x0 = Math.max(0, Math.floor(box.x0) - 2); box.y0 = Math.max(0, Math.floor(box.y0) - 2);
             box.x1 = Math.min(cols * TILE, Math.ceil(box.x1) + 2); box.y1 = Math.min(rows * TILE, Math.ceil(box.y1) + 2);
           }
-          Object.assign(wc, { x0, y0, cols, rows, dpr, t: timeMs, W, H });
+          Object.assign(wc, { x0, y0, cols, rows, dpr, t: timeMs, W, H, still });
         }
         const b = wc.box;
         if (wc.any && b && b.x1 > b.x0 && b.y1 > b.y0) {
@@ -1730,7 +1734,7 @@ export class Renderer {
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
         if (w.terrainAt(x, y) !== TERRAIN.WATER) continue;
-        this._water(ctx, w, x, y, Math.round(x * TILE - ox), Math.round(y * TILE - oy), timeMs);
+        this._water(ctx, w, x, y, Math.round(x * TILE - ox), Math.round(y * TILE - oy), surfaceTime);
       }
     }
   }
@@ -1836,14 +1840,21 @@ export class Renderer {
     // square as it swelled made the game grid show through in open water.
     const seed = tileHash(x, y, 165);
     if (seed > 0.58) {
-      const flow = timeMs * 0.0013 + seed * 28 + x * 0.46 + y * 0.37;
+      const flow = timeMs * 0.00115 + seed * 2.7 + x * 0.46 + y * 0.37;
       const lift = Math.sin(flow);
-      const yy = sy + 8 + seed * 12 + lift * 3;
-      ctx.fillStyle = swellFill(lift < 0 ? 1 : 0, Math.abs(lift) * 0.16);
+      const yy = sy + 8 + seed * 13 + lift * 2.2;
+      const x0 = sx + 2 + Math.cos(flow) * 1.8, x1 = sx + TILE - 3;
+      ctx.fillStyle = swellFill(1, 0.075 + lift * 0.035);
       ctx.beginPath();
-      ctx.moveTo(sx + 4, yy);
-      ctx.quadraticCurveTo(sx + 12, yy - 3.7, sx + TILE - 6, yy - 0.8);
-      ctx.quadraticCurveTo(sx + 15, yy - 1.1, sx + 4, yy);
+      ctx.moveTo(x0 + 2, yy + 2.2);
+      ctx.quadraticCurveTo(sx + 13, yy - 0.8, x1, yy + 1.3);
+      ctx.quadraticCurveTo(sx + 14, yy + 0.9, x0 + 2, yy + 2.2);
+      ctx.fill();
+      ctx.fillStyle = swellFill(0, 0.13 + lift * 0.075);
+      ctx.beginPath();
+      ctx.moveTo(x0, yy);
+      ctx.quadraticCurveTo(sx + 12, yy - 3.7, x1, yy - 0.8);
+      ctx.quadraticCurveTo(sx + 15, yy - 1.1, x0, yy);
       ctx.fill();
     }
     // Soft shores use the baked waterline. Quays and bridges have a narrow
