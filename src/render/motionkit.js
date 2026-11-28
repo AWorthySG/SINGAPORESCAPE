@@ -50,11 +50,15 @@ const _ph = { wind: 0, hit: 0, settle: 0 };
 export function swingBeats(ak) {
   if (!(ak >= 0)) return null;
   const k = ak > 1 ? 1 : ak;
-  if (k < WIND_END) { _ph.wind = easeOut(k / WIND_END); _ph.hit = 0; }
-  else if (k < STRIKE_AT) { const s = (k - WIND_END) / (STRIKE_AT - WIND_END); _ph.wind = 1 - s; _ph.hit = easeIn(s); }
+  if (k < WIND_END) { _ph.wind = smooth(k / WIND_END); _ph.hit = 0; }
+  else if (k < STRIKE_AT) {
+    const s = (k - WIND_END) / (STRIKE_AT - WIND_END);
+    _ph.wind = 1 - smooth(s);
+    _ph.hit = s * s * s * (4 - 3 * s);   // gathers speed late and eases into the held impact
+  }
   else if (k < HOLD_END) { _ph.wind = 0; _ph.hit = 1; }
   else { _ph.wind = 0; _ph.hit = 1 - easeInOut((k - HOLD_END) / (1 - HOLD_END)); }
-  _ph.settle = arc(seg(k, HOLD_END, 1));
+  _ph.settle = arc(seg(k, HOLD_END, 1)) ** 2;
   return _ph;
 }
 /** How long (ms) after a swing begins its blow lands. */
@@ -79,12 +83,12 @@ export const turnHop = (u) => arc(u) * 1.6;
 export function heroWalk(gait = {}, calm = false) {
   const move = clamp01(gait.move || 0);
   const wave = Math.sin((gait.phase || 0) * Math.PI);
-  const lift = move * (calm ? 2.2 : 3.6);
+  const lift = move * (calm ? 2.2 : gait.run ? 4.1 : 3.6);
   return {
     step: wave * move,
     liftB: Math.max(0, wave) ** 2 * lift,
     liftF: Math.min(0, wave) ** 2 * lift,
-    rise: wave * wave * move * (calm ? 0.35 : 1),
+    rise: wave * wave * move * (calm ? 0.35 : gait.run ? 1.2 : 1),
   };
 }
 

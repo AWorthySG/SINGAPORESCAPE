@@ -29,7 +29,7 @@ export const animTempo = (seed) => 0.85 + ((seed * 7.31) % 1) * 0.3;
 // ---------------- Walking ----------------
 /** How high the body is lifted part-way through a step (0 as a foot plants, 1
  *  mid-stride), from the creature's walk phase (one footstep per tile walked). */
-export const stepLift = (walk) => Math.abs(Math.sin(walk * Math.PI));
+export const stepLift = (walk) => Math.sin(walk * Math.PI) ** 2;
 /** The side-to-side rock of a step: one way on one foot, the other way on the next. */
 export const stepRock = (walk) => Math.sin(walk * Math.PI);
 
@@ -148,13 +148,13 @@ export function deathPose(k, out = {}) {
   const s = Math.min(1, k / 0.62);
   out.slide = 1 - (1 - s) * (1 - s) * (1 - s);
   if (k < 0.14) {
-    const j = Math.sin((k / 0.14) * Math.PI);
+    const j = Math.sin((k / 0.14) * Math.PI) ** 2;
     out.rot = -0.05 * j; out.sx = 1 - 0.08 * j; out.sy = 1 + 0.1 * j;
   } else if (k < 0.6) {
     const f = (k - 0.14) / 0.46;
-    out.rot = f * f;
+    out.rot = f * f * f * (4 - 3 * f);
   } else if (k < 0.8) {
-    const b = Math.sin(((k - 0.6) / 0.2) * Math.PI);
+    const b = Math.sin(((k - 0.6) / 0.2) * Math.PI) ** 2;
     out.rot = 1 - 0.09 * b;
     out.sx = 1 + 0.06 * b; out.sy = 1 - 0.08 * b;   // flattened a touch as it thumps down
   } else out.rot = 1;

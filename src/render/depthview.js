@@ -1,6 +1,6 @@
 import { TILE } from '../config.js';
 import { DEPTH_TILT, relV, rowScaleRel } from './projection.js';
-import { creatureArtScale, creatureCastImage, creatureFloats, worldArtBox, worldArtMax, SHADOW_RGB } from './sprites.js';
+import { creatureCastArt, creatureFloats, heroCastArt, worldArtBox, worldArtMax, SHADOW_RGB } from './sprites.js';
 import { clamp01, smooth } from './motionkit.js';
 import { bakeBudget } from './governor.js';
 import { foliageKind, foliageOffset } from './foliage.js';
@@ -35,7 +35,7 @@ const GROUND_RES = 0.85, GROUND_RES_TRIM = 0.7;   // (the second while frames ru
 const HAZE_TOP = 0.34;     // the haze reaches this far down the screen
 const SHADOW_MIN_H = 40;   // world px: shorter pictures (flowers, bushes, rocks) keep their contact shadow only
 const SIL_MAX = 112;       // px: outlines are baked at most this tall (they are soft anyway)
-const SIL_PAD = 4;         // px of blur margin round a baked outline
+const SIL_PAD = 8;         // px of blur margin round a baked outline
 const ART_AHEAD = 12 * TILE;   // world px: a landmark's picture is asked for this far ahead of its shadow reaching the screen
 
 /** The tilt the view should have now: 0 (flat) when the setting is off, in
@@ -118,6 +118,7 @@ export class DepthView {
     this._sil = new WeakMap();
     this.budget = bakeBudget;   // shared with the monsters' ink outlines (governor.js)
     this._box = {};
+    this._actorArt = {};
     this._sv = {};
     this._hz = [0, 0, 0];
     this._hazePic = null; this._hazeKey = '';
@@ -189,7 +190,7 @@ export class DepthView {
   }
 
   /** A navy outline of a picture, soft-edged, baked once per picture. */
-  _silhouette(img, maxH = SIL_MAX, scenery = false) {
+  _silhouette(img, maxH = SIL_MAX) {
     let s = this._sil.get(img);
     if (s !== undefined) return s;
     // A few a frame (governor.js BakeBudget): entering an area asked for every
@@ -200,7 +201,7 @@ export class DepthView {
     s = null;
     try {
       const r = Math.min(1, maxH / img.naturalHeight), w = Math.max(2, Math.round(img.naturalWidth * r)), h = Math.max(2, Math.round(img.naturalHeight * r));
-      const pad = scenery ? 8 : SIL_PAD;
+      const pad = SIL_PAD;
       const a = document.createElement('canvas'); a.width = w; a.height = h;
       const ga = a.getContext('2d');
       ga.drawImage(img, 0, 0, w, h);
@@ -208,9 +209,9 @@ export class DepthView {
       ga.fillStyle = `rgb(${SHADOW_RGB})`; ga.fillRect(0, 0, w, h);
       const b = document.createElement('canvas'); b.width = w + pad * 2; b.height = h + pad * 2;
       const gb = b.getContext('2d');
-      if ('filter' in gb) gb.filter = scenery ? 'blur(2.8px)' : 'blur(1.6px)';
+      if ('filter' in gb) gb.filter = 'blur(2.8px)';
       gb.drawImage(a, pad, pad);
-      if (scenery) {
+      if (gb.createLinearGradient) {
         // Wider, fainter edges away from the foot, where a tall shadow softens.
         if ('filter' in gb) gb.filter = 'none';
         gb.globalCompositeOperation = 'destination-in';
@@ -228,21 +229,30 @@ export class DepthView {
     return s;
   }
 
-  /** Lay the creature's rest silhouette on the ground, following its facing and the sun. */
+  /** Lay the actor's rest silhouette on the ground, following its facing and the sun. */
   castCreatureShadow(g, npcId, def, x, y, scale, face, sv, opacity = 1) {
     if (!this.ok || !sv?.on || opacity <= 0) return false;
-    const img = creatureCastImage(npcId, def);
-    if (!img?.complete || !img.naturalWidth) return false;
-    const sil = this._silhouette(img, def.boss ? 96 : 64);
+    const art = creatureCastArt(npcId, def, this._actorArt);
+    if (!art) return false;
+    const floats = creatureFloats(def.sprite, def.family);
+    return this._castActor(g, art, x, y, scale, face, sv, opacity * (floats ? 0.6 : 1), floats ? 4 * scale : 0, def.boss ? 96 : 64);
+  }
+
+  castHeroShadow(g, jobClass, style, x, y, face, sv, opacity = 1, lift = 0) {
+    if (!this.ok || !sv?.on || opacity <= 0) return false;
+    const art = heroCastArt(jobClass, style, this._actorArt);
+    return art ? this._castActor(g, art, x, y, 1, face, sv, opacity, lift, 96) : false;
+  }
+
+  _castActor(g, { img, fit }, x, y, scale, face, sv, opacity, lift, maxH) {
+    const sil = this._silhouette(img, maxH);
     if (!sil) return false;
-    const fit = creatureArtScale(img) * scale;
-    const floats = creatureFloats(def.sprite, def.family), lift = floats ? 4 * scale : 0;
     g.save();
-    g.globalAlpha *= sv.alpha * opacity * (floats ? 0.55 : 0.95);
+    g.globalAlpha *= sv.alpha * opacity * 0.95;
     // Preserve the current canvas scale. The depth view warps this ground
     // along with the terrain, so the shadow stays flat at any camera angle.
     g.transform(face, 0, -sv.kx, -sv.ky, x + sv.kx * lift, y + sv.ky * lift);
-    this._drawSilhouette(g, sil, img.naturalWidth * fit, img.naturalHeight * fit);
+    this._drawSilhouette(g, sil, img.naturalWidth * fit * scale, img.naturalHeight * fit * scale);
     g.restore();
     return true;
   }
@@ -285,7 +295,7 @@ export class DepthView {
       const kx = sv.kx + (plant && lean ? foliageOffset(lean(o), 1, 1) : 0);
       const dx = b.h * kx, dy = b.h * sv.ky, half = b.w / 2 + 12;
       if (bx + half + Math.max(0, dx) < 0 || bx - half + Math.min(0, dx) > vw || by + 12 < 0 || by + dy - 12 > vh) return;
-      const sil = this._silhouette(b.img, SIL_MAX, true);
+      const sil = this._silhouette(b.img, SIL_MAX);
       if (!sil) return;
       // Picture space: x across from the base's middle, y up (negative) from the base.
       // On the ground: x' = x - kx y, y' = -ky y (ky < 0 lays it up the screen).

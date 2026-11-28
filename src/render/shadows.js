@@ -34,8 +34,7 @@ export function sunShadow(phase, out = {}) {
 /** A footfall squash, 0..1: peaks as a foot lands (walkPhase counts tiles walked, one step a tile). */
 export function footfall(walkPhase, moving) {
   if (!moving) return 0;
-  const s = 1 - Math.abs(Math.sin(walkPhase * Math.PI));
-  return s * s * s * s;
+  return Math.cos(walkPhase * Math.PI) ** 6;
 }
 
 /**
@@ -45,17 +44,25 @@ export function footfall(walkPhase, moving) {
  * With `sun.low` set (low graphics) it is the plain shadow.
  */
 export function drawSunShadow(ctx, cx, cy, rx, ry, sun, squash = 0, lift = 0) {
-  if (squash) { rx *= 1 + 0.14 * squash; ry *= 1 - 0.1 * squash; }
-  if (lift > 0) { const k = Math.max(0.45, 1 - lift / 24); rx *= k; ry *= k; }
-  if (!sun || sun.low) { drawShadow(ctx, cx, cy, rx, ry); return; }
   const a0 = ctx.globalAlpha;
+  if (squash) { rx *= 1 + 0.14 * squash; ry *= 1 - 0.1 * squash; }
+  if (lift > 0) {
+    const k = Math.max(0.45, 1 - lift / 24);
+    rx *= k; ry *= k;
+    ctx.globalAlpha *= 0.6 + 0.4 * k;
+  }
+  if (!sun || sun.low) {
+    drawShadow(ctx, cx, cy, rx, ry);
+    ctx.globalAlpha = a0;
+    return;
+  }
   // The contact shadow right under the feet: always there, softer at night.
-  ctx.globalAlpha = a0 * (0.55 + 0.45 * sun.alpha);
+  ctx.globalAlpha *= 0.55 + 0.45 * sun.alpha;
   drawShadow(ctx, cx, cy, rx * 0.86, ry * 0.9);
   // The cast shadow: stretched along the sun's line and slid that way.
   if (sun.day > 0.02) {
     const ext = sun.stretch - 1, srx = rx * (0.9 + ext * 0.85), sry = ry * (1 + ext * 0.12);
-    ctx.globalAlpha = a0 * Math.min(1, sun.alpha * (0.7 + 0.35 * sun.day)) * (lift > 0 ? Math.max(0.4, 1 - lift / 20) : 1);
+    ctx.globalAlpha = a0 * Math.min(1, sun.alpha * (0.7 + 0.35 * sun.day)) * (sun.sky ?? 1) * (lift > 0 ? Math.max(0.4, 1 - lift / 20) : 1);
     drawShadow(ctx, cx + sun.dx * (srx - rx * 0.6), cy + sun.dy * ry * (1 + ext), srx, sry);
   }
   ctx.globalAlpha = a0;
