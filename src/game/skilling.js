@@ -6,6 +6,7 @@ import { yieldBonus, huntExtras } from './culling.js';
 import { toolBonus, toolTooHighMsg } from './tools.js';
 import { batched, makeCap } from './autoprocess.js';
 import { nodeJackpot, rockPick, SEAM_MULT, huntJackpot } from './jackpot.js';
+import { rockImpactPoint } from '../render/miningRock.js';
 import { burnAll } from './bonfire.js';   // every log at once, onto one bonfire   // now and then the whole tree or seam at once   // an instant batch's news told once (smeltBatch)
 
 const objCenter = (obj) => ({ x: obj.x * TILE + TILE / 2, y: obj.y * TILE + TILE / 2 - 6 });
@@ -228,7 +229,8 @@ export function resolveMine(game, action) {
     if (typeof obj.oresLeft !== 'number') obj.oresLeft = rollRockOres();
     game.inventory.add(yieldId, 1);
     game.skills.addXp('mining', def.xp);
-    const mc = objCenter(obj); game.spawnPoof(mc.x, mc.y, def.ore || '#cfcfcf');
+    const mc = rockImpactPoint(obj, game.player.renderCenter?.());
+    game.spawnPoof(mc.x, mc.y, def.ore || '#cfcfcf');
     game.world.shake(obj, 280); game.bus.emit('sfx', 'gather:mining'); // the rock judders as ore breaks free
     const oreName = getItem(yieldId).name.toLowerCase();
     // Rich seam: a chance at a second yield, and once that is certain a chance

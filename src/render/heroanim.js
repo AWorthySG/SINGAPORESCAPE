@@ -41,6 +41,7 @@ import { agilityClipId } from '../data/objects.js';
 import { itemIconImage } from './icons.js';
 import { bestTool } from '../game/tools.js';
 import { drawEmptyArm, drawHeroStrikeSpark, hasEmptyArm, BRAWLER_SHOULDERS } from './heroAnimArt.js';
+import { rockImpactPoint } from './miningRock.js';
 
 const EASE = {
   lin: (x) => x,
@@ -1327,6 +1328,11 @@ function beatFx(game, skillId, a) {
   if (!kind) return;
   const o = a?.obj, p = game.player;
   const pc = p.renderCenter ? p.renderCenter() : { x: p.x * TILE + TILE / 2, y: p.y * TILE + TILE / 2 };
+  if (skillId === 'mining' && o?.def?.type === 'rock') {
+    const strike = rockImpactPoint(o, pc);
+    spawnBeatFx(game, kind, strike.x, strike.y);
+    return;
+  }
   // The spot struck: between the hero and the object, a little up off the ground.
   const x = o ? (o.x * TILE + TILE / 2) * 0.6 + pc.x * 0.4 : pc.x + (p.faceX || 1) * 10;
   const y = o ? (o.y * TILE + TILE / 2) * 0.6 + pc.y * 0.4 - 4 : pc.y + 8;

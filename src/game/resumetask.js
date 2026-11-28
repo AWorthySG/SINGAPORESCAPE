@@ -19,10 +19,18 @@ export function readResumeTask(game, raw) {
   }
   if (!['work', 'walk'].includes(raw?.kind) || !Number.isInteger(raw.x) || !Number.isInteger(raw.y)
     || !game.world.inBounds(raw.x, raw.y)) return null;
+  const world = game.world;
   if (raw.kind === 'work') {
-    const obj = game.world.objectAt(raw.x, raw.y);
+    const here = world.objectAt(raw.x, raw.y);
+    const obj = here?.objId === raw.id ? here : world.miningNodeAtOrigin?.(raw.x, raw.y);
     if (!WORK.has(obj?.def?.type) || obj.objId !== raw.id) return null;
-  } else if (game.world.isBlocked(raw.x, raw.y)) return null;
+    return { kind: raw.kind, x: obj.x, y: obj.y, id: raw.id };
+  }
+  if (world.isBlocked(raw.x, raw.y)) {
+    if (!world.objectAt(raw.x, raw.y)?.miningOrigin) return null;
+    const besideRock = game._nearestFree(raw.x, raw.y);
+    return besideRock ? { kind: 'walk', ...besideRock, id: raw.id } : null;
+  }
   return { kind: raw.kind, x: raw.x, y: raw.y, id: raw.id };
 }
 

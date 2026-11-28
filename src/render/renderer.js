@@ -37,7 +37,8 @@ const ARROW_LOOK = {
   eternal: { head: '#c27bff', fletch: '#ecd6ff', shaft: '#3a2a5a', trail: '#d6a8ff', glow: '#a855ff', size: 1.25, barbed: true },
 };
 import { labelMode, objectLabelAlpha, npcNameVisible, targetTag, targetTagY, TAG_H, elementTint } from './worldlabels.js';
-import { drawCreature, drawPlayer, drawObjectSprite, drawGroundItem, fishCalm } from './sprites.js';
+import { drawCreature, drawPlayer, drawObjectSprite, drawGroundItem, drawMiningRockSprite, miningRockSpriteLayout, fishCalm } from './sprites.js';
+import { drawMiningGround, rockLayout } from './miningRock.js';
 import { heroAnimFrame, drawFishingGear, strikeClock } from './heroanim.js';
 import { petDrawable } from './petsprite.js';
 import { RARITY } from '../game/loot.js';
@@ -379,7 +380,19 @@ export class Renderer {
     }
     for (const o of visObjs) {
       if (o.def.footprint) continue;   // landmarks: below, by their own list
-      // Harvest judder: a struck tree/rock wobbles briefly as the resource pops.
+      if (o.def.type === 'rock') {
+        const rock = miningRockSpriteLayout(o), cx = o.x * TILE + TILE / 2 - ox, cy = o.y * TILE + TILE / 2 - oy;
+        const selected = !o.depleted && (game.hover?.obj === o || game.player.action?.obj === o);
+        const reduced = calm || game.lowFx;
+        const pulse = selected && !reduced ? 1 + Math.sin(timeMs * 0.006) * 0.065 : 1;
+        drawMiningGround(ctx, cx, cy, rock, selected, pulse);
+        // The generic drawable transform adds 12px to its sort row. A rock's
+        // shape uses exactly the same ground contact as the shadow below it.
+        drawables.push({ sortY: o.y + (TILE / 2 + rock.foot - 12) / TILE, z: 1,
+          draw: () => drawMiningRockSprite(ctx, o, cx, cy, reduced, rock) });
+        continue;
+      }
+      // Harvest judder: a struck tree wobbles briefly as the resource pops.
       const jx = !calm && o.shakeT > 0 ? Math.sin(o.shakeT * 0.09) * 1.7 * (o.shakeT / 280) : 0;
       const cx = o.x * TILE + TILE / 2 - ox + jx, cy = o.y * TILE + TILE / 2 - oy;
       const lit = night > 0.12 && isLightSource(o);
@@ -1964,7 +1977,7 @@ export class Renderer {
         const sc = hv.npc.def.scale || 1;
         cx = c.x - ox; cy = c.y - oy + 12 * sc; rx = 11 * sc * pulse;
         col = hv.npc.attackable ? 'rgba(255,122,90,0.85)' : 'rgba(127,224,208,0.85)';
-      } else if (hv.obj && !hv.obj.depleted) {
+      } else if (hv.obj && !hv.obj.depleted && hv.obj.def?.type !== 'rock') {
         cx = hv.obj.x * TILE + TILE / 2 - ox; cy = hv.obj.y * TILE + TILE * 0.72 - oy;
         rx = 12 * pulse; col = 'rgba(255,215,115,0.8)';
       }
@@ -2019,14 +2032,15 @@ export class Renderer {
       const t = o.def.type;
       if (t !== 'tree' && t !== 'rock' && t !== 'fishing') continue;
       if (o.depleted || !o.def.label) continue;
-      const cx = o.x * TILE + TILE / 2 - ox;
+      const rock = t === 'rock' ? rockLayout(o) : null;
+      const cx = o.x * TILE + TILE / 2 - ox + (rock?.dx || 0);
       const cy = o.y * TILE + TILE / 2 - oy;
       if (cx < -30 || cx > vw + 30 || cy < -20 || cy > vh + 20) continue;
       const alpha = objectLabelAlpha(game, o, mode);
       if (alpha <= 0) continue;
-      if (pj) applyRow(ctx, pj, cy + 13);
+      if (pj) applyRow(ctx, pj, cy + (rock?.foot ?? 13));
       ctx.globalAlpha = alpha;
-      const yy = cy - (t === 'tree' ? 30 : t === 'rock' ? 18 : 16);
+      const yy = cy + (rock?.labelY ?? (t === 'tree' ? -30 : -16));
       const label = o.def.label;
       const wpx = ctx.measureText(label).width + 8;
       // Little white sticker pills, matching the HUD.
@@ -2385,9 +2399,14 @@ export class Renderer {
     const o = a.obj;
     if (Math.max(Math.abs(o.x - game.player.x), Math.abs(o.y - game.player.y)) > 1) return;
     const t = Math.max(0, Math.min(1, game.tickAcc / TICK_MS));
-    const cx = o.x * TILE + TILE / 2 - ox, cy = o.y * TILE - oy - (o.def.type === 'tree' ? 26 : 4);
+    const rock = o.def.type === 'rock' ? rockLayout(o) : null;
+    const cx = o.x * TILE + TILE / 2 - ox + (rock?.dx || 0);
+    const midY = o.y * TILE + TILE / 2 - oy;
+    const label = rock && objectLabelAlpha(game, o, labelMode(game)) > 0;
+    const cy = rock ? midY + (label ? rock.labelY - 22 : rock.progressY)
+      : o.y * TILE - oy - (o.def.type === 'tree' ? 26 : 4);
     ctx.save();
-    if (this._pj) applyRow(ctx, this._pj, o.y * TILE + 29 - oy);
+    if (this._pj) applyRow(ctx, this._pj, midY + (rock?.foot ?? 13));
     ctx.lineCap = 'round';
     ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(cx, cy, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();

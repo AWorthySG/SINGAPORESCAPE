@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { saveGame, loadGame, clearSave } from '../src/game/save.js';
 import { chebyshev } from '../src/core/utils.js';
+import { TERRAIN } from '../src/data/world.js';
 import { EVENT_IDS, EVENT_GAP, FIRST_GAP, GATHER_GOAL, WEEKLY_TASKS, isoWeekKey, eventReward, weeklyCrate } from '../src/data/worldevents.js';
 
 function fakeStorage() {
@@ -139,7 +140,12 @@ test('a meteor strike leaves a rich rock; swings use its charges and it crumbles
   const rock = ev.objs[0];
   assert.equal(rock.objId, 'fallen_star', 'drawn as a fallen star');
   assert.ok(rock.def.level <= g.skills.level('mining'), 'at a level you can mine');
-  const near = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]].map(([dx, dy]) => ({ x: rock.x + dx, y: rock.y + dy })).find((t) => !g.world.isBlocked(t.x, t.y));
+  const dryGround = [TERRAIN.GRASS, TERRAIN.DARKGRASS, TERRAIN.SAND, TERRAIN.STONE];
+  assert.ok(dryGround.includes(g.world.terrainAt(rock.x, rock.y)), 'no crater on a road or bridge');
+  const sides = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({ x: rock.x + dx, y: rock.y + dy }))
+    .filter(({ x, y }) => !g.world.isBlocked(x, y) && dryGround.includes(g.world.terrainAt(x, y)));
+  assert.ok(sides.length >= 3, 'room to mine from several sides');
+  const [near] = sides;
   placeAt(g, near.x, near.y);
   g.defaultObjectAction(rock);
   const ore = g.inventory.count(rock.def.gives);
