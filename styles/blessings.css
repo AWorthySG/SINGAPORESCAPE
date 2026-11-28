@@ -4,8 +4,6 @@
   --bl-muted: var(--combat-muted, #536258);
   --bl-paper: var(--combat-paper, #fffdf7);
   --bl-line: var(--combat-line, #e2d3b8);
-  --bl-gold: var(--combat-gold, #805b29);
-  --bl-well: var(--combat-well, #f7edd9);
   display: grid;
   gap: 10px;
   color: var(--bl-ink);
@@ -36,9 +34,9 @@
   height: 7px;
   border-radius: 999px;
   overflow: hidden;
-  background: var(--bl-well);
+  background: var(--combat-locked-bg, #e2e7e4);
 }
-#prayer-panel .bl-faith-bar i { display: block; height: 100%; width: 0; background: #b38340; transition: width .25s ease; }
+#prayer-panel .bl-faith-bar i { display: block; height: 100%; width: 0; background: var(--combat-selected-bg, #18483f); transition: width .25s ease; }
 #prayer-panel .bl-faith-text { color: var(--bl-ink); font-size: var(--fs-xs); font-weight: 800; font-variant-numeric: tabular-nums; }
 #prayer-panel .bl-faith-state { color: var(--bl-muted); font-size: var(--fs-cap); font-weight: 750; }
 
@@ -50,10 +48,10 @@
   gap: 4px;
   min-height: 44px;
   padding: 4px 7px;
-  border: 1px solid var(--combat-locked-edge, #968a73);
+  border: 1px solid var(--combat-locked-edge, #687a72);
   border-radius: 9px;
-  background: var(--combat-locked-bg, #eee9df);
-  color: var(--combat-locked-ink, #504e42);
+  background: var(--combat-locked-bg, #e2e7e4);
+  color: var(--combat-locked-ink, #495c56);
   font: inherit;
   font-size: var(--fs-sm);
   font-weight: 850;
@@ -65,17 +63,12 @@
   border: 1px solid currentColor; opacity: .8;
 }
 #prayer-panel .bl-burst.ready {
-  border-color: var(--combat-selected-bg, #1d493f);
-  background: var(--combat-selected-bg, #1d493f);
-  color: var(--combat-selected-ink, #fffdf5);
+  border-color: var(--combat-action-edge, #795217);
+  background: var(--combat-action-bg, #ecc363);
+  color: var(--combat-action-ink, #243932);
   cursor: var(--cur-pointer);
 }
-#prayer-panel .bl-burst.ready:hover { background: var(--combat-selected-hover, #153b32); }
-#prayer-panel .bl-burst.active:not(.ready) {
-  border-color: var(--combat-control-edge, #886a43);
-  background: var(--combat-control-bg, #f6e6c6);
-  color: var(--combat-control-ink, #243932);
-}
+#prayer-panel .bl-burst.ready:hover { background: var(--combat-action-hover, #e0b44f); }
 
 #prayer-panel .bl-burst-info {
   display: grid;
@@ -91,7 +84,7 @@
   padding: 4px;
   border-top: 1px solid var(--bl-line);
 }
-#prayer-panel .bl-burst-info b { color: var(--bl-gold); font-size: var(--fs-xs); }
+#prayer-panel .bl-burst-info b { color: var(--bl-ink); font-size: var(--fs-xs); }
 #prayer-panel .bl-burst-info span { color: var(--bl-muted); font-size: var(--fs-cap); line-height: 1.15; }
 
 #prayer-panel .bl-slots-label,
@@ -123,17 +116,17 @@
   padding: 3px 2px;
 }
 #prayer-panel .bl-slot.filled {
-  border-color: var(--combat-selected-bg, #1d493f);
-  background: var(--combat-selected-bg, #1d493f);
+  border-color: var(--combat-selected-bg, #18483f);
+  background: var(--combat-selected-bg, #18483f);
   color: var(--combat-selected-ink, #fffdf5);
   font-weight: 850;
   cursor: var(--cur-pointer);
 }
-#prayer-panel .bl-slot.filled:hover { background: var(--combat-selected-hover, #153b32); }
+#prayer-panel .bl-slot.filled:hover { background: var(--combat-selected-hover, #113a32); }
 #prayer-panel .bl-slot-ic { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; }
 #prayer-panel .bl-slot-ic img { width: 22px; height: 22px; object-fit: contain; }
 #prayer-panel .bl-slot-name { max-width: 100%; }
-#prayer-panel .bl-slot.empty { min-height: 52px; justify-content: flex-end; border-style: dashed; border-color: var(--combat-control-edge, #886a43); color: var(--bl-gold); position: relative; }
+#prayer-panel .bl-slot.empty { min-height: 52px; justify-content: flex-end; border-style: dashed; border-color: var(--combat-control-edge, #557164); color: var(--bl-muted); position: relative; }
 #prayer-panel .bl-slot.empty::before {
   content: '';
   position: absolute;
@@ -145,9 +138,9 @@
   pointer-events: none;
 }
 #prayer-panel .bl-slot.locked {
-  border-color: var(--combat-locked-edge, #968a73);
-  background: var(--combat-locked-bg, #eee9df);
-  color: var(--combat-locked-ink, #504e42);
+  border-color: var(--combat-locked-edge, #687a72);
+  background: var(--combat-locked-bg, #e2e7e4);
+  color: var(--combat-locked-ink, #495c56);
 }
 #prayer-panel .bl-slot.locked small { font-size: inherit; font-weight: 650; }
 #prayer-panel .bl-total { display: grid; gap: 2px; margin-top: 7px; padding-top: 6px; border-top: 1px solid var(--bl-line); font-size: var(--fs-xs); }
@@ -158,18 +151,17 @@
 #prayer-panel .bl-rules summary {
   min-height: 44px;
   padding-inline: 8px;
-  border: 1px solid var(--combat-control-edge, #886a43);
+  border: 1px solid var(--combat-control-edge, #557164);
   border-radius: 7px;
-  background: var(--combat-control-bg, #f6e6c6);
+  background: var(--combat-control-bg, #ddebe4);
   color: var(--combat-control-ink, #243932);
   cursor: var(--cur-pointer);
   font-size: var(--fs-sm);
   font-weight: 850;
   line-height: 42px;
 }
-#prayer-panel .bl-rules summary:hover { background: var(--combat-control-hover, #ead4aa); }
+#prayer-panel .bl-rules summary:hover { background: var(--combat-control-hover, #cbded3); }
 #prayer-panel .bl-rules[open] { flex-basis: 100%; }
-#prayer-panel .bl-rules[open] summary { background: var(--combat-selected-bg, #1d493f); color: var(--combat-selected-ink, #fffdf5); }
 #prayer-panel .bl-rules p { margin: 5px 0; line-height: 1.45; }
 
 #prayer-panel .bl-filters {
@@ -182,9 +174,9 @@
   min-height: 44px;
   min-width: 0;
   padding: 3px 1px;
-  border: 1px solid var(--combat-control-edge, #886a43);
+  border: 1px solid var(--combat-control-edge, #557164);
   border-radius: 7px;
-  background: var(--combat-control-bg, #f6e6c6);
+  background: var(--combat-control-bg, #ddebe4);
   color: var(--combat-control-ink, #243932);
   font: inherit;
   font-size: var(--fs-sm);
@@ -193,12 +185,12 @@
   cursor: var(--cur-pointer);
 }
 #prayer-panel .bl-filters button[aria-pressed="true"] {
-  border-color: var(--combat-selected-bg, #1d493f);
-  background: var(--combat-selected-bg, #1d493f);
+  border-color: var(--combat-selected-bg, #18483f);
+  background: var(--combat-selected-bg, #18483f);
   color: var(--combat-selected-ink, #fffdf5);
 }
-#prayer-panel .bl-filters button[aria-pressed="false"]:hover { background: var(--combat-control-hover, #ead4aa); }
-#prayer-panel .bl-filters button[aria-pressed="true"]:hover { background: var(--combat-selected-hover, #153b32); }
+#prayer-panel .bl-filters button[aria-pressed="false"]:hover { background: var(--combat-control-hover, #cbded3); }
+#prayer-panel .bl-filters button[aria-pressed="true"]:hover { background: var(--combat-selected-hover, #113a32); }
 
 #prayer-panel .prayer-grid { gap: 5px; }
 #prayer-panel .prayer-cell {
@@ -206,23 +198,23 @@
   width: 100%;
   gap: 7px;
   padding: 7px;
-  border: 1px solid var(--combat-control-edge, #886a43);
+  border: 1px solid var(--combat-control-edge, #557164);
   border-radius: 9px;
-  background: var(--bl-paper);
+  background: var(--combat-control-bg, #ddebe4);
   color: var(--bl-ink);
   font: inherit;
   box-shadow: none;
   transform: none;
 }
-#prayer-panel .prayer-cell:not([aria-disabled="true"]):hover { background: var(--combat-control-bg, #f6e6c6); box-shadow: none; transform: none; }
+#prayer-panel .prayer-cell:not([aria-disabled="true"]):hover { background: var(--combat-control-hover, #cbded3); box-shadow: none; transform: none; }
 #prayer-panel .prayer-cell.active {
-  background: var(--combat-selected-bg, #1d493f);
-  border-color: var(--combat-selected-bg, #1d493f);
+  background: var(--combat-selected-bg, #18483f);
+  border-color: var(--combat-selected-bg, #18483f);
 }
-#prayer-panel .prayer-cell.active:not([aria-disabled="true"]):hover { background: var(--combat-selected-hover, #153b32); }
+#prayer-panel .prayer-cell.active:not([aria-disabled="true"]):hover { background: var(--combat-selected-hover, #113a32); }
 #prayer-panel .prayer-cell[aria-disabled="true"] {
-  background: var(--combat-locked-bg, #eee9df);
-  border-color: var(--combat-locked-edge, #968a73);
+  background: var(--combat-locked-bg, #e2e7e4);
+  border-color: var(--combat-locked-edge, #687a72);
   border-style: solid;
   cursor: var(--cur-default, default);
 }
@@ -233,23 +225,23 @@
   max-width: 45%;
   flex: none;
   padding: 2px 5px;
-  border: 1px solid var(--combat-control-edge, #886a43);
+  border: 1px solid var(--combat-control-edge, #557164);
   border-radius: 4px;
   color: var(--combat-control-ink, #243932);
-  background: var(--combat-control-bg, #f6e6c6);
+  background: var(--combat-control-bg, #ddebe4);
   font-size: var(--fs-xs);
   font-weight: 850;
   text-align: center;
 }
-#prayer-panel .prayer-cell.active .pr-lvl { color: var(--combat-selected-bg, #1d493f); background: var(--combat-selected-ink, #fffdf5); border-color: transparent; }
-#prayer-panel .prayer-cell[aria-disabled="true"] .pr-lvl { color: var(--combat-locked-ink, #504e42); background: var(--bl-paper); border-color: var(--combat-locked-edge, #968a73); }
+#prayer-panel .prayer-cell.active .pr-lvl { color: var(--combat-selected-bg, #18483f); background: var(--combat-selected-ink, #fffdf5); border-color: transparent; }
+#prayer-panel .prayer-cell[aria-disabled="true"] .pr-lvl { color: var(--combat-locked-ink, #495c56); background: var(--combat-locked-bg, #e2e7e4); border-color: var(--combat-locked-edge, #687a72); }
 #prayer-panel .prayer-cell .pr-effect { color: var(--bl-ink); font-weight: 730; }
 #prayer-panel .prayer-cell .pr-detail { color: var(--bl-muted); font-size: var(--fs-cap); }
-#prayer-panel .prayer-cell .pr-hint { color: var(--bl-gold); font-size: var(--fs-cap); font-weight: 820; margin-top: 2px; }
+#prayer-panel .prayer-cell .pr-hint { color: var(--combat-control-ink, #243932); font-size: var(--fs-cap); font-weight: 820; margin-top: 2px; }
 #prayer-panel .prayer-cell.active :is(.pr-top b, .pr-effect, .pr-detail) { color: var(--combat-selected-ink, #fffdf5); }
-#prayer-panel .prayer-cell[aria-disabled="true"] :is(.pr-top b, .pr-effect, .pr-detail) { color: var(--combat-locked-ink, #504e42); }
+#prayer-panel .prayer-cell[aria-disabled="true"] :is(.pr-top b, .pr-effect, .pr-detail) { color: var(--combat-locked-ink, #495c56); }
 #prayer-panel .bl-empty-list { margin: 0; padding: 9px; border: 1px dashed var(--bl-line); border-radius: 8px; color: var(--bl-muted); font-size: var(--fs-xs); }
-#prayer-panel :is(button, summary, .bl-heading):focus-visible { outline: 3px solid var(--combat-focus, #704519); outline-offset: 2px; }
+#prayer-panel :is(button, summary, .bl-heading):focus-visible { outline: 3px solid var(--combat-focus, #355f51); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
   #prayer-panel .bl-faith-bar i { transition: none; }

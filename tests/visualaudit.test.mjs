@@ -89,6 +89,8 @@ test('combat control colours keep text and button outlines readable in every sta
     ['locked-ink', 'locked-bg', 4.5], ['control-edge', 'paper', 3],
     ['control-edge', 'control-bg', 3], ['control-edge', 'control-hover', 3],
     ['locked-edge', 'locked-bg', 3], ['focus', 'paper', 3],
+    ['action-ink', 'action-bg', 4.5], ['action-ink', 'action-hover', 4.5],
+    ['action-edge', 'paper', 3], ['action-edge', 'action-bg', 3], ['action-edge', 'action-hover', 3],
   ];
   for (const [foreground, background, minimum] of pairs) {
     const a = luminance(foreground), b = luminance(background);

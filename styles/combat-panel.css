@@ -7,17 +7,21 @@
   --combat-teal: #27554b;
   --combat-gold: #805b29;
   --combat-well: #f7edd9;
-  --combat-control-bg: #f6e6c6;
+  --combat-control-bg: #ddebe4;
   --combat-control-ink: #243932;
-  --combat-control-edge: #886a43;
-  --combat-control-hover: #ead4aa;
-  --combat-selected-bg: #1d493f;
+  --combat-control-edge: #557164;
+  --combat-control-hover: #cbded3;
+  --combat-selected-bg: #18483f;
   --combat-selected-ink: #fffdf5;
-  --combat-selected-hover: #153b32;
-  --combat-locked-bg: #eee9df;
-  --combat-locked-ink: #504e42;
-  --combat-locked-edge: #80745f;
-  --combat-focus: #704519;
+  --combat-selected-hover: #113a32;
+  --combat-locked-bg: #e2e7e4;
+  --combat-locked-ink: #495c56;
+  --combat-locked-edge: #687a72;
+  --combat-action-bg: #ecc363;
+  --combat-action-ink: #243932;
+  --combat-action-edge: #795217;
+  --combat-action-hover: #e0b44f;
+  --combat-focus: #355f51;
 }
 
 #game-root :is(#panel-subtabs[data-tab="combat"], #combat-panel, #prayer-panel, #stats-panel, .cb-perks-panel) {
@@ -63,7 +67,7 @@
   border-color: var(--combat-selected-bg);
   background: var(--combat-selected-bg);
   color: var(--combat-selected-ink);
-  box-shadow: inset 0 -2px #d2ae70;
+  box-shadow: inset 0 -2px #93b7a7;
 }
 
 #game-root #sidepanel #panel-subtabs[data-tab="combat"] .subtab-btn .panel-key {
@@ -147,7 +151,7 @@
 #combat-panel .cb-class { margin: 0; font-size: var(--fs-xl); font-weight: 900; line-height: 1.1; }
 #combat-panel .cb-style-label { margin: 3px 0 0; color: #e6dfc9; font-size: var(--fs-sm); font-weight: 700; }
 #combat-panel .cb-combat-level { display: grid; padding-left: 10px; border-left: 1px solid #fff3ce58; text-align: center; }
-#combat-panel .cb-combat-level b { color: #f8d898; font-size: var(--fs-xl); font-variant-numeric: tabular-nums; line-height: 1.1; }
+#combat-panel .cb-combat-level b { color: #daeade; font-size: var(--fs-xl); font-variant-numeric: tabular-nums; line-height: 1.1; }
 #combat-panel .cb-combat-level span { margin-top: 3px; color: #f2ead4; font-size: var(--fs-xs); font-weight: 700; }
 
 #combat-panel .cb-metrics {
@@ -262,8 +266,8 @@
 #combat-panel .cb-spell-list .cb-spell.active:not(:disabled) .style-skill { color: #e2eee4; }
 #combat-panel .cb-spell-list .cb-spell:disabled .style-skill { color: var(--combat-locked-ink); }
 #combat-panel .cb-spell-status { align-self: flex-start; padding: 2px 6px; border-radius: 4px; background: #e9f2e5; color: #22493a; font-size: var(--fs-xs); font-weight: 900; }
-#combat-panel .cb-spell[data-ready="false"] .cb-spell-status { background: #f5d79b; color: #513813; }
-#combat-panel .cb-spell:disabled .cb-spell-status { background: #ddd4c3; color: var(--combat-locked-ink); }
+#combat-panel .cb-spell[data-ready="false"] .cb-spell-status { background: var(--combat-locked-bg); color: var(--combat-locked-ink); }
+#combat-panel .cb-spell:disabled .cb-spell-status { background: #d2dad6; color: var(--combat-locked-ink); }
 
 #combat-panel .merc-hire, #combat-panel .st-all {
   width: fit-content;
@@ -271,18 +275,23 @@
   min-height: 40px;
   margin: 0;
   padding: 5px 11px;
-  border: 1px solid var(--combat-selected-bg);
+  border: 1px solid var(--combat-control-edge);
   border-radius: 8px;
-  background: var(--combat-selected-bg);
-  color: var(--combat-selected-ink);
+  background: var(--combat-control-bg);
+  color: var(--combat-control-ink);
   box-shadow: none;
   font-size: var(--fs-md);
   font-weight: 900;
 }
 
-#combat-panel .cb-stats .st-head .st-free { padding: 2px 6px; border: 1px solid var(--combat-line); border-radius: 6px; color: var(--combat-muted); background: #faf3e5; font-size: var(--fs-xs); font-weight: 850; }
+#combat-panel .cb-stats .st-head .st-free { padding: 2px 6px; border: 1px solid var(--combat-line); border-radius: 6px; color: var(--combat-muted); background: var(--combat-locked-bg); font-size: var(--fs-xs); font-weight: 850; }
 #combat-panel .cb-stats .st-head .st-free.has { border-color: #a6ba9e; background: #eaf1e3; color: #2b5b40; }
-#combat-panel .cb-stats .st-all { margin: 7px 0 3px; }
+#combat-panel .cb-stats .st-all {
+  margin: 7px 0 3px;
+  border-color: var(--combat-action-edge);
+  background: var(--combat-action-bg);
+  color: var(--combat-action-ink);
+}
 #combat-panel .cb-stats .st-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 3px 7px; padding: 7px 0; border: 0; border-bottom: 1px solid var(--combat-line); }
 #combat-panel .cb-stats .st-name { color: var(--combat-ink); font-weight: 800; }
 #combat-panel .cb-stats .st-name .st-val { margin-inline: 3px; color: var(--combat-ink); font-variant-numeric: tabular-nums; }
@@ -291,7 +300,7 @@
 #combat-panel .cb-stats .st-btns { grid-column: 2; grid-row: 1 / span 2; gap: 4px; }
 #combat-panel .cb-stats .st-btns [data-n="1"] { min-width: 44px; }
 #combat-panel .cb-stats .st-eff { color: var(--combat-muted); font-size: var(--fs-sm); line-height: 1.35; opacity: 1; }
-#combat-panel .cb-stats .st-add { min-width: 44px; min-height: 40px; border: 1px solid var(--combat-control-edge); background: #f1ce86; color: var(--combat-control-ink); box-shadow: none; }
+#combat-panel .cb-stats .st-add { min-width: 44px; min-height: 40px; border: 1px solid var(--combat-control-edge); background: var(--combat-control-bg); color: var(--combat-control-ink); box-shadow: none; }
 #combat-panel .cb-stats .st-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 8px; margin: 8px 0 0; color: var(--combat-muted); opacity: 1; }
 #combat-panel .cb-stats .st-foot p { margin: 0; }
 #combat-panel .cb-stats .st-foot p:first-child { flex-basis: 100%; }
@@ -306,9 +315,9 @@
 @media (hover: hover) {
   #combat-panel .cb-spell-list .cb-spell:not(.active, :disabled):hover,
   #combat-panel .auto-retal:hover,
-  #combat-panel :is(.cb-perks, .cb-attributes-jump, .st-add, .st-reset):not(:disabled):hover { background: var(--combat-control-hover); }
-  #combat-panel .cb-spell-list .cb-spell.active:not(:disabled):hover,
-  #combat-panel :is(.merc-hire, .st-all):not(:disabled):hover { background: var(--combat-selected-hover); }
+  #combat-panel :is(.cb-perks, .cb-attributes-jump, .st-add, .st-reset, .merc-hire):not(:disabled):hover { background: var(--combat-control-hover); }
+  #combat-panel .cb-spell-list .cb-spell.active:not(:disabled):hover { background: var(--combat-selected-hover); }
+  #combat-panel .st-all:hover { background: var(--combat-action-hover); }
 }
 
 /* The panel header belongs to the Combat views while their rail is open. */
