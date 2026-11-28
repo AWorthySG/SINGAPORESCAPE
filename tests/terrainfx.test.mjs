@@ -47,6 +47,18 @@ test('natural ground takes its regional palette and fades toward the border', ()
   assert.deepEqual(casts('Sentosa Beach', TERRAIN.STONE, 10), []);
 });
 
+test('grass feathers into the Peaks’ rock, while the same edge in town has a kerb', () => {
+  const w = {
+    terrainAt: (x, y) => x === 10 && y === 10 ? TERRAIN.STONE : TERRAIN.GRASS,
+    zoneAt: () => ({ name: 'The Celestial Peaks' }),
+  };
+  assert.deepEqual(blendPlan(w, 10, 10).map(({ t }) => t), [TERRAIN.GRASS]);
+  assert.deepEqual(kerbPlan(w, 10, 10, 11, 11), []);
+  w.zoneAt = () => ({ name: 'Kampong Glam' });
+  assert.deepEqual(blendPlan(w, 10, 10), []);
+  assert.equal(kerbPlan(w, 10, 10, 11, 11).length, 1);
+});
+
 test('blend plans are the same on every build of the world', () => {
   const a = world(), b = fresh();
   for (const [x0, y0, x1, y1] of AREAS) {
@@ -119,7 +131,9 @@ test('ground details keep off object tiles, water, bridges and the middle of roa
     const x = Math.floor(d.px / TILE), y = Math.floor(d.py / TILE), t = w.terrainAt(x, y);
     assert.equal(w.objectAt(x, y), null, `detail on an object at ${x},${y}`);
     assert.ok(t !== T.WATER && t !== T.WOOD, `detail on terrain ${t} at ${x},${y}`);
-    assert.equal(t === T.STONE, PAVING(d.id), `${d.id} on terrain ${t} at ${x},${y}`);
+    const rock = t === T.STONE && w.zoneAt(x, y)?.name === 'The Celestial Peaks';
+    assert.equal(t === T.STONE && !rock, PAVING(d.id), `${d.id} on terrain ${t} at ${x},${y}`);
+    if (rock) assert.ok(['pebble', 'stone'].includes(d.id), 'only scree is scattered on the rock');
     if (t === T.PATH) {
       onPath++;
       const verge = [[0, -1], [1, 0], [0, 1], [-1, 0]].some(([dx, dy]) => w.terrainAt(x + dx, y + dy) !== T.PATH);
@@ -244,6 +258,19 @@ function stubFactory(log) {
     return { width: w, height: h, getContext: () => ctx };
   };
 }
+
+test('the animated water layer paints ripples in open water and a thin edge at a quay', async () => {
+  const { Renderer } = await import('../src/render/renderer.js');
+  const calls = [], ctx = stubFactory(calls)(32, 32).getContext('2d');
+  const open = { terrainAt: () => TERRAIN.WATER };
+  const draw = (w, x, y) => Renderer.prototype._water.call({}, ctx, w, x, y, 0, 0, 800, true);
+  for (let x = 0; x < 8; x++) draw(open, x, 1);
+  assert.ok(calls.some((c) => c.startsWith('quadraticCurveTo:')));
+  assert.ok(calls.every((c) => !c.startsWith('fillRect:')), 'whole tiles don’t change brightness');
+  const pier = { terrainAt: (_x, y) => y === 0 ? TERRAIN.WOOD : TERRAIN.WATER };
+  draw(pier, 1, 1);
+  assert.ok(calls.includes(`fillRect:0,0,${TILE + 1},2`));
+});
 
 test('the bake runs headless against a stand-in canvas and is deterministic', () => {
   const w = world();

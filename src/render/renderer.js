@@ -55,7 +55,7 @@ import { RegionPostcards, titleRoom } from './postcard.js';
 import { Weather } from './weather.js';
 import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, DARK_REGIONS } from './fxart.js';
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
-import { TerrainFx, growBox, tileHash, recolourGround, paintGroundWash } from './terrainfx.js';
+import { TerrainFx, growBox, tileHash, paintGroundWash, naturalStone } from './terrainfx.js';
 import { sunShadow, drawSunShadow, drawCreatureContact, footfall } from './shadows.js';
 import { dropArc, dropFx, spawnFx, pickupFx } from './combatfx.js';
 import { applySquash, splatMotion, drawCritBurst, drawMissPuff, drawLootGlow, drawCoinGlint, motionOK } from './juice.js';
@@ -80,14 +80,15 @@ const PLAYER_DOT_STATUS = { poison: ['Poisoned', '#2f8a2a'], burn: ['Burning', '
 const ROOTED_STATUS = ['Rooted', '#6a4a2a'], STUNNED_STATUS = ['Stunned', '#7a5a9a'];
 
 // Base terrain colours (RGB): a bright pastel world in the A-Worthy palette
-// (soft mint lawns, warm cream paths, cream paper paving). Water is procedural.
+// (soft sage lawns, warm cream paths, cream paper paving, turquoise water).
 const TERRAIN_RGB = {
-  [TERRAIN.GRASS]: [170, 216, 146],
-  [TERRAIN.DARKGRASS]: [162, 210, 140],
+  [TERRAIN.GRASS]: [160, 195, 123],
+  [TERRAIN.DARKGRASS]: [130, 171, 113],
   [TERRAIN.PATH]: [238, 216, 178],
-  [TERRAIN.SAND]: [248, 232, 196],
+  [TERRAIN.SAND]: [228, 199, 145],
   [TERRAIN.STONE]: [232, 218, 198],
   [TERRAIN.WOOD]: [222, 186, 142],
+  [TERRAIN.WATER]: [100, 164, 186],
 };
 // Pastel tile accents for the paved plazas (design-system chip pastels with
 // their marker-pop partners): sun, bloom, sky, grass.
@@ -131,52 +132,28 @@ const GROUND_TEX = {
   [TERRAIN.GRASS]: 'grass', [TERRAIN.DARKGRASS]: 'darkgrass', [TERRAIN.PATH]: 'path', [TERRAIN.SAND]: 'sand',
   [TERRAIN.STONE]: 'stone', [TERRAIN.WOOD]: 'wood', [TERRAIN.WATER]: 'water',
 };
+const UPDATED_GROUND = new Set(['grass', 'darkgrass', 'sand', 'water']);
 // A big square shows the same 4 x 4 tile block over and over, so the paving
 // has variants (an inset Peranakan tile, a worn patch): each 4 x 4 block picks
 // one by a stable hash, the plain paving most of the time.
 const GROUND_VARIANTS = { [TERRAIN.STONE]: [['stone-2', 0.2], ['stone-3', 0.2]] };
-// A region whose ground looks unlike everyone else's: region name -> ground
-// type -> { tex } (its own texture, assets/world/ground-<tex>.webp) or
-// { tint } (the usual texture recoloured once, terrainfx.js recolourGround).
-// Either way it's baked into the terrain chunks, so it costs nothing per frame.
-// The Celestial Peaks' stone is the town paving turned cool grey-blue mountain
-// rock until painted rock arrives: then add ground-stone-peaks.webp and make
-// the entry { tex: 'stone-peaks' }; nothing else needs to change.
+// Where the local stone calls for its own painted texture. These are baked
+// into the terrain chunks, like the district and shoreline washes.
 export const REGION_GROUND = {
   'Kampong Glam': { [TERRAIN.STONE]: { tex: 'stone-kampong' } },
   Chinatown: { [TERRAIN.STONE]: { tex: 'stone-chinatown' } },
-  'The Celestial Peaks': { [TERRAIN.STONE]: { tint: { lo: [76, 84, 96], hi: [208, 213, 220], mid: 0.6, gain: 3 } } },
+  'Marina Bay': { [TERRAIN.STONE]: { tex: 'stone-marina' } },
+  'Kranji Farmlands': { [TERRAIN.STONE]: { tex: 'stone-kranji' } },
+  'Tuas Docklands': { [TERRAIN.STONE]: { tex: 'stone-tuas' } },
+  'Temasek Ruins': { [TERRAIN.STONE]: { tex: 'stone-temasek' } },
+  'Pulau Hantu': { [TERRAIN.STONE]: { tex: 'stone-temasek' } },
+  'The Shadow Rift': { [TERRAIN.STONE]: { tex: 'stone-rift' } },
+  'The Celestial Peaks': { [TERRAIN.STONE]: { tex: 'stone-peaks' } },
 };
 const REGION_TERRAINS = new Set(Object.values(REGION_GROUND).flatMap((r) => Object.keys(r).map(Number)));
 export const groundTextures = () => new Set([...Object.values(GROUND_TEX),
   ...Object.values(GROUND_VARIANTS).flatMap((v) => v.map(([n]) => n)),
   ...Object.values(REGION_GROUND).flatMap((r) => Object.values(r).map((e) => e.tex).filter(Boolean))]);
-
-/** A region's own look for ground type t at tile (x, y) (REGION_GROUND), or
- *  null for the usual one. A tinted texture is made the first time a chunk
- *  needs it and kept (on `tex`). */
-function regionGround(game, tex, t, x, y) {
-  const w = game?.world, z = w?.zoneAt ? w.zoneAt(x, y) : null;
-  const e = z && REGION_GROUND[z.name]?.[t];
-  if (!e) return null;
-  const key = `${z.name}|${t}`;
-  tex.region ||= {};
-  if (tex.region[key] === undefined) {
-    let cv = null;
-    try {
-      const src = tex[t], W = src.naturalWidth || src.width, H = src.naturalHeight || src.height;
-      cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-      const g = cv.getContext('2d');
-      g.drawImage(src, 0, 0);
-      const im = g.getImageData(0, 0, W, H);
-      recolourGround(im.data, e.tint);
-      g.putImageData(im, 0, 0);
-    } catch { cv = null; }   // (no canvas to hand: the usual texture)
-    tex.region[key] = cv;
-  }
-  const tile = tex.region[key];
-  return tile && tile.naturalWidth !== 0 ? tile : null;
-}
 
 const LIT_RGB = [255, 190, 110];   // the warm pool round lamps and fires drawn with them
 
@@ -221,17 +198,20 @@ export class Renderer {
   _loadGroundTextures() {
     if (typeof Image === 'undefined' || !this.terrainCanvas) return null;
     const tex = { variants: {}, region: {} }, ids = Object.keys(GROUND_TEX);
-    const own = Object.entries(REGION_GROUND).flatMap(([z, r]) => Object.entries(r).filter(([, e]) => e.tex).map(([t, e]) => [`${z}|${t}`, e.tex]));
-    let left = ids.length + Object.values(GROUND_VARIANTS).reduce((n, v) => n + v.length, 0) + own.length;
+    const own = Object.entries(REGION_GROUND).flatMap(([z, r]) => Object.entries(r).map(([t, e]) => [`${z}|${t}`, e.tex]));
+    let left = groundTextures().size;
     tex.ready = false;
+    const images = new Map();
     const load = (name) => {
+      if (images.has(name)) return images.get(name);
       const img = new Image();
       img.onload = img.onerror = () => {
         if (--left > 0) return;
         tex.ready = true;
         this.terrainCanvas.chunks.clear(); this.terrainCanvas.order.length = 0;
       };
-      img.src = `assets/world/ground-${name}.webp`;
+      img.src = `assets/world/ground-${name}.webp${UPDATED_GROUND.has(name) ? '?v=2' : ''}`;
+      images.set(name, img);
       return img;
     };
     for (const t of ids) tex[t] = load(GROUND_TEX[t]);
@@ -247,8 +227,9 @@ export class Renderer {
     const k = GROUND_TEX_PX / TILE;
     let img = tex[t];
     const vs = tex.variants[t];
-    const own = REGION_TERRAINS.has(t) ? regionGround(this.game, tex, t, x, y) : null;
-    if (own) img = own;   // a region's own ground (one look, no inset tiles)
+    const zone = REGION_TERRAINS.has(t) ? this.game?.world?.zoneAt?.(x, y) : null;
+    const own = zone && tex.region?.[`${zone.name}|${t}`];
+    if (own && own.naturalWidth !== 0) img = own;
     else if (vs) {   // the block's variant: the same every bake (the variants share the plain one's outer ring of stones)
       let r = tileHash(Math.floor(x / k), Math.floor(y / k), 41);
       for (const [v, w] of vs) { if ((r -= w) < 0) { if (v.naturalWidth !== 0) img = v; break; } }
@@ -1546,16 +1527,16 @@ export class Renderer {
         const t = w.terrainAt(x, y);
         const sx = (x - tx0) * TILE, sy = (y - ty0) * TILE;
         // Water's painted texture is baked here too: the animated layer over it
-        // (_drawWaterOverlay) then only adds the swell, shimmer and foam.
+        // (_drawWaterOverlay) then only adds the ripples and foam.
         if (!this._groundTile(g, t, x, y, sx, sy)) {
           const base = TERRAIN_RGB[t] || TERRAIN_RGB[TERRAIN.GRASS];
-          const h = hash(x, y), j = (h - 0.5) * 10;
-          g.fillStyle = t === TERRAIN.WATER ? 'rgb(122,190,232)' : `rgb(${clamp8(base[0] + j)},${clamp8(base[1] + j)},${clamp8(base[2] + j)})`;
+          const h = hash(x, y), j = t === TERRAIN.WATER ? 0 : (h - 0.5) * 10;
+          g.fillStyle = `rgb(${clamp8(base[0] + j)},${clamp8(base[1] + j)},${clamp8(base[2] + j)})`;
           g.fillRect(sx, sy, TILE + 1, TILE + 1);
           if (t !== TERRAIN.WATER) this._tileDetail(g, t, x, y, sx, sy, h);
         }
         paintGroundWash(g, w, t, x, y, sx, sy);
-        if (t === TERRAIN.STONE) this._tileEdges(g, w, t, x, y, sx, sy);
+        if (t === TERRAIN.STONE && !naturalStone(w, x, y)) this._tileEdges(g, w, t, x, y, sx, sy);
       }
     }
     // Soft edges between grounds, small ground details, contact shadows and
@@ -1589,7 +1570,7 @@ export class Renderer {
       const p = pats[t] || (pats[t] = g.createPattern(tex[t], 'repeat'));
       if (p) return p;
     }
-    const c = t === TERRAIN.WATER ? [122, 190, 232] : TERRAIN_RGB[t] || TERRAIN_RGB[TERRAIN.GRASS];
+    const c = TERRAIN_RGB[t] || TERRAIN_RGB[TERRAIN.GRASS];
     return `rgb(${c[0]},${c[1]},${c[2]})`;
   }
 
@@ -1682,7 +1663,7 @@ export class Renderer {
           } else if (wc.W !== W || wc.H !== H || wc.dpr !== dpr) { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height); }
           else if (old && old.x1 > old.x0) {
             // A box that reached the layer's right or bottom edge also clears the
-            // spare room past it: the edge tiles' 1px overlap lands there and,
+            // spare room past it: the quay foam's 1px overlap lands there and,
             // left to build up, would show as a line at the screen's edge (the
             // copy's smoothing reads one pixel past its source) at the world's edge.
             g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1699,7 +1680,7 @@ export class Renderer {
             }
           }
           if (this.tfx && this._visChunks && this.tfx.drawFoam(g, this._visChunks, x0 * TILE, y0 * TILE, cols * TILE, rows * TILE, timeMs, game.lowFx || game.fxTrim, box)) wc.any = true;
-          // A pixel of slack all round (the swell overlaps by one, smoothing
+          // A pixel of slack all round (the foam overlaps by one, smoothing
           // reaches a little further), kept inside the layer.
           if (wc.any) {
             box.x0 = Math.max(0, Math.floor(box.x0) - 2); box.y0 = Math.max(0, Math.floor(box.y0) - 2);
@@ -1813,45 +1794,41 @@ export class Renderer {
   }
 
   _water(ctx, w, x, y, sx, sy, timeMs, soft = false) {
-    // With soft shores (terrainfx.js) the baked waterline and foam meet sand and
-    // grass; only quays and bridges (stone, wood) keep a crisp foam line.
-    const land = soft ? (tt) => tt === TERRAIN.STONE || tt === TERRAIN.WOOD : (tt) => tt !== TERRAIN.WATER;
-    const dry = (tt) => tt !== TERRAIN.WATER;
-    const shore = dry(w.terrainAt(x, y - 1)) || dry(w.terrainAt(x, y + 1)) || dry(w.terrainAt(x - 1, y)) || dry(w.terrainAt(x + 1, y));
-    const wave = Math.sin((x + y) * 0.7 + timeMs * 0.0016) * 8 + Math.sin((x - y) * 0.5 + timeMs * 0.0011) * 6;
-    // Deeper water reads darker/greener; shallows near shore are brighter teal.
-    const d = shore && !soft ? 18 : 0;   // soft shores: no brighter rim to give the tile's square away
-    // The animated layer (soft) sits over terrain chunks that already hold the
-    // painted water, so it skips repainting it under every tile's swell.
-    const tex = this.groundTex;
-    if (soft && tex && tex.ready && tex[TERRAIN.WATER] ? true : this._groundTile(ctx, TERRAIN.WATER, x, y, sx, sy)) {
-      // Painted water: the swell rides on top as a soft light/dark wash.
-      const k = (wave + d * 0.6) / 14;
-      ctx.fillStyle = k > 0 ? swellFill(0, Math.min(0.22, k * 0.12)) : swellFill(1, Math.min(0.14, -k * 0.08));
-      ctx.fillRect(sx, sy, TILE + 1, TILE + 1);
-    } else {
-      ctx.fillStyle = `rgb(${(122 + d + wave * 0.5) | 0},${(190 + d * 0.6 + wave * 0.6) | 0},${(232 + d * 0.3 + wave * 0.4) | 0})`;
-      ctx.fillRect(sx, sy, TILE + 1, TILE + 1);
+    const water = TERRAIN.WATER;
+    // The animated layer sits over the painted, region-tinted water. Only
+    // the fallback renderer has to draw the water itself here.
+    if (!soft) {
+      if (!this._groundTile(ctx, water, x, y, sx, sy)) {
+        ctx.fillStyle = `rgb(${TERRAIN_RGB[water].join(',')})`;
+        ctx.fillRect(sx, sy, TILE + 1, TILE + 1);
+      }
+      paintGroundWash(ctx, w, water, x, y, sx, sy);
     }
-    // caustic shimmer (two drifting bands)
-    const hl = (Math.sin((x * 1.3 + y * 0.7) + timeMs * 0.002) + 1) / 2;
-    if (hl > 0.55) {
-      ctx.fillStyle = 'rgba(255,255,255,0.22)';
-      const yy = sy + ((timeMs * 0.02 + x * 9) % TILE);
-      ctx.fillRect(sx + 3, yy, TILE - 6, 1.6);
+    // A few soft brushstroke ripples drift over the grain. Tinting the whole
+    // square as it swelled made the game grid show through in open water.
+    const seed = tileHash(x, y, 165);
+    if (seed > 0.58) {
+      const flow = timeMs * 0.0013 + seed * 28 + x * 0.46 + y * 0.37;
+      const lift = Math.sin(flow);
+      const yy = sy + 8 + seed * 12 + lift * 3;
+      ctx.fillStyle = swellFill(lift < 0 ? 1 : 0, Math.abs(lift) * 0.16);
+      ctx.beginPath();
+      ctx.moveTo(sx + 4, yy);
+      ctx.quadraticCurveTo(sx + 12, yy - 3.7, sx + TILE - 6, yy - 0.8);
+      ctx.quadraticCurveTo(sx + 15, yy - 1.1, sx + 4, yy);
+      ctx.fill();
     }
-    const hl2 = (Math.sin((x * 0.6 - y * 1.1) + timeMs * 0.0013) + 1) / 2;
-    if (hl2 > 0.7) {
-      ctx.fillStyle = 'rgba(255,255,255,0.10)';
-      const yy = sy + ((timeMs * 0.013 + y * 7) % TILE);
-      ctx.fillRect(sx + 5, yy, TILE - 12, 1.2);
-    }
-    // foam on shore edges
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    if (land(w.terrainAt(x, y - 1))) ctx.fillRect(sx, sy, TILE + 1, 2);
-    if (land(w.terrainAt(x, y + 1))) ctx.fillRect(sx, sy + TILE - 1, TILE + 1, 2);
-    if (land(w.terrainAt(x - 1, y))) ctx.fillRect(sx, sy, 2, TILE + 1);
-    if (land(w.terrainAt(x + 1, y))) ctx.fillRect(sx + TILE - 1, sy, 2, TILE + 1);
+    // Soft shores use the baked waterline. Quays and bridges have a narrow
+    // edge where water meets their built face.
+    const bank = (bx, by) => {
+      const t = w.terrainAt(bx, by);
+      return soft ? t === TERRAIN.WOOD || (t === TERRAIN.STONE && !naturalStone(w, bx, by)) : t !== water;
+    };
+    ctx.fillStyle = 'rgba(240,255,248,0.55)';
+    if (bank(x, y - 1)) ctx.fillRect(sx, sy, TILE + 1, 2);
+    if (bank(x, y + 1)) ctx.fillRect(sx, sy + TILE - 1, TILE + 1, 2);
+    if (bank(x - 1, y)) ctx.fillRect(sx, sy, 2, TILE + 1);
+    if (bank(x + 1, y)) ctx.fillRect(sx + TILE - 1, sy, 2, TILE + 1);
   }
 
   /** Boss area attacks: red tiles with a fill that grows toward the moment it lands. */
