@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { Game } from '../src/game/game.js';
 import { Renderer } from '../src/render/renderer.js';
 import { PILL_STYLES } from '../src/render/namepill.js';
-import { COLLAPSE_V } from '../src/ui/ui.js';
+import { COLLAPSE_V, UI } from '../src/ui/ui.js';
 
 function recordingCtx() {
   const calls = [];
@@ -117,6 +117,39 @@ test('item descriptions stay up: through the bag redrawing under the mouse, and 
   const ui = readFileSync(new URL('../src/ui/ui.js', import.meta.url), 'utf8');
   assert.match(ui, /el\.addEventListener\('mouseleave', \(\) => this\._lingerHide\(\)\);/, 'leaving an item lingers rather than closing at once');
   assert.match(ui, /if \(host && o && !o\.isConnected && host\._tipGet\)/, 'a redrawn copy of the item keeps the tip');
+});
+
+test('quiet and collapsed chat previews use the chat header foreground colour', () => {
+  const css = readFileSync(new URL('../styles/compact.css', import.meta.url), 'utf8');
+  assert.match(css, /#chatbox\.quiet #chat-peek, #chatbox\.collapsed #chat-peek \{[^}]*color: inherit;/);
+});
+
+test('the locked ability badge explains its level and returns to the normal cooldown when unlocked', () => {
+  const ability = { id: 'ultimate', name: 'Ultimate', key: 'B', unlock: 45 };
+  const cooldown = { style: {} };
+  const attributes = new Map();
+  const button = {
+    classList: { toggle() {} }, querySelector: () => cooldown,
+    getAttribute: (k) => attributes.get(k), setAttribute: (k, v) => attributes.set(k, v),
+  };
+  let unlocked = false;
+  const g = { currentAbilities: () => [ability], abilityCd: { ultimate: 2 }, abilityUnlocked: () => unlocked, canAffordAbility: () => true };
+  const ui = { game: g, el: {}, _abilitySig: ability.id, _abilityBtns: { ultimate: button } };
+  UI.prototype.renderAbilities.call(ui);
+  assert.equal(cooldown.textContent, 'Lv 45');
+  assert.equal(cooldown.style.height, '');
+  assert.equal(attributes.get('aria-label'), 'Ultimate (B), unlocks at combat level 45');
+  unlocked = true;
+  UI.prototype.renderAbilities.call(ui);
+  assert.equal(cooldown.textContent, '2');
+  assert.equal(cooldown.style.height, '50%');
+  assert.equal(attributes.get('aria-label'), 'Ultimate (B)');
+});
+
+test('locked skill-guide requirements retain the same text opacity as unlocked rows', () => {
+  const css = readFileSync(new URL('../styles/main.css', import.meta.url), 'utf8');
+  assert.match(css, /\.sg-row\.locked \.sg-lvl \{ background: var\(--aw-locked\); \}/);
+  assert.doesNotMatch(css, /\.sgx?-row\.locked[^\n{]*\{[^}]*opacity:/);
 });
 
 test("the chat log scrolling as lines arrive no longer closes an item's description", () => {

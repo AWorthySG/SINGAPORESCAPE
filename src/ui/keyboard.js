@@ -3,7 +3,7 @@ import { handsOn } from '../game/playbalance.js';
 import { quickUse } from '../game/quickuse.js';
 import { runQuickAction } from '../game/quickbar.js';
 import { slotOfKey, typing } from './quickbar.js';
-import { closeTopWindow } from './windowease.js';
+import { closeTopWindow, keepTabInDialog } from './windowease.js';
 
 import { ABILITY_KEYS, KEYBOARD_GROUPS, PANEL_SHORTCUTS } from '../data/keyboard.js';
 
@@ -43,7 +43,16 @@ export function keyboardBlocked(ui, game) {
 /** Handles one discrete command. Text entry, browser shortcuts and foreground
  *  windows keep their own keys. Held movement is handled by MovePad. */
 export function handleGameShortcut(e, game, ui) {
-  if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return false;
+  if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return false;
+  if (e.key === 'Tab') {
+    if (ui.cmdSearch?.isOpen?.()) return keepTabInDialog(e, ui.cmdSearch.el?.querySelector('.cs-box'));
+    if (ui.modal) {
+      const menu = ui.el?.contextMenu;
+      if (ui._cardOpen || (menu && !menu.classList.contains('hidden'))) return false;
+      return keepTabInDialog(e, ui.el?.modalWindow);
+    }
+  }
+  if (e.repeat) return false;
   if (e.key === 'Escape') {
     if (!closeTopWindow(ui)) return false;
     e.preventDefault();
@@ -84,5 +93,4 @@ export function openKeyboardControls(ui) {
       ).join('')}</dl></section>`
     ).join('') + '</div>';
   });
-  ui.el?.modalClose?.focus();
 }

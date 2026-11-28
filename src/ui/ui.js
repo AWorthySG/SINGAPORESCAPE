@@ -224,6 +224,7 @@ export class UI {
       contextMenu: id('context-menu'),
       tooltip: id('tooltip'),
       modalOverlay: id('modal-overlay'),
+      modalWindow: id('modal-window'),
       modalTitle: id('modal-title'),
       modalBody: id('modal-body'),
       modalClose: id('modal-close'),
@@ -450,7 +451,6 @@ export class UI {
       btn.dataset.ability = ab.id;
       // Our own hover card (the browser's title tip didn't show: the button redraws
       // every tick as its cooldown counts down). Mouse only: a touch uses the skill.
-      btn.setAttribute('aria-label', `${ab.name} (${ab.key})`);
       btn.dataset.tipHost = '';
       btn._tipGet = () => this._skillTipHTML(ab);
       btn.addEventListener('mouseenter', (e) => { if (!this._touchUsed) this.showTooltip(e, this._skillTipHTML(ab), btn); });
@@ -648,9 +648,11 @@ export class UI {
       btn.classList.toggle('armed', armed);
       btn.classList.toggle('ready', ready && !armed);
       btn.classList.toggle('disabled', unlocked && !ready && !armed);
+      const name = `${ab.name} (${ab.key})${unlocked ? '' : `, unlocks at combat level ${ab.unlock}`}`;
+      if (btn.getAttribute('aria-label') !== name) btn.setAttribute('aria-label', name);
       const cdEl = btn.querySelector('.ab-cd');
       if (cdEl) {
-        if (!unlocked) { cdEl.style.height = '100%'; cdEl.textContent = `🔒${ab.unlock}`; }
+        if (!unlocked) { cdEl.style.height = ''; cdEl.textContent = `Lv ${ab.unlock}`; }
         else { cdEl.style.height = cd > 0 ? `${Math.min(100, cd * 25)}%` : '0%'; cdEl.textContent = cd > 0 ? String(cd) : ''; }
       }
     }
@@ -3935,21 +3937,25 @@ export class UI {
   }
 
   // ---------------- Modals ----------------
-  openModal(title, render) {
+  openModal(title, render, { locked = false } = {}) {
     this._dropTips();
     this.winMem?.leave();   // a window opened from another: remember where that one was
     const swap = !!this.modal && this.el.modalOverlay?.classList?.contains?.('hidden') === false;
-    this.modal = { title, render };
+    const win = this.el.modalWindow;
+    if (!swap) this._modalOpener = win?.ownerDocument.activeElement;
+    this.modal = { title, render, locked };
     this.el.modalTitle.textContent = title;
+    this.el.modalClose?.classList.toggle('hidden', locked);
     this.el.modalOverlay.classList.remove('hidden');
     // A new window starts at its top. The body element is shared, so without
     // this a window opened from a scrolled one (Gear Mastery -> Dismantle)
     // opened part-way down, its intro and first rows out of sight.
     this.el.modalBody.scrollTop = 0;
     // From another window, the shared window's height glides to the new page's (motion.js).
-    if (swap) easeHeight(this.el.modalOverlay.querySelector?.('#modal-window'), () => render(this.el.modalBody), this.game);
+    if (swap) easeHeight(win, () => render(this.el.modalBody), this.game);
     else render(this.el.modalBody);
     this.winMem?.enter();   // ...then back to where this window was last time (windowease.js)
+    if (win && !win.contains(win.ownerDocument.activeElement)) win.focus({ preventScroll: true });
     // Opened from another window, the new page fades in; a fresh window's
     // sections rise in one after another (motion.js; both only visual).
     if (swap) swapIn(this.el.modalBody, this.game);
@@ -4018,11 +4024,13 @@ export class UI {
           div.innerHTML = `<span class="class-pic has-stage"><canvas class="class-stage"></canvas></span><span class="class-text"><b>${c.name}</b>`
             + `<span class="class-weapon">${WEAPON_TYPE_NAMES[c.weapon]}</span><span class="class-desc">${c.desc}</span>`
             + `<span class="class-perks">${classPerkSummary(c.id)}</span></span>`
-            + '<button class="class-peek" type="button" title="Preview" aria-label="Preview">&#128065;</button>';
+            + `<button class="class-peek" type="button" title="Preview" aria-label="Preview ${c.name}">&#128065;</button>`;
           // The card's hero idles on its little stage (each a step out of time with the next).
           const actor = { classId: c.id, phase: (n++) * 431 };
           new HeroStage(div.querySelector('canvas'), (w, h) => [{ actor, x: w / 2, y: h - 7, scale: Math.min(w / 64, h / 62) }], { fps: 24, still });
-          div.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); div.click(); } });
+          div.addEventListener('keydown', (e) => {
+            if (e.target === div && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); div.click(); }
+          });
           div.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') spot.show(c.id, true); });
           div.addEventListener('focus', () => spot.show(c.id, true));
           div.querySelector('.class-peek').addEventListener('click', (e) => { e.stopPropagation(); spot.show(c.id, true); });
@@ -4034,10 +4042,8 @@ export class UI {
       }
       const spot = this._classSpotlight(picker, still, (id) => choose(CLASS_BY_ID[id], picker.querySelector(`.class-card[data-cls="${id}"]`)));
     };
-    this.openModal('Choose Your Class', render);
+    this.openModal('Choose Your Class', render, { locked: true });
     this.modal.kind = 'classpick';
-    this.modal.locked = true;
-    if (this.el.modalClose) this.el.modalClose.classList.add('hidden');
   }
 
 
@@ -4109,6 +4115,9 @@ export class UI {
     // the modal, so drop it here rather than leave it floating over the game.
     this.hideTooltip();
     if (this.el.modalClose) this.el.modalClose.classList.remove('hidden');
+    const opener = this._modalOpener;
+    this._modalOpener = null;
+    if (opener?.isConnected && !this.cmdSearch?.isOpen?.()) opener.focus({ preventScroll: true });
   }
 
   _refreshModalIfOpen(types) {

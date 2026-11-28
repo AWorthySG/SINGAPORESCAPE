@@ -40,7 +40,7 @@ function fakeBody() {
 }
 const classes = (hidden = true) => {
   const s = new Set(hidden ? ['hidden'] : []);
-  return { add: (c) => s.add(c), remove: (c) => s.delete(c), contains: (c) => s.has(c) };
+  return { add: (c) => s.add(c), remove: (c) => s.delete(c), contains: (c) => s.has(c), toggle: (c, on) => on ? s.add(c) : s.delete(c) };
 };
 /** Just enough of the UI to open and close the shared window. */
 function fakeUI(game) {
@@ -71,6 +71,27 @@ test('a window reopens where it was scrolled to; a different window starts at it
   assert.equal(ui.el.modalBody.scrollTop, 520, 'the bank is back where it was');
   ui.openModal('Gear Guide', draw);
   assert.equal(ui.el.modalBody.scrollTop, 90);
+});
+
+test('opening and swapping shared dialogs keeps focus inside and remembers the original opener', () => {
+  const ui = fakeUI(newGame());
+  const ownerDocument = {};
+  const focusable = () => ({ isConnected: true, focus() { ownerDocument.activeElement = this; } });
+  const opener = focusable(), innerButton = focusable();
+  const win = Object.assign(focusable(), { ownerDocument, contains: (el) => el === win || el === innerButton });
+  ui.el.modalWindow = win;
+  opener.focus();
+  ui.openModal('Bank', () => {});
+  assert.equal(ownerDocument.activeElement, win);
+  innerButton.focus();
+  ui.openModal('Class choice', () => { ownerDocument.activeElement = null; }, { locked: true });
+  assert.equal(ownerDocument.activeElement, win);
+  assert.equal(ui.el.modalClose.classList.contains('hidden'), true);
+  ui.closeModal();
+  assert.ok(ui.modal, 'a required choice stays open');
+  ui.modal.locked = false;
+  ui.closeModal();
+  assert.equal(ownerDocument.activeElement, opener);
 });
 
 test('the bank search and the Codex section and filters come back after a reload', () => {

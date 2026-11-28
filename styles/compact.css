@@ -102,7 +102,8 @@
   #chatbox.quiet #chat-head, #chatbox.collapsed #chat-head { border-bottom: 0; }
   #chatbox.quiet #chat-peek, #chatbox.collapsed #chat-peek {
     display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    font-size: var(--fs-sm); font-weight: 700; letter-spacing: 0; color: var(--aw-text-sec);
+    /* Match the heading's foreground on the chat header. */
+    font-size: var(--fs-sm); font-weight: 700; letter-spacing: 0; color: inherit;
   }
 
   /* Interact: a size smaller (click and E / Space do the same). */
@@ -447,6 +448,14 @@ body.cb-safe #hp-bar.low::after {
   #quickbar.open .qb-pop .qb-slot.on .qb-lbl { color: var(--aw-white); }
   #quickbar.open .qb-pop .qb-edit::before { display: none; }
   #quickbar.open .qb-more { box-shadow: 0 0 0 3px var(--aw-sun), var(--shadow-sticker-sm); }
+}
+/* Next to the minimap in landscape, with room to open and scroll the actions. */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+  #quickbar {
+    top: calc(76px + var(--sa-t)); right: calc(140px + var(--sa-r));
+    flex-direction: row; flex-wrap: nowrap; max-height: none;
+  }
+  #quickbar.open .qb-pop { max-height: calc(100dvh - 136px - var(--sa-t) - var(--sa-b)); }
 }
 /* One entry for floating stickers (banners, toasts, pills, this grid): a
    small drop and settle. It moves with translate and scale, never
@@ -855,6 +864,30 @@ body.reduce-motion :is(#lvl-burst, .ui-ghost) { display: none !important; }
 body.reduce-motion :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #modal-window) { animation: none; }
 
 #centre-hud { display: contents; }
+
+/* In split-screen and short mouse layouts, keep the controls beside the menu. */
+@media (min-width: 541px) and (max-width: 1023px) and (hover: hover) and (pointer: fine),
+       (min-width: 541px) and (max-height: 500px) and (orientation: landscape) and (hover: hover) and (pointer: fine) {
+  #game-root { --docked-panel-w: min(var(--panel-w), 42vw); }
+  #game-root:has(#sidepanel.wide:not(.collapsed)) { --docked-panel-w: min(360px, 42vw); }
+  #game-root #sidepanel:not(.collapsed) { width: var(--docked-panel-w); }
+  #game-root:has(#sidepanel:not(.collapsed)) #centre-hud {
+    position: absolute; display: block; inset: 0 calc(var(--docked-panel-w) + 10px) 0 0; pointer-events: none;
+  }
+  #ability-bar { left: 50%; right: auto; bottom: 8px; width: max-content; transform: translateX(-50%); }
+  #quickbar { bottom: 100px; gap: 4px; }
+  #quickbar .qb-btn:not(.qb-edit) { width: 30px; height: 34px; }
+  #quickbar .qb-btn :is(.ui-ic, svg) { width: 22px; height: 22px; }
+  #quickbar .qb-key { right: -2px; }
+  #hp-bar { bottom: 144px; }
+  #chatbox { bottom: 176px; max-height: max(74px, calc(100dvh - 250px)); }
+}
+
+/* A user-resized menu already fits beside the centred controls (panelsize.js). */
+@media (min-width: 900px) and (max-width: 1023px) and (min-height: 501px) and (hover: hover) and (pointer: fine) {
+  #game-root #sidepanel.ps-big:not(.collapsed) { width: var(--ps-w, var(--panel-w)); }
+  #game-root:has(#sidepanel.ps-big:not(.collapsed)) #centre-hud { display: contents; }
+}
 
 /* Desktop: a bottom tab dock leaves the full panel width for its content.
    Keep the combat controls in a short stack so more of the world stays visible. */

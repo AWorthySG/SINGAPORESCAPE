@@ -83,6 +83,34 @@ test('a foreground window keeps game keys quiet and Escape closes just the top w
   assert.deepEqual(calls, [['close'], ['auto battle']]);
 });
 
+test('Tab loops through visible controls in the foreground dialog, including search', () => {
+  const { ui, press } = fixture();
+  const ownerDocument = {};
+  const control = ({ hidden = false, disabled = false } = {}) => ({
+    tabIndex: 0, matches: () => disabled, getClientRects: () => hidden ? [] : [{}], closest: () => null,
+    focus() { ownerDocument.activeElement = this; },
+  });
+  const [first, middle, last] = [control(), control(), control()];
+  const window = { ownerDocument, querySelectorAll: () => [first, control({ hidden: true }), middle, last, control({ disabled: true })] };
+  ui.el = { modalWindow: window };
+  ui.modal = {};
+  first.focus();
+  assert.equal(press('Tab', { shiftKey: true }), true);
+  assert.equal(ownerDocument.activeElement, last);
+  assert.equal(press('Tab', { repeat: true }), true);
+  assert.equal(ownerDocument.activeElement, first);
+  middle.focus();
+  assert.equal(press('Tab'), false, 'the browser moves through interior controls');
+  ownerDocument.activeElement = null;
+  assert.equal(press('Tab'), true, 'a redraw cannot send focus behind the dialog');
+  assert.equal(ownerDocument.activeElement, first);
+
+  const searchInput = control();
+  ui.cmdSearch = { isOpen: () => true, el: { querySelector: () => ({ ownerDocument, querySelectorAll: () => [searchInput] }) } };
+  assert.equal(press('Tab'), true);
+  assert.equal(ownerDocument.activeElement, searchInput);
+});
+
 test('the keyboard reference shows the actual panel and action shortcuts', () => {
   const body = {};
   const ui = { openModal(title, render) { assert.equal(title, 'Keyboard controls'); render(body); } };

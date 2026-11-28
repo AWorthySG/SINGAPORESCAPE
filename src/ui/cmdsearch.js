@@ -99,12 +99,13 @@ export class CmdSearch {
     const el = document.createElement('div');
     el.id = 'cmd-search';
     el.className = 'hidden';
-    el.innerHTML = '<div class="cs-box" role="dialog" aria-label="Search">'
+    el.innerHTML = '<div class="cs-box" role="dialog" aria-modal="true" aria-label="Search" tabindex="-1">'
       + '<input type="search" class="cs-input" placeholder="Search windows, skills, places, quests, monsters, items…" autocomplete="off" spellcheck="false" aria-label="Search" />'
       + '<div class="cs-list" role="listbox"></div><div class="cs-hint">Enter: do it · Up/Down: choose · Esc: close</div></div>';
     const input = el.querySelector('.cs-input');
     input.addEventListener('input', () => { this.sel = 0; this.update(input.value); });
     input.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') return;   // the shared dialog focus handling wraps the list
       e.stopPropagation();   // the game's keys stay quiet while typing here
       if (e.key === 'Escape') { e.preventDefault(); this.close(); }
       else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -126,6 +127,7 @@ export class CmdSearch {
   open(text = '') {
     if (typeof document === 'undefined') return;
     const el = this._mount();
+    if (!this.isOpen()) this._opener = document.activeElement;
     this.ui.hideContextMenu?.();
     el.classList.remove('hidden');
     const input = el.querySelector('.cs-input');
@@ -136,9 +138,11 @@ export class CmdSearch {
   }
 
   close() {
-    if (!this.el) return;
+    if (!this.isOpen()) return;
     this.el.classList.add('hidden');
-    this.el.querySelector('.cs-input')?.blur();
+    const opener = this._opener;
+    this._opener = null;
+    if (opener?.isConnected) opener.focus({ preventScroll: true });
   }
 
   update(text) {

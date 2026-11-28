@@ -220,6 +220,20 @@ export function closeTopWindow(ui) {
   return null;
 }
 
+/** Wrap Tab at either end, including when a redraw removed the focused row. */
+export function keepTabInDialog(event, dialog) {
+  if (!dialog) return false;
+  const controls = [...dialog.querySelectorAll('button, a[href], input, select, textarea, summary, [tabindex]')]
+    .filter((el) => el.tabIndex >= 0 && !el.matches(':disabled, input[type="hidden"]') &&
+      el.getClientRects().length && !el.closest('[inert]') && el.checkVisibility?.({ visibilityProperty: true }) !== false);
+  const active = dialog.ownerDocument.activeElement;
+  const first = controls[0], last = controls.at(-1);
+  if (controls.includes(active) && active !== (event.shiftKey ? first : last)) return false;
+  event.preventDefault();
+  ((event.shiftKey ? last : first) ?? dialog).focus();
+  return true;
+}
+
 /** Whether a finger's drag on the title is a swipe down to close. */
 export function swipeCloses(dx, dy) {
   return dy >= SWIPE_CLOSE_PX && dy > Math.abs(dx) * 1.5;
