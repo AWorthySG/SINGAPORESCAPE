@@ -555,7 +555,7 @@ export class UI {
     const [verb, noun] = interactCaption(label, this.game?.interactTarget);
     btn.querySelector('.ib-verb').innerHTML = noun ? `${escapeHtml(verb)}<span class="ib-noun">${escapeHtml(noun)}</span>` : escapeHtml(verb);
     btn.title = label ? `${label[0]} ${label[1]}` : 'Interact with the nearest thing (E or Space)';
-    btn.setAttribute('aria-label', btn.title);
+    btn.setAttribute?.('aria-label', btn.title);
   }
 
   // The three auto switches on the action bar (battle, gather, quest), each

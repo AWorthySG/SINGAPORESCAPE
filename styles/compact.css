@@ -479,6 +479,13 @@ body.cb-safe #hp-bar.low::after {
   #minimap-panel #hp-orb { display: none; }
   #rep-pill { top: calc(206px + var(--sa-t)); left: auto; right: calc(12px + var(--sa-r)); transform: none; }
 }
+@media (pointer: coarse) and (min-width: 541px) and (min-height: 501px) and (max-height: 560px) {
+  /* In a short tablet window the controls move in beside the minimap. */
+  :root { --tablet-nav-b: calc(250px + var(--sa-b)); }
+  #sidepanel.collapsed { right: calc(218px + var(--sa-r)); }
+  #quickbar { right: calc(286px + var(--sa-r)); }
+  #region-label { display: none; }
+}
 /* One entry for floating stickers (banners, toasts, pills, this grid): a
    small drop and settle. It moves with translate and scale, never
    transform, so it adds to whatever centres the sticker. */

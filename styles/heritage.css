@@ -552,7 +552,7 @@
 }
 /* In short, wide windows keep the destination and action beside the atlas
    where both are visible without scrolling below the map. */
-@media (min-width: 650px) and (max-height: 850px) and (orientation: landscape) {
+@media (min-width: 541px) and (max-height: 850px) and (orientation: landscape) {
   .atlas {
     grid-template-columns: minmax(0, max(220px, calc(150dvh - 260px))) min(200px, 28%);
     justify-content: center; align-items: center;
