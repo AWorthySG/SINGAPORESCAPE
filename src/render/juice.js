@@ -116,7 +116,7 @@ export function splatMotion(e, age, out = {}) {
 }
 
 const INK = '#22304A';
-/** The spiky sticker star-burst behind a crit's number (white border, navy ink):
+/** The spiky navy-outlined starburst behind a crit's number:
  *  the painted one once it has loaded, else drawn here. */
 export function drawCritBurst(ctx, r, rot, mega) {
   const n = 12;
@@ -136,8 +136,7 @@ export function drawCritBurst(ctx, r, rot, mega) {
   }
   ctx.closePath();
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = INK; ctx.lineWidth = 4; ctx.stroke();
-  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.2; ctx.stroke();
+  ctx.strokeStyle = INK; ctx.lineWidth = 2.4; ctx.stroke();
   ctx.fillStyle = mega ? '#ffb13d' : '#ffd24a'; ctx.fill();
   ctx.restore();
 }

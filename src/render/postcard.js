@@ -1,5 +1,5 @@
-// Postcards, in the A-Worthy sticker style: cream card, white sticker border,
-// navy ink, a scalloped stamp carrying the region's badge and a wavy postmark.
+// Postcards, in the A-Worthy style: cream card, navy outline, a scalloped
+// stamp carrying the region's badge and a wavy postmark.
 //
 // - The arrival card: when you walk into a new region, a small postcard
 //   ("Greetings from Chinatown") tilts in near the top of the screen, holds and
@@ -41,10 +41,9 @@ export function fitFont(g, text, w, max, weight = 900, style = '') {
   }
 }
 
-/** Sticker lettering: a white border round navy ink round the colour. */
+/** Postcard lettering with a navy outline. */
 export function stickerText(g, text, x, y, size, fill = CORAL) {
   g.lineJoin = 'round';
-  g.strokeStyle = '#FFFFFF'; g.lineWidth = size * 0.36; g.strokeText(text, x, y);
   g.strokeStyle = INK; g.lineWidth = size * 0.16; g.strokeText(text, x, y);
   g.fillStyle = fill; g.fillText(text, x, y);
 }
@@ -170,11 +169,9 @@ export function titleRoom(vw, vh, zoom = 1) {
  */
 export function paintArrivalCard(g, w, h, info) {
   const pad = h * 0.07;
-  // White sticker border, navy outline, cream card.
-  g.fillStyle = '#FFFFFF';
-  roundRect(g, 0, 0, w, h, h * 0.12); g.fill();
-  g.fillStyle = CREAM; g.strokeStyle = INK; g.lineWidth = Math.max(2, h * 0.025);
-  roundRect(g, pad * 0.6, pad * 0.6, w - pad * 1.2, h - pad * 1.2, h * 0.09); g.fill(); g.stroke();
+  const edge = Math.max(1, h * 0.0125);
+  g.fillStyle = CREAM; g.strokeStyle = INK; g.lineWidth = edge * 2;
+  roundRect(g, edge, edge, w - edge * 2, h - edge * 2, h * 0.12); g.fill(); g.stroke();
   airmail(g, pad * 1.4, h - pad * 1.9, w * 0.62 - pad * 1.4, h * 0.045);
   // The stamp and its postmark, top right.
   const sw = h * 0.5, sh = h * 0.6, sx = w - pad * 1.5 - sw, sy = pad * 1.3;
@@ -266,10 +263,10 @@ export function composePostcard(g, W, H, info = {}) {
   const m = Math.round(Math.min(W, H) * 0.045);
   const region = info.region || 'Singapore';
   const url = info.url || SITE_URL;
-  // Paper with a faint dotted texture, a white sticker rim and a navy outline.
-  g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, W, H);
+  // Cream paper fills the export, with a navy keyline inside the trim.
   g.fillStyle = PAPER; g.strokeStyle = INK; g.lineWidth = Math.max(4, m * 0.12);
-  roundRect(g, m * 0.4, m * 0.4, W - m * 0.8, H - m * 0.8, m * 0.7); g.fill(); g.stroke();
+  g.fillRect(0, 0, W, H);
+  roundRect(g, m * 0.4, m * 0.4, W - m * 0.8, H - m * 0.8, m * 0.7); g.stroke();
   // The photo window.
   const pw = W - 2 * m, ph = Math.round(H * (wide ? 0.72 : 0.68));
   const px = m, py = m;
@@ -290,10 +287,8 @@ export function composePostcard(g, W, H, info = {}) {
   vg.addColorStop(0, 'rgba(60,40,30,0)'); vg.addColorStop(1, 'rgba(60,40,30,0.32)');
   g.fillStyle = vg; g.fillRect(px, py, pw, ph);
   g.restore();
-  g.strokeStyle = '#FFFFFF'; g.lineWidth = m * 0.28;
-  roundRect(g, px, py, pw, ph, m * 0.5); g.stroke();
   g.strokeStyle = INK; g.lineWidth = Math.max(3, m * 0.09);
-  roundRect(g, px - m * 0.14, py - m * 0.14, pw + m * 0.28, ph + m * 0.28, m * 0.6); g.stroke();
+  roundRect(g, px, py, pw, ph, m * 0.5); g.stroke();
   // "Greetings from <region>" in big sticker letters over the photo's foot.
   g.textAlign = 'left'; g.textBaseline = 'alphabetic';
   const gx = px + m * 0.8, gw = pw * (wide ? 0.62 : 0.86);

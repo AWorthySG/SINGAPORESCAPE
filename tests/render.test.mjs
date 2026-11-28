@@ -598,6 +598,28 @@ test('notification lane never blocks the buttons under it', async () => {
   assert.match(css.match(/\.nl-card \{[^}]*\}/)[0], /pointer-events:\s*auto/, 'its cards stay tappable');
 });
 
+test('fallback icons trace only navy ink and keep white details inside the artwork', async () => {
+  const { itemIconImage, itemIconSVG, skillIconSVG, spellIconHTML, tabIconSVG } = await import('../src/render/icons.js');
+  const spell = spellIconHTML('radiance_strike');
+  assert.match(spell, /fill="#ffffff"/, 'the white highlight stays in the spell');
+
+  const oldImage = globalThis.Image;
+  globalThis.Image = class {};
+  try {
+    const groundItem = itemIconImage('axe');
+    assert.match(groundItem.src, /^data:image\/svg\+xml/);
+    const markup = [spell, itemIconSVG('axe'), skillIconSVG('unknown'), tabIconSVG('unknown'),
+      decodeURIComponent(groundItem.src.split(',')[1])];
+    for (const icon of markup) {
+      assert.deepEqual(Array.from(icon.matchAll(/flood-color="([^"]+)"/g), (match) => match[1]), ['#22304A']);
+      assert.match(icon, /<feMergeNode in="SourceGraphic"\/>/);
+    }
+  } finally {
+    if (oldImage === undefined) delete globalThis.Image;
+    else globalThis.Image = oldImage;
+  }
+});
+
 test('Part F: the tiered gathering tools stay in lock-step with their item-*.webp stickers', async () => {
   const { readdirSync } = await import('node:fs');
   const { fileURLToPath } = await import('node:url');
