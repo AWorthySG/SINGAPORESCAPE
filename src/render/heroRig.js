@@ -14,10 +14,9 @@ export const HERO_RIG_CLASSES = ['swordsman', 'rogue', 'samurai', 'corsair', 'pa
 // arm as [shoulder x, y, w, h, pivot x, y], turning about its shoulder (the
 // pivot inside the picture). All in game units, feet on the ground at y = 15.
 const PLACED = {
-  // (Redrawn on sheet MK-a: a round bean with its arms on its sides, the
-  // knuckled fist forward at the waist and the gloved palm out at the hip.)
-  monk: { body: [-19, -38, 38.1, 46], left: [-17.5, 1.2, 12.6, 13.8], right: [4.4, 1.2, 13, 13.8],
-    sword: [12.4, -10.8, 20.7, 15.3, 3.4, 4.8], back: [-10.1, -10.8, 23.7, 15, 19.6, 6.8], strike: [13.5, -12.2, 23.2, 10.4, 3.8, 4.3] },
+  // The Monk's knuckled fist leads while the open palm guards the far side.
+  monk: { body: [-19, -38, 38.1, 46], left: [-7.5, 2.7, 8, 12.3], right: [0.4, 2, 9, 13],
+    sword: [8.5, -13.5, 18.5, 13.7, 3, 4.3], back: [-5.8, -13.5, 19.4, 12.3, 16.05, 5.57], strike: [8.8, -14.25, 20.9, 9.4, 3.42, 3.87] },
 };
 // Heavier weapons commit later; spears extend forward and whips sweep wider.
 const ATTACKS = {
@@ -47,13 +46,23 @@ const GRIP = {
 // Where the weapon arm's shoulder is (the painted attack arms hang from it),
 // and the off hand's for the dual wielders' second set.
 const SHOULDER = {
-  rogue: [15, -8], brawler: [14, -9], monk: [12.4, -10.8],
+  rogue: [15, -8], brawler: [14, -9], monk: [8.5, -13.5],
   merchant: [13, -6.8], lancer: [13, -8.5], halberdier: [13, -9],
+  swordsman: [8.5, -9], corsair: [12, -8.2],
 };
 // (The Monk's palm strikes from its own back shoulder, so the thrust carries across the body.)
-const OFF_SHOULDER = { corsair: [-9, -10], rogue: [-11, -9], monk: [-10.1, -10.8] };
+const OFF_SHOULDER = { corsair: [-11.6, -8], rogue: [-11, -9], monk: [-5.8, -13.5] };
 // The upright polearms and cane lean out of the mascot's eyeline in guard.
 const GUARD_TURN = { samurai: 0.25, lancer: 0.62, halberdier: 0.74, merchant: 0.49 };
+// The rest art hangs from its painted cuff, some way below its original
+// raised blade. Size, cuff x/y and angle use the same shoulder as the swing.
+const DUELLIST_BLADE = {
+  swordsman: [23, 42, 19.2, 37, 1.65, -0.31],
+  corsair: [24.4, 32, 21.4, 28.2, 1.76, -0.36],
+};
+const CORSAIR_OFF_BLADE = [21.4, 28, 18.8, 24.7, -2.15, -3.17];
+// Shoulder, size and cuff pivot of the Swordsman's painted arm and buckler.
+const BUCKLER = [-9.7, -8, 20, 18, 16, 4.3];
 const images = new Map();
 // Limb angles and reach ease across a restarted swing (see poseBlend.js).
 const blendRig = poseBlender();
@@ -127,6 +136,12 @@ export function heroRigPose(classId, gait, time, swing = -1, dualWield = false, 
     pose.back = -pose.step * 0.2 + strike * (classId === 'paladin' ? 0.1 : 0.35);
     pose.strike = strike;
     pose.reach = strike * profile.reach;
+    if (classId === 'corsair' && dualWield) {
+      const cross = pulse(0.38, 0.68, 1);
+      pose.back -= cross * 1.1;
+      pose.strike2 = cross;
+      pose.reach2 = cross * 5;
+    }
   }
   return pose;
 }
@@ -176,42 +191,45 @@ export function drawHeroRig(ctx, opts = {}) {
   let shown2 = swapOpacity(pose.strike2 || 0);
   // Life skills put the painted arms away for mitten arms holding a tool.
   const arms = anim ? 1 - Math.min(1, anim.ch.mix) : 1;
-  const draw = (part, x, y, w, h, angle = 0, px = 0, py = 0, opacity = 1) => {
+  const draw = (part, x, y, w, h, angle = 0, px = 0, py = 0, opacity = 1, mirror = false) => {
     ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
+    if (mirror) ctx.scale(-1, 1);
     ctx.globalAlpha *= opacity;
     ctx.drawImage(heroLit(images.get(key(part))), -px, -py, w, h);   // with its rim light (herolight.js)
     ctx.restore();
   };
   // Parts that are often fully hidden are skipped outright.
-  const drawIf = (part, x, y, w, h, angle, px, py, opacity) => { if (opacity > 0.001) draw(part, x, y, w, h, angle, px, py, opacity); };
+  const drawIf = (part, x, y, w, h, angle, px, py, opacity, mirror) => { if (opacity > 0.001) draw(part, x, y, w, h, angle, px, py, opacity, mirror); };
   // Boots tuck behind the tunic; their planted edges stay on the ground.
   const rogue = classId === 'rogue', samurai = classId === 'samurai';
   const brawler = classId === 'brawler', dancer = classId === 'dancer';
+  const swordsman = classId === 'swordsman', corsair = classId === 'corsair';
   const placed = PLACED[classId];
   const shield = classId === 'paladin' || classId === 'knight';
   const polearm = classId === 'lancer' || classId === 'halberdier';
   const broad = classId === 'berserker' || classId === 'juggernaut' || classId === 'gladiator';
   // A Corsair with a scimitar in each hand carries the second in the back hand
   // (and a Ninja with a shuriken in each hand, its second star).
-  const corsairPair = (classId === 'corsair' || classId === 'ninja') && !!opts.dualWield;
+  const pairedWeapon = (corsair || classId === 'ninja') && !!opts.dualWield && opts.hasWeapon !== false;
   // A two-handed weapon the class is painted with: the back hand grips it too.
   const grip = anim && GRIP[classId] && anim.weapon === GRIP[classId].weapon ? GRIP[classId] : null;
   // The Merchant's little shoes have more transparent padding above their
   // heels. Tuck the pegs inside the vest and keep the same floor line.
-  const bootY = classId === 'merchant' ? -3 : rogue ? -1 : 2;
+  const bootY = classId === 'merchant' ? -3 : rogue || swordsman ? -1 : 2;
   const [lx, ly, lw, lh] = placed ? placed.left : [-10, bootY, 13, 15 - bootY];
   const [rx, ry, rw, rh] = placed ? placed.right : [1, bootY, 13, 15 - bootY];
   draw('left', lx - pose.step * 1.5 - (pose.plantB || 0), ly - pose.liftB, lw, lh);
   draw('right', rx + pose.step * 1.5 - (pose.plantF || 0), ry - pose.liftF, rw, rh);
-  const pilot = classId === 'swordsman';
   const slim = classId === 'ninja' || classId === 'merchant';
   // Where the weapon arm's two drawings sit (the generic rigs).
   const sh = SHOULDER[classId] || [11, -10], osh = OFF_SHOULDER[classId];
   const [x, shoulderY] = sh;
-  const w = broad ? 29 : polearm ? 24 : dancer ? 26 : 23;
-  const h = polearm ? 57 : broad ? 46 : dancer ? 44 : 42;
+  const defaultW = broad ? 29 : polearm ? 24 : dancer ? 26 : 23;
+  const defaultH = polearm ? 57 : broad ? 46 : dancer ? 44 : 42;
+  const [w, h, spx, spy, guard, guardDirection] = DUELLIST_BLADE[classId] ||
+    [defaultW, defaultH, samurai ? 19 : defaultW * 0.83, samurai ? 37 : defaultH * 0.88, GUARD_TURN[classId] || 0];
   const y = shoulderY + pose.breathe;
-  const sa = pose.sword + (GUARD_TURN[classId] || 0), spx = pilot || samurai ? 19 : w * 0.83, spy = pilot || samurai ? 37 : h * 0.88;
+  const sa = pose.sword + guard;
   const reach = pose.reach || 0;
   const kw = dancer ? 52 : polearm ? 55 : broad ? 44 : 37, kh = dancer ? 19 : broad ? 16 : 13;
   const ka = polearm ? -0.08 : (pose.sword - 1.25) * 0.3;
@@ -227,7 +245,7 @@ export function drawHeroRig(ctx, opts = {}) {
   // renderer says so; the title's and the reflection's heroes keep the glove).
   const monk = classId === 'monk';
   const bareBack = monk && opts.dualWield === false && opts.hasShield === false;
-  let offFrame = combat && OFF_SHOULDER[classId] && (classId !== 'corsair' || corsairPair) && !bareBack && hasSwingArt(classId, 'off') ? swingPhase(anim.ch, 'off') : null;
+  let offFrame = combat && osh && (!corsair || pairedWeapon) && !bareBack && hasSwingArt(classId, 'off') ? swingPhase(anim.ch, 'off') : null;
   // The Monk's painted palm wind-up hides behind the body, so through the
   // coil its own rig arm draws the glove back beside the hip instead.
   if (monk && offFrame === 'wind') offFrame = null;
@@ -256,14 +274,18 @@ export function drawHeroRig(ctx, opts = {}) {
   // punches forward over the body.
   const bareCross = bareBack && combat && (anim.ch.strike2 || 0) > 0.3;
   const bareArm = () => faded(ctx, arms, () => drawEmptyArm(ctx, classId, placed.back[0], placed.back[1] + pose.breathe, -1.15 - pose.back * 1.6 - pose.step * 0.3, 13));
-  const offArm = () => drawSwingArm(ctx, classId, anim, 'off', 'melee', osh[0] + (pose.reach2 || 0) * 0.4, osh[1] + pose.breathe, arms);
+  const offArm = () => drawSwingArm(ctx, classId, anim, 'off', 'melee', osh[0] + (pose.reach2 || 0) * 0.4, osh[1] + pose.breathe,
+    arms, corsair ? CORSAIR_OFF_BLADE[5] - pose.back * 0.55 : undefined);
   if (offFrame && !offFront) offArm();
   else if (offFrame) { /* drawn over the body, below */ }
   else if (dancer) draw('back', -17, -9 + pose.breathe, 19, 25, pose.back, 16, 7, arms);
-  else if (corsairPair) {
-    // The second scimitar is the weapon arm drawn again on the back shoulder,
-    // half behind the body, its blade tipped back; it swings forward over the
-    // shoulder as the back arm does, and lunges out past the body on its strike.
+  else if (corsair && pairedWeapon) {
+    const [bw, bh, bpx, bpy, turn] = CORSAIR_OFF_BLADE;
+    // Mirror the far cuff so both scimitars sit in hands on opposite sides
+    // of the coat. The far blade angles away while the near one leads.
+    drawIf('sword', osh[0], osh[1] + pose.breathe, bw, bh, turn - pose.back * 0.55, bpx, bpy, (1 - shown2) * arms, true);
+    drawIf('strike', osh[0] + (pose.reach2 || 0), osh[1] + pose.breathe, 34, 15, (pose.back + 1.5) * -0.18, 4.6, 5.1, shown2 * arms);
+  } else if (pairedWeapon) {
     drawIf('sword', -9, -10 + pose.breathe, 21, 38, -pose.back * 0.8 - 0.55, 21 * 0.83, 38 * 0.88, (1 - shown2) * arms);
     drawIf('strike', -7 + (pose.reach2 || 0), -12 + pose.breathe, 37, 13, (-pose.back - 1.5) * 0.25, 4, 5, shown2 * arms);
   }
@@ -274,10 +296,15 @@ export function drawHeroRig(ctx, opts = {}) {
   else if (placed) { const b = placed.back; draw('back', b[0], b[1] + pose.breathe, b[2], b[3], -pose.back, b[4], b[5], arms); }
   // The Ninja and Merchant are slimmer, so their back hand sits closer in, half behind the body.
   // On a two-handed grip the back hand is on the handle instead (drawn below).
-  else if (!rogue && !brawler) draw('back', pilot ? -12 : slim ? -5 : -17, -9 + pose.breathe, shield ? 20 : pilot ? 12 : 15, shield ? 29 : pilot ? 14 : 18, pose.back, shield ? 17 : pilot || samurai ? 5 : 10, shield ? 8 : 3, grip ? 0 : arms);
+  else if (!swordsman && !rogue && !brawler) draw('back', slim ? -5 : -17, -9 + pose.breathe, shield ? 20 : 15, shield ? 29 : 18, pose.back, shield ? 17 : samurai ? 5 : 10, shield ? 8 : 3, grip ? 0 : arms);
   // The painted body can blink, flinch and cheer (heroAnimArt.js).
   const [bx, by, bw, bh] = placed ? placed.body : [-21, -38, 42, 44];
   if (!drawAnimBody(ctx, classId, opts, bx, by + pose.breathe, bw, bh)) draw('body', bx, by + pose.breathe, bw, bh);
+  if (swordsman && arms > 0.001) {
+    const [sx, sy, sw, sh, px, py] = BUCKLER;
+    if (opts.hasShield !== false) draw('back', sx, sy + pose.breathe, sw, sh, pose.back, px, py, arms);
+    else faded(ctx, arms, () => drawEmptyArm(ctx, classId, sx, sy + pose.breathe, -0.55 + pose.back, 9));
+  }
   // The Rogue's and the Brawler's back hands hold their own dagger and claw,
   // in front of the tunic; on an off-hand strike that arm swaps for its
   // extended drawing, lunging forward across the body.
@@ -296,7 +323,8 @@ export function drawHeroRig(ctx, opts = {}) {
   if (arms <= 0.001) return true;
   // Rotate around the shoulder, rather than rotating the whole portrait.
   // Short daggers sit outside the hood; the katana keeps its longer reach.
-  if (frame) drawSwingArm(ctx, classId, anim, 'main', mk, sh[0] + reach * 0.4, sh[1] + pose.breathe, arms);
+  if (frame) drawSwingArm(ctx, classId, anim, 'main', mk, sh[0] + reach * 0.4, sh[1] + pose.breathe,
+    arms, guardDirection == null ? undefined : guardDirection + pose.sword);
   // With no weapon equipped the hand is empty: the painted bare arm, punching on a strike.
   else if (opts.hasWeapon === false && drawEmptyArm(ctx, classId, sh[0] - 3 + reach * 0.5, sh[1] - 1 + pose.breathe, 0.25 + pose.step * 0.3 + pose.strike * 1.3, 12)) { /* drawn */ }
   else if (rogue) {

@@ -48,7 +48,7 @@ test('the title asks only for the heroes its screen shows', () => {
   assert.doesNotMatch(warm, /TITLE_HEROES/);
   const attach = src.slice(src.indexOf('  attach(game) {'), src.indexOf('  _cast() {'));
   assert.match(attach, /const cast = this\._cast\(\);\n\s*this\.warm\(\);/);
-  assert.match(attach, /for \(const id of cast\) swingArtReady\(id\);/);
+  assert.match(attach, /for \(const id of cast\) previewReady\(id\);/);
   assert.doesNotMatch(attach, /TITLE_HEROES/);
 });
 

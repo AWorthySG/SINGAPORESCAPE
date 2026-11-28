@@ -27,7 +27,7 @@ import { heroLit } from './herolight.js';
 import { heroWalk } from './motionkit.js';
 
 export const ANIM_ART = {
-  swordsman: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [24.7, 31.5, 8.3, 27.6], mid: [33.7, 24.7, 4.4, 5.1], follow: [41, 24.3, 4.8, 5.7] }, back: { body: [-17.5, -33.4, 34.7, 37.3], other: [1.9, -4.3, 21.2, 19.5, 18, 3.8, 3.3, 16], arm: [-7.3, -37.9, 28.3, 38.3], strike: [-6.8, -22.1, 41.2, 23.2] }, hand: [11, 12, 8.7, 1.6, 1.9, 10.3] },
+  swordsman: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [24.7, 31.5, 8.3, 27.6], mid: [33.7, 24.7, 4.4, 5.1], follow: [41, 24.3, 4.8, 5.7] }, back: { body: [-17.5, -33.4, 34.7, 37.3], other: [1.9, -4.3, 21.2, 19.5, 18, 3.8, 3.3, 16], buckler: [-10, -10, 20, 18.7, 16, 4.5, 6.5, 11.4], arm: [-7.3, -37.9, 28.3, 38.3], strike: [-6.8, -22.1, 41.2, 23.2] }, hand: [11, 12, 8.7, 1.6, 1.9, 10.3] },
   rogue: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [19.8, 24, 9, 21.3], mid: [28, 13.7, 3.1, 4.5], follow: [27.5, 19.8, 3.5, 4.1] }, off: { wind: [22.3, 22.5, 3.2, 16.7], mid: [27.3, 13.7, 2.8, 5.4], follow: [26.3, 14.3, 3, 4.3] }, back: { body: [-16.7, -34.8, 34, 38.2], other: [11.3, -17.2, 18.7, 18.5, 2.8, 2.7, 15.4, 15.2], arm: [-15.1, -37.9, 26, 24.8], strike: [-14.6, -20.8, 24, 21.3] }, hand: [10.7, 12.2, 1.9, 1.6, 8.9, 10.1] },
   samurai: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [20.8, 35.3, 15.3, 31.6], mid: [37, 25.7, 4.3, 6.9], follow: [43.7, 20.8, 4.8, 6.9] }, back: { body: [-12.9, -34.6, 27.5, 39.7], other: [-3.2, -1.5, 14.5, 11.8, 1.7, 3.4, 12.8, 7.5], arm: [0.6, -27.1, 21.2, 29.3], strike: [1.4, -6.8, 32.5, 13.8] }, hand: [11.5, 11.2, 1.6, 1.8, 9.7, 9.3] },
   corsair: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [25.8, 35.5, 20.3, 31.7], mid: [36.3, 27.5, 2.6, 19.8], follow: [43.5, 19.8, 3.7, 4.8] }, off: { wind: [26.5, 33.5, 5.1, 29.7], mid: [34.8, 25.3, 4.2, 20.5], follow: [42.2, 14, 4.4, 5.2] }, back: { body: [-14.9, -37.8, 29.8, 43.7], other: [-4.6, -10.6, 19.8, 14.2, 1.9, 4.3, 17.3, 9.4], arm: [-0.4, -36.9, 21.3, 29.8], strike: [1.2, -21.6, 29.8, 16.8] }, hand: [11.2, 11.2, 9.6, 1.6, 1.8, 9.3] },
@@ -49,7 +49,7 @@ export const ANIM_ART = {
   pistoler: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [19.3, 19.8, 2.9, 16.9], mid: [24.5, 12.5, 2.5, 9.2], follow: [24.5, 17, 2.8, 13.8] }, back: { body: [-11.7, -37.6, 23.2, 43.2], arm: [-8.3, -25.9, 25, 31.2], strike: [-35.3, -11.9, 35.3, 18.5] }, hand: [10.3, 12.5, 2, 1.5, 7.9, 10.8] },
   sniper: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [31.5, 26.7, 3.8, 21.8], mid: [34.8, 14.3, 4.1, 9.1], follow: [36.5, 24.5, 4.3, 19] }, back: { body: [-11.9, -37.6, 23.7, 43.2], other: [-3.3, -10.5, 18.3, 14.3, 1.7, 4.1, 16, 7.7], arm: [-29.5, -21.2, 36.7, 18], strike: [-37, -21.2, 45, 18] }, hand: [10.8, 12.3, 1.9, 1.6, 8.3, 10.6] },
   // The Monk (redrawn, sheets MK-b and MK-c), Priest and Zealot (art pack 2-New-Classes, sheets H8b and H9b).
-  monk: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [14.2, 13.9, 4, 3.2], mid: [17.9, 11.6, 2.9, 4.4], follow: [23.3, 13.9, 3.9, 4.6] }, off: { wind: [18.5, 17, 3.9, 3.6], mid: [22.4, 15.7, 3.7, 8], follow: [31, 13, 5.2, 7.4] }, back: { body: [-17.2, -37.7, 34.4, 45.4], other: [-14.4, -14.3, 17.5, 19.5, 13.4, 4, 4.7, 15.2], arm: [9.6, -16.5, 17.9, 13], strike: [8.8, -19.8, 23.6, 12.7] }, backFeet: [-16.8, 4.3, 13], hand: [19, 14.6, 3.7, 3.6, 15.7, 8.7] },
+  monk: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [14.2, 13.9, 4, 3.2], mid: [17.9, 11.6, 2.9, 4.4], follow: [23.3, 13.9, 3.9, 4.6] }, off: { wind: [18.5, 17, 3.9, 3.6], mid: [22.4, 15.7, 3.7, 8], follow: [31, 13, 5.2, 7.4] }, back: { body: [-8.7, -37.7, 17.4, 45.4], other: [-6.4, -16.8, 15.5, 17.3, 11.9, 3.5, 4.2, 13.5], arm: [7, -17.4, 16.2, 11.8], strike: [6.2, -20.5, 21.2, 11.4] }, backFeet: [-7.9, 0.1, 8.2], hand: [19, 14.6, 3.7, 3.6, 15.7, 8.7] },
   priest: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [18.6, 24.5, 3.2, 17.3], mid: [19.7, 21.2, 3.3, 13], follow: [22.7, 19.7, 3.8, 10] }, back: { body: [-19.2, -39.7, 38.4, 49.9], other: [-9.4, -8, 15.7, 17.7, 12.2, 3.3, 3.7, 12.4], arm: [10.5, -26.7, 16.1, 18.1], strike: [10.7, -25.1, 19.9, 17.8] }, hand: [18, 16, 3.1, 6.8, 14.8, 3] },
   zealot: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [19.6, 16.9, 3.2, 10.2], mid: [21.4, 18.3, 3.5, 6], follow: [24.2, 10.5, 4, 5.9] }, back: { body: [-16.9, -41.4, 33.9, 51.4], other: [-9.9, -8.6, 14.4, 18.4, 10.8, 3.6, 3.5, 14.8], arm: [11.5, -22, 20.8, 22.8], strike: [11.4, -14.9, 22.6, 9] }, hand: [17.1, 15.3, 3.4, 10.5, 14.1, 4.2] },
 };
@@ -67,6 +67,7 @@ export function heroAnimFiles() {
     if (a.back) {
       out.push(`${cls}_backbody`, `${cls}_backarm`, `${cls}_backstrike`, `${cls}_backfootl`, `${cls}_backfootr`);
       if (a.back.other) out.push(`${cls}_backother`);
+      if (a.back.buckler) out.push(`${cls}_backbuckler`);
     }
     if (a.hand) out.push(`${cls}_hand`);
   }
@@ -249,18 +250,20 @@ const GUARD_DIR = -1.45;
 /** On the way back from the follow-through (a 3 -> ARC_GUARD), the turn that
  *  brings the weapon up to point where the rig's guard holds it, so the swap
  *  back to the rig doesn't jump. Not for bows and guns (aimed level at rest). */
-function guardTurn(g, a) {
-  if (a <= 3 || g.sense < 0) return 0;
+function guardTurn(g, a, direction) {
+  if (a <= 3 || (direction == null && g.sense < 0)) return 0;
   const k = Math.min(1, (a - 3) / (ARC_GUARD - 3));
-  return -k * k * (3 - 2 * k) * Math.max(0.66, Math.min(2, g.dir[2] - GUARD_DIR));
+  const turn = direction == null ? -Math.max(0.66, Math.min(2, g.dir[2] - GUARD_DIR)) : wrap(direction - g.dir[2]);
+  return k * k * (3 - 2 * k) * turn;
 }
 /** The way in for a clip that asks for it (guardIn, the Lancer's thrust): the
  *  wind-up picture starts turned to point where the rig's guard holds the
  *  weapon and comes down into its own aim by a 1, so the swap from the rig's
  *  upright spear doesn't jump. */
-function guardInTurn(g, a) {
+function guardInTurn(g, a, direction) {
   const k = Math.max(0, Math.min(1, (1 - a) / (1 - ARC_REST)));
-  return k * k * (3 - 2 * k) * (GUARD_DIR - g.dir[0]);
+  const turn = direction == null ? GUARD_DIR - g.dir[0] : wrap(direction - g.dir[0]);
+  return k * k * (3 - 2 * k) * turn;
 }
 // The tip smear's colours: steel for blades, warm for heavy heads, a glow for
 // magic, pink silk for the Dancer's whip and fan, gold for the cane.
@@ -272,7 +275,7 @@ const SMEAR_INK = '#22304A', SMEAR_STEEL = '#eef5fb';
  *  behind it through a strike and the spark or muzzle flash at the tip.
  *  `anim` is the clip frame (heroanim.js). False when there is no frame for
  *  this moment (rest) or the set hasn't loaded. */
-export function drawSwingArm(ctx, classId, anim, hand, kind, sx, sy, alpha = 1) {
+export function drawSwingArm(ctx, classId, anim, hand, kind, sx, sy, alpha = 1, guardDirection) {
   const a = ANIM_ART[classId];
   const frames = a && (hand === 'off' ? a.off : a.swing);
   if (!frames) return false;
@@ -290,7 +293,9 @@ export function drawSwingArm(ctx, classId, anim, hand, kind, sx, sy, alpha = 1) 
   if (arc > 0) {
     const aimed = kind === 'bow' || kind === 'gun';
     const clear = (off ? CLEAR_OFF : CLEAR)[classId];
-    turn = arc > 3 && !aimed ? guardTurn(g, arc) : arc < 1 && anim.guardIn ? guardInTurn(g, arc) : armTurn(g, arc, phase) * (anim.tween ?? 1);
+    if (arc > 3 && !aimed) turn = guardTurn(g, arc, guardDirection);
+    else if (arc < 1 && (anim.guardIn || guardDirection != null)) turn = guardInTurn(g, arc, guardDirection);
+    else turn = armTurn(g, arc, phase) * (anim.tween ?? 1);
     turn += (clear?.[phase] || 0) * g.sense;
     // Near a picture change, both drawings meet along the same arc from the
     // same shoulder. Keep a single painted silhouette throughout the cut.
@@ -443,13 +448,15 @@ export function drawHeroBack(ctx, opts = {}) {
   }
   const put = (img, r, dy = 0) => ctx.drawImage(heroLit(img), r[0], r[1] + breathe + dy, r[2], r[3]);
   put(body, b.body);
-  if (other) {
+  const buckler = b.buckler && opts.hasShield !== false ? image(`${classId}_backbuckler`) : null;
+  const held = loaded(buckler) ? buckler : other;
+  if (held) {
     // The off arm hangs from its shoulder, a little out from the body, and swings as the hero walks.
-    const [sx, sy, w, h, px, py, fx, fy] = b.other;
+    const [sx, sy, w, h, px, py, fx, fy] = held === buckler ? b.buckler : b.other;
     const natural = Math.atan2(fy - py, fx - px);
     const want = Math.PI / 2 + (sx < b.body[0] + b.body[2] / 2 ? 0.2 : -0.2) + step * 0.25;
     ctx.save(); ctx.translate(sx, sy + breathe); ctx.rotate(want - natural);
-    ctx.drawImage(heroLit(other), -px, -py, w, h);
+    ctx.drawImage(heroLit(held), -px, -py, w, h);
     ctx.restore();
   }
   const hit = ch ? (ch.strike > 0.5 || ch.release > 0.05 || ch.cast > 0.2 || ch.strike2 > 0.5) : (opts.swingK ?? -1) >= 0.4;

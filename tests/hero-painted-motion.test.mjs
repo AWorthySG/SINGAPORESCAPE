@@ -110,3 +110,11 @@ test('the rear view uses the shared walk cycle and adds any clip lifts', () => w
     assert.equal(ctx.draws[2].dy, ANIM_ART.swordsman.back.body[1] + (ch.crouch - rise));
   }
 }));
+
+test('the Swordsman carries a buckler in the rear view while a shield is equipped', () => withPictures(() => {
+  for (const hasShield of [true, false]) {
+    const ctx = recordArt();
+    assert.ok(drawHeroBack(ctx, { jobClass: 'swordsman', backView: true, hasShield }));
+    assert.ok(ctx.draws.some(({ src }) => src.endsWith(hasShield ? '_backbuckler.webp' : '_backother.webp')));
+  }
+}));
