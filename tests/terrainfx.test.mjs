@@ -11,7 +11,7 @@ import { World } from '../src/game/world.js';
 import { TILE } from '../src/config.js';
 import {
   BLEND_RANK, blendPlan, blendMask, scatterPlan, waterDetailPlan, shadowPlan, detailTable,
-  GROUND_DETAILS, DETAIL_ART, TerrainFx, tileHash, kerbPlan,
+  GROUND_DETAILS, DETAIL_ART, TerrainFx, tileHash, kerbPlan, paintGroundWash,
 } from '../src/render/terrainfx.js';
 
 let _world;
@@ -25,6 +25,27 @@ const fresh = () => { const w = new World(); w.build(buildWorld()); return w; };
 
 // Kampong Glam and its edges, the Sentosa shore and MacRitchie's east bank.
 const AREAS = [[40, 40, 80, 70], [30, 85, 80, 104], [20, 30, 50, 70], [40, 0, 80, 30]];
+
+test('natural ground takes its regional palette and fades toward the border', () => {
+  const casts = (name, t, x) => {
+    const strokes = [];
+    const g = { globalAlpha: 1, fillRect(...rect) { strokes.push([this.fillStyle, this.globalAlpha, ...rect]); } };
+    const w = { zoneAt: () => ({ name, x0: 0, x1: 20, y0: 0, y1: 20 }) };
+    paintGroundWash(g, w, t, x, 10, 0, TILE);
+    assert.equal(g.globalAlpha, 1);
+    return strokes;
+  };
+  const coast = casts('Sentosa Beach', TERRAIN.WATER, 10)[0];
+  const marsh = casts('Sungei Buloh Wetlands', TERRAIN.WATER, 10)[0];
+  const rift = casts('The Shadow Rift', TERRAIN.WATER, 10)[0];
+  assert.equal(new Set([coast[0], marsh[0], rift[0]]).size, 3);
+  assert.deepEqual(coast.slice(2), [0, TILE, TILE, TILE]);
+  const edge = casts('Sentosa Beach', TERRAIN.WATER, 1)[0];
+  assert.equal(edge[0], coast[0]);
+  assert.ok(edge[1] > 0 && edge[1] < coast[1]);
+  assert.deepEqual(casts('Sentosa Beach', TERRAIN.WATER, 0), []);
+  assert.deepEqual(casts('Sentosa Beach', TERRAIN.STONE, 10), []);
+});
 
 test('blend plans are the same on every build of the world', () => {
   const a = world(), b = fresh();

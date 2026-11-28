@@ -49,6 +49,51 @@ export function recolourGround(data, { lo, hi, mid = 0.5, gain = 1 }) {
   return data;
 }
 
+// Water and banks carry the local palette even at noon, when the screen's
+// atmosphere is nearly clear. Washes tint the paper grain and painted ripples.
+const T = TERRAIN;
+const COAST = { [T.WATER]: ['#168f9b', 0.33], [T.SAND]: ['#ffebbb', 0.27] };
+const RESERVOIR = { [T.WATER]: ['#277577', 0.37], [T.SAND]: ['#aca67b', 0.34] };
+const WETLAND = { [T.WATER]: ['#356d55', 0.48], [T.SAND]: ['#98865f', 0.49] };
+const FOREST_FLOOR = { [T.GRASS]: ['#4e9669', 0.20], [T.DARKGRASS]: ['#2f7459', 0.29] };
+const HAUNTED = { [T.WATER]: ['#504574', 0.47], [T.GRASS]: ['#776c86', 0.28],
+  [T.DARKGRASS]: ['#544666', 0.38], [T.SAND]: ['#b0959b', 0.38] };
+const MOUNTAIN = { [T.WATER]: ['#6c8db5', 0.39], [T.GRASS]: ['#97b7b9', 0.31],
+  [T.DARKGRASS]: ['#63858d', 0.31], [T.SAND]: ['#c9d5db', 0.38] };
+const GROUND_WASHES = {
+  'Bukit Timah': FOREST_FLOOR,
+  'Jurong Forest': { ...FOREST_FLOOR, ...RESERVOIR },
+  'Mandai Rainforest': { ...FOREST_FLOOR, ...RESERVOIR },
+  'MacRitchie Reservoir': { ...FOREST_FLOOR, ...RESERVOIR },
+  'Sungei Buloh Wetlands': { ...FOREST_FLOOR, ...WETLAND },
+  'Punggol Waterway': RESERVOIR,
+  'Sentosa Beach': COAST,
+  'Southern Islands': COAST,
+  'Changi Coast': COAST,
+  'Coney Island': { ...FOREST_FLOOR, ...COAST },
+  'Marina Bay': { [T.WATER]: ['#346a9b', 0.31] },
+  'Tuas Docklands': { [T.WATER]: ['#456c87', 0.41], [T.SAND]: ['#bbb5ad', 0.27] },
+  'Pulau Hantu': HAUNTED,
+  'The Shadow Rift': HAUNTED,
+  'The Celestial Peaks': MOUNTAIN,
+};
+
+/** Paint the same wash on a tile and on that material's feathered edges.
+ * Fade into the neighbouring palette across the region's last five tiles. */
+export function paintGroundWash(g, world, t, x, y, sx, sy) {
+  if (t === T.STONE || t === T.WOOD || t === T.PATH) return;
+  const zone = world.zoneAt?.(x, y);
+  const wash = zone && GROUND_WASHES[zone.name]?.[t];
+  if (!wash) return;
+  const edge = Math.min(x - zone.x0, zone.x1 - x, y - zone.y0, zone.y1 - y);
+  if (!(edge > 0)) return;
+  const f = Math.min(1, edge / 5);
+  g.fillStyle = wash[0];
+  g.globalAlpha = wash[1] * f * f * (3 - 2 * f);
+  g.fillRect(sx, sy, TILE, TILE);
+  g.globalAlpha = 1;
+}
+
 // ---------------- Soft edges ----------------
 
 // Which ground spills over which where two meet: a higher rank bleeds its
@@ -839,6 +884,7 @@ export class TerrainFx {
           sg.fillStyle = fill(sg, t);
           sg.setTransform(1, 0, 0, 1, 0, -sy);
           sg.fillRect(a, sy, sw, TILE);
+          for (const [x, p] of row) if (p.t === t) paintGroundWash(sg, world, t, x, y, x * TILE - ox, sy);
           sg.setTransform(1, 0, 0, 1, 0, 0);
           sg.globalCompositeOperation = 'destination-in';
           sg.drawImage(mrow.c, a, 0, sw, TILE, a, 0, sw, TILE);

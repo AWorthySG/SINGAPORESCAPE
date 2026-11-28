@@ -55,7 +55,7 @@ import { RegionPostcards, titleRoom } from './postcard.js';
 import { Weather } from './weather.js';
 import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, DARK_REGIONS } from './fxart.js';
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
-import { TerrainFx, growBox, tileHash, recolourGround } from './terrainfx.js';
+import { TerrainFx, growBox, tileHash, recolourGround, paintGroundWash } from './terrainfx.js';
 import { sunShadow, drawSunShadow, drawCreatureContact, footfall } from './shadows.js';
 import { dropArc, dropFx, spawnFx, pickupFx } from './combatfx.js';
 import { applySquash, splatMotion, drawCritBurst, drawMissPuff, drawLootGlow, drawCoinGlint, motionOK } from './juice.js';
@@ -1547,22 +1547,14 @@ export class Renderer {
         const sx = (x - tx0) * TILE, sy = (y - ty0) * TILE;
         // Water's painted texture is baked here too: the animated layer over it
         // (_drawWaterOverlay) then only adds the swell, shimmer and foam.
-        if (t === TERRAIN.WATER) { if (!this._groundTile(g, t, x, y, sx, sy)) { g.fillStyle = 'rgb(122,190,232)'; g.fillRect(sx, sy, TILE + 1, TILE + 1); } continue; }
-        const h = hash(x, y);
-        if (this._groundTile(g, t, x, y, sx, sy)) {
-          // Painted ground: keep the odd wildflower and the crisp path edges.
-          if ((t === TERRAIN.GRASS || t === TERRAIN.DARKGRASS) && h > 0.93) {
-            g.fillStyle = ['#EF476F', '#F5B82E', '#5FAEE3', '#FFFFFF'][Math.floor(h * 97) % 4];
-            g.beginPath(); g.arc(sx + 8 + h * 12, sy + 10, 1.6, 0, 6.3); g.fill();
-          }
-          if (t === TERRAIN.STONE) this._tileEdges(g, w, t, x, y, sx, sy);   // paths blend softly instead
-          continue;
+        if (!this._groundTile(g, t, x, y, sx, sy)) {
+          const base = TERRAIN_RGB[t] || TERRAIN_RGB[TERRAIN.GRASS];
+          const h = hash(x, y), j = (h - 0.5) * 10;
+          g.fillStyle = t === TERRAIN.WATER ? 'rgb(122,190,232)' : `rgb(${clamp8(base[0] + j)},${clamp8(base[1] + j)},${clamp8(base[2] + j)})`;
+          g.fillRect(sx, sy, TILE + 1, TILE + 1);
+          if (t !== TERRAIN.WATER) this._tileDetail(g, t, x, y, sx, sy, h);
         }
-        const base = TERRAIN_RGB[t] || TERRAIN_RGB[TERRAIN.GRASS];
-        const j = (h - 0.5) * 10;
-        g.fillStyle = `rgb(${clamp8(base[0] + j)},${clamp8(base[1] + j)},${clamp8(base[2] + j)})`;
-        g.fillRect(sx, sy, TILE + 1, TILE + 1);
-        this._tileDetail(g, t, x, y, sx, sy, h);
+        paintGroundWash(g, w, t, x, y, sx, sy);
         if (t === TERRAIN.STONE) this._tileEdges(g, w, t, x, y, sx, sy);
       }
     }
