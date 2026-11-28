@@ -3,7 +3,7 @@
 // leaves the ink and the light colours alone, and does nothing headless.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rimLight, heroLit } from '../src/render/herolight.js';
+import { gradeHeroPaint, rimLight, heroLit } from '../src/render/herolight.js';
 
 // A 60x60 sticker: clear background, a white border, a navy ink ring and a
 // dark teal (Rogue-hood) fill, with a white "eye" and a light gold patch inside.
@@ -45,4 +45,24 @@ test('headless, or before a picture has loaded, the hero is drawn from its own p
   const img = { complete: true, naturalWidth: 10, naturalHeight: 10 };
   assert.equal(heroLit(img), img, 'no DOM: the picture itself');
   assert.equal(heroLit(null), null);
+});
+
+test('the colour finish unifies the ink and keeps the painted values, colours and silhouette', () => {
+  const before = [
+    [12, 12, 12, 255], [34, 48, 74, 255], // neutral and already-navy ink
+    [24, 60, 72, 255], [37, 83, 94, 255], // shadow and highlight on teal cloth
+    [236, 87, 64, 255], [225, 214, 194, 255], // red trim and warm paint
+    [245, 244, 242, 255], [20, 20, 20, 64], [10, 40, 20, 0],
+  ];
+  const px = gradeHeroPaint(new Uint8ClampedArray(before.flat()));
+  const after = before.map((_, i) => [...px.slice(i * 4, i * 4 + 4)]);
+  assert.ok(after[0][2] > after[0][1] && after[0][1] > after[0][0], 'neutral ink leans navy');
+  assert.deepEqual(after[1], before[1], 'navy ink keeps its colour');
+  assert.deepEqual(after.slice(2, 4), before.slice(2, 4), 'shading in the teal cloth stays distinct');
+  assert.ok(after[4][0] > after[4][1] * 2 && after[4][0] < before[4][0], 'scarlet stays scarlet');
+  assert.ok(after[5][0] > before[5][0] && after[5][2] < before[5][2], 'highlights lean cream');
+  assert.deepEqual(after[6], before[6], 'near-white sticker paper stays untouched');
+  assert.ok(after[7][2] - before[7][2] < after[0][2] - before[0][2], 'less grading on soft edges');
+  assert.deepEqual(after[8], before[8], 'fully transparent pixels stay untouched');
+  assert.deepEqual(after.map((pixel) => pixel[3]), before.map((pixel) => pixel[3]), 'alpha is unchanged');
 });

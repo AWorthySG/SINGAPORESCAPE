@@ -3961,10 +3961,10 @@ export class UI {
   openStyleChoice() {
     const g = this.game;
     const STYLES = [
-      { id: 'melee', name: 'Melee', art: 'assets/creatures/hero/melee.webp', blurb: 'Fight up close (most weapons reach 2 tiles).' },
-      { id: 'ranged', name: 'Ranged', art: 'assets/creatures/hero/ranged.webp', blurb: 'Shoot from far away. Starts with 999 arrows.' },
-      { id: 'magic', name: 'Magic', art: 'assets/creatures/hero/magic.webp', blurb: 'Cast spells from a distance. Starts with runes.' },
-      { id: 'dance', name: 'Dance', art: 'assets/creatures/hero/dancer.webp', blurb: 'Lash from 3 tiles, build Rhythm and dodge blows.' },
+      { id: 'melee', name: 'Melee', art: heroArtSrc('knight'), blurb: 'Fight up close (most weapons reach 2 tiles).' },
+      { id: 'ranged', name: 'Ranged', art: heroArtSrc('archer'), blurb: 'Shoot from far away. Starts with 999 arrows.' },
+      { id: 'magic', name: 'Magic', art: heroArtSrc('wizard'), blurb: 'Cast spells from a distance. Starts with runes.' },
+      { id: 'dance', name: 'Dance', art: heroArtSrc('dancer'), blurb: 'Lash from 3 tiles, build Rhythm and dodge blows.' },
     ];
     const render = (body) => {
       body.innerHTML = `<div class="dialogue path-intro">${g.pendingClassChoice ? 'Choose your job class. You keep your gear, but from now on you can only wield your class\'s weapon type.' : 'Choose your job class. Each class masters one weapon type.'} <b>This choice is permanent.</b></div>`;
@@ -4061,9 +4061,10 @@ export class UI {
     });
     const actor = { classId: null };
     let next = 0;
-    new HeroStage(el.querySelector('canvas'), (w, h, now) => {
+    const stage = new HeroStage(el.querySelector('canvas'), (w, h, now) => {
       if (!still && now > next) { swingActor(actor, now); next = now + 2300; }
-      return [{ actor, x: w * 0.44, y: h - 12, scale: Math.min(w / 72, h / 66) }];
+      // Fit the tallest wind-up and the longest follow-through on the stage.
+      return [{ actor, x: w * 0.36, y: h * 0.73, scale: Math.min(w / 140, h / 117) }];
     }, { fps: 40, still });
     const show = (id, swing = false, picked = false) => {
       const c = CLASS_BY_ID[id];
@@ -4085,6 +4086,7 @@ export class UI {
         parent.querySelectorAll('.class-card.previewing').forEach((d) => d.classList.remove('previewing'));
         parent.querySelector(`.class-card[data-cls="${id}"]`)?.classList.add('previewing');
         el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap');
+        if (still) stage.draw(0);
       }
       if (picked) { el.classList.add('chosen'); el.querySelector('.class-spot-sig').textContent = `You are ${aOrAn(c.name)}! ${el.querySelector('.class-spot-sig').textContent}`; }
       if (swing && !still) { swingActor(actor, performance.now()); next = performance.now() + 2300; }

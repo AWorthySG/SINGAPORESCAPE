@@ -259,7 +259,7 @@ body.title-on > :not(#splash):not(#game-root):not(script) { visibility: hidden !
 }
 .class-spot-stage {
   flex: none; width: 150px; height: 128px; border-radius: 16px;
-  background: radial-gradient(70% 26% at 50% 86%, rgba(61,170,92,0.22), transparent 70%), var(--aw-muted);
+  background: radial-gradient(65% 26% at 36% 73%, rgba(61,170,92,0.22), transparent 70%), var(--aw-muted);
 }
 .class-spot-info { min-width: 0; flex: 1; }
 .class-spot-name { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }

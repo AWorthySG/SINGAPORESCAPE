@@ -67,6 +67,47 @@ export const turnWidth = (u) => (u > 0 && u < 1 ? Math.max(TURN_MIN_W, Math.abs(
 /** How high (px) it is lifted part-way through a turn. */
 export const turnHop = (u) => arc(u) * 1.6;
 
+// A tile is one step. Squared half-waves lift and set down each boot gently,
+// with the other boot resting on the ground throughout the step.
+export function heroWalk(gait = {}, calm = false) {
+  const move = clamp01(gait.move || 0);
+  const wave = Math.sin((gait.phase || 0) * Math.PI);
+  const lift = move * (calm ? 2.2 : 3.6);
+  return {
+    step: wave * move,
+    liftB: Math.max(0, wave) ** 2 * lift,
+    liftF: Math.min(0, wave) ** 2 * lift,
+    rise: wave * wave * move * (calm ? 0.35 : 1),
+  };
+}
+
+// Through a front/rear turn the painted sprite passes through its edge.
+// Track the progress for the player so a reversal continues from the pose
+// already on screen. Previews and reflections can read an immediate pose.
+const heroTurns = new WeakMap();
+const HERO_TURN_MS = 140;
+export function heroView(entity, rear, now, calm = false) {
+  const target = rear ? 1 : 0;
+  if (!entity || !Number.isFinite(now)) return { rear, width: 1, rise: 0 };
+  if (calm) {
+    heroTurns.delete(entity);
+    return { rear, width: 1, rise: 0 };
+  }
+  let state = heroTurns.get(entity);
+  if (!state || now < state.start) {
+    state = { from: target, to: target, start: now };
+    heroTurns.set(entity, state);
+  }
+  const u = smooth((now - state.start) / HERO_TURN_MS);
+  const view = state.from + (state.to - state.from) * u;
+  if (state.to !== target) {
+    state.from = view;
+    state.to = target;
+    state.start = now;
+  }
+  return { rear: view >= 0.5, width: 0.16 + 0.84 * Math.abs(Math.cos(view * Math.PI)), rise: turnHop(view) * 0.4 };
+}
+
 // ---------------- Standing about ----------------
 // Townsfolk drawn as one picture (no idle parts) still breathe, and every
 // nine to fourteen seconds (each on their own clock) glance the other way for

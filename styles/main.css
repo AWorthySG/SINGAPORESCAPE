@@ -1733,6 +1733,7 @@ body.boss-on #tip-toast { top: 132px; }
 .skill-cell.has-guide { cursor: var(--cur-pointer); }
 .skill-cell.has-guide::after { content: '›'; font-weight: 900; font-size: 18px; color: var(--aw-text-sec); margin-left: 4px; }
 .sg-head { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.sg-head .class-pic img { display: block; object-fit: contain; }
 .sg-head > div { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-sm); }
 .sg-head b { font-size: var(--fs-lead); }
 .sg-auto {

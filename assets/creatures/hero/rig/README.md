@@ -1,17 +1,21 @@
 # Playable character animation rigs
 
-All 17 playable classes have six transparent WebP components, generated with
-OpenAI Image Gen from the existing class or combat-style portrait. The original
-portraits remain the fallback until every part for the selected class loads.
-No build step or runtime dependency is needed.
+The playable artwork is painted WebP. Most classes assemble six transparent
+parts over a shared foot baseline. Their portraits take over while those parts
+load. Archer and Ranger use the field-cap and trail-hat designs across their
+portraits, rig parts and expressions. The Ninja and Sniper use complete
+front and rear paintings, with the rear files under `hero/puppet/`.
+The renderer cuts these paintings into a body and two boots for walking.
 
-- `src/render/heroRig.js`: 13 melee/dance rigs. Part names are `body`, `sword`,
+- `src/render/heroRig.js`: melee and dance rigs. Part names are `body`, `sword`,
   `back`, `left`, `right`, `strike`; `sword` means raised weapon arm for any weapon.
-- `src/render/rangedHeroRig.js`: Archer, Ranger, Wizard and Sorcerer. Part names
+- `src/render/rangedHeroRig.js`: ranged and magic rigs. Part names
   are `body`, `weapon`, `back`, `left`, `right`, `action`. Bowstrings and nocked
   arrows are drawn locally so strings can follow the drawing hand.
-- `src/render/sprites.js`: dispatches to the appropriate rig, retaining the
-  existing facing, turning, whole-body attack effects and headless fallback.
+- `src/render/sprites.js`: dispatches to the appropriate rig or full painting,
+  easing between the front and rear facings.
+- `src/render/herolight.js`: bakes a shared colour and light finish when each
+  painting loads, preserving the original brushwork and alpha.
 
 Boots alternate with the game's movement phase, so running naturally advances
 steps faster. Upper bodies breathe at rest. Weapon-specific timing covers quick

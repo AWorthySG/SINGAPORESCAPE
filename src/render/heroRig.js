@@ -2,6 +2,7 @@ import { poseBlender, swapOpacity } from './poseBlend.js';
 import { drawHeroArm, drawGripHand, armInFront } from './heroanim.js';
 import { drawAnimBody, drawSwingArm, drawEmptyArm, hasSwingArt, swingPhase, offArmInFront } from './heroAnimArt.js';
 import { heroLit } from './herolight.js';
+import { heroWalk } from './motionkit.js';
 
 // Painted hero rigs use separate limbs. Keep loading and animation
 // here so the shared sprite library only needs one optional drawing hook.
@@ -45,18 +46,23 @@ const GRIP = {
 };
 // Where the weapon arm's shoulder is (the painted attack arms hang from it),
 // and the off hand's for the dual wielders' second set.
-const SHOULDER = { rogue: [15, -8], brawler: [14, -9], monk: [12.4, -10.8] };
+const SHOULDER = {
+  rogue: [15, -8], brawler: [14, -9], monk: [12.4, -10.8],
+  merchant: [13, -6.8], lancer: [13, -8.5], halberdier: [13, -9],
+};
 // (The Monk's palm strikes from its own back shoulder, so the thrust carries across the body.)
 const OFF_SHOULDER = { corsair: [-9, -10], rogue: [-11, -9], monk: [-10.1, -10.8] };
+// The upright polearms and cane lean out of the mascot's eyeline in guard.
+const GUARD_TURN = { samurai: 0.25, lancer: 0.62, halberdier: 0.74, merchant: 0.49 };
 const images = new Map();
 // Limb angles and reach ease across a restarted swing (see poseBlend.js).
 const blendRig = poseBlender();
 const RIG_BLEND = ['sword', 'back', 'strike', 'reach', 'strike2', 'reach2'];
 export const heroRigSrc = (part, classId = 'swordsman') => `assets/creatures/hero/rig/${classId}-${part}.webp`;
 
-export function swordsmanPose(gait = {}, time = 0, swing = -1) {
+export function swordsmanPose(gait = {}, time = 0, swing = -1, calm = false) {
   const move = Math.max(0, Math.min(1, gait.move || 0));
-  const step = Math.sin((gait.phase || 0) * Math.PI) * move;
+  const { step, liftB, liftF, rise } = heroWalk(gait, calm);
   const attacking = swing >= 0 && swing <= 1;
   const k = Math.max(0, Math.min(1, swing));
   // Ease through wind-up, contact and recovery without snapping at the ends.
@@ -65,8 +71,8 @@ export function swordsmanPose(gait = {}, time = 0, swing = -1) {
   const hit = attacking ? smooth((k - 0.3) / 0.22) : 0;
   const recover = attacking ? smooth((k - 0.55) / 0.45) : 0;
   return {
-    step,
-    breathe: Math.sin(time * 0.0032) * 0.35 * (1 - move),
+    step, liftB, liftF,
+    breathe: Math.sin(time * 0.0032) * (calm ? 0.12 : 0.35) * (1 - move) - rise,
     sword: -wind * 0.55 + hit * 1.8 - recover * 1.25 + step * 0.12,
     back: -step * 0.28 - (wind - recover) * 0.15,
     strike: hit * (1 - recover),
@@ -77,8 +83,8 @@ export function swordsmanPose(gait = {}, time = 0, swing = -1) {
 
 // Rogue follows through with the off hand only when two daggers are equipped.
 // These timings are visual; combat still owns damage and attack speed.
-export function heroRigPose(classId, gait, time, swing = -1, dualWield = false) {
-  const pose = swordsmanPose(gait, time, swing);
+export function heroRigPose(classId, gait, time, swing = -1, dualWield = false, calm = false) {
+  const pose = swordsmanPose(gait, time, swing, calm);
   if (classId === 'swordsman') return pose;
   const smooth = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
   const active = swing >= 0 && swing <= 1;
@@ -129,7 +135,7 @@ export function heroRigPose(classId, gait, time, swing = -1, dualWield = false) 
  *  swings and strike swaps, a crouch (the body sinks, the feet stay planted)
  *  and lifted feet. Clips start and end at rest, so this meets the old pose. */
 export function rigAnimPose(classId, opts, ch) {
-  const pose = heroRigPose(classId, opts.gait, opts.time || 0, -1, opts.dualWield);
+  const pose = heroRigPose(classId, opts.gait, opts.time || 0, -1, opts.dualWield, opts.anim?.calm || opts.calm);
   pose.sword += ch.sword || 0;
   pose.back += ch.back || 0;
   pose.strike = Math.max(0, Math.min(1, ch.strike || 0));
@@ -137,13 +143,13 @@ export function rigAnimPose(classId, opts, ch) {
   pose.strike2 = Math.max(0, Math.min(1, ch.strike2 || 0));
   pose.reach2 = ch.reach2 || 0;
   pose.breathe += ch.crouch || 0;
-  pose.liftF = Math.max(0, ch.liftF || 0);
-  pose.liftB = Math.max(0, ch.liftB || 0);
+  pose.liftF += Math.max(0, ch.liftF || 0);
+  pose.liftB += Math.max(0, ch.liftB || 0);
   // Feet stay planted through a lunge: the back foot holds its ground as the
   // body drives forward (so the front foot steps in), the front one as it is
   // kicked back.
-  pose.plantB = Math.max(0, ch.bx || 0) * 0.6;
-  pose.plantF = Math.min(0, ch.bx || 0) * 0.6;
+  pose.plantB = Math.max(0, ch.bx || 0) * (1 - Math.min(1, pose.liftB / 3));
+  pose.plantF = Math.min(0, ch.bx || 0) * (1 - Math.min(1, pose.liftF / 3));
   return pose;
 }
 
@@ -164,7 +170,7 @@ export function drawHeroRig(ctx, opts = {}) {
   // without one, the class's own attack pose plays as before.
   const anim = opts.anim;
   const pose = anim ? rigAnimPose(classId, opts, anim.ch)
-    : blendRig(opts.entity, heroRigPose(classId, opts.gait, opts.time || 0, opts.swingK ?? -1, opts.dualWield), opts.time || 0, opts.swingK ?? -1, RIG_BLEND);
+    : blendRig(opts.entity, heroRigPose(classId, opts.gait, opts.time || 0, opts.swingK ?? -1, opts.dualWield, opts.calm), opts.time || 0, opts.swingK ?? -1, RIG_BLEND);
   let shown = swapOpacity(pose.strike);
   // The off hand's own extended drawing (dual wielding, the claws' second paw).
   let shown2 = swapOpacity(pose.strike2 || 0);
@@ -190,17 +196,22 @@ export function drawHeroRig(ctx, opts = {}) {
   const corsairPair = (classId === 'corsair' || classId === 'ninja') && !!opts.dualWield;
   // A two-handed weapon the class is painted with: the back hand grips it too.
   const grip = anim && GRIP[classId] && anim.weapon === GRIP[classId].weapon ? GRIP[classId] : null;
-  const bootY = rogue ? -1 : 2, bootH = rogue ? 16 : 13;
-  const [lx, ly, lw, lh] = placed ? placed.left : [-10, bootY, 13, bootH], [rx, ry, rw, rh] = placed ? placed.right : [1, bootY, 13, bootH];
-  draw('left', lx - pose.step * 1.5 - (pose.plantB || 0), ly - Math.max(0, pose.step) * 3 - (pose.liftB || 0), lw, lh);
-  draw('right', rx + pose.step * 1.5 - (pose.plantF || 0), ry - Math.max(0, -pose.step) * 3 - (pose.liftF || 0), rw, rh);
+  // The Merchant's little shoes have more transparent padding above their
+  // heels. Tuck the pegs inside the vest and keep the same floor line.
+  const bootY = classId === 'merchant' ? -3 : rogue ? -1 : 2;
+  const [lx, ly, lw, lh] = placed ? placed.left : [-10, bootY, 13, 15 - bootY];
+  const [rx, ry, rw, rh] = placed ? placed.right : [1, bootY, 13, 15 - bootY];
+  draw('left', lx - pose.step * 1.5 - (pose.plantB || 0), ly - pose.liftB, lw, lh);
+  draw('right', rx + pose.step * 1.5 - (pose.plantF || 0), ry - pose.liftF, rw, rh);
   const pilot = classId === 'swordsman';
   const slim = classId === 'ninja' || classId === 'merchant';
   // Where the weapon arm's two drawings sit (the generic rigs).
+  const sh = SHOULDER[classId] || [11, -10], osh = OFF_SHOULDER[classId];
+  const [x, shoulderY] = sh;
   const w = broad ? 29 : polearm ? 24 : dancer ? 26 : 23;
   const h = polearm ? 57 : broad ? 46 : dancer ? 44 : 42;
-  const y = -10 + pose.breathe;
-  const sa = pose.sword + (samurai ? 0.25 : 0), spx = pilot || samurai ? 19 : w * 0.83, spy = pilot || samurai ? 37 : h * 0.88;
+  const y = shoulderY + pose.breathe;
+  const sa = pose.sword + (GUARD_TURN[classId] || 0), spx = pilot || samurai ? 19 : w * 0.83, spy = pilot || samurai ? 37 : h * 0.88;
   const reach = pose.reach || 0;
   const kw = dancer ? 52 : polearm ? 55 : broad ? 44 : 37, kh = dancer ? 19 : broad ? 16 : 13;
   const ka = polearm ? -0.08 : (pose.sword - 1.25) * 0.3;
@@ -226,8 +237,7 @@ export function drawHeroRig(ctx, opts = {}) {
     if (hasSwingArt(classId)) shown = 0;
     if (hasSwingArt(classId, 'off') && OFF_SHOULDER[classId]) shown2 = 0;
   }
-  const sh = SHOULDER[classId] || [11, -10], osh = OFF_SHOULDER[classId];
-  const hand = grip ? gripPoint(grip, shown, [11, y, w, h, sa, spx, spy], [11 + reach, y, kw, kh, ka, 4, 5], -4, -9 + pose.breathe) : null;
+  const hand = grip ? gripPoint(grip, shown, [x, y, w, h, sa, spx, spy], [x + reach, y, kw, kh, ka, 4, 5], -4, -9 + pose.breathe) : null;
   if (hand) drawGripHand(ctx, classId, 'arm', -4, -9 + pose.breathe, hand[0], hand[1], arms);
   const backFront = anim && armInFront(classId);
   if (anim && !backFront) drawHeroArm(ctx, anim, 'back', -11 + pose.breathe);
@@ -300,8 +310,8 @@ export function drawHeroRig(ctx, opts = {}) {
     draw('sword', a[0], a[1] + pose.breathe, a[2], a[3], pose.sword + chamber * 0.9, a[4], a[5], (1 - shown) * arms);
     draw('strike', k[0] + reach, k[1] + pose.breathe, k[2], k[3], (pose.sword - 0.8) * 0.3, k[4], k[5], shown * arms);
   } else {
-    draw('sword', 11, y, w, h, sa, spx, spy, (1 - shown) * arms);
-    draw('strike', 11 + reach, y, kw, kh, ka, 4, 5, shown * arms);
+    draw('sword', x, y, w, h, sa, spx, spy, (1 - shown) * arms);
+    draw('strike', x + reach, y, kw, kh, ka, 4, 5, shown * arms);
     if (hand) drawGripHand(ctx, classId, 'fist', 0, 0, hand[0], hand[1], arms);
   }
   if (offLast) offArm();
@@ -328,8 +338,13 @@ function gripPoint(g, shown, swordAt, strikeAt, sx, sy) {
   const len = Math.hypot(dx, dy) || 1;
   dx /= len; dy /= len;
   const REACH = 17;   // the back arm's length, shoulder to fist
-  let gx = hand[0] + dx * 3.5, gy = hand[1] + dy * 3.5;
-  for (let s = 3.5; s < g.slide && Math.hypot(gx - sx, gy - sy) > REACH; s += 2) { gx = hand[0] + dx * s; gy = hand[1] + dy * s; }
+  // Find where the handle first comes within reach. This keeps the grip
+  // sliding along it as the sword returns, without jumping between notches.
+  const hx = hand[0] - sx, hy = hand[1] - sy;
+  const along = hx * dx + hy * dy;
+  const toReach = -along - Math.sqrt(Math.max(0, REACH ** 2 - (hx * hx + hy * hy - along * along)));
+  const slide = Math.max(3.5, Math.min(g.slide, toReach));
+  let gx = hand[0] + dx * slide, gy = hand[1] + dy * slide;
   const d = Math.hypot(gx - sx, gy - sy);
   if (d > REACH) { gx = sx + (gx - sx) * REACH / d; gy = sy + (gy - sy) * REACH / d; }
   return [gx, gy];

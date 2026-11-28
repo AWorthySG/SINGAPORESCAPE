@@ -1,4 +1,4 @@
-// A soft rim light for the painted hero, baked into its pictures once.
+// A common colour finish and soft rim light for the painted hero.
 //
 // At play size a dark hero (the Rogue's teal hood, a Ninja's navy) is about the
 // colour of its own ink outline, so after dark it reads as one dark blob on
@@ -22,6 +22,27 @@ const NAVY_INK = [0.15, 0.2];     // ...and for the navy ink (#22304A and the pa
 const MAX_BAKES = 1;              // pictures baked a frame at most, so a new class never hitches
 
 const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+/** Match the outline and highlight colours across the original painted parts. */
+export function gradeHeroPaint(px) {
+  for (let o = 0; o < px.length; o += 4) {
+    const r = px[o], g = px[o + 1], b = px[o + 2], alpha = px[o + 3];
+    const low = Math.min(r, g, b);
+    if (alpha === 0 || low > 232) continue;   // clear pixels and the white sticker border
+    const range = Math.max(r, g, b) - low;
+    const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+    const edge = Math.min(1, alpha / 128);
+    // Give neutral strokes navy ink without recolouring shadow hues. Fade the
+    // warm side of the grade into white so painted highlights retain their detail.
+    const ink = (1 - smooth(19, 67, luma)) * (1 - smooth(13, 44, range)) * edge;
+    const warmth = smooth(132, 224, luma) * (1 - smooth(62, 143, range)) * (1 - smooth(218, 232, low)) * edge;
+    const temper = 0.1 * smooth(74, 170, range) * edge;
+    px[o] = r + (luma - r) * temper - 5 * ink + 4 * warmth;
+    px[o + 1] = g + (luma - g) * temper + 3 * ink;
+    px[o + 2] = b + (luma - b) * temper + 14 * ink - 5 * warmth;
+  }
+  return px;
+}
 
 /**
  * Lay the rim and fill onto RGBA pixels `px` (w x h), in place. Pure, so the
@@ -94,7 +115,7 @@ export function rimLight(px, w, h) {
 const _lit = new WeakMap();   // picture -> its lit copy (0 while it is being made, null if it can't be)
 let _frameAt = -1, _baked = 0;
 
-/** Bake the rim into a canvas of `src` (an image or canvas, `w` x `h`). Null if it can't. */
+/** Bake the rim and colour finish into a canvas of `src` (`w` x `h`). */
 export function bakeRim(src, w, h) {
   try {
     const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
@@ -103,13 +124,14 @@ export function bakeRim(src, w, h) {
     g.drawImage(src, 0, 0);
     const data = g.getImageData(0, 0, w, h);
     rimLight(data.data, w, h);
+    gradeHeroPaint(data.data);
     g.putImageData(data, 0, 0);
     return cv;
   } catch { return null; }
 }
 
 /**
- * The hero picture `img` with its rim light, to draw in its place: the lit
+ * The hero picture `img` with its colour finish and rim light: the treated
  * copy once it is ready, the picture itself until then (still loading, being
  * baked, or no DOM). The copy is turned back into an image, not left a
  * canvas: the browser shrinks images smoothly to the hero's small size but

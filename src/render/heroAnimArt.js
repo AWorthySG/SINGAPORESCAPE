@@ -22,7 +22,9 @@
 // all of its pictures have loaded, never half assembled. Each is drawn with
 // its rim light (herolight.js).
 
+import { clamp, lerp } from '../core/utils.js';
 import { heroLit } from './herolight.js';
+import { heroWalk } from './motionkit.js';
 
 export const ANIM_ART = {
   swordsman: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [24.7, 31.5, 8.3, 27.6], mid: [33.7, 24.7, 4.4, 5.1], follow: [41, 24.3, 4.8, 5.7] }, back: { body: [-17.5, -33.4, 34.7, 37.3], other: [1.9, -4.3, 21.2, 19.5, 18, 3.8, 3.3, 16], arm: [-7.3, -37.9, 28.3, 38.3], strike: [-6.8, -22.1, 41.2, 23.2] }, hand: [11, 12, 8.7, 1.6, 1.9, 10.3] },
@@ -182,6 +184,7 @@ export function swingPhase(ch, hand = 'main', kind = 'melee') {
 // The picture walk (arc) has the rig's own resting arm before ARC_REST and
 // from ARC_GUARD on: close enough to rest to swap without a jump.
 const ARC_REST = 0.4, ARC_GUARD = 3.6;
+const ARC_JOIN = 0.22;
 const PHASES = ['wind', 'mid', 'follow'];
 // Where each painted arm points: from the shoulder to the picture's corner
 // farthest from it (the weapon's tip, near enough), as an angle and a length,
@@ -283,22 +286,39 @@ export function drawSwingArm(ctx, classId, anim, hand, kind, sx, sy, alpha = 1) 
   const off = hand === 'off';
   const arc = off ? ch.arc2 : ch.arc;
   const g = armGeo(classId, hand);
-  let turn = 0;
+  let turn = 0, scale = 1;
   if (arc > 0) {
     const aimed = kind === 'bow' || kind === 'gun';
-    turn = (arc > 3 && !aimed ? guardTurn(g, arc) : arc < 1 && anim.guardIn ? guardInTurn(g, arc) : armTurn(g, arc, phase) * (anim.tween ?? 1)) + ((off ? ch.whip2 : ch.whip) || 0) * g.sense;
-    const clear = (off ? CLEAR_OFF : CLEAR)[classId]?.[phase];
-    if (clear) turn += clear * g.sense;
+    const clear = (off ? CLEAR_OFF : CLEAR)[classId];
+    turn = arc > 3 && !aimed ? guardTurn(g, arc) : arc < 1 && anim.guardIn ? guardInTurn(g, arc) : armTurn(g, arc, phase) * (anim.tween ?? 1);
+    turn += (clear?.[phase] || 0) * g.sense;
+    // Near a picture change, both drawings meet along the same arc from the
+    // same shoulder. Keep a single painted silhouette throughout the cut.
+    const before = arc < 2 ? 0 : 1;
+    const join = Math.abs(arc - (before + 1.5)) / ARC_JOIN;
+    if (join < 1) {
+      const align = 1 - join * join * (3 - 2 * join);
+      const fraction = arc - before - 1;
+      const clearance = lerp(clear?.[PHASES[before]] || 0, clear?.[PHASES[before + 1]] || 0, fraction) * g.sense;
+      const angle = arcDir(g, arc) + clearance;
+      turn += wrap(angle - g.dir[i] - turn) * align;
+      if (!aimed) {
+        const length = lerp(g.len[before], g.len[before + 1], fraction);
+        scale += clamp(length / g.len[i] - 1, -0.10, 0.10) * align;
+      }
+    }
+    turn += ((off ? ch.whip2 : ch.whip) || 0) * g.sense;
   }
+  const tipDirection = g.dir[i] + turn, tipLength = g.len[i] * scale;
   if (alpha < 1) { ctx.save(); ctx.globalAlpha *= alpha; }
   const low = !!anim.low;
   // The smear: a fading crescent the tip has just swept, a few strokes.
   const sm = (off ? ch.smear2 : ch.smear) || 0;
   if (!low && sm > 0.03 && arc >= 1) {
     // (The off hand's is shorter: it sweeps up past the face.)
-    const head = g.dir[i] + turn, tail = arcDir(g, Math.min(arc, 3) - (off ? 0.9 : 1.6));
+    const head = tipDirection, tail = arcDir(g, Math.min(arc, 3) - (off ? 0.9 : 1.6));
     if (Math.abs(head - tail) > 0.15) {
-      const R = g.len[i] * 0.88, lo = Math.min(head, tail), hi = Math.max(head, tail);
+      const R = tipLength * 0.88, lo = Math.min(head, tail), hi = Math.max(head, tail);
       const prev = ctx.globalAlpha;
       ctx.lineCap = 'round';
       ctx.globalAlpha = prev * sm * 0.55;
@@ -316,12 +336,16 @@ export function drawSwingArm(ctx, classId, anim, hand, kind, sx, sy, alpha = 1) 
       anim[off ? 'smeared2' : 'smeared'] = true;
     }
   }
-  if (turn) { ctx.save(); ctx.translate(sx, sy); ctx.rotate(turn); ctx.drawImage(heroLit(pics[i]), -px, -py, w, h); ctx.restore(); }
-  else ctx.drawImage(heroLit(pics[i]), sx - px, sy - py, w, h);
+  if (turn || scale !== 1) {
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(turn);
+    if (scale !== 1) ctx.scale(scale, scale);
+    ctx.drawImage(heroLit(pics[i]), -px, -py, w, h);
+    ctx.restore();
+  } else ctx.drawImage(heroLit(pics[i]), sx - px, sy - py, w, h);
   // The spark where the blow lands, or a gun's muzzle flash, at the tip.
   const fl = ch.flash || 0, k = Math.max(phase === 'follow' ? ch.impact || 0 : 0, fl);
   if (!low && k > 0.05 && phase !== 'wind') {
-    const d = g.dir[i] + turn, r = g.len[i] * 0.92;
+    const d = tipDirection, r = tipLength * 0.92;
     tipStar(ctx, sx + Math.cos(d) * r, sy + Math.sin(d) * r, 2 + k * (fl > 0.05 ? 6 : 5), k, fl > 0.05);
     anim.sparked = true;
   }
@@ -361,6 +385,21 @@ export function hasSwingArt(classId, hand = 'main') {
 // ---------------- Back view ----------------
 // Where most heroes' back-view feet stand: [left x, right x, width].
 const BACK_FEET = [-10, 1, 12];
+const _backs = new Map();
+
+function backPics(classId) {
+  const b = ANIM_ART[classId]?.back;
+  if (!b) return null;
+  const cached = _backs.get(classId);
+  if (cached) return cached;
+  const names = ['backbody', 'backarm', 'backstrike', 'backfootl', 'backfootr', ...(b.other ? ['backother'] : [])];
+  const pics = set(names.map((n) => `${classId}_${n}`));
+  if (pics) _backs.set(classId, pics);
+  return pics;
+}
+
+export function heroBackReady(classId) { return !!backPics(classId); }
+
 /** Is the hero facing up the screen (away from the camera)? */
 export function facingAway(opts = {}) {
   const f = opts.facing;
@@ -371,21 +410,17 @@ export function facingAway(opts = {}) {
  *  False when the class has no back view or it hasn't loaded. */
 export function drawHeroBack(ctx, opts = {}) {
   const classId = opts.jobClass;
-  const a = ANIM_ART[classId];
-  if (!a || !a.back || !facingAway(opts)) return false;
-  const anim = opts.anim;
   // Life skills turn to their work with tool arms, which have no back view.
-  if (anim && anim.ch.mix > 0.01) return false;
-  const b = a.back;
-  const names = ['backbody', 'backarm', 'backstrike', 'backfootl', 'backfootr', ...(b.other ? ['backother'] : [])];
-  const pics = set(names.map((n) => `${classId}_${n}`));
+  const ch = opts.anim?.ch;
+  if (!(opts.backView ?? (facingAway(opts) && (ch?.mix || 0) <= 0.01))) return false;
+  const pics = backPics(classId);
   if (!pics) return false;
+  const a = ANIM_ART[classId], b = a.back;
   const [body, arm, strike, footL, footR, other] = pics;
-  const g = opts.gait || {};
-  const move = Math.max(0, Math.min(1, g.move || 0));
-  const step = Math.sin((g.phase || 0) * Math.PI) * move;
-  const ch = anim?.ch;
-  const breathe = Math.sin((opts.time || 0) * 0.0032) * 0.35 * (1 - move) + (ch?.crouch || 0);
+  const calm = opts.calm || opts.anim?.calm;
+  const move = clamp(opts.gait?.move || 0, 0, 1);
+  const { step, liftB, liftF, rise } = heroWalk(opts.gait, calm);
+  const breathe = Math.sin((opts.time || 0) * 0.0032) * (calm ? 0.12 : 0.35) * (1 - move) + (ch?.crouch || 0) - rise;
   // Feet where the front view has them, the soles showing as each lifts
   // (a wide stance, the Monk's, says where: [left x, right x, width]).
   const [flx, frx, fw] = a.backFeet || BACK_FEET;
@@ -393,8 +428,19 @@ export function drawHeroBack(ctx, opts = {}) {
     const w = fw, h = w * img.naturalHeight / img.naturalWidth;
     ctx.drawImage(heroLit(img), x, 15 - h - lift, w, h);
   };
-  foot(footL, flx - step * 1.5, Math.max(0, step) * 3 + (ch?.liftB || 0));
-  foot(footR, frx + step * 1.5, Math.max(0, -step) * 3 + (ch?.liftF || 0));
+  foot(footL, flx - step * 1.5, liftB + (ch?.liftB || 0));
+  foot(footR, frx + step * 1.5, liftF + (ch?.liftF || 0));
+
+  // The two rear arm paintings do not all share one shoulder pivot. Keep
+  // their original attachment to the torso and turn that whole assembly over
+  // the planted feet as it winds up and recoils.
+  const turn = clamp((ch?.sword || 0) * 0.065 - (ch?.back || 0) * 0.035
+    + ((ch?.draw || 0) - (ch?.release || 0)) * 0.07, -0.17, 0.17);
+  ctx.save();
+  if (turn) {
+    const x = b.body[0] + b.body[2] / 2, y = b.body[1] + b.body[3];
+    ctx.translate(x, y); ctx.rotate(turn); ctx.translate(-x, -y);
+  }
   const put = (img, r, dy = 0) => ctx.drawImage(heroLit(img), r[0], r[1] + breathe + dy, r[2], r[3]);
   put(body, b.body);
   if (other) {
@@ -408,6 +454,7 @@ export function drawHeroBack(ctx, opts = {}) {
   }
   const hit = ch ? (ch.strike > 0.5 || ch.release > 0.05 || ch.cast > 0.2 || ch.strike2 > 0.5) : (opts.swingK ?? -1) >= 0.4;
   put(hit ? strike : arm, hit ? b.strike : b.arm, step * 0.6);
+  ctx.restore();
   return true;
 }
 
