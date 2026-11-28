@@ -1,7 +1,7 @@
 // Vector sprite library — cohesive hand-drawn art for creatures and world objects,
 // replacing the old emoji rendering. Everything is drawn relative to a centre
 // point (cx, cy) with the entity's "feet" near cy + 13.
-import { drawLayeredObject, drawShopStep, isDepthShop } from './streetdepth.js';
+import { drawLayeredObject, isDepthShop } from './streetdepth.js';
 import { fireScale } from '../game/bonfire.js';   // bonfires are drawn bigger
 import { itemIconImage } from './icons.js';
 import { CROPS } from '../data/trades.js';
@@ -2848,8 +2848,7 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time, upperAlpha) {
   const s = Math.min(mw / img.naturalWidth, mh / img.naturalHeight) * (look ? look.s : 1);
   const w = img.naturalWidth * s, h = img.naturalHeight * s;
   const shopDepth = isDepthShop(obj);
-  if (shopDepth) drawShopStep(ctx, cx, cy + foot, w);
-  else if (obj.def.footprint) {   // a landmark's shadow spans its footprint
+  if (obj.def.footprint) {   // a building's shadow spans its footprint
     ctx.fillStyle = 'rgba(34,48,74,0.16)';
     ellipse(ctx, cx, cy + foot - 2, w * 0.46, 7); ctx.fill();
   } else if (t !== 'fishing' && t !== 'dive' && foot > 0) {   // a soft contact shadow; fishing spots and reefs sit in the water, hanging things cast none
@@ -2859,7 +2858,8 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time, upperAlpha) {
   ctx.save();
   // Spent stalls, traps and fishing spots fade back; trees and rocks swap pictures instead.
   if (obj.depleted && t !== 'tree' && t !== 'rock') ctx.globalAlpha = 0.5;
-  if (obj.def.tint && !EVENT_KEYS.has(key) && 'filter' in ctx) img = tintedArt(img, obj.def.tint) || img;   // a borrowed picture, recoloured
+  if (obj.def.backdrop && 'filter' in ctx) img = tintedArt(img, 'saturate(.72) contrast(.88)') || img;
+  else if (obj.def.tint && !EVENT_KEYS.has(key) && 'filter' in ctx) img = tintedArt(img, obj.def.tint) || img;   // a borrowed picture, recoloured
   if (look && look.tint && 'filter' in ctx) img = tintedArt(img, look.tint) || img;
   if (t === 'tree' && !obj.depleted) {
     // The canopy leans gently about the base of the trunk.

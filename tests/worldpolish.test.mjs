@@ -163,7 +163,7 @@ test('touches keep off water, bridges and objects, and each region gets its own'
   assert.ok(all.bits.length / (w.width * w.height) < 0.1);
 });
 
-test('worn earth lies in front of a landmark\'s door, on open ground', () => {
+test('background buildings have a contact shadow without a worn approach', () => {
   const w = world();
   const shop = w.landmarks.find((o) => o.objId.startsWith('shophouse_row'));
   assert.ok(shop, 'a shophouse row to check');
@@ -172,7 +172,7 @@ test('worn earth lies in front of a landmark\'s door, on open ground', () => {
   const base = p.bases.find((b) => Math.abs((b.x0 + b.x1) / 2 - cx) < 1 && b.y === (shop.y + 1) * TILE);
   assert.ok(base, 'its foot is darkened');
   const worn = p.worn.find((d) => Math.abs(d.px - cx) < 1);
-  if (worn) assert.ok(worn.py > (shop.y + 1) * TILE && worn.py < (shop.y + 2) * TILE, 'just in front of it');
+  assert.equal(worn, undefined, 'no foot traffic cue for a purely decorative storefront');
 });
 
 test('the seam follows the soft edge: dark on the line, nothing far from it', () => {

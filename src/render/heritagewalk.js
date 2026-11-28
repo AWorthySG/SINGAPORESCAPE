@@ -1,5 +1,6 @@
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
+import { PHOTO_ASSIGNMENTS } from '../data/islandlife.js';
 
 // Inlaid tiles following the existing plaza and south road. Beyond the road,
 // a short approach turns into the hall's forecourt at the foot of the dome.
@@ -43,6 +44,11 @@ function diamond(g, x, y, radius, colour) {
   g.fill();
 }
 
+export function landmarkPhotoTiles(world, x0, y0, x1, y1) {
+  return PHOTO_ASSIGNMENTS.filter(({ subject, x, y }) => subject && x >= x0 && x < x1 && y >= y0 && y < y1
+    && !world.isBlocked(x, y) && world.terrainAt(x, y) !== TERRAIN.WATER);
+}
+
 export function paintHeritageTiles(g, world, x0, y0, x1, y1) {
   for (const { x, y, horizontal, kind } of heritageTiles(world, x0, y0, x1, y1)) {
     const px = (x - x0) * TILE, py = (y - y0) * TILE, half = TILE / 2;
@@ -67,6 +73,21 @@ export function paintHeritageTiles(g, world, x0, y0, x1, y1) {
     diamond(g, px + half, py + half, 13, border);
     diamond(g, px + half, py + half, 10, centre);
     diamond(g, px + half, py + half, 5, border);
+  }
+  // Mark the same viewpoints used by the Photography assignments.
+  for (const { id, x, y } of landmarkPhotoTiles(world, x0, y0, x1, y1)) {
+    const cx = (x - x0 + .5) * TILE, cy = (y - y0 + .5) * TILE;
+    if (id !== 'dome') {
+      diamond(g, cx, cy, 12, '#537b72');
+      diamond(g, cx, cy, 9.5, '#34615c');
+    }
+    g.fillStyle = '#fff5d8';
+    g.fillRect(cx - 5, cy - 3, 10, 7);
+    g.fillRect(cx - 3, cy - 4, 4, 2);
+    g.fillStyle = id === 'dome' ? '#84684a' : '#34615c';
+    g.beginPath();
+    g.arc(cx, cy + .5, 2.2, 0, Math.PI * 2);
+    g.fill();
   }
 }
 

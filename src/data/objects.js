@@ -11,6 +11,7 @@
 import { HUNT } from './trades.js';
 import { DIVE_SPOTS, DIVE_TAG } from './diving.js';
 import { DIG_SITES, DIG_TAG } from './archaeology.js';
+import { PHOTO_ASSIGNMENTS } from './islandlife.js';
 
 export const OBJECTS = {
   // ---------------- Trees ----------------
@@ -844,10 +845,16 @@ const PROPS = {
   mural_board: ['Kampong mural board', 'A cheerful mural of the old kampong street.'],
   birdcage_pole: ['Songbird cage pole', 'Songbirds in their cages, singing to each other.'],
 };
+// Photo subjects get a marked viewpoint, and the hawker centre has the player's working counter.
+const DESTINATIONS = new Set(['hawker_centre', ...PHOTO_ASSIGNMENTS.flatMap((photo) => photo.subject ? [photo.subject] : [])]);
 for (const [id, [footprint, name, examine, artScale]] of Object.entries(LANDMARKS)) {
-  OBJECTS[id] = { name, type: 'scenery', emoji: '🏛️', blocking: true, footprint, ...(artScale ? { artScale } : {}), examine };
+  OBJECTS[id] = { name, type: 'scenery', emoji: '🏛️', blocking: true, footprint, backdrop: !DESTINATIONS.has(id), ...(artScale ? { artScale } : {}), examine };
 }
-for (const [id, [name, examine]] of Object.entries(PROPS)) OBJECTS[id] = { name, type: 'scenery', emoji: '🪴', blocking: true, prop: true, examine };
+for (const [id, [name, examine]] of Object.entries(PROPS)) {
+  // Painted kiosks and shop signs belong to the streetscape. The working stalls carry their own action and artwork.
+  const backdrop = id.startsWith('hawker_stall_') || ['signboard', 'fish_stall', 'push_cart', 'durian_cart'].includes(id);
+  OBJECTS[id] = { name, type: 'scenery', emoji: '🪴', blocking: true, prop: true, backdrop, examine };
+}
 OBJECTS.laundry_pole = { name: 'Laundry pole', type: 'scenery', emoji: '👕', blocking: true, frames: 4, frameMs: 240, examine: 'Washing flapping in the breeze.' };
 OBJECTS.five_foot_lantern = { name: 'Lantern', type: 'scenery', emoji: '🏮', blocking: false, overhead: true, frames: 4, frameMs: 320, examine: 'A red lantern swaying over the five-foot way.' };
 

@@ -31,14 +31,14 @@ export const VOYAGES = [
   { id: 'sentosa_return', from: 'sentosa', to: 'marina', level: 15, course: [0, 1, 0, 0, 1, 1], xp: 105, freight: 250 },
 ];
 export const PHOTO_ASSIGNMENTS = [
-  { id: 'dome', name: 'Golden dome at dusk', detail: 'Stand at the hall’s south entrance at dusk (17:00–20:00 on the island clock).', x: 62, y: 82, range: 4, dusk: true, level: 1, xp: 32, art: 'island-dome' },
+  { id: 'dome', name: 'Golden dome at dusk', detail: 'Stand at the hall’s south entrance at dusk (17:00–20:00 on the island clock).', x: 62, y: 82, range: 4, dusk: true, level: 1, xp: 32, art: 'island-dome', subject: 'golden_dome_hall' },
   { id: 'market', name: 'Market colours', detail: 'Frame a postcard near the Kampong Glam food stall.', x: 64, y: 62, range: 5, level: 1, xp: 24, art: 'island-market' },
   { id: 'ubin', name: 'Pulau Ubin landing', detail: 'Take a postcard from the landing at Pulau Ubin.', x: 193, y: 53, range: 5, level: 2, xp: 38, art: 'island-ubin' },
   { id: 'wetlands', name: 'Light over the wetlands', detail: 'Take a postcard near the Sungei Buloh boardwalk entrance.', x: 40, y: 149, range: 6, level: 3, xp: 54, art: 'island-wetlands' },
-  { id: 'playground', name: 'The mosaic dragon', detail: 'Take a postcard at the dragon playground south of Kampong Glam.', x: 49, y: 74, range: 4, level: 7, xp: 72, art: 'obj-dragon_playground', worldArt: true },
-  { id: 'temple', name: 'Chinatown temple', detail: 'Take a postcard outside the clan temple in Chinatown.', x: 83, y: 57, range: 4, level: 10, xp: 96, art: 'obj-chinese_temple', worldArt: true },
-  { id: 'wheel', name: 'Marina Bay blue hour', detail: 'Photograph the observation wheel at dusk (17:00–20:00).', x: 199, y: 162, range: 4, dusk: true, level: 14, xp: 125, art: 'obj-observation_wheel', worldArt: true },
-  { id: 'gardens', name: 'Gardens under glass', detail: 'Take a postcard in front of the Flower Dome.', x: 350, y: 32, range: 4, level: 20, xp: 165, art: 'obj-flower_dome', worldArt: true },
+  { id: 'playground', name: 'The mosaic dragon', detail: 'Take a postcard at the dragon playground south of Kampong Glam.', x: 49, y: 74, range: 4, level: 7, xp: 72, art: 'obj-dragon_playground', worldArt: true, subject: 'dragon_playground' },
+  { id: 'temple', name: 'Chinatown temple', detail: 'Take a postcard outside the clan temple in Chinatown.', x: 83, y: 57, range: 4, level: 10, xp: 96, art: 'obj-chinese_temple', worldArt: true, subject: 'chinese_temple' },
+  { id: 'wheel', name: 'Marina Bay blue hour', detail: 'Photograph the observation wheel at dusk (17:00–20:00).', x: 199, y: 162, range: 4, dusk: true, level: 14, xp: 125, art: 'obj-observation_wheel', worldArt: true, subject: 'observation_wheel' },
+  { id: 'gardens', name: 'Gardens under glass', detail: 'Take a postcard in front of the Flower Dome.', x: 350, y: 32, range: 4, level: 20, xp: 165, art: 'obj-flower_dome', worldArt: true, subject: 'flower_dome' },
 ];
 export const islandPhotoArt = (assignment) => `assets/${assignment.worldArt ? 'world' : 'postcards'}/${assignment.art}.webp`;
 export const PATTERNS = [
