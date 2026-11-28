@@ -222,7 +222,7 @@ function reconstruct(cameX, cameY, width, start, end) {
  *  Boarding costs one tile's worth of travel and MRT travel is instant.
  *  Equal lengths favour saving the fare, then taking fewer ferries.
  *  Return the first walking leg after any MRT ride. */
-export function findTravelRoute(cfg, start, goals, { range = 0, stations = [], ferries = [] } = {}) {
+export function findTravelRoute(cfg, start, goals, { range = 0, stations = [], ferries = [], canBoardMrtAt } = {}) {
   const { width: w, height: h, grid } = cfg;
   if (!isTile(start, w, h) || !goals.length) return null;
   const blocked = grid?.length === w * h ? (x, y, i) => grid[i] === 1 : cfg.isBlocked;
@@ -269,11 +269,7 @@ export function findTravelRoute(cfg, start, goals, { range = 0, stations = [], f
     hpush(x, y, cost);
   };
   offer(start.x, start.y, source, 0, -1);
-  for (const { station, arrival } of stations) {
-    if (!arrival || !isTile(arrival, w, h)) continue;
-    const i = index(arrival.x, arrival.y);
-    if (!blocked(arrival.x, arrival.y, i)) offer(arrival.x, arrival.y, i, fare, -1, { st: station });
-  }
+  let offerMrt = stations.length > 0;
 
   while (HN) {
     hpop();
@@ -283,14 +279,31 @@ export function findTravelRoute(cfg, start, goals, { range = 0, stations = [], f
     const goal = ends.get(i);
     if (goal) {
       const distance = Math.floor(g[i] / tieScale) / unit;
-      let st, ferry, path = [];
+      let st, ferry, boarding, path = [];
       for (let at = i; at >= 0; at = parent[at]) {
         const link = transit.get(at);
-        if (link?.landing) { ferry = link.landing; path = []; }
-        else if (link?.st) st = link.st;
-        else if (parent[at] >= 0) path.push({ x: at % w, y: Math.floor(at / w) });
+        if (link?.landing) {
+          ferry = link.landing; boarding = undefined; st = undefined; path = [];
+        } else if (link?.st) {
+          st = link.st;
+          if (parent[at] >= 0) {
+            const from = parent[at];
+            boarding = { x: from % w, y: Math.floor(from / w) };
+            ferry = undefined; path = [];
+          }
+        } else if (parent[at] >= 0) path.push({ x: at % w, y: Math.floor(at / w) });
       }
-      return { goal, distance, st, ferry, path: path.reverse() };
+      return { goal, distance, st, ferry, boarding, path: path.reverse() };
+    }
+    // Any stop is available from the first legal boarding tile. A later
+    // departure cannot offer the same destinations with less travel.
+    if (offerMrt && (!canBoardMrtAt || canBoardMrtAt(x, y))) {
+      offerMrt = false;
+      for (const { station, arrival } of stations) {
+        if (!arrival || !isTile(arrival, w, h)) continue;
+        const to = index(arrival.x, arrival.y);
+        if (!blocked(arrival.x, arrival.y, to)) offer(arrival.x, arrival.y, to, g[i] + fare, i === source ? -1 : i, { st: station });
+      }
     }
     for (const link of exits.get(i) || []) {
       const { x: tx, y: ty } = link.arrival;

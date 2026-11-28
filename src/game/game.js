@@ -40,7 +40,7 @@ import { footFx } from './footfx.js';
 import { CombatFx, MAX_EFFECTS, keepLive, hitImpact, hitsplatFx, deathFx, abilityAccent, isMilestoneLevel } from '../render/combatfx.js';
 import { juiceHit, juiceKill, juiceLevel, noteAbility, shakeAllowed, spriteDt } from '../render/juice.js';
 import { findPath } from '../engine/pathfinding.js';
-import { planTravel } from './travel.js';
+import { hasMrtFareAndClearance, legalMrtDeparture, planTravel } from './travel.js';
 import {
   playerAttackVsNpc, npcAttackVsPlayer, OFFHAND_SHARE, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
@@ -1598,6 +1598,7 @@ export class Game {
       case 'ferry': return this._tickArrival(a, a.target, true, () => {
         if (this.boardFerry(a.obj)) a.onLand?.();
       });
+      case 'travelboard': return this._tickArrival(a, a.target, false, a.resume);
       // The Endless Gate asks first (its panel shows your best wave); its exit portal just takes you out.
       case 'gate': return this._tickArrival(a, a.target, true, () => {
         if (a.obj.objId === 'wave_exit') return this.waves.leave();
@@ -1994,21 +1995,23 @@ export class Game {
 
   /** Whether a trip may hop on the MRT now (the fare, and nothing after you). */
   _mrtCanHop() {
-    const p = this.player, here = this.playerTile();
-    if (!p.alive || this.inventory.count('coins') < MRT_FARE) return false;
-    const zone = this.world.zoneAt(here.x, here.y);
-    if (zone?.wilderness || zone?.instance) return false;
-    return !this.npcs.some((n) => n.alive && n.target === p);
+    const here = this.playerTile();
+    return hasMrtFareAndClearance(this) && legalMrtDeparture(this.world, here.x, here.y);
   }
 
   /** Start the next leg only after the whole destination has a route. Once
    *  ashore, recalculate with the current map, fare and safety conditions. */
   _followTravel(trip, finish, resume) {
     if (!trip || !this.player.alive) return false;
+    const next = this._autoTrip ? () => this._autoRun(resume) : resume;
+    if (trip.boarding) {
+      const target = trip.boarding;
+      return this.beginAction({ type: 'travelboard', target, resume: next }, target, false, trip.path);
+    }
     if (trip.st && (!this._mrtCanHop() || !this.travelTo(trip.st.id, true))) return false;
     if (!trip.ferry) return finish(trip.path);
-    const landing = trip.ferry, onLand = this._autoTrip ? () => this._autoRun(resume) : resume;
-    return this.beginAction({ type: 'ferry', obj: landing, target: landing, onLand }, landing, true, trip.path);
+    const landing = trip.ferry;
+    return this.beginAction({ type: 'ferry', obj: landing, target: landing, onLand: next }, landing, true, trip.path);
   }
 
   _travelAction(trip, start, resume) {
@@ -5478,7 +5481,7 @@ export class Game {
     // 1b. Step out of a boss's ground marker, still fighting (see _autoDodge).
     this._autoDodge();
     const a = p.action;
-    if (a?.type === 'ferry' && a.onLand) return;   // keep the planned crossing while walking to its landing
+    if (a?.type === 'travelboard' || (a?.type === 'ferry' && a.onLand)) return;
     const fighting = a && a.type === 'attack' && a.npc && a.npc.alive;
     // A target we just sent you at that cleared itself without dying was
     // unreachable: skip it for a while instead of retrying every tick.
@@ -7518,14 +7521,15 @@ export class Game {
     } else if (g.kind === 'light') {
       if (this.burnableLogs().length) ok = this.startFiremaking() !== false;
     } else if (g.kind === 'hunt' || g.kind === 'boss') {
-      const cl = this.fightLevel(), inWild = this.inWilderness();
+      const cl = this.fightLevel(), here = this.playerTile();
+      const inWild = this.world.zoneAt(here.x, here.y)?.wilderness, chosen = g.npc?.alive;
       const fits = g.kind === 'boss'
         ? (n) => n.def.boss && !n.def.fixed && this._autoCanBeat(n)
         : g.target ? (n) => n.npcId === g.target
         : g.family ? (n) => !n.def.boss && n.def.family === g.family
         : (n) => !n.def.boss && (n.def.level || 1) <= cl + 5;
-      const targets = g.npc?.alive ? [g.npc] : this.npcs.filter((n) => n.alive && n.attackable && !n.temporary && fits(n));
-      const trip = planTravel(this, inWild ? targets : targets.filter((n) => !this.world.zoneAt(n.x, n.y)?.wilderness),
+      const targets = chosen ? [g.npc] : this.npcs.filter((n) => n.alive && n.attackable && !n.temporary && fits(n));
+      const trip = planTravel(this, chosen || inWild ? targets : targets.filter((n) => !this.world.zoneAt(n.x, n.y)?.wilderness),
         { range: this.attackRange() });
       if (trip) {
         this._questTarget = g.target || null;

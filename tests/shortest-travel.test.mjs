@@ -18,7 +18,7 @@ test('a farther MRT station can have the shortest approach around a wall', () =>
   assert.equal(route.distance, 6);
   assert.equal(route.path.length, 6);
   assert.deepEqual(route.path.at(-1), goal);
-  assert.ok(findPath(cfg, near.arrival, goal).length > route.steps);
+  assert.ok(findPath(cfg, near.arrival, goal).length > route.distance);
 });
 
 test('equal walking distances keep the fare, and unreachable goals produce no trip', () => {
@@ -53,6 +53,17 @@ test('ferry routes count the walks on either side and compare multi-leg routes',
   assert.equal(shorter.distance, 3);
 });
 
+test('walking out of a restricted area can make an MRT leg available', () => {
+  const cfg = { width: 17, height: 5, isBlocked: () => false };
+  const station = ride('far', 15, 2);
+  const route = findTravelRoute(cfg, tile(1, 2), [tile(16, 2)],
+    { stations: [station], canBoardMrtAt: (x) => x >= 4 });
+  assert.equal(route.st, station.station);
+  assert.deepEqual(route.boarding, tile(4, 2));
+  assert.equal(route.distance, 4);
+  assert.deepEqual(route.path, [tile(2, 2), tile(3, 2), tile(4, 2)]);
+});
+
 test('the map takes an affordable MRT saving and falls back to the shortest legal walk', () => {
   const game = new Game({ layout: 'singapore' }), { world } = game;
   game.npcs = [];
@@ -79,4 +90,19 @@ test('the map takes an affordable MRT saving and falls back to the shortest lega
   assert.equal(planTravel(game, [destination]).st, undefined);
   assert.ok(game.travelToTile(destination));
   assert.deepEqual(game.player.path, withoutFare.path);
+
+  // Crossing out of the Wilderness enables the onward fare. Walk through
+  // the ferry arrival action, which replans the rest of the trip ashore.
+  game.npcs = [];
+  const crossing = world.ferryLinks.find(({ id }) => id === 'wilderness-crossing');
+  const wild = [crossing.from, crossing.to].find((p) => p.placeId === 'wilderness');
+  const port = world.objectAt(wild.x, wild.y);
+  const beforeBoarding = game._nearestFree(wild.x + 3, wild.y);
+  game._placePlayer(beforeBoarding.x, beforeBoarding.y);
+  assert.equal(game._mrtCanHop(), false);
+  assert.ok(game.travelToTile(destination));
+  assert.equal(game.player.action?.obj, port);
+  game._placePlayer(wild.x, wild.y);
+  game.resolvePlayerAction();
+  assert.deepEqual(game.playerTile(), destination);
 });
