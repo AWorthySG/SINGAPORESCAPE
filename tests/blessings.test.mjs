@@ -16,7 +16,7 @@ import {
 } from '../src/data/prayers.js';
 import { blessingSlots, trimBlessings, slotsUsed, shouldAutoBurst, starterBlessings, blessingBonus, blessingAction } from '../src/game/blessings.js';
 import { ARTICLE_BY_ID, articleBlocks } from '../src/data/compendium.js';
-import { blessingsPanelHTML, slotStripHTML, renderBlessingsPanel, renderFaithOrb, BURST_KEY, burstText, blessingHint, blessingTotals } from '../src/ui/blessingsui.js';
+import { blessingsPanelHTML, blessingListHTML, slotStripHTML, renderBlessingsPanel, renderFaithOrb, BURST_KEY, burstText, blessingHint, blessingTotals } from '../src/ui/blessingsui.js';
 import { activeEffects } from '../src/game/statsheet.js';
 import { handleGameShortcut } from '../src/ui/keyboard.js';
 
@@ -262,6 +262,50 @@ test('the Blessings panel and Faith orb render without a DOM', () => {
   assert.match(readFileSync(new URL('../index.html', import.meta.url), 'utf8'), /styles\/blessings\.css/);
 });
 
+test('the Blessings catalogue separates equipped, currently usable and locked entries', () => {
+  const g = newGame(99);
+  g.activePrayers = new Set(['thick_skin', 'burst_strength', 'clarity']);
+  assert.match(blessingListHTML(g, 'equipped'), /<button[^>]*data-prayer="thick_skin"[^>]*aria-pressed="true"/);
+  assert.doesNotMatch(blessingListHTML(g, 'equipped'), /data-prayer="rock_skin"/);
+  const available = blessingListHTML(g, 'available');
+  assert.match(available, /data-prayer="rock_skin" data-bl-action="swap"/);
+  assert.match(available, /Swaps out Thick Skin/);
+  assert.doesNotMatch(available, /data-prayer="eagle_eye"/);
+  assert.match(blessingListHTML(g), /data-prayer="eagle_eye" data-bl-action="full"[^>]*aria-disabled="true"/);
+  assert.match(blessingListHTML(g, 'locked'), /data-prayer="steel_skin" data-bl-action="locked"[^>]*aria-disabled="true"/);
+  assert.match(blessingListHTML(g, 'locked'), /\+60% damage in all styles/);
+  g.activePrayers.delete('clarity');
+  assert.match(blessingListHTML(g, 'available'), /data-prayer="rock_skin" data-bl-action="stack"/);
+  assert.match(blessingListHTML(g, 'available'), /Stacks with Thick Skin/);
+  assert.match(blessingsPanelHTML(g, 'available'), /data-bl-filter="available" aria-pressed="true"/);
+});
+
+test('Faith charge and Burst states update the stable Blessings controls', () => {
+  const node = () => ({ textContent: '', style: {}, attrs: new Map(),
+    getAttribute(name) { return this.attrs.get(name); }, setAttribute(name, value) { this.attrs.set(name, value); },
+    classList: { states: {}, toggle(name, value) { this.states[name] = value; } } });
+  const parts = Object.fromEntries(['.bl-loadout', '.prayer-grid', '.bl-burst-details', '.bl-faith-text', '.bl-faith-state', '.bl-faith-bar', '.bl-faith-bar i', '.bl-burst'].map((selector) => [selector, node()]));
+  let mounts = 0;
+  const g = newGame(99), panel = { querySelector: (selector) => parts[selector], set innerHTML(_) { mounts++; } };
+  const ui = { game: g, el: { prayerPanel: panel } };
+  g.prayerPoints = 0;
+  renderBlessingsPanel(ui);
+  assert.equal(parts['.bl-faith-state'].textContent, 'Charging');
+  assert.equal(parts['.bl-burst'].attrs.get('aria-disabled'), 'true');
+  g.prayerPoints = g.maxPrayer();
+  renderBlessingsPanel(ui);
+  assert.equal(parts['.bl-faith-bar i'].style.width, '100%');
+  assert.equal(parts['.bl-faith-bar'].attrs.get('aria-valuenow'), '100');
+  assert.equal(parts['.bl-faith-state'].textContent, 'Burst ready');
+  assert.equal(parts['.bl-burst'].attrs.get('aria-disabled'), 'false');
+  assert.equal(g.prayerBurst(), true);
+  renderBlessingsPanel(ui);
+  assert.equal(parts['.bl-faith-state'].textContent, 'Burst active');
+  assert.equal(mounts, 1);
+  assert.equal(parts['.bl-loadout'].innerHTML, undefined, 'Faith never redraws the loadout');
+  assert.equal(parts['.prayer-grid'].innerHTML, undefined, 'Faith never redraws the catalogue');
+});
+
 test('blessings of the same type stack when the slots allow: the strongest in full, the rest at a share, capped', () => {
   assert.equal(STACK_SHARE, 0.75);
   assert.equal(STACK_CAP, 1);
@@ -299,7 +343,8 @@ test('blessings of the same type stack when the slots allow: the strongest in fu
   // The panel shows the combined bonus and the stat sheet says it is stacked.
   g.activePrayers = new Set(['superhuman', 'burst_strength']);
   assert.equal(blessingTotals(g), '+33% Str');
-  assert.match(blessingsPanelHTML(g), /In all: <b>\+33% Str<\/b> · same type stacks at 75%/);
+  assert.match(blessingsPanelHTML(g), /Combined effect<\/b><span>\+33% Strength<\/span>/);
+  assert.match(blessingsPanelHTML(g), /Additional bonuses of that type count at 75%/);
   const fx = activeEffects(g).find((e) => e.name === 'Burst of Strength');
   assert.match(fx.detail, /stacked/);
 });

@@ -163,10 +163,10 @@ export class WindowMemory {
   closed() { this.store(); }
 
   /** The side panel switched view: keep each view's own scroll, and its tab. */
-  panelShown(tab, view) {
+  panelShown(tab, view, previousScroll) {
     const body = typeof document !== 'undefined' ? document.getElementById('panel-body') : null;
     if (body && this.panelView !== view) {
-      if (this.panelView) this.panelScroll.set(this.panelView, body.scrollTop || 0);
+      if (this.panelView) this.panelScroll.set(this.panelView, previousScroll ?? body.scrollTop ?? 0);
       body.scrollTop = this.panelScroll.get(view) || 0;
     }
     this.panelView = view;

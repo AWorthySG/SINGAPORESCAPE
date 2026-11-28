@@ -385,14 +385,27 @@ test('five panel tabs: every view sits in exactly one tab, and the number keys p
 test('sub-tabs switch views inside a tab, and each tab remembers the one it last showed', async () => {
   const { UI } = await import('../src/ui/ui.js');
   const mkCls = (init = []) => { const s = new Set(init); return { contains: (c) => s.has(c), toggle: (c, on) => { if (on ?? !s.has(c)) s.add(c); else s.delete(c); } }; };
-  const clickable = (props, init) => { const l = []; return { ...props, classList: mkCls(init), setAttribute() {}, addEventListener: (t, fn) => l.push(fn), click() { l.forEach((fn) => fn()); } }; };
+  let focused;
+  const clickable = (props, init) => {
+    const listeners = new Map(), attrs = {};
+    return {
+      ...props, classList: mkCls(init), attrs,
+      setAttribute: (key, value) => { attrs[key] = value; },
+      addEventListener: (type, fn) => listeners.set(type, fn),
+      click() { listeners.get('click')?.(); },
+      press(key) { listeners.get('keydown')?.({ key, preventDefault() {}, stopPropagation() {} }); },
+      focus() { focused = this; },
+    };
+  };
   const panel = { classList: mkCls() };
   const tabs = ['inventory', 'skills', 'combat', 'quests', 'settings'].map((view) => clickable({ dataset: { view } }, view === 'inventory' ? ['active'] : []));
   const views = ['inventory', 'equipment', 'skills', 'combat', 'prayer', 'quests', 'stats', 'achievements', 'settings'].map((view) => ({ dataset: { view }, classList: mkCls() }));
   let subBtns = [];
   const row = {
-    dataset: {}, classList: mkCls(['hidden']),
-    set innerHTML(h) { subBtns = [...h.matchAll(/data-view="([a-z]+)"/g)].map((m) => clickable({ dataset: { view: m[1] } })); },
+    dataset: {}, classList: mkCls(['hidden']), attrs: {},
+    setAttribute(key, value) { this.attrs[key] = value; },
+    removeAttribute(key) { delete this.attrs[key]; },
+    set innerHTML(h) { this.html = h; subBtns = [...h.matchAll(/data-view="([a-z]+)"/g)].map((m) => clickable({ dataset: { view: m[1] } })); },
     querySelectorAll: () => subBtns,
   };
   const store = {};
@@ -411,6 +424,19 @@ test('sub-tabs switch views inside a tab, and each tab remembers the one it last
     assert.deepEqual(shown(), ['combat'], 'Combat opens on its first view');
     assert.ok(!row.classList.contains('hidden'));
     assert.deepEqual(subBtns.map((b) => b.dataset.view), ['combat', 'prayer', 'stats']);
+    assert.equal(row.attrs['aria-label'], 'Combat views');
+    assert.deepEqual(subBtns.map((b) => b.tabIndex), [0, -1, -1]);
+    for (const view of ['combat', 'prayer', 'stats']) {
+      assert.ok(row.html.includes(`id="combat-tab-${view}" aria-controls="panel-view-${view}"`));
+      assert.ok(html.includes(`id="panel-view-${view}" role="tabpanel" aria-labelledby="combat-tab-${view}"`));
+    }
+    subBtns[0].press('ArrowRight');
+    assert.deepEqual(shown(), ['prayer']);
+    assert.equal(focused, subBtns[1]);
+    assert.deepEqual(subBtns.map((b) => b.tabIndex), [-1, 0, -1]);
+    subBtns[1].press('Home');
+    assert.deepEqual(shown(), ['combat']);
+    assert.equal(focused, subBtns[0]);
     subBtns[2].click();
     assert.deepEqual(shown(), ['stats']);
     assert.equal(statsDrawn, 1, 'the stats sheet is brought up to date when shown');

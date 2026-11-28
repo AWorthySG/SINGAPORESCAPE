@@ -406,7 +406,7 @@ const FX = {
 const fxText = (fx, skip = []) => Object.entries(fx || {}).filter(([k]) => !skip.includes(k) && k !== 'heal')
   .map(([k, v]) => (FX[k] ? FX[k](v) : `${k} ${v}`)).join(', ');
 
-/** What's running right now, with time left: [{ name, detail, left (ms) | null, off }]. */
+/** What's running right now, grouped by its source and with time left in ms. */
 export function activeEffects(game) {
   const out = [], mode = game.combatMode();
   const covered = new Set(Object.keys(game.potions || {}).flatMap((id) => POTIONS[id]?.covers || []));
@@ -414,15 +414,15 @@ export function activeEffects(game) {
     const pot = POTIONS[id];
     if (!pot) continue;
     const off = pot.style && pot.style !== mode ? `${MODE_NAMES[pot.style]} only` : covered.has(pot.group) ? 'covered by a stronger brew' : '';
-    out.push({ name: pot.name, detail: fxText(pot.fx), left: ms, off });
+    out.push({ kind: 'consumable', name: pot.name, detail: fxText(pot.fx), left: ms, off });
   }
-  if (game.meal) out.push({ name: getItem(game.meal.id).name, detail: fxText(game.meal.fx), left: game.meal.ms, off: '' });
+  if (game.meal) out.push({ kind: 'consumable', name: getItem(game.meal.id).name, detail: fxText(game.meal.fx), left: game.meal.ms, off: '' });
   for (const b of [game.buff, ...Object.values(game.stackBuffs || {})]) {
     if (!b || b.until <= game.tickCount) continue;
     // A class buff's haste and armour pierce are already in percent (see attackInterval); its other keys are fractions.
     const { id: _i, name, until, haste, pierce, ...rest } = b;
     const detail = [haste ? `${pct(haste)} attack speed` : '', pierce ? `${pct(pierce)} armour pierce` : '', fxText(rest)].filter(Boolean).join(', ');
-    out.push({ name, detail, left: (until - game.tickCount) * TICK_MS, off: '' });
+    out.push({ kind: 'combat', name, detail, left: (until - game.tickCount) * TICK_MS, off: '' });
   }
   for (const id of game.activePrayers || []) {
     const p = PRAYER_BY_ID[id];
@@ -430,12 +430,12 @@ export function activeEffects(game) {
       .filter(([k]) => p[k]).map(([k, l]) => `${fracPct(p[k], k !== 'protect')} ${l}`);
     // Two of a type stack, the weaker ones at a share (blessings.js blessingBonus); say so.
     const stacked = [...rivals(id)].some((o) => game.activePrayers.has(o));
-    out.push({ name: p.name, detail: `${bits.join(', ')} (blessing${stacked ? `, stacked: the weaker of a type counts ${Math.round(STACK_SHARE * 100)}%` : ''})`, left: null, off: '' });
+    out.push({ kind: 'blessing', name: p.name, detail: `${bits.join(', ')} (blessing${stacked ? `, stacked: the weaker of a type counts ${Math.round(STACK_SHARE * 100)}%` : ''})`, left: null, off: '' });
   }
-  if (game.burstWard > 0) out.push({ name: 'Burst ward', detail: 'every blow stopped', left: game.burstWard * TICK_MS, off: '' });
-  if (game.burstZeal > 0) out.push({ name: 'Burst zeal', detail: `${fracPct(burstPower(game.skills.prayer).zeal)} damage`, left: game.burstZeal * TICK_MS, off: '' });
-  if (game.braceTicks > 0) out.push({ name: 'Brace', detail: 'incoming damage halved', left: game.braceTicks * TICK_MS, off: '' });
-  if (game.blessedMs > 0) out.push({ name: 'Blessed', detail: `combat XP ${times(game.xpBreakdown().blessed)}`, left: game.blessedMs, off: '' });
-  if (game.slayer?.task) out.push({ name: 'Slayer task', detail: `${game.slayer.task.remaining} ${game.slayer.task.name} left, ${pct(game.slayerBonus().dmg)} damage to them`, left: null, off: '' });
+  if (game.burstWard > 0) out.push({ kind: 'blessing', name: 'Burst ward', detail: 'every blow stopped', left: game.burstWard * TICK_MS, off: '' });
+  if (game.burstZeal > 0) out.push({ kind: 'blessing', name: 'Burst zeal', detail: `${fracPct(burstPower(game.skills.prayer).zeal)} damage`, left: game.burstZeal * TICK_MS, off: '' });
+  if (game.braceTicks > 0) out.push({ kind: 'combat', name: 'Brace', detail: 'incoming damage halved', left: game.braceTicks * TICK_MS, off: '' });
+  if (game.blessedMs > 0) out.push({ kind: 'blessing', name: 'Blessed', detail: `combat XP ${times(game.xpBreakdown().blessed)}`, left: game.blessedMs, off: '' });
+  if (game.slayer?.task) out.push({ kind: 'slayer', name: 'Slayer task', detail: `${game.slayer.task.remaining} ${game.slayer.task.name} left, ${pct(game.slayerBonus().dmg)} damage to them`, left: null, off: '' });
   return out;
 }

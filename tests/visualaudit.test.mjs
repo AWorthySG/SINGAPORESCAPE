@@ -74,3 +74,27 @@ test('phone CSS: the standing pill clears the quick-use slot, the chat shows its
   assert.match(bless, /#prayer-panel \.bl-slot\.empty \{ min-height: 52px; justify-content: flex-end;/);
   assert.match(read('styles/story.css'), /body:has\(\.story-scene:not\(\.hidden\)\) #notice-lane \.nl-tip \{ visibility: hidden; \}/);
 });
+
+test('combat control colours keep text and button outlines readable in every state', () => {
+  const css = read('styles/combat-panel.css');
+  const colours = Object.fromEntries([...css.matchAll(/--combat-([\w-]+): #([\da-f]{6});/gi)].map(([, role, hex]) => [role, hex]));
+  const luminance = (role) => {
+    const rgb = colours[role].match(/../g).map((part) => parseInt(part, 16) / 255);
+    const [r, g, b] = rgb.map((v) => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const pairs = [
+    ['control-ink', 'control-bg', 4.5], ['control-ink', 'control-hover', 4.5],
+    ['selected-ink', 'selected-bg', 4.5], ['selected-ink', 'selected-hover', 4.5],
+    ['locked-ink', 'locked-bg', 4.5], ['control-edge', 'paper', 3],
+    ['control-edge', 'control-bg', 3], ['control-edge', 'control-hover', 3],
+    ['locked-edge', 'locked-bg', 3], ['focus', 'paper', 3],
+    ['action-ink', 'action-bg', 4.5], ['action-ink', 'action-hover', 4.5],
+    ['action-edge', 'paper', 3], ['action-edge', 'action-bg', 3], ['action-edge', 'action-hover', 3],
+  ];
+  for (const [foreground, background, minimum] of pairs) {
+    const a = luminance(foreground), b = luminance(background);
+    const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    assert.ok(ratio >= minimum, `${foreground} on ${background}: ${ratio.toFixed(2)}:1`);
+  }
+});

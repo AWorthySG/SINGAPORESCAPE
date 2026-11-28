@@ -73,6 +73,25 @@ test('a window reopens where it was scrolled to; a different window starts at it
   assert.equal(ui.el.modalBody.scrollTop, 90);
 });
 
+test('the side panel restores each view using its pre-switch scroll position', (t) => {
+  const previous = globalThis.document;
+  const body = { scrollTop: 125 };
+  globalThis.document = { getElementById: (id) => id === 'panel-body' ? body : null };
+  t.after(() => { globalThis.document = previous; });
+  const memory = new WindowMemory({});
+  memory.panelTab = 'combat';
+  memory.panelView = 'stats';
+  memory.panelScroll.set('prayer', 280);
+  memory.panelShown('combat', 'prayer', 615);
+  assert.equal(memory.panelScroll.get('stats'), 615, 'the old view may have been clamped already');
+  assert.equal(body.scrollTop, 280);
+  memory.panelShown('combat', 'combat', 0);
+  assert.equal(body.scrollTop, 0, 'a new view starts at its top');
+  memory.panelShown('combat', 'stats', 0);
+  assert.equal(body.scrollTop, 615);
+  assert.equal(memory.panelScroll.get('prayer'), 0, 'zero is a real saved position');
+});
+
 test('opening and swapping shared dialogs keeps focus inside and remembers the original opener', () => {
   const ui = fakeUI(newGame());
   const ownerDocument = {};

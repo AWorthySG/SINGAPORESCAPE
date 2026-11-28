@@ -185,3 +185,29 @@ test('Stats tab renders headlessly without throwing', () => {
     assert.ok(el.innerHTML.includes('Max hit'));
   }
 });
+
+test('Stats highlights canonical values before the detail sections and groups effects by source', () => {
+  const g = newGame('melee');
+  g.potions.super_strength = 60000;
+  g.potions.super_magic = 60000;
+  g.activePrayers.add('thick_skin');
+  g.braceTicks = 5;
+  g.assignSlayerTask();
+  const sheet = statSheet(g);
+  const html = statsPanelHTML(sheet);
+  const visible = html.slice(0, html.indexOf('data-sec="offence"'));
+  for (const id of ['maxhit', 'interval', 'maxhp', 'reduce']) {
+    const row = sheet.sections.flatMap((section) => section.rows).find((entry) => entry.id === id);
+    assert.ok(visible.includes(`data-stat="${id}"`));
+    assert.ok(visible.includes(`<dd>${row.text}</dd>`));
+  }
+  for (const id of ['offence', 'defence', 'utility', 'effects']) {
+    assert.ok(html.includes(`data-stats-disclosure="section:${id}">`), 'detail categories start collapsed');
+  }
+  const sourceGroups = Object.groupBy(sheet.effects, (effect) => effect.kind);
+  assert.deepEqual(sourceGroups.consumable.map(({ name }) => name), ['Super strength', 'Super magic']);
+  assert.ok(sourceGroups.blessing.some(({ name }) => name === 'Thick Skin'));
+  assert.ok(sourceGroups.combat.some(({ name }) => name === 'Brace'));
+  assert.ok(sourceGroups.slayer.some(({ name }) => name === 'Slayer task'));
+  assert.match(html, /Food &amp; potions[\s\S]*Super strength[\s\S]*1m 00s[\s\S]*Super magic[\s\S]*Inactive · Magic only/);
+});

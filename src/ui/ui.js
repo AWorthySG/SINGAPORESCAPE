@@ -39,7 +39,7 @@ import { stackLabel, capitalize, formatNumber, shortNumber, aOrAn } from '../cor
 import { RHYTHM_MAX, levelBonuses, playerMagicVsNpc } from '../game/combat.js';
 import { CHI, chiStacks } from '../game/monk.js';
 import { classPassives, CLASS_SKILL } from '../data/classPassives.js';
-import { ELEMENTS, spellsFor, classSpell } from '../data/magic.js';
+import { AOE_RADIUS, ELEMENTS, ELEMENT_MATCHUP, spellsFor, classSpell } from '../data/magic.js';
 import { buildBlessingsPanel, renderBlessingsPanel, renderFaithOrb } from './blessingsui.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { QUESTS } from '../data/quests.js';
@@ -63,12 +63,12 @@ import { shrineGoodsSection, askGoods, shrineMaxButton } from './shrineui.js';
 import { goodsKind } from '../game/offerings.js';
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT, holdRepeatDelay } from '../game/attributes.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, effectiveRating, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
-import { TILE, LEARNING_ENABLED, TICK_MS } from '../config.js';
+import { COMBAT_BEAT_MS, TILE, LEARNING_ENABLED, TICK_MS } from '../config.js';
 import { zoneLevel } from '../data/world.js';
 import { paintMinimapTerrain, minimapNpcKind, MINIMAP_DOT, MinimapChunks, bakeMinimapPatch, startMapBake, bakeInSpareTime, minimapObjectBadge, minimapNpcBadge, BADGE_ESSENTIAL, badgeSprite, minimapRing, rimPoint } from '../render/minimapart.js';
 import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../game/save.js';
 import { statSheet } from '../game/statsheet.js';
-import { statsPanelHTML } from './statspanel.js';
+import { refreshStatsPanel } from './statspanel.js';
 import { gearWorthNotes, gearSwapWorth, fmtWorth, worthTable } from '../game/statworth.js';
 import { openCodex, monsterAtScreen, openCompendium } from './codexui.js';
 import { setLinkedText, linkHTML } from './links.js';   // names that open their encyclopedia entry
@@ -83,7 +83,7 @@ import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, ability
 import { abilitiesFor } from '../data/abilities.js';   // a class's skills, for its Skills & perks window
 import { weaknessOf, armourTierOf, ARMOUR_TIERS, levelFlatDmg } from '../game/combat.js';
 import { isBone } from '../data/bones.js';
-import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../data/races.js';
+import { RACES, RACE_BONUS, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../data/races.js';
 import { WaveHud } from './wavehud.js';
 import { PlayHud } from './playhud.js';
 import { CompactHud } from './compacthud.js';
@@ -410,6 +410,9 @@ export class UI {
     this.bus.on('xpbonus', () => this._trackerSoon());
     this.bus.on('spell', () => this.renderCombatPanel());
     this.bus.on('mercs', () => this.renderCombatPanel());
+    this.bus.on('inventory', () => this._soon('combatStock', () => this._updateCombatAvailability()));
+    this.bus.on('hp', () => { if (this.game.jobClass === 'merchant') this._soon('combatStock', () => this._updateCombatAvailability()); });
+    this.bus.on('tick', () => { if (this._combatDrawn && !this._panelHidden(this._styleRow)) this._updateCombatTempo(); });
     this.bus.on('achievement', () => this._soon('achievements', () => this.renderAchievementPanel()));
     // The Stats tab: anything that changes a final stat redraws it (a few times a second at most),
     // and the tick keeps its potion and buff timers counting down.
@@ -520,20 +523,24 @@ export class UI {
     btn.addEventListener('pointercancel', end);
   }
 
-  /** Under the combat styles: which races the weapon in hand is strong and weak against. */
-  _renderRaceHint(after) {
-    let el = this._raceHint;
-    if (!el) {
-      el = this._raceHint = document.createElement('div');
-      el.className = 'race-hint';
-      after.parentNode?.insertBefore(el, after.nextSibling);
-    }
-    const wt = this.game.weaponType();
-    if (!wt || !WEAPON_VS_RACE[wt]) { el.innerHTML = '<b>Races</b><span>Wield a weapon to see which races it works best against.</span>'; return; }
-    const m = WEAPON_VS_RACE[wt];
-    const list = (ids) => ids.map((r) => `${RACES[r].icon} ${escapeHtml(RACES[r].name)}`).join(', ');
-    el.innerHTML = `<b>Your ${escapeHtml(weaponTypeName(wt))} against races</b>`
-      + `<span class="rh-strong">Strong vs ${list(m.strong)}: +30% damage</span>`;   // (no race resists a weapon any more)
+  /** Spells use the element's race matchups in place of the weapon's. */
+  _renderRaceHint(mode) {
+    const g = this.game, el = this._raceHint;
+    const wt = g.weaponType(), spell = classSpell(g.jobClass, g.player.spell);
+    const magic = mode === 'magic';
+    const match = magic ? ELEMENTS[spell.element] : WEAPON_VS_RACE[wt];
+    const title = magic ? (g.player.spellAuto ? `${spell.name} · current element` : spell.name) : wt ? capitalize(weaponTypeName(wt)) : 'Unarmed';
+    const races = (ids) => ids.map((id) => `<span class="cb-race-chip"><span aria-hidden="true">${RACES[id].icon}</span> ${escapeHtml(RACES[id].name)}</span>`).join('');
+    const strength = Math.round(((magic ? ELEMENT_MATCHUP.strong : RACE_BONUS.dmg) - 1) * 100);
+    const resist = Math.round((1 - ELEMENT_MATCHUP.weak) * 100);
+    const row = (cls, label, percent, ids) => `<div class="cb-race-row ${cls}"><b>${label} <span>${percent} damage</span></b><div class="cb-race-list">${races(ids)}</div></div>`;
+    const offhand = !magic && mode !== 'dance' && g.equipment.isDualWielding() ? weaponTypeOf(g.equipment.get('shield')) : null;
+    const offMatch = offhand !== wt ? WEAPON_VS_RACE[offhand] : null;
+    const html = `<div class="cb-card-head"><h3>Matchups</h3><span>${escapeHtml(title)}</span></div>`
+      + (match?.strong.length ? row('rh-strong', 'Strong against', `+${strength}%`, match.strong) : '<p>Equip a weapon to see its race bonuses.</p>')
+      + (magic && match?.weak.length ? row('rh-weak', 'Resisted by', `−${resist}%`, match.weak) : '')
+      + (offMatch?.strong.length ? row('rh-strong', `Off-hand ${escapeHtml(weaponTypeName(offhand))}`, `+${strength}%`, offMatch.strong) : '');
+    if (this._combatMatchups !== html) { this._combatMatchups = html; el.innerHTML = html; }
   }
 
   /** Label the Interact button with what it will do right now. */
@@ -1036,6 +1043,7 @@ export class UI {
    *  which tab button is lit or folding anything. */
   _showPanelView(view) {
     const tab = tabOfView(view) || view;
+    const previousScroll = document.getElementById('panel-body')?.scrollTop;
     this._panelView = view;
     this._fullForBag();
     this._setPanelTitle(view);
@@ -1046,13 +1054,13 @@ export class UI {
     }
     this._renderSubtabs(tab, view);
     this._catchUpPanels();   // before the view's scroll is put back, so it lands on what will show
-    this.winMem?.panelShown(tab, view);
     if (view === 'stats') this.renderStatsPanel();   // it only redraws while showing, so bring it up to date
     if (view === 'skills' && this._skillsStale) this.renderSkills();   // likewise
     if (view === 'inventory' && this._invStale) this.renderInventory();   // likewise
     if (view === 'story') this.renderStoryPanel?.();  // (storyui.js) likewise
     // The skills list carries a name + description per row, so it gets more room.
     document.getElementById('sidepanel')?.classList.toggle('wide', view === 'skills');
+    this.winMem?.panelShown(tab, view, previousScroll);   // restore after the new content has a height
   }
 
   /** Phones: the Bag, Gear and Skills open at the sheet's full height. At
@@ -1094,21 +1102,44 @@ export class UI {
     // row's buttons are redrawn below).
     const bag = document.getElementById('inventory-bar');
     if (bag && bag.parentNode === row) document.getElementById('inventory-grid')?.before(bag);
-    const views = PANEL_TABS[tab] || [];
+    const views = PANEL_TABS[tab] || [], combat = tab === 'combat';
     row.classList.toggle('hidden', views.length < 2);
     if (row.dataset.tab !== tab) {
       row.dataset.tab = tab;
-      row.innerHTML = views.length < 2 ? '' : views.map((v) =>
-        `<button type="button" class="subtab-btn" role="tab" data-view="${v}" aria-keyshortcuts="${PANEL_SHORTCUTS[v]}">${SUBTAB_LABELS[v] || v}<kbd class="panel-key" aria-hidden="true">${PANEL_SHORTCUTS[v]}</kbd></button>`).join('');
-      row.querySelectorAll('.subtab-btn').forEach((b) => b.addEventListener('click', () => {
+      if (combat) row.setAttribute('aria-label', 'Combat views');
+      else row.removeAttribute('aria-label');
+      row.innerHTML = views.length < 2 ? '' : views.map((v) => {
+        const icon = combat ? `<span class="combat-tab-icon" aria-hidden="true">${tabIconSVG(v, 18)}</span>` : '';
+        const target = combat ? ` id="combat-tab-${v}" aria-controls="panel-view-${v}"` : '';
+        return `<button type="button" class="subtab-btn" role="tab" data-view="${v}" aria-keyshortcuts="${PANEL_SHORTCUTS[v]}"${target}>`
+          + icon + `${SUBTAB_LABELS[v] || v}<kbd class="panel-key" aria-hidden="true">${PANEL_SHORTCUTS[v]}</kbd></button>`;
+      }).join('');
+      const select = (next) => {
         this._dropTips();
-        this._showPanelView(b.dataset.view);   // (each view keeps its own scroll: windowease.js)
-      }));
+        this._showPanelView(next);
+      };
+      const buttons = [...row.querySelectorAll('.subtab-btn')];
+      buttons.forEach((button, index) => {
+        button.addEventListener('click', () => select(button.dataset.view));
+        if (combat) button.addEventListener('keydown', (event) => {
+          const steps = { ArrowLeft: -1, ArrowRight: 1 };
+          let next;
+          if (event.key in steps) next = (index + steps[event.key] + buttons.length) % buttons.length;
+          else if (event.key === 'Home') next = 0;
+          else if (event.key === 'End') next = buttons.length - 1;
+          else return;
+          event.preventDefault();
+          event.stopPropagation();
+          select(buttons[next].dataset.view);
+          buttons[next].focus({ preventScroll: true });
+        });
+      });
     }
     row.querySelectorAll('.subtab-btn').forEach((b) => {
       const on = b.dataset.view === view;
       b.classList.toggle('active', on);
       b.setAttribute('aria-selected', on ? 'true' : 'false');
+      if (combat) b.tabIndex = on ? 0 : -1;
     });
     // On a touch phone, Bag | Gear and the bag's filters are one strip of
     // chips that scrolls sideways (two stacked rows of pills, under the tabs,
@@ -2540,15 +2571,24 @@ export class UI {
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 2000);
       });
-      btn('Print / PDF', () => {
+      btn('Print / PDF', async () => {
         const w = window.open('', '_blank');
         if (!w) return;
         w.document.title = 'A-Worthy Adventure learning report';
         const pre = w.document.createElement('pre');
-        pre.style.cssText = 'font:14px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;padding:24px';
+        pre.style.cssText = 'font:14px/1.5 Nunito,system-ui,sans-serif;white-space:pre-wrap;padding:24px';
         pre.textContent = rep.text;
         w.document.body.appendChild(pre);
-        w.print();
+        // An about:blank popup can defer its own font requests until it is painted.
+        try {
+          const fontUrl = new URL('assets/fonts/nunito-latin-wght-normal.woff2', document.baseURI);
+          const response = await fetch(fontUrl, { signal: AbortSignal.timeout?.(3000) });
+          if (response.ok && !w.closed) {
+            const face = new w.FontFace('Nunito', await response.arrayBuffer(), { weight: '200 1000' });
+            w.document.fonts.add(await face.load());
+          }
+        } catch { /* The report can still print if the font request fails. */ }
+        if (!w.closed) w.print();
       }, 'ride');
       body.appendChild(row);
       body.insertAdjacentHTML('beforeend', '<div class="modal-hint">Hand this in through your LMS (paste it into an assignment, or upload the downloaded file).</div>');
@@ -2884,11 +2924,58 @@ export class UI {
 
   // ---------------- Combat panel ----------------
   _buildCombatPanel() {
-    this.el.combat.innerHTML = `<div class="style-row"></div><div class="cb-level"></div>
-      <label class="auto-retal"><input type="checkbox" id="auto-retal-cb"> Auto retaliate</label>`;
-    this._styleRow = this.el.combat.querySelector('.style-row');
-    const cb = this.el.combat.querySelector('#auto-retal-cb');
+    const panel = this.el.combat;
+    panel.innerHTML = `<section class="cb-hero cb-level combat-card">
+      <div class="cb-hero-main">
+        <span class="cb-class-icon" aria-hidden="true"></span>
+        <div class="cb-identity"><h2 class="cb-class"></h2><p class="cb-style-label"></p></div>
+        <div class="cb-combat-level"><b></b><span>Combat level</span></div>
+      </div>
+      <dl class="cb-metrics">
+        <div class="cb-metric cb-weapon"><dt>Equipped weapon</dt><dd></dd></div>
+        <div class="cb-metric cb-reach"><dt>Reach</dt><dd></dd></div>
+        <div class="cb-metric cb-tempo"><dt>Attack interval</dt><dd></dd></div>
+      </dl>
+    </section>
+    <section class="cb-utility combat-card">
+      <div class="cb-card-head"><h3>Combat controls</h3><button class="cb-perks" type="button">Skills &amp; perks</button></div>
+      <div class="cb-control-row">
+        <label class="auto-retal"><input type="checkbox" id="auto-retal-cb"> Auto retaliate</label>
+        <button class="cb-attributes-jump" type="button" aria-controls="combat-attributes">Attributes</button>
+      </div>
+      <p class="style-note"></p>
+    </section>
+    <section class="cb-matchups race-hint combat-card"></section>
+    <section class="cb-spellbook combat-card" hidden aria-labelledby="combat-spellbook-title">
+      <div class="cb-card-head"><h3 id="combat-spellbook-title">Spellbook</h3></div>
+      <div class="style-row spells cb-spell-list"></div>
+    </section>
+    <section class="cb-contracts combat-card" hidden aria-labelledby="combat-contract-title">
+      <div class="cb-card-head"><h3 id="combat-contract-title">Mercenary contracts</h3><span class="cb-contract-count"></span></div>
+      <p class="cb-contract-note"></p>
+      <button type="button" class="wm-go merc-hire" aria-describedby="combat-contract-status"></button>
+      <p class="cb-contract-status" id="combat-contract-status"></p>
+    </section>`;
+    this._styleRow = panel.querySelector('.style-row');
+    this._raceHint = panel.querySelector('.race-hint');
+    const cb = panel.querySelector('#auto-retal-cb');
     cb.addEventListener('change', () => { this.game.player.autoRetaliate = cb.checked; });
+    panel.querySelector('.cb-perks').addEventListener('click', () => this.openClassPerks());
+    panel.querySelector('.cb-attributes-jump').addEventListener('click', () => {
+      const heading = panel.querySelector('#combat-attributes-title');
+      heading?.scrollIntoView({ block: 'start' });
+      heading?.focus({ preventScroll: true });
+    });
+    panel.querySelector('.merc-hire').addEventListener('click', () => { this.game.hireMercenary(); this.renderCombatPanel(); });
+    this._styleRow.addEventListener('click', (e) => {
+      const button = e.target.closest('[data-spell]');
+      if (!button || button.disabled) return;
+      const id = button.dataset.spell;
+      const p = this.game.player;
+      p.spellAuto = id === 'auto';
+      if (!p.spellAuto) p.spell = id;
+      this.renderCombatPanel();
+    });
   }
 
   // Combat panel adapts to the wielded weapon: melee styles, ranged styles, or spellbook.
@@ -2896,23 +2983,27 @@ export class UI {
    *  The box is built once and its buttons kept: a spend only rewrites the
    *  numbers in place (via the 'stats' event), so taps land instantly and a
    *  button is never swapped out from under the finger pressing it. */
-  _renderStats(after, mode) {
+  _renderStats(mode) {
     const g = this.game;
     let box = this.el.combat.querySelector('.cb-stats');
     if (!box) {
-      box = document.createElement('div'); box.className = 'cb-stats'; after.insertAdjacentElement('afterend', box);
-      box.innerHTML = `<div class="st-head"><b>Stats</b><span class="st-free"></span>`
-        + `<button type="button" class="st-all">Spend all &rarr; <span></span></button></div>`
-        + ATTRS.map((k) => `<div class="st-row" data-k="${k}"><span class="st-name">${ATTR_NAMES[k]} <b class="st-val"></b></span>`
+      box = document.createElement('section');
+      box.className = 'cb-stats combat-card';
+      box.id = 'combat-attributes';
+      box.setAttribute('aria-labelledby', 'combat-attributes-title');
+      this.el.combat.appendChild(box);
+      box.innerHTML = `<div class="st-head cb-card-head"><h3 id="combat-attributes-title" tabindex="-1">Attributes</h3><span class="st-free"></span></div>`
+        + `<button type="button" class="st-all">Spend all on <span></span></button>`
+        + ATTRS.map((k) => `<div class="st-row" data-k="${k}"><span class="st-name">${ATTR_NAMES[k]} <b class="st-val"></b><span class="cb-attribute-role" hidden>Current style</span></span>`
           + `<span class="st-btns"><button type="button" class="st-add" data-n="1" aria-label="Add 1 point to ${ATTR_NAMES[k]}">+1</button>`
-          + `<button type="button" class="st-add" data-n="10" aria-label="Add 10 points to ${ATTR_NAMES[k]}">+10</button></span>`
+          + `<button type="button" class="st-add" data-n="10" aria-label="Add up to 10 points to ${ATTR_NAMES[k]}">+10</button></span>`
           + `<span class="st-eff"></span></div>`).join('')
-        + `<div class="st-foot">Points come as your fighting skill grows (up to ${MAX_STAT_POINTS}). Hold + to keep adding.`
-        + ` <button type="button" class="st-reset"></button></div>`;
+        + `<div class="st-foot"><p>Earn points by training combat. Hold a + button to keep adding.</p>`
+        + ` <button type="button" class="st-reset" aria-describedby="combat-reset-status"></button><p class="cb-reset-status" id="combat-reset-status"></p></div>`;
       const rows = {};
       for (const k of ATTRS) {
         const row = box.querySelector(`.st-row[data-k="${k}"]`);
-        rows[k] = { row, val: row.querySelector('.st-val'), eff: row.querySelector('.st-eff') };
+        rows[k] = { row, val: row.querySelector('.st-val'), eff: row.querySelector('.st-eff'), role: row.querySelector('.cb-attribute-role') };
         // Only spend while points remain, so a held button stops quietly
         // instead of printing "no stat points" every repeat.
         row.querySelectorAll('.st-add').forEach((b) => this._holdToRepeat(b, () => g.unspentPoints() > 0 && g.addStat(k, +b.dataset.n) && g.unspentPoints() > 0));
@@ -2921,7 +3012,7 @@ export class UI {
       all.addEventListener('click', () => g.spendAllStats());
       box.querySelector('.st-reset').addEventListener('click', () => g.resetStats());
       this._stats = { box, rows, free: box.querySelector('.st-free'), all, allName: all.querySelector('span'),
-        adds: [...box.querySelectorAll('.st-add')], reset: box.querySelector('.st-reset') };
+        adds: [...box.querySelectorAll('.st-add')], reset: box.querySelector('.st-reset'), resetStatus: box.querySelector('.cb-reset-status') };
     }
     this._updateStats(mode);
   }
@@ -2931,19 +3022,33 @@ export class UI {
     const s = this._stats;
     if (!s) return;
     const g = this.game, set = (el, t) => { if (el.textContent !== t) el.textContent = t; };
-    const free = g.unspentPoints(), sum = attrSummary(g.attrs), main = attrForMode(mode), spent = g.spentPoints();
-    set(s.free, free ? `${free} point${free > 1 ? 's' : ''} to spend` : `${g.statPoints()}/${MAX_STAT_POINTS} points`);
+    const free = g.unspentPoints(), sum = attrSummary(g.attrs), main = attrForMode(mode);
+    set(s.free, free ? `${formatNumber(free)} point${free === 1 ? '' : 's'} available` : `${formatNumber(g.statPoints())} / ${formatNumber(MAX_STAT_POINTS)} points earned`);
     s.free.classList.toggle('has', free > 0);
     for (const k of ATTRS) {
       const r = s.rows[k];
       r.row.classList.toggle('main', k === main);
-      set(r.val, String(g.attrs[k])); set(r.eff, sum[k]);
+      r.role.hidden = k !== main;
+      set(r.val, formatNumber(g.attrs[k])); set(r.eff, sum[k]);
     }
     for (const b of s.adds) b.disabled = !free;
     s.all.hidden = !free;
     set(s.allName, ATTR_NAMES[main]);
+    this._updateStatReset();
+    this._updateCombatTempo();
+  }
+
+  _updateStatReset() {
+    const s = this._stats;
+    if (!s) return;
+    const g = this.game, spent = g.spentPoints(), cost = spent * RESET_COST_PER_POINT;
+    const short = cost - g.inventory.count('coins');
     s.reset.hidden = !spent;
-    set(s.reset, `Reset (${spent * RESET_COST_PER_POINT} coins)`);
+    s.reset.disabled = spent > 0 && short > 0;
+    const text = `Reset · ${formatNumber(cost)} coins`;
+    const status = spent && short > 0 ? `${formatNumber(short)} more coins needed.` : '';
+    if (s.reset.textContent !== text) s.reset.textContent = text;
+    if (s.resetStatus.textContent !== status) s.resetStatus.textContent = status;
   }
 
   /** Spend with `fire` on a press, then keep firing while it is held, faster
@@ -3015,60 +3120,103 @@ export class UI {
     if (this._combatDrawn && this._panelHidden(this._styleRow)) { this._combatStale = true; return; }
     this._combatDrawn = true;
     this._combatStale = false;
-    const mode = this.game.combatMode();
-    const p = this.game.player;
-    const row = this._styleRow;
-    this._renderRaceHint(row);
-    row.innerHTML = '';
-    row.classList.toggle('spells', mode === 'magic');
-    if (mode === 'magic') {
-      for (const sp of spellsFor(this.game.jobClass)) {   // a Priest or a Zealot sees only its own
-        const known = this.game.skills.magic >= sp.level;
-        const btn = document.createElement('div');
-        btn.className = 'style-btn spell' + (classSpell(this.game.jobClass, p.spell) === sp ? ' active' : '');
-        const cost = Object.entries(sp.runes).map(([id, q]) => `${q}${id.replace('_rune', '').slice(0, 3)}`).join(' ');
-        btn.innerHTML = `<span class="sp-ic">${spellIconHTML(sp.id, 26)}</span><span class="sp-text">${sp.name}<span class="style-skill">L${sp.level} · max ${playerMagicVsNpc(this.game.skills, this.game.equipment, sp, { defence: 1 }).max} · ${ELEMENTS[sp.element].icon} area · ${escapeHtml(cost)}<br>${escapeHtml(ELEMENTS[sp.element].effect)}</span></span>`;
-        btn.style.opacity = known ? (this.game._hasRunes(sp) ? '1' : '0.65') : '0.35';
-        if (known) btn.addEventListener('click', () => { p.spell = sp.id; p.spellAuto = false; this.renderCombatPanel(); });
-        if (p.spellAuto) btn.classList.remove('active');
-        row.appendChild(btn);
-      }
-      // Auto: auto battle chooses the element that suits each target.
-      const auto = document.createElement('div');
-      auto.className = 'style-btn spell spell-auto' + (p.spellAuto ? ' active' : '');
-      auto.innerHTML = `<span class="sp-ic">${skillIconSVG('magic', 28)}</span><span class="sp-text">Auto element<span class="style-skill">Auto battle picks the best element for each monster${p.spellAuto ? ` (now: ${escapeHtml(classSpell(this.game.jobClass, p.spell).name)})` : ''}</span></span>`;
-      auto.addEventListener('click', () => { p.spellAuto = true; this.renderCombatPanel(); });
-      row.appendChild(auto);
-    } else {
-      // No stances to pick: say what every hit trains.
-      const skill = mode === 'ranged' ? 'Ranged' : mode === 'dance' ? 'Agility' : 'Melee';
-      const note = document.createElement('div');
-      note.className = 'style-note';
-      note.textContent = `Every hit trains ${skill}, Defence and Hitpoints.`;
-      row.appendChild(note);
-    }
-    const modeLabel = mode === 'ranged' ? 'Ranged' : mode === 'magic' ? 'Magic' : mode === 'dance' ? `Dancer &middot; Rhythm ${this.game.danceRhythm}/${RHYTHM_MAX}`
-      : this.game.jobClass === 'monk' ? `Monk &middot; Chi ${chiStacks(this.game)}/${CHI.max}` : 'Melee';
-    const cls = CLASS_BY_ID[this.game.jobClass];
-    const clsLabel = cls ? `<div class="cb-class">Class: <b>${cls.name}</b> &middot; ${WEAPON_TYPE_NAMES[cls.weapon]} <button class="cb-perks" type="button">Skills &amp; perks</button></div>`
-      + `<div class="cb-perkline">${classPerkSummary(cls.id)}</div>` : '';
-    const lvlEl = this.el.combat.querySelector('.cb-level');
-    lvlEl.innerHTML = `${clsLabel}Combat level: ${this.game.skills.combatLevel()} <span style="opacity:.7">&middot; ${modeLabel}</span>`;
-    lvlEl.querySelector('.cb-perks')?.addEventListener('click', () => this.openClassPerks());
-    this._renderStats(lvlEl, mode);
-    // Merchant: hire mercenaries for coins.
-    if (cls?.id === 'merchant') {
-      const n = Mercs.activeMercs(this.game).length;
-      const hire = document.createElement('button');
-      hire.type = 'button';
-      hire.className = 'wm-go merc-hire';
-      const f = Mercs.activeFollowers(this.game).length;
-      hire.textContent = `Hire mercenary (${Mercs.hireCost(this.game)} coins) · ${n}/${Mercs.MAX_MERCS} on contract${f ? ` · ${f} A-Worthling${f > 1 ? 's' : ''}` : ''}`;
-      hire.addEventListener('click', () => { this.game.hireMercenary(); this.renderCombatPanel(); });
-      lvlEl.prepend(hire);
-    }
-    const cb = this.el.combat.querySelector('#auto-retal-cb');
-    if (cb) cb.checked = p.autoRetaliate;
+    const g = this.game, panel = this.el.combat, p = g.player;
+    const mode = g.combatMode(), cls = CLASS_BY_ID[g.jobClass];
+    const weapon = g.equipment.get('weapon');
+    const style = { ranged: 'Ranged', magic: 'Magic', dance: 'Dance', melee: 'Melee' }[mode];
+    const resource = mode === 'dance' ? `Rhythm ${g.danceRhythm}/${RHYTHM_MAX}`
+      : cls?.id === 'monk' ? `Chi ${chiStacks(g)}/${CHI.max}` : '';
+    const training = mode === 'dance' ? 'Agility and Ranged' : style;
+    const art = cls && heroArtSrc(cls.id);
+    const icon = panel.querySelector('.cb-class-icon');
+    const iconHtml = art ? `<img src="${art}" alt="" width="42" height="42">` : itemIconSVG(weapon || 'bronze_sword', 34);
+    if (this._combatIcon !== iconHtml) { this._combatIcon = iconHtml; icon.innerHTML = iconHtml; }
+    panel.querySelector('.cb-class').textContent = cls?.name || 'Adventurer';
+    panel.querySelector('.cb-style-label').textContent = resource ? `${style} · ${resource}` : style;
+    panel.querySelector('.cb-combat-level b').textContent = formatNumber(g.skills.combatLevel());
+    panel.querySelector('.cb-weapon dd').textContent = weapon ? getItem(weapon).name : 'Unarmed';
+    const reach = g.attackRange();
+    panel.querySelector('.cb-reach dd').textContent = `${reach} tile${reach === 1 ? '' : 's'}`;
+    panel.querySelector('.cb-perks').hidden = !cls;
+    panel.querySelector('.style-note').textContent = `Trains ${training}, Defence and Hitpoints.`;
+    panel.querySelector('#auto-retal-cb').checked = p.autoRetaliate;
+    const spellbook = panel.querySelector('.cb-spellbook');
+    spellbook.hidden = mode !== 'magic';
+    if (mode === 'magic') this._renderCombatSpells();
+    this._renderRaceHint(mode);
+    this._renderStats(mode);
+    this._renderMercenaryContracts();
+  }
+
+  _updateCombatTempo() {
+    const el = this.el.combat.querySelector('.cb-tempo dd');
+    if (!el) return;
+    const g = this.game, secs = g.attackInterval() * COMBAT_BEAT_MS / 1000;
+    const text = secs < .01 ? '<0.01 s' : `${Number(secs.toFixed(2))} s`;
+    if (el.textContent !== text) el.textContent = text;
+  }
+
+  _updateCombatAvailability() {
+    if (!this._combatDrawn) return;
+    if (this._panelHidden(this._styleRow)) { this._combatStale = true; return; }
+    if (this.game.combatMode() === 'magic') this._renderCombatSpells();
+    if (this.game.jobClass === 'merchant') this._renderMercenaryContracts();
+    this._updateStatReset();
+  }
+
+  _renderCombatSpells() {
+    const g = this.game, p = g.player, row = this._styleRow, current = classSpell(g.jobClass, p.spell);
+    const freeRune = g.freeRune();
+    const spells = spellsFor(g.jobClass).map((spell) => {
+      const known = g.skills.magic >= spell.level, hasRunes = known && g._hasRunes(spell);
+      const selected = !p.spellAuto && current === spell;
+      const status = !known ? `Magic ${spell.level} required` : hasRunes ? (selected ? 'Selected' : 'Ready') : (selected ? 'Selected · need runes' : 'Need runes');
+      const element = ELEMENTS[spell.element];
+      const runes = Object.entries(spell.runes).map(([id, qty]) => {
+        const name = getItem(id).name;
+        return id === freeRune ? `${name} supplied` : `${qty} ${name.toLowerCase()}${qty === 1 ? '' : 's'}`;
+      }).join(', ');
+      const max = playerMagicVsNpc(g.skills, g.equipment, spell, { defence: 1 }).max;
+      return `<button type="button" class="style-btn spell cb-spell${selected ? ' active' : ''}" data-spell="${spell.id}"
+          data-ready="${hasRunes}" aria-pressed="${selected}"${known ? '' : ' disabled'}>
+        <span class="sp-ic" aria-hidden="true">${spellIconHTML(spell.id, 28)}</span>
+        <span class="sp-text"><span class="cb-spell-name">${escapeHtml(spell.name)}</span>
+          <span class="cb-spell-status">${status}</span>
+          <span class="style-skill">Base max ${formatNumber(max)} · ${element.aoeRadius || AOE_RADIUS}-tile area</span>
+          <span class="style-skill cb-spell-runes">${escapeHtml(runes)}</span>
+          <span class="style-skill cb-spell-effect">${escapeHtml(element.effect)}</span>
+        </span>
+      </button>`;
+    }).join('');
+    const auto = `<button type="button" class="style-btn spell spell-auto cb-spell${p.spellAuto ? ' active' : ''}" data-spell="auto" data-ready="true" aria-pressed="${!!p.spellAuto}">
+      <span class="sp-ic" aria-hidden="true">${skillIconSVG('magic', 28)}</span>
+      <span class="sp-text"><span class="cb-spell-name">Auto element</span>
+        ${p.spellAuto ? '<span class="cb-spell-status">Selected</span>' : ''}
+        <span class="style-skill">Auto Battle chooses an element for each target.${p.spellAuto ? ` Current element: ${escapeHtml(current.name)}.` : ''}</span>
+      </span></button>`;
+    const html = auto + spells;
+    if (this._combatSpells === html) return;
+    const focus = row.contains(document.activeElement) ? document.activeElement.dataset.spell : null;
+    this._combatSpells = html;
+    row.innerHTML = html;
+    if (focus) row.querySelector(`[data-spell="${focus}"]:enabled`)?.focus({ preventScroll: true });
+  }
+
+  _renderMercenaryContracts() {
+    const box = this.el.combat.querySelector('.cb-contracts'), g = this.game;
+    box.hidden = g.jobClass !== 'merchant';
+    if (box.hidden) return;
+    const count = Mercs.activeMercs(g).length, followers = Mercs.activeFollowers(g).length;
+    const cost = Mercs.hireCost(g), short = cost - g.inventory.count('coins');
+    const btn = box.querySelector('.merc-hire');
+    box.querySelector('.cb-contract-count').textContent = `${count} / ${Mercs.MAX_MERCS} on contract`;
+    box.querySelector('.cb-contract-note').textContent = `Each hire lasts ${Mercs.MERC_TICKS * TICK_MS / 1000} seconds.${followers ? ` ${followers} A-Worthling${followers === 1 ? '' : 's'} alongside you.` : ''}`;
+    const status = !g.player.alive ? 'You can hire once you revive.'
+      : count >= Mercs.MAX_MERCS ? 'All contracts filled.'
+        : short > 0 ? `${formatNumber(short)} more coins needed.` : '';
+    btn.disabled = !!status;
+    btn.textContent = `Hire mercenary · ${formatNumber(cost)} coins`;
+    box.querySelector('.cb-contract-status').textContent = status;
   }
 
   /** Your class's perks in full: its signature, weapon speed, reach, cleave,
@@ -3078,7 +3226,7 @@ export class UI {
     if (!cls) return;
     this.openModal(`${cls.name}: skills and perks`, (body) => {
       const art = heroArtSrc(cls.id);
-      body.innerHTML = `<div class="sg-head"><span class="class-pic">${art ? `<img src="${art}" alt="" width="48" height="48">` : itemIconSVG(starterWeapon(cls.id), 40)}</span>`
+      body.innerHTML = `<div class="cb-perks-panel"><div class="sg-head"><span class="class-pic">${art ? `<img src="${art}" alt="" width="48" height="48">` : itemIconSVG(starterWeapon(cls.id), 40)}</span>`
         + `<div><b>${cls.name} · ${WEAPON_TYPE_NAMES[cls.weapon]}</b><span>${cls.desc}</span></div></div>`
         + this._skillsSection(cls)
         + `<div class="cp-head"><b>Perks</b></div><div class="cp-list">${classPerks(cls.id).map((p) => `<div class="cp-row"><span class="cp-ic">${p.icon}</span><span><b>${p.label}</b> ${p.text}</span></div>`).join('')}</div>`
@@ -3091,7 +3239,7 @@ export class UI {
             + classPassives(cls.id, lvl).map((p) => `<div class="cp-row${p.rank ? '' : ' locked'}"><span class="cp-ic">${p.rank ? tabIconSVG('achievements', 20) : '🔒'}</span><span><b>${escapeHtml(p.name)}${p.rank > 1 ? ` (Rank ${p.rank})` : ''}</b> ${escapeHtml(p.desc)} · <i>${skName} ${p.unlockAt}${p.rank ? '' : ' to unlock'}, ranks up every 300 levels after</i></span></div>`).join('')
             + '</div>';
         })()
-        + '<div class="modal-hint">Every class can use any armour, tools and the learning perks in the Knowledge Codex.</div>';
+        + '<div class="modal-hint">Every class can use any armour, tools and the learning perks in the Knowledge Codex.</div></div>';
     });
     this.modal.kind = 'classperks';
   }
@@ -3659,15 +3807,13 @@ export class UI {
 
   // ---------------- Achievements / collection log ----------------
   // ---------------- Stats tab (final values, everything combined) ----------------
-  /** Redraw the Stats tab, only while it is showing (opening the tab draws it).
-   *  Open breakdowns stay open, and an unchanged sheet leaves the page alone. */
+  /** Only draw the live Stats tab while it is showing. */
   renderStatsPanel() {
     const el = this.el.statsPanel;
     if (!el || el.closest('.panel-view')?.classList.contains('hidden')) return;
-    const open = new Set([...el.querySelectorAll('details[open]')].map((d) => d.dataset.row));
-    let html;
-    try { html = statsPanelHTML(statSheet(this.game), open, worthTable(this.game)); } catch (e) { console.warn('Stats tab:', e); return; }
-    if (html !== this._statsHTML) { el.innerHTML = html; this._statsHTML = html; }
+    try {
+      this._statsHTML = refreshStatsPanel(el, statSheet(this.game), worthTable(this.game), this._statsHTML);
+    } catch (e) { console.warn('Stats tab:', e); }
   }
 
   renderAchievementPanel() {
