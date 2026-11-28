@@ -12,37 +12,38 @@ import { TILE } from '../config.js';
 // cool blue-green on the coasts and mangroves, pale mist on the reservoirs,
 // red-tinged and ominous in the lawless lands. Kept faint: a grade, not a filter.
 export const ZONE_MOOD = {
-  'Kampong Glam': [255, 206, 130, 0.07],
-  Chinatown: [255, 186, 140, 0.07],
-  'Marina Bay': [166, 191, 240, 0.09],   // pale daylight over glass and water
-  'Bukit Timah': [150, 214, 130, 0.08],   // a humid green haze
-  'Jurong Forest': [130, 204, 140, 0.07],
-  'Mandai Rainforest': [82, 155, 107, 0.14],   // deep green beneath the canopy
-  'MacRitchie Reservoir': [209, 233, 249, 0.1],   // open light over the reservoir
-  'Punggol Waterway': [196, 226, 240, 0.08],
-  'Sungei Buloh Wetlands': [143, 206, 191, 0.09],
-  'Sentosa Beach': [255, 220, 150, 0.07],   // sunny and warm
-  'Changi Coast': [166, 223, 238, 0.07],
-  'Southern Islands': [140, 210, 238, 0.07],
-  'Pulau Ubin': [214, 228, 150, 0.06],
-  'Coney Island': [186, 226, 166, 0.06],
-  'Gardens by the Bay': [196, 236, 206, 0.05],
-  'Kranji Farmlands': [238, 220, 140, 0.06],
+  'Kampong Glam': [255, 209, 137, 0.11],
+  Chinatown: [254, 171, 149, 0.13],
+  'Marina Bay': [146, 188, 245, 0.13],   // light reflected by glass and water
+  'Bukit Timah': [154, 209, 115, 0.13],
+  'Jurong Forest': [133, 184, 125, 0.16],
+  'Mandai Rainforest': [74, 157, 115, 0.17],
+  'MacRitchie Reservoir': [206, 229, 242, 0.12],
+  'Punggol Waterway': [175, 216, 237, 0.11],
+  'Sungei Buloh Wetlands': [134, 207, 184, 0.13],
+  'Sentosa Beach': [255, 223, 161, 0.11],
+  'Changi Coast': [151, 219, 234, 0.1],
+  'Southern Islands': [146, 220, 245, 0.11],
+  'Pulau Ubin': [220, 223, 152, 0.11],
+  'Coney Island': [170, 220, 177, 0.1],
+  'Gardens by the Bay': [206, 205, 240, 0.1],
+  'Kranji Farmlands': [241, 219, 136, 0.11],
   'Transit Road, Nee Soon Camp': [150, 175, 181, 0.12],   // slate pavement and rain-cooled air
-  'Tuas Docklands': [166, 178, 200, 0.08],
-  'Temasek Ruins': [218, 186, 146, 0.08],
-  'The Celestial Peaks': [212, 212, 250, 0.08],
-  'The Wilderness': [196, 84, 76, 0.13],
-  'Pulau Hantu': [150, 125, 200, 0.14],
-  'Tekong Badlands': [190, 96, 86, 0.12],
-  'The Shadow Rift': [110, 70, 140, 0.18],
+  'Tuas Docklands': [157, 177, 195, 0.13],
+  'Temasek Ruins': [220, 171, 118, 0.13],
+  'The Celestial Peaks': [196, 212, 252, 0.14],
+  'The Wilderness': [198, 104, 89, 0.16],
+  'Pulau Hantu': [147, 118, 202, 0.17],
+  'Tekong Badlands': [211, 113, 75, 0.17],
+  'The Shadow Rift': [131, 71, 155, 0.19],
+  'The Endless Gate': [144, 113, 192, 0.12],
   Singapore: [255, 236, 214, 0],
 };
 export const MOOD_BLEND_MS = 330;   // time constant: ~95% of the way across in a second
 
 /** The mood for a region (unknown regions get none). */
 export function moodFor(zoneName) {
-  return ZONE_MOOD[zoneName] || ZONE_MOOD.Singapore;
+  return Object.hasOwn(ZONE_MOOD, zoneName) ? ZONE_MOOD[zoneName] : ZONE_MOOD.Singapore;
 }
 
 /** Ease `cur` (a mood, changed in place) toward `target` over dt ms, the same

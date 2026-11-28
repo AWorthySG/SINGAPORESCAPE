@@ -274,7 +274,7 @@ export class DepthView {
   castShadows(g, objs, landmarks, ox, oy, vw, vh, phase, time, D, sky = 1, lean = null) {
     this.shadows = 0;
     const sv = shadowVec(phase, this._sv);
-    if (!sv.on || !this.ok) return;
+    if (!sv.on || !this.ok || sky <= 0.01) return;
     const box = this._box;
     g.save();
     const shade = g.globalAlpha * sv.alpha * sky;
@@ -323,17 +323,19 @@ export class DepthView {
    * wisps in it drifting slower than the ground below (parallax with the
    * camera's centre camX). `calm` (Reduce motion) stops their own drift.
    */
-  haze(ctx, pj, phase, mood, camX, time, calm, trim, wx = null) {
+  haze(ctx, pj, phase, mood, camX, time, calm, trim, wx = null, air = null) {
     const tilt = pj.tilt;
     if (!(tilt > 0.01) || wx?.roofed) return;
     const col = hazeColour(phase, mood, this._hz);
     const mist = wx?.mist || 0, gloom = wx?.gloom || 0;
     const day = 0.5 - 0.5 * Math.cos(phase * Math.PI * 2);
     const daylight = smooth((day - 0.16) / 0.63);
+    const airStrength = air?.[3] || 0;
+    if (airStrength > 0) for (let i = 0; i < 3; i++) col[i] += (air[i] - col[i]) * airStrength;
     const colourMix = 0.3 * gloom + 0.24 * mist;
     col[0] += (174 - col[0]) * colourMix; col[1] += (196 - col[1]) * colourMix; col[2] += (218 - col[2]) * colourMix;
-    const a = (0.32 + daylight * 0.22 + mist * 0.16 + gloom * 0.08) * Math.min(1, tilt);
-    const band = pj.vh * (HAZE_TOP + 0.12 * mist);
+    const a = (0.28 + daylight * 0.22 + mist * 0.16 + gloom * 0.08 + airStrength * 0.16) * Math.min(1, tilt);
+    const band = pj.vh * (HAZE_TOP + 0.12 * mist + 0.12 * airStrength);
     const key = `${col[0] | 0},${col[1] | 0},${col[2] | 0}`;
     if (key !== this._hazeKey) { this._hazeKey = key; this._hazePic = this._hazeFill(key); }
     ctx.save();

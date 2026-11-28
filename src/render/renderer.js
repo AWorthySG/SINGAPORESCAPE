@@ -45,12 +45,12 @@ import { RARITY } from '../game/loot.js';
 // The effects a melee blow spawns that wait for its strike (see _holdForStrike).
 const HELD_FX = new Set(['slash', 'cleave', 'swipe']);
 import { itemIconImage } from './icons.js';
-import { moodFor, blendMood, composeWashes, dayNightWashes, buildVignette, vignetteKey, drawScreenPic, ObjectReactions } from './ambience.js';
+import { composeWashes, buildVignette, vignetteKey, drawScreenPic, ObjectReactions } from './ambience.js';
 import { worldMood } from '../game/consequences.js';
 import { Critters } from './critters.js';
-import { LightPass } from './lighting.js';
+import { LightPass, regionalDark, skyWashes } from './lighting.js';
 import { CosyLight } from './cosylight.js';
-import { Atmosphere } from './atmosphere.js';
+import { Atmosphere, timeGrade } from './atmosphere.js';
 import { AmbientLife, swayLean } from './ambient.js';
 import { AirMotes } from './airmotes.js';
 import { RegionPostcards, titleRoom } from './postcard.js';
@@ -176,9 +176,10 @@ export class Renderer {
     this._vig = null; // cached vignette (rebuilt on resize)
     // Atmosphere and life (see ambience.js / critters.js): the region's colour
     // mood easing toward the current one, objects reacting to you, critters.
-    this._mood = moodFor('Singapore').slice();
-    this._dn = dayNightWashes(0);
-    this._washes = [this._mood, this._dn[0], this._dn[1]];
+    this._flatSky = skyWashes(0.5);
+    this._flatDark = [0, 0, 0, 0];
+    this._flatClock = { moon: 0, crisp: 0 };
+    this._washes = [];
     this._grade = [0, 0, 0, 0];
     this.react = new ObjectReactions();
     this.critters = new Critters();
@@ -332,7 +333,9 @@ export class Renderer {
       this._drawTerrain(x0, y0, x1, y1, ox, oy, stillWater ? 0 : timeMs);
     }
     this.weather.update(game, fdt);
-    const sky = 1 - this.weather.state.gloom * 0.84;
+    const wx = this.weather.state;
+    const look = this.atmos.update(game, this._moodOf, fdt);
+    const sky = (1 - wx.gloom * 0.84) * (1 - look.shade * 1.45) * (1 - look.cover);
     sun.sky = sky;
     const characterLight = trim ? null : actorLight(dayPhase, sky);
     const worldSun = !trim && this.depth.ok ? shadowVec(dayPhase, this._worldSun || (this._worldSun = {})) : null;
@@ -348,11 +351,9 @@ export class Renderer {
     drawHomeTextile(ctx, game, ox, oy, vw, vh);
     const service = game.player.alive && heritageService(game.world, game.player);
     if (service && game.hover?.obj !== service) drawHeritageServiceCue(ctx, service, ox, oy);
-    this._drawGroundDecals(ox, oy);
     // Weather (weather.js): the sky for this region and moment, then puddles and
     // ripples on the ground, under everyone. Looks only; never gameplay.
     this.weather.drawGround(ctx, game, ox, oy, vw, vh, timeMs, fdt, trim);
-    this._drawHazards(ox, oy, timeMs, vw, vh, !trim, calm);
     // Critters move on and objects near you react (bushes sway, tall things fade).
     this.react.update(game, fdt);
     {
@@ -377,6 +378,8 @@ export class Renderer {
     if (W.objectsIn) W.objectsIn(x0 - 1, y0 - 1, x1 + 1, y1 + 1, visObjs);
     else { visObjs.length = 0; for (const o of W.objects) if (!(o.x < x0 - 1 || o.x > x1 + 1 || o.y < y0 - 1 || o.y > y1 + 1)) visObjs.push(o); }
     this.amb.drawDistrictGround(ctx, visObjs, ox, oy);
+    this._drawGroundDecals(ox, oy);
+    this._drawHazards(ox, oy, timeMs, vw, vh, !trim, calm);
     // Tilted, trees and landmarks stand a touch taller than flat (see the drawables loop).
     const riseTree = pj ? 0.05 * pj.tilt : 0, riseMark = pj ? 0.08 * pj.tilt : 0;
     const scenery = this._districtScenery || (this._districtScenery = []);
@@ -686,7 +689,7 @@ export class Renderer {
     if (pj) {
       applyScreen(ctx, pj);
       // The far edge fades into the sky's haze, with wisps drifting over it.
-      this.depth.haze(ctx, pj, dayPhase, this._mood, cam.cx, timeMs, calm, trim, this.weather.state);
+      this.depth.haze(ctx, pj, dayPhase, this.atmos.mood, cam.cx, timeMs, calm, trim, wx, look.haze);
     }
 
     this._drawClueMarker(ox, oy, vw, vh, timeMs);
@@ -698,10 +701,11 @@ export class Renderer {
     // Age the impacts once before sampling their lights and drawing them.
     game.cfx.update(game.hitStop > 0 ? fdt * 0.12 : fdt);
     // The light pass (lighting.js) paints the grade and the night's darkness
-    // with lamps, fires and spells cut out of it, then the weather in the air;
-    // low graphics (and headless runs) keep the old flat fill.
-    if (game.lowFx || !this.lights.ok || !this.lights.draw(ctx, game, this.atmos.crisp(this._blendMood(fdt), dayPhase, this.weather.state.gloom), night, this.weather.state, ox, oy, vw, vh, timeMs, pj)) this._drawDayNight(svw, svh, night, fdt);
-    else if (!game.fxTrim) this.cosy.draw(ctx, game, this.lights, night, ox, oy, vw, vh, timeMs, pj, this.weather.state);
+    // with lamps, fires and spells cut out. The simple grade uses the same
+    // palette in low graphics and when there is no light buffer.
+    const mood = this.atmos.crisp(this.atmos.mood, dayPhase, wx.gloom);
+    if (game.lowFx || !this.lights.ok || !this.lights.draw(ctx, game, mood, night, wx, ox, oy, vw, vh, timeMs, pj, look)) this._drawDayNight(svw, svh, night, dayPhase, mood, look, wx);
+    else if (!game.fxTrim) this.cosy.draw(ctx, game, this.lights, night, ox, oy, vw, vh, timeMs, pj, wx, look);
     this.weather.drawAir(ctx, fox, foy, svw, svh, timeMs, fdt, trim);
     // Frames running slow (governor.js) also skip these two full-screen layers:
     // the golden hour's soft-light grade and the vignette are the costliest
@@ -725,28 +729,19 @@ export class Renderer {
     this._drawCinematics(svw, svh);
   }
 
-  // The whole colour grade in ONE full-screen fill: the region's mood (eased
-  // toward the current region's over about a second), a warm dawn/dusk glow
-  // that peaks with the sun on the horizon, and a lavender night wash capped so
-  // the world stays readable at midnight. Painted one over another they'd be
-  // three fills; composeWashes folds them into one that looks the same.
-  // Drawn under particles/hitsplats so embers and fireflies still pop at night.
-  _drawDayNight(vw, vh, night, dt) {
-    this._blendMood(dt);
-    dayNightWashes(night, this._dn);
-    const w = this._washes, wx = this.weather.state;
-    w.length = 3;
-    w.push(...wx.washes, wx.flashWash);
+  // Fold the region light, sky and weather into one inexpensive flat wash.
+  _drawDayNight(vw, vh, night, phase, mood, look, wx) {
+    const w = this._washes;
+    const sky = skyWashes(phase, this._flatSky, look.dusk, wx.gloom, look.cover);
+    const moon = timeGrade(phase, 0, this._flatClock).moon;
+    const dark = regionalDark(night, moon, look, this._flatDark);
+    dark[3] *= 0.44;
+    w.length = 0;
+    w.push(mood, ...sky, dark, ...wx.washes, wx.flashWash);
     const g = composeWashes(w, this._grade);
     if (g[3] <= 0.004) return;
     this.ctx.fillStyle = `rgba(${g[0] | 0},${g[1] | 0},${g[2] | 0},${g[3].toFixed(3)})`;
     this.ctx.fillRect(0, 0, vw, vh);
-  }
-
-  /** Ease the region's mood toward where you are (low graphics keeps just the
-   *  day/night light, so the mood eases away). */
-  _blendMood(dt) {
-    return blendMood(this._mood, this.game.lowFx ? moodFor('Singapore') : this.atmos.regionMood(this.game, this._moodOf), dt);   // shaded by your choices (consequences.js), blended across borders (atmosphere.js)
   }
 
   // ---------------- Alignment aura (alignment.js) ----------------
