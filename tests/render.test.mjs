@@ -341,10 +341,21 @@ test('hero animation parts stay in lock-step with assets/creatures/hero/anim/ an
   for (const f of listed) assert.ok(onDisk.has(f), `anim/${f}.webp is registered but missing`);
   for (const f of onDisk) assert.ok(listed.has(f), `anim/${f}.webp is on disk but not registered`);
   for (const id of Object.keys(ANIM_ART)) assert.ok(CLASS_BY_ID[id], `${id} is a class`);
-  // Every arm ([w, h, pivot]) and back-view part ([x, y, w, h]) has a real size.
+  // Every painted part has a size, and measured points lie in their own picture.
   for (const [id, a] of Object.entries(ANIM_ART)) {
-    for (const arm of [a.swing, a.off].filter(Boolean).flatMap(Object.values)) assert.ok(arm.length === 4 && arm.every(Number.isFinite) && arm[0] > 0 && arm[1] > 0, `${id} arm size`);
-    for (const r of Object.values(a.back || {})) assert.ok((r.length === 4 || r.length === 8) && r.every(Number.isFinite) && r[2] > 0 && r[3] > 0, `${id} back part size`);
+    for (const arm of [a.swing, a.off].filter(Boolean).flatMap(Object.values)) {
+      const [w, h, , , tx, ty] = arm;
+      assert.ok([4, 6].includes(arm.length) && arm.every(Number.isFinite) && w > 0 && h > 0, `${id} arm size`);
+      if (arm.length === 6) assert.ok(tx >= 0 && ty >= 0 && tx <= w && ty <= h, `${id} measured attack tip is inside the painting`);
+    }
+    for (const [name, part] of Object.entries(a.back || {})) {
+      assert.ok(part.every(Number.isFinite), `${id} rear ${name} coordinates`);
+      if (name === 'joint' || name === 'weaponShoulder') assert.equal(part.length, 2, `${id} rear joint`);
+      else if (part.length === 5) {
+        const [w, h, px, py] = part;
+        assert.ok(w > 0 && h > 0 && px >= 0 && py >= 0 && px <= w && py <= h, `${id} rear ${name} size and pivot`);
+      } else assert.ok([4, 8].includes(part.length) && part[2] > 0 && part[3] > 0, `${id} rear ${name} size`);
+    }
   }
 });
 

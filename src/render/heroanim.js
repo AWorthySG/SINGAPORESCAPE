@@ -40,7 +40,7 @@ import { classAccent } from '../data/classColours.js';
 import { agilityClipId } from '../data/objects.js';
 import { itemIconImage } from './icons.js';
 import { bestTool } from '../game/tools.js';
-import { drawEmptyArm, drawHeroStrikeSpark, hasEmptyArm } from './heroAnimArt.js';
+import { drawEmptyArm, drawHeroStrikeSpark, hasEmptyArm, BRAWLER_SHOULDERS } from './heroAnimArt.js';
 
 const EASE = {
   lin: (x) => x,
@@ -1486,28 +1486,24 @@ function star(c, x, y, r, k) {
   c.closePath(); c.fill(); c.stroke();
 }
 
-// Where the life-skill arms hang, for a class whose painted body is wider than
-// the usual chibi: [front x, back x, y offset]. The Brawler's gi is wide with
-// open sleeve ends at its sides, and his arms are as pale as the gi, so arms
-// from the usual shoulders sat inside the chest and vanished into it, leaving
-// two empty sleeves. His hang from the sleeve ends instead, and the back one is
-// drawn over the body, as his own rig arms are (see armInFront).
-// The Monk's tool grips follow the mantle openings of its fighting rig.
-const SKILL_SHOULDER = { brawler: [13, -13, -1], monk: [10.5, -6, 1.7] };
+// Tool arms follow the shoulder openings of these fighting rigs.
+const SKILL_SHOULDER = { swordsman: [2.1, -10.7, 1], monk: [10.5, -6, 1.7] };
+const SKILL_ARM_Y = -11;
 /** Whether a class's back life-skill arm is drawn over its body, not behind it. */
-export const armInFront = (jobClass) => !!SKILL_SHOULDER[jobClass];
+export const armInFront = (jobClass) => jobClass === 'brawler' || !!SKILL_SHOULDER[jobClass];
 /** The life-skill arms for a painted rig: the back one before the body (after
  *  it where armInFront says so), the front one (with the tool) after it. `y`
  *  is the shoulder height. A work-only body passes its fitted [x, y, sleeve]
  *  and keeps its arms visible as the pose blends. */
-export function drawHeroArm(c, anim, side, y = -11, joint = null) {
+export function drawHeroArm(c, anim, side, y = SKILL_ARM_Y, joint = null) {
   const ch = anim.ch, a = joint ? 1 : ch.mix;
   if (!(a > 0.01)) return;
   const sleeve = joint ? joint[2] : SLEEVE[anim.jobClass] || '#C0392B';
   const [fx, bx, dy] = SKILL_SHOULDER[anim.jobClass] || [8, -7, 0];
   const front = side === 'front';
-  const sx = joint ? joint[0] : front ? fx : bx;
-  const sy = joint ? joint[1] : y + dy;
+  const fitted = anim.jobClass === 'brawler' ? BRAWLER_SHOULDERS[side] : null;
+  const sx = joint?.[0] ?? fitted?.[0] ?? (front ? fx : bx);
+  const sy = joint?.[1] ?? (y + (fitted ? fitted[1] - SKILL_ARM_Y : dy));
   const jobClass = joint ? null : anim.jobClass;
   const prev = c.globalAlpha;
   c.globalAlpha = prev * Math.min(1, a);

@@ -680,17 +680,17 @@ test("the Brawler's life-skill arms hang from his gi's sleeve ends, the back one
     const front = strokeStarts(), back = strokeStarts();
     drawHeroArm(front.c, anim, 'front', -11);
     drawHeroArm(back.c, anim, 'back', -11);
-    assert.ok(front.starts.some(([x, y]) => x === 13 && y === -12), `${id}: front arm out at the sleeve (${JSON.stringify(front.starts)})`);
+    assert.ok(front.starts.some(([x, y]) => x === 18.5 && y === -9), `${id}: front arm out at the sleeve (${JSON.stringify(front.starts)})`);
     assert.ok(!front.starts.some(([x]) => x === 8), `${id}: not from inside the chest`);
-    assert.deepEqual(back.starts[0], [-13, -12], `${id}: back arm out at the other sleeve`);
+    assert.deepEqual(back.starts[0], [-8.4, -11.1], `${id}: back arm out at the other sleeve`);
   }
   assert.equal(armInFront('brawler'), true, 'his back arm is drawn over the body, as his rig arm is');
-  // Everyone else keeps the usual shoulders, with the back arm behind the body.
-  const anim = sampleHeroClip('woodcut', 0.3, { kind: 'skill', tool: 'bronze_axe', jobClass: 'swordsman' });
-  const sw = strokeStarts();
-  drawHeroArm(sw.c, anim, 'front', -11);
-  assert.ok(sw.starts.some(([x, y]) => x === 8 && y === -11), JSON.stringify(sw.starts));
-  assert.equal(armInFront('swordsman'), false);
+  // Classes with default shoulders draw the far arm behind the body.
+  const anim = sampleHeroClip('woodcut', 0.3, { kind: 'skill', tool: 'bronze_axe', jobClass: 'paladin' });
+  const paladin = strokeStarts();
+  drawHeroArm(paladin.c, anim, 'front', -11);
+  assert.ok(paladin.starts.some(([x, y]) => x === 8 && y === -11), JSON.stringify(paladin.starts));
+  assert.equal(armInFront('paladin'), false);
 });
 
 test('the axe chops blade first and the pickaxe is held by its handle', () => {
