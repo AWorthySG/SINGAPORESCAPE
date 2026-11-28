@@ -8,6 +8,7 @@ const panels = [
 
 export const PANEL_SHORTCUTS = Object.fromEntries(panels.map(([key, view]) => [view, key]));
 export const ABILITY_KEYS = ['z', 'x', 'c', 'v', 'b'];
+export const EQUIP_BEST_SHORTCUT = 'Shift+B';
 
 export const KEYBOARD_GROUPS = [
   ['Navigation', [
@@ -24,6 +25,7 @@ export const KEYBOARD_GROUPS = [
   ['Quick actions', [
     ['Interact with the nearest target', 'E', 'Space'],
     ['Go to the nearest bank', 'Shift+E', 'N'], ['Go to the next quest step', 'Shift+Q', 'J'],
+    ['Equip best in slot', EQUIP_BEST_SHORTCUT],
     ['Open Life skills', 'Shift+G'], ['Toggle auto battle', 'T'], ['Toggle auto gather', 'Y'],
     ['Toggle auto quest', 'U'], ['Custom quick bar slots', 'Shift+1–6'],
     ['Teleport to Kampong Glam', 'K'], ['Teleport to your gravestone', 'R'],
