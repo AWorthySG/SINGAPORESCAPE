@@ -58,7 +58,7 @@ html body.title-on > #acct-overlay:not(#splash):not(#game-root) { visibility: vi
 
 .acct-code {
   margin: 8px 0 4px; padding: 14px 10px; text-align: center; word-break: break-all;
-  font: 900 clamp(14px, 4.4vw, 20px)/1.3 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.5px;
+  font: 900 clamp(14px, 4.4vw, 20px)/1.3 var(--font); letter-spacing: 0.5px;
   border: 2px dashed var(--aw-ink); border-radius: var(--r2); background: var(--aw-sun-bg); user-select: all;
 }
 .acct-check { display: flex; align-items: center; gap: 10px; margin-top: 12px; min-height: 40px; font-weight: 800; font-size: var(--fs-md); }

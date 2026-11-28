@@ -11,7 +11,7 @@ import { Game } from '../src/game/game.js';
 import { NPC } from '../src/game/npc.js';
 import { clearSave } from '../src/game/save.js';
 import { Renderer, splatSide, SPLAT_SIDE } from '../src/render/renderer.js';
-import { namePill, pillRes, pillCacheSize, PILL_CAP, PILL_ROW, PILL_STYLES } from '../src/render/namepill.js';
+import { namePill, clearNamePillCache, pillRes, pillCacheSize, PILL_CAP, PILL_ROW, PILL_STYLES } from '../src/render/namepill.js';
 import { MINIMAP_RGB, paintMinimapTerrain, minimapNpcKind } from '../src/render/minimapart.js';
 import { TERRAIN } from '../src/data/world.js';
 
@@ -56,6 +56,8 @@ test('name pills are cached by words, style and scale, and the cache stays bound
   assert.notEqual(namePill(ctx, 'Goblin', 'danger', 2), a, 'another style is another pill');
   assert.notEqual(namePill(ctx, 'Goblin', 'even', 3), a, 'and another scale too');
   assert.ok(a.w > 6 * 'Goblin'.length, 'the card is wider than its words');
+  clearNamePillCache();
+  assert.notEqual(namePill(ctx, 'Goblin', 'even', 2), a, 'a font refresh rebuilds cached labels');
   for (let i = 0; i < PILL_CAP * 2; i++) namePill(ctx, `Villager ${i}`, 'town', 1);
   assert.ok(pillCacheSize() <= PILL_CAP, `at most ${PILL_CAP} kept: ${pillCacheSize()}`);
   for (const k of ['town', 'own', 'easy', 'even', 'danger', 'champion', 'boss']) assert.ok(PILL_STYLES[k], k);

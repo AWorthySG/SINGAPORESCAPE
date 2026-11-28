@@ -153,7 +153,7 @@
 .perf-hud {
   position: absolute; z-index: 19; right: 10px; top: 268px;
   padding: 4px 7px; border-radius: 8px; pointer-events: none; -webkit-user-select: none; user-select: none;
-  font: 600 var(--fs-xs)/1.3 ui-monospace, Menlo, Consolas, monospace; white-space: pre; color: var(--aw-bg);
+  font: 600 var(--fs-xs)/1.3 var(--font); font-variant-numeric: tabular-nums; white-space: pre; color: var(--aw-bg);
   background: rgba(34, 48, 74, 0.78); contain: layout paint;
 }
 @media (pointer: coarse) and (max-width: 540px) {

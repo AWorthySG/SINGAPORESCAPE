@@ -10,7 +10,7 @@
 const CACHE = 'awa-v1';
 const ART_CACHE = 'awa-artwork-2';
 const CORE = ['./', 'index.html', 'styles/main.css', 'styles/title.css', 'styles/story.css', 'styles/heritage.css',
-  'src/main.js', 'manifest.webmanifest', 'assets/logo.svg', 'assets/logo-mark.svg',
+  'src/main.js', 'manifest.webmanifest', 'assets/logo.svg', 'assets/logo-mark.svg', 'assets/fonts/nunito-latin-wght-normal.woff2',
   'assets/title/transit-road-evening.webp', 'assets/education-gold-nib.webp',
   'assets/maps/singapore-atlas.webp', 'assets/maps/singapore-atlas-relief.webp'];
 

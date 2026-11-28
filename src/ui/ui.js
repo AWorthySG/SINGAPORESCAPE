@@ -4983,6 +4983,11 @@ export class UI {
   }
 
   // ---------------- Minimap ----------------
+  refreshCanvasFonts() {
+    this._mmRing = undefined;
+    this._refreshModalIfOpen(['worldmap']);
+  }
+
   /** The whole map's terrain at one pixel per tile, built once (terrain never changes). */
   /** Once you're playing (the title gone, a few ticks in), bake the world
    *  map's picture in spare moments, so its first opening is quick (minimapart.js). */
