@@ -195,6 +195,19 @@ export const SHOPS = {
       { id: 'egg', qty: 200 },
     ],
   },
+  transit_hawker: {
+    name: 'Rain or Shine Stall',
+    buyMul: 1.0,
+    sellMul: 0.5,
+    buysAnything: false,
+    stock: [
+      { id: 'teh_tarik', qty: 50 },
+      { id: 'kaya_toast', qty: 50 },
+      { id: 'roti_prata', qty: 30 },
+      { id: 'chicken_rice', qty: 20 },
+      { id: 'laksa', qty: 15 },
+    ],
+  },
 };
 
 // Every class can buy a starter weapon: bronze, iron and steel of each metal

@@ -3,9 +3,9 @@
 // for region detection) plus a dangerous Wilderness. A fixed seed keeps it stable.
 
 import { NPCS, MONSTER_IDS, BOSS_IDS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS, MORE_MONSTER_IDS, MORE_BOSS_IDS, stretchLevel } from './npcs.js';
-import { STATIONS } from './transport.js';
+import { BASE_STATIONS as STATIONS, TRANSIT_ROAD_STATION } from './transport.js';
 import { LANDINGS } from './islandlife.js';
-import { GENERATION_ONLY_SCENERY } from './objects.js';
+import { GENERATION_ONLY_SCENERY, getObject } from './objects.js';
 import { placeLandmarks } from './landmarks.js';
 import { placeGroves, QUARRY_PLAN } from './groves.js';
 import { assignFishSpots } from './fishspots.js';
@@ -1529,6 +1529,81 @@ export function buildWorld({ groves: withGroves = true } = {}) {
 
   // The Lion guards the Golden-domed Hall off the heritage walk, clear of the road.
   Object.assign(lion, { x: 64, y: 82 });
+
+  // Transit Road joins the old Kranji–Mandai road at its eastern end. Add the
+  // hand-built neighbourhood after the seeded passes so the island around it
+  // keeps the same roads, resources and landmarks.
+  {
+    const station = TRANSIT_ROAD_STATION, { name } = station;
+    const transit = { name, x0: 431, y0: 149, x1: 458, y1: 168, lo: 8, hi: 20 };
+    const plaza = [434, 149, 454, 157];
+    const kranji = zoneByName('Kranji Farmlands');
+    const inside = (x, y, z) => x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1;
+    const plazaGap = (x, y) => Math.max(plaza[0] - x, x - plaza[2], plaza[1] - y, y - plaza[3]);
+    const stations = [...STATIONS, station];
+
+    // Keep the original Kranji encounters in Kranji, but move the ordinary
+    // spawns that would compete with the Verge or wander onto the platform and plaza.
+    for (const s of npcSpawns) {
+      const def = NPCS[s.npcId];
+      if (!def?.attackable || def.fixed || !inside(s.x, s.y, kranji)) continue;
+      const aggressive = s.opts?.aggressive ?? def.aggressive;
+      const reach = (s.wander || def.wander || 0) + (def.aggroRange || 4) + 2;
+      const safe = (x, y) => !inside(x, y, transit) && gapTo(x, y, station) >= MRT_CLEAR
+        && (!aggressive || plazaGap(x, y) > reach);
+      if (safe(s.x, s.y)) continue;
+      let to = null;
+      for (let r = 1; r <= 24 && !to; r++) {
+        for (let dy = -r; dy <= r && !to; dy++) for (let dx = -r; dx <= r && !to; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = s.x + dx, y = s.y + dy;
+          if (inside(x, y, kranji) && safe(x, y) && !inNewTown(x, y) && LANDABLE.includes(get(x, y))
+            && isFree(x, y) && !taken.has(key(x, y)) && stations.every((st) => gapTo(x, y, st) >= MRT_CLEAR)) to = { x, y };
+        }
+      }
+      if (!to) continue;
+      Object.assign(s, to);
+      taken.add(key(s.x, s.y));
+    }
+
+    zones.splice(zones.indexOf(kranji), 0, transit);
+    towns.push(plaza);
+    rect(...plaza, T.STONE);
+    rect(435, 160, 452, 167, T.DARKGRASS);
+    rect(431, 152, 454, 153, T.PATH);
+    rect(443, 156, 444, 161, T.PATH);
+    rect(442, 162, 444, 164, T.PATH);
+    rect(440, 165, 449, 166, T.PATH);
+
+    // The low flats, lanterns and rain trees frame a walkable pavement.
+    for (const [x, y] of [[436, 151], [440, 151]]) {
+      const objId = 'hdb_block';
+      const [w, d] = getObject(objId).footprint;
+      placeObj(objId, x, y, { displayName: 'Transit Road Flats' });
+      for (let dy = 0; dy < d; dy++) for (let dx = 0; dx < w; dx++) occupied.add(key(x + dx, y - dy));
+      landmarks.push({ objId, x, y, region: name });
+    }
+    placeObj('mrt_station', station.x, station.y);
+    placeObj('sign', 449, 154, { sign: `${name} · Kranji Village ↑ · Mandai Rainforest ↓` });
+    placeObj('sign', 454, 150, { sign: `← ${name}` });
+    placeObj('sign', 443, 158, { sign: '↓ Rain-Tree Verge · Watch for spirits after the rain' });
+    placeObj('bank_booth', 450, 155); placeObj('bank_booth', 451, 155);
+    placeObj('hawker_stall_noodle', 437, 154, { displayName: 'Rain or Shine Stall' });
+    placeObj('kopitiam_table', 435, 156); placeObj('void_deck_bench', 434, 154);
+    placeObj('letterbox_bank', 441, 154); placeObj('bougainvillea_pot', 450, 150);
+    placeObj('planter_box', 443, 154); placeObj('planter_box', 440, 156);
+    placeObj('fountain_small', 439, 157); placeObj('water_trough', 437, 165);
+    for (const [x, y] of [[439, 154], [449, 151], [442, 155], [451, 156], [445, 158], [445, 163], [449, 162]]) placeObj('lamp', x, y);
+    for (const [x, y] of [[434, 157], [432, 159], [437, 163], [446, 160], [449, 167], [453, 164]]) placeObj('rain_tree', x, y);
+    for (const [x, y] of [[436, 159], [437, 164], [441, 161], [447, 163], [450, 167]]) placeObj('flower', x, y);
+
+    placeNpc('transit_mapmaker', 446, 153);
+    placeNpc('transit_hawker', 437, 155);
+    placeNpc('transit_caretaker', 444, 157);
+    for (const [x, y] of [[438, 163], [439, 166]]) placeNpc('transit_puddle_wisp', x, y, 1);
+    for (const [x, y] of [[446, 162], [448, 164]]) placeNpc('transit_lantern_moth', x, y, 2);
+    for (const [x, y] of [[452, 166], [454, 167]]) placeNpc('transit_verge_boar', x, y, 1);
+  }
 
   return {
     width: W,

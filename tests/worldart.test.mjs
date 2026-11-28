@@ -12,7 +12,7 @@ globalThis.Image = class { get complete() { return globalThis.__artLoaded; } get
 const { buildWorld, TERRAIN } = await import('../src/data/world.js');
 const { LANDMARK_PLAN, STATION_GAP, footprintTiles } = await import('../src/data/landmarks.js');
 const { GENERATION_ONLY_SCENERY, OBJECTS } = await import('../src/data/objects.js');
-const { STATIONS } = await import('../src/data/transport.js');
+const { STATIONS, TRANSIT_ROAD_STATION } = await import('../src/data/transport.js');
 const { World } = await import('../src/game/world.js');
 const { worldArt, drawObjectSprite, bedLook } = await import('../src/render/sprites.js');
 const { hidesPoint } = await import('../src/render/ambience.js');
@@ -21,13 +21,14 @@ const { AmbientLife, RIPPLE_CAP } = await import('../src/render/ambient.js');
 const { TILE } = await import('../src/config.js');
 
 const data = buildWorld();
+const landmarkPlans = [...LANDMARK_PLAN, { region: TRANSIT_ROAD_STATION.name, lm: ['hdb_block', 'hdb_block'] }];
 const lmIds = (p) => (p.lm || []).map((e) => (Array.isArray(e) ? e[0] : e)).filter((id) => !GENERATION_ONLY_SCENERY.has(id));
-const PIECES = new Set(LANDMARK_PLAN.flatMap((p) => [...lmIds(p), ...(p.props || []).map((e) => e[0])]));
+const PIECES = new Set(landmarkPlans.flatMap((p) => [...lmIds(p), ...(p.props || []).map((e) => e[0])]));
 const zoneAt = (x, y) => data.zones.find((z) => x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1)?.name;
 const ter = (x, y) => data.terrain[y * data.width + x];
 
 test('every planned landmark is placed, in its own region, on open ground off the roads', () => {
-  const want = LANDMARK_PLAN.flatMap((p) => lmIds(p).map((id) => [p.region, id]));
+  const want = landmarkPlans.flatMap((p) => lmIds(p).map((id) => [p.region, id]));
   assert.equal(data.landmarks.length, want.length, 'all of them');
   assert.ok(want.length >= 28, 'one or more of each of the 28 pictures');
   for (const id of new Set(want.map((w) => w[1]))) assert.ok(data.landmarks.some((l) => l.objId === id), `${id} placed`);
@@ -37,7 +38,7 @@ test('every planned landmark is placed, in its own region, on open ground off th
   const anchors = new Map(data.objects.map((o) => [`${o.x},${o.y}`, o]));
   const spawns = new Set(data.npcSpawns.map((s) => `${s.x},${s.y}`));
   for (const l of data.landmarks) {
-    const plan = LANDMARK_PLAN.find((p) => p.region === l.region && lmIds(p).includes(l.objId));
+    const plan = landmarkPlans.find((p) => p.region === l.region && lmIds(p).includes(l.objId));
     const wet = (plan.lm.find((e) => Array.isArray(e) && e[0] === l.objId) || [])[1] === 'water';
     if (plan.outskirts) assert.ok(Math.hypot(l.x - plan.at[0], l.y - plan.at[1]) <= plan.reach * 1.5, `${l.objId} on ${l.region}'s outskirts`);
     else assert.equal(zoneAt(l.x, l.y), l.region, `${l.objId} stands in ${l.region}`);

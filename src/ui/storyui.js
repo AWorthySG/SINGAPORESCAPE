@@ -5,11 +5,10 @@
 // panel's HTML builder returns a plain string so tests can render it headlessly.
 import { CHAPTERS, STORY_NAME } from '../data/story.js';
 import { LORE_SETS, STORY_SET, STORY_SET_REWARD } from '../data/lore.js';
-import { REGION_GIVERS } from '../data/regionQuests.js';
 import { getNpc } from '../data/npcs.js';
 import { getItem } from '../data/items.js';
 import { pageCount, spotTile, guardianKind } from '../game/lore.js';
-import { townArtSrc, portraitFor } from '../render/sprites.js';
+import { townPortrait, portraitFor } from '../render/sprites.js';
 import { choiceBadgeHTML, choiceLineHTML } from './pathui.js';   // each chapter's Good / Evil choice
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -18,10 +17,8 @@ const HOW = { drop: 'a rare drop from monsters here', spot: 'a glinting note hid
 
 /** A speaker's picture: their own townsfolk art, the one they borrow (recoloured), or a boss's or creature's portrait. */
 export function speakerArt(who) {
-  const src = townArtSrc(who);
-  if (src) return { src, filter: '' };
-  const g = REGION_GIVERS[who];
-  if (g) return { src: townArtSrc(g.art), filter: g.tint || '' };
+  const town = townPortrait(who);
+  if (town) return town;
   const def = getNpc(who);
   const p = def && portraitFor(who, def);
   return p ? { src: p.src, filter: '', pos: p.pos } : null;

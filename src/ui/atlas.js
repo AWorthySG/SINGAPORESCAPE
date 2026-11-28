@@ -12,6 +12,7 @@ export const ATLAS_PLACES = [
   { id: 'macritchie', lon: 103.819, lat: 1.344, label: 'MacRitchie', side: 'right' },
   { id: 'sungei_buloh', lon: 103.731, lat: 1.446, label: 'Sungei Buloh', side: 'top' },
   { id: 'mandai', lon: 103.787, lat: 1.405, label: 'Mandai', side: 'right' },
+  { id: 'transit_road', lon: 103.815, lat: 1.411, label: 'Transit Road', side: 'top' },
   { id: 'punggol', lon: 103.911, lat: 1.420, label: 'Punggol', side: 'left' },
   { id: 'pulau_ubin', lon: 103.961, lat: 1.409, label: 'Pulau Ubin', side: 'top' },
   { id: 'changi', lon: 104.005, lat: 1.368, label: 'Changi Coast', side: 'bottom' },

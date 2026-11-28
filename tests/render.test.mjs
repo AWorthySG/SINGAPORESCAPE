@@ -743,9 +743,7 @@ test('gameplay art pack: items, world objects, quest givers, pets and gameplay i
 });
 
 test('final creature art: the last borrowing species and townsfolk wear their own pictures, untinted', async () => {
-  const { readFileSync } = await import('node:fs');
-  const { fileURLToPath } = await import('node:url');
-  const { speciesArt, townArt, portraitFor } = await import('../src/render/sprites.js');
+  const { speciesArt, townArt, townPortrait, portraitFor } = await import('../src/render/sprites.js');
   const fams = ['plantain_squirrel', 'red_junglefowl', 'strangler_fig', 'paradise_tree_snake', 'toman_snakehead',
     'hantu_air', 'fiddler_crab', 'sentosa_peafowl', 'sandcastle_golem', 'bajang'];
   for (const f of fams) {
@@ -758,11 +756,12 @@ test('final creature art: the last borrowing species and townsfolk wear their ow
       assert.ok(!p.tint, `${id} is not recoloured`);
     }
   }
-  for (const id of ['pest_officer', 'marina_high_roller', 'jade_merchant', 'story_messenger']) assert.ok(townArt().has(id), `${id} has its own picture`);
-  // ...and no longer borrows a recoloured one.
-  const src = readFileSync(fileURLToPath(new URL('../src/render/sprites.js', import.meta.url)), 'utf8');
-  assert.match(src, /const TOWN_ALIAS = \{\};/);
-  assert.match(src, /const TOWN_TINT = \{\};/);
+  for (const id of ['pest_officer', 'marina_high_roller', 'jade_merchant', 'story_messenger']) {
+    assert.ok(townArt().has(id), `${id} has its own picture`);
+    const portrait = townPortrait(id);
+    assert.equal(portrait.src.split('?')[0], `assets/creatures/townsfolk/${id}.webp`, `${id} draws its own art`);
+    assert.equal(portrait.filter, '', `${id} is not recoloured`);
+  }
 });
 
 test('Part E batch 3 species rigs ship every layer on one canvas, with joints inside their parts', async () => {

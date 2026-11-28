@@ -625,10 +625,31 @@ const TOWNSFOLK = {
   mercenary_spear_guard: { name: 'Spear guard', level: 0, attackable: false, wander: 0, examine: 'Keeps trouble a spear\u2019s length away.' },
   mercenary_duellist: { name: 'Duellist', level: 0, attackable: false, wander: 0, examine: 'Quick, sharp and expensive.' },
   aworthling: { name: 'A-Worthling', level: 0, attackable: false, wander: 0, examine: 'A shimmering mirror image of the Merchant.' },
+  transit_mapmaker: { name: 'Nur Aisyah', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'A mapmaker whose sketches show every trail past the rain trees.', dialogue: 'transit_mapmaker' },
+  transit_hawker: { name: 'Uncle Ravi', level: 0, attackable: false, role: 'shop', wander: 0, examine: 'Ravi is pulling another cup of tea at his Rain or Shine Stall.', shop: 'transit_hawker',
+    chatter: ['Teh tarik, still hot!', 'Prata for the road?'] },
+  transit_caretaker: { name: 'Mei Lin', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'The caretaker keeps the path clear and an eye on the creatures in the reeds.', dialogue: 'transit_caretaker' },
 };
+
+// The town places these handpicked encounters by the verge.
+const TRANSIT_MONSTERS = [
+  ['transit_puddle_wisp', 'Puddle Wisp', 'wisp', '#94d7df', 8, 'puddle_wisp',
+    'A cool blue glimmer that skims puddles in the shade.', { id: 'vial', min: 1, max: 2, weight: 12 }],
+  ['transit_lantern_moth', 'Lantern Moth', 'insect', '#d9a857', 12, 'lantern_moth',
+    'An amber-winged moth drawn to the glow of the streetlamps.', { id: 'pandan_leaves', min: 1, max: 3, weight: 12 }],
+  ['transit_verge_boar', 'Verge Boar', 'beast', '#81624c', 20, 'verge_boar',
+    'A mud-spattered boar rooting under the rain trees.', { id: 'raw_boar_meat', weight: 18 }],
+];
 
 export const NPCS = {};
 for (const id of [...MONSTER_IDS, ...EXTRA_MONSTER_IDS, ...MORE_MONSTER_IDS, ...BESTIARY_MONSTER_IDS]) NPCS[id] = _mobs[id];
+for (const [id, name, sprite, color, level, family, examine, drop] of TRANSIT_MONSTERS) {
+  const def = makeMob(id, name, sprite, color, level, 'Transit Road, Nee Soon Camp', false, family);
+  def.wander = 2;
+  def.examine = `${examine} (level ${level})`;
+  def.dropTable.push(drop);
+  NPCS[id] = def;
+}
 // Every boss also drops archery loot: a bow a tier above its level, a big
 // bundle of good arrows, and dragonhide.
 for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS, ...BESTIARY_BOSS_IDS]) {
@@ -767,8 +788,8 @@ for (const d of Object.values(NPCS)) {
   d.maxHp = Math.max(1, Math.round(d.maxHp / d.hpScale));
 }
 
-// Everything the bestiary lists: the original sets plus the extras.
-const ALL_MONSTER_IDS = [...MONSTER_IDS, ...EXTRA_MONSTER_IDS, ...MORE_MONSTER_IDS, ...BESTIARY_MONSTER_IDS];
+// Everything the bestiary lists, including local encounters outside the procedural pools.
+const ALL_MONSTER_IDS = [...MONSTER_IDS, ...EXTRA_MONSTER_IDS, ...MORE_MONSTER_IDS, ...BESTIARY_MONSTER_IDS, ...TRANSIT_MONSTERS.map(([id]) => id)];
 const ALL_BOSS_IDS = [...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS, ...BESTIARY_BOSS_IDS];
 // Each boss's armour type (bossTypes.js), carried into its scaled copies.
 for (const id of ALL_BOSS_IDS) NPCS[id].armourType = bossTypeFor(NPCS[id], id);
