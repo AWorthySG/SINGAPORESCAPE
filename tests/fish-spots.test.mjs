@@ -289,7 +289,6 @@ test('a school coming or going lets a leap under way finish and the next begin f
 
 test('the fish is drawn as one sticker over its spot; low graphics keeps the little badge', () => {
   const src = readFileSync(new URL('../src/render/sprites.js', import.meta.url), 'utf8');
-  assert.match(src, /drawWorldArt\(ctx, obj, art, key, cx, cy, time, upperAlpha\); if \(t === 'fishing'\) drawCatchBadge\(ctx, obj, cx, cy, time, low, still\)/, 'drawn over each spot picture');
   assert.match(src, /const id = !obj\.worldEvent && obj\.def\.catches\?\.\[0\]\?\.id;/, 'its one fish; not on a world event shoal');
   // The renderer passes low graphics, and whether a school is at the spot.
   const rsrc = readFileSync(new URL('../src/render/renderer.js', import.meta.url), 'utf8');
@@ -305,7 +304,10 @@ test('the fish is drawn as one sticker over its spot; low graphics keeps the lit
     const frame = (time, low, still) => {
       calls.length = 0;
       drawObjectSprite(ctx, spot, 100, 100, time, low, still);
+      const base = calls.findIndex(([method, pic]) => method === 'drawImage' && pic.src === 'assets/world/obj-golden_snapper_spot.webp');
+      assert.ok(base >= 0, 'the spot art is drawn');
       const fish = calls.filter((c) => c[0] === 'drawImage' && c[1].src === sticker);
+      for (const pic of fish) assert.ok(calls.indexOf(pic) > base, 'the fish is drawn over the spot');
       return { fish, ellipses: calls.filter((c) => c[0] === 'ellipse').length, arcs: calls.filter((c) => c[0] === 'arc').length };
     };
     // Low graphics: the 15 px badge on its white disc.
