@@ -5,6 +5,7 @@ import { LANDINGS, VOYAGES } from '../src/data/islandlife.js';
 import { SAILING_PRACTICE } from '../src/data/sailing.js';
 import { xpForLevel } from '../src/data/xp.js';
 import { Game } from '../src/game/game.js';
+import { NPC } from '../src/game/npc.js';
 import {
   beginSailingPassage, finishVoyage, islandBook, islandClaimed, islandPractised, navigateSailingPassage,
   sailingPracticeRequirementsMet, takeChartedPassage, voyageRequirementsMet,
@@ -151,13 +152,13 @@ test('a transient combat lock still blocks boarding without invalidating dock re
 test('the Changi dock is available once a stationary pursuer beyond its leash gives up', () => {
   const game = fresh('singapore');
   moor(game, 'changi');
-  const ray = game.npcs.find((npc) => npc.npcId === 'estuarine_stingray'
-    && Math.max(Math.abs(npc.spawnX - game.player.x), Math.abs(npc.spawnY - game.player.y)) === 24);
-  assert.ok(ray);
+  // The world layout can move its wild spawns. Set up the chase that used to block this dock.
+  const ray = new NPC('estuarine_stingray', game.player.x - 24, game.player.y);
   ray.x = ray.tx = ray.spawnX + 12;
   ray.y = ray.ty = ray.spawnY + 1;
   ray.target = game.player;
   ray.lastTargetTile = game.playerTile();
+  game.npcs.push(ray);
   assert.ok(game.teleports.blocked('voyage'));
   assert.equal(beginSailingPassage(game, 'ubin'), null);
   ray.tick(game);
