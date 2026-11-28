@@ -1,22 +1,24 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
-import { DISTRICT_VISUALS, districtVisual } from '../src/data/districtVisuals.js';
+import { existsSync } from 'node:fs';
+import { DISTRICT_VISUALS, districtArtwork, districtVisual } from '../src/data/districtVisuals.js';
+import { buildWorld } from '../src/data/world.js';
 import { UI } from '../src/ui/ui.js';
 import { drawDangerMark, drawSafeZone } from '../src/render/bossmechfx.js';
 
-test('every mapped district has its own palette and an existing landmark image', () => {
-  const world = readFileSync(new URL('../src/data/world.js', import.meta.url), 'utf8');
-  const names = [...world.matchAll(/\{ name: '([^']+)', x0: /g)].map(([, name]) => name);
+test('every mapped district has its own palette and its guide artwork is shipped', () => {
+  const names = buildWorld().zones.filter((zone) => !zone.instance).map((zone) => zone.name);
   assert.deepEqual(Object.keys(DISTRICT_VISUALS).sort(), names.sort());
   const papers = new Set();
   for (const name of names) {
-    const [ink, paper, feature, art] = districtVisual(name);
+    const { ink, paper, landmark, src, scenery } = districtArtwork(name);
     assert.match(ink, /^#[0-9A-F]{6}$/i);
-    assert.ok(feature && existsSync(new URL(`../assets/world/${art}`, import.meta.url)), name);
+    assert.ok(landmark && existsSync(new URL(`../${src}`, import.meta.url)), name);
+    if (scenery) assert.ok(existsSync(new URL(`../${scenery}`, import.meta.url)), `${name} has its painting`);
     papers.add(paper);
   }
   assert.equal(papers.size, names.length);
+  assert.equal(districtArtwork('Unknown place'), null);
 });
 
 test('arrival card displays a landmark, and unthemed areas clear the old palette', () => {

@@ -6,7 +6,6 @@
 import './seed.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
 
 import { Game } from '../src/game/game.js';
 import { clearSave, saveGame } from '../src/game/save.js';
@@ -28,7 +27,6 @@ import { forYouHTML } from '../src/ui/foryouui.js';
 import { makeXp } from '../src/game/skilling.js';
 import { getNpc, ALL_MONSTER_IDS, ALL_BOSS_IDS } from '../src/data/npcs.js';
 import { REGION_FLAVOUR, CREATURE_FLAVOUR, creatureFlavour } from '../src/data/flavour.js';
-import { DISTRICT_VISUALS, districtArtwork } from '../src/data/districtVisuals.js';
 import { weaponsFor, raceOf } from '../src/data/races.js';
 import { XP_RATE, SAVE_KEY } from '../src/config.js';
 import { xpForLevel } from '../src/data/xp.js';
@@ -235,14 +233,6 @@ test('every region has a page with its level band and what lives there', () => {
   g.zonesVisited.add('Pulau Ubin');
   assert.match(regionListHTML(g), /data-region="Pulau Ubin"[^>]*>.*assets\/world\/obj-stilt_house\.webp/);
   assert.match(regionPageHTML(g, 'Kampong Glam'), /ency-place-hero.*kampong-glam\.webp.*Golden-domed hall/);
-});
-
-test('the field guide artwork resolves to shipped game assets', () => {
-  for (const name of Object.keys(DISTRICT_VISUALS)) {
-    const { src, scenery } = districtArtwork(name);
-    assert.ok(existsSync(new URL(`../${scenery || src}`, import.meta.url)), `${name} has artwork`);
-  }
-  assert.equal(districtArtwork('Unknown place'), null);
 });
 
 // ---------------- The window ----------------
