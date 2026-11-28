@@ -51,9 +51,16 @@ test('a monster blow gathers, strikes on STRIKE_AT, holds, and settles without a
   const end = at(1);
   assert.ok(end.wind === 0 && end.hit < 1e-9 && end.settle < 1e-9, 'back at rest');
   for (const f of ['wind', 'hit', 'settle']) assert.ok(worstStep((k) => at(k)[f]) < 0.02, `${f} never jumps`);
-  // The strike accelerates into the blow (fastest just as it lands).
+  // The strike accelerates into the blow before easing into its held pose.
   const v0 = at(WIND_END + 0.01).hit - at(WIND_END).hit, v1 = at(STRIKE_AT).hit - at(STRIKE_AT - 0.01).hit;
   assert.ok(v1 > v0 * 3, 'whips into the blow');
+  const dt = 0.00001;
+  for (const k of [WIND_END, STRIKE_AT, HOLD_END]) {
+    for (const f of ['wind', 'hit', 'settle']) {
+      assert.ok(Math.abs(at(k)[f] - at(k - dt)[f]) / dt < 0.02, `${f} eases into the beat`);
+      assert.ok(Math.abs(at(k + dt)[f] - at(k)[f]) / dt < 0.02, `${f} eases out of the beat`);
+    }
+  }
   assert.equal(strikeLead(240), Math.round(240 * STRIKE_AT));
   assert.equal(strikeLead(undefined), Math.round(240 * STRIKE_AT), 'a default swing');
 });
@@ -72,6 +79,8 @@ test('hero walking lifts one foot at a time and settles as movement fades', () =
   assert.ok(left.liftB > 3 && right.liftF > 3);
   assert.equal(left.liftF + right.liftB, 0);
   assert.ok(heroWalk({ phase: 0.5, move: 1 }, true).liftB < left.liftB);
+  const run = heroWalk({ phase: 0.5, move: 1, run: true });
+  assert.ok(run.liftB > left.liftB && run.rise > left.rise, 'sprinting has a stronger push off the ground');
   const still = heroWalk({ phase: 0.5, move: 0 });
   assert.equal(still.rise + still.liftB + still.liftF, 0);
 });

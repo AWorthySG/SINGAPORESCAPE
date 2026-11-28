@@ -12,6 +12,7 @@ import { drawRangedHeroRig } from './rangedHeroRig.js';
 import { drawHeroArm, drawPictureTool, drawWeaponTrail, HERO_CLIPS } from './heroanim.js';
 import { drawHeroBack, heroBackReady } from './heroAnimArt.js';
 import { heroLit, bakeRim } from './herolight.js';
+import { beginHeroLight, finishHeroLight, litActor } from './actorlight.js';
 import { poseBlender } from './poseBlend.js';
 import { swingBeats, turnWidth, turnFacing, turnHop, lookAround, breath, heroWalk, heroView, smooth, travelPhase } from './motionkit.js';
 import { animSeed, animTempo, stepLift, stepRock, fidget, hitFlash, flinch, telegraphGlow, telegraphShake, telegraphCrouch, fidgetLand } from './creatureanim.js';
@@ -68,6 +69,7 @@ const _anim = { stride: 0 };
 // without drawn legs pass opts.rock to get a gait-suggesting body rock instead.
 function staged(ctx, cx, cy, opts, draw, planted = false) {
   const t = opts.time || 0;
+  const calm = opts.calm || opts.anim?.calm;
   // Walking blends in and out with the character's eased walk weight (opts.move),
   // so the hop, bob and rock fade rather than switching on and off as it
   // starts and stops. Callers without one fall back to the moving flag.
@@ -77,7 +79,8 @@ function staged(ctx, cx, cy, opts, draw, planted = false) {
   // as a foot swings through and drops as it plants, in step with its feet.
   const sd = animSeed(opts.entity, cx), w = typeof opts.walk === 'number' ? opts.walk : null;
   const stride = w !== null ? stepRock(w) : Math.sin(t * 0.018 + sd);
-  let bob = (w !== null ? -stepLift(w) * 1.8 : Math.abs(stride) * 1.8) * m + Math.sin(t * 0.004 + sd) * 0.6 * (1 - m);
+  let bob = -(w !== null ? stepLift(w) : stride * stride) * m * (calm ? 0.7 : 1.8);
+  if (!calm) bob += Math.sin(t * 0.004 + sd) * 0.6 * (1 - m);
   _anim.stride = opts.moving ? stride : 0;
   const s = opts.scale || 1;
   // Moving straight up or down keeps the last left/right facing (opts.fx)
@@ -87,7 +90,7 @@ function staged(ctx, cx, cy, opts, draw, planted = false) {
   if (g) {
     // Step-synced: the body rises as a foot swings through and dips as it
     // lands, easing in and out as walking starts and stops.
-    bob = -Math.abs(Math.sin(g.phase * Math.PI)) * 1.7 * g.move;
+    bob = -stepLift(g.phase) * g.move * (calm ? 0.6 : 1.7);
   }
   if (planted) bob = 0;
   // Turning round: squash through edge-on rather than snapping to the mirror
@@ -95,35 +98,37 @@ function staged(ctx, cx, cy, opts, draw, planted = false) {
   // and only a moment edge-on, with a little hop so it reads as a step round
   // (motionkit.js).
   const turn = g ? g.turn : opts.turn;
-  if (turn > 0) {
-    if (!opts.anim?.calm) {
-      fx = turnFacing(fx, turn);
-      if (!opts.calm) bob -= turnHop(turn);
-    }
+  if (turn > 0 && !calm) {
+    fx = turnFacing(fx, turn);
+    bob -= turnHop(turn);
   }
   ctx.save();
   ctx.translate(cx, cy + bob);
   ctx.scale(fx * s, s);
-  if (opts.rock && m > 0.001) ctx.rotate(stride * 0.055 * m);
-  draw(ctx);
+  if (opts.rock && m > 0.001 && !calm) ctx.rotate(stride * 0.055 * m);
+  draw(ctx, fx);
   ctx.restore();
 }
 
 // ---------------- Ground shadow ----------------
 // Shadows are the navy ink thinned out, never black (the sticker style's one dark).
 export const SHADOW_RGB = '34,48,74';
+function shadowFade(g) {
+  g.addColorStop(0, `rgba(${SHADOW_RGB},0.35)`);
+  g.addColorStop(0.25, `rgba(${SHADOW_RGB},0.27)`);
+  g.addColorStop(0.68, `rgba(${SHADOW_RGB},0.07)`);
+  g.addColorStop(1, `rgba(${SHADOW_RGB},0)`);
+}
 export function drawShadow(ctx, cx, cy, rx = 11, ry = 5) {
   // One soft shadow is drawn once, then stretched to each entity's size.
   const img = cachedBitmap('shadow', SHADOW_BOX, (c) => {
     const sg = c.createRadialGradient(0, 0, 0, 0, 0, 12);
-    sg.addColorStop(0, `rgba(${SHADOW_RGB},0.3)`); sg.addColorStop(0.65, `rgba(${SHADOW_RGB},0.17)`); sg.addColorStop(1, `rgba(${SHADOW_RGB},0)`);
+    shadowFade(sg);
     c.fillStyle = sg; circle(c, 0, 0, 12); c.fill();
   });
   if (img) { ctx.drawImage(img, cx - rx, cy - ry, rx * 2, ry * 2); return; }
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
-  g.addColorStop(0, `rgba(${SHADOW_RGB},0.3)`);
-  g.addColorStop(0.65, `rgba(${SHADOW_RGB},0.17)`);
-  g.addColorStop(1, `rgba(${SHADOW_RGB},0)`);
+  shadowFade(g);
   ctx.fillStyle = g;
   ellipse(ctx, cx, cy, rx, ry);
   ctx.fill();
@@ -622,7 +627,7 @@ function growRigBox(box, x0, y0, w, h, px, py, a, s) {
 // drawImage: a pack of rigged monsters on screen made thousands of those calls
 // a frame. The matrix is the one the steps built, so the picture is the same.
 const _rigPose = { img: [], k: [], m: new Float64Array(6 * 12), gr: new Float64Array(12), a: new Float64Array(12) };
-export function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null, res = 0) {
+export function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null, res = 0, lightFace = 1) {
   const order = rig.order, n = order.length, P = _rigPose;
   if (n > P.a.length) { P.m = new Float64Array(n * 6); P.gr = new Float64Array(n); P.a = new Float64Array(n); }
   const M = P.m;
@@ -667,7 +672,7 @@ export function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null, re
     if (B) g.setTransform(M[o], M[o + 1], M[o + 2], M[o + 3], M[o + 4], M[o + 5]);
     else { g.save(); g.transform(M[o], M[o + 1], M[o + 2], M[o + 3], M[o + 4], M[o + 5]); }
     if (!pass) g.drawImage(k.cv, dx, dy, dw, dh);
-    else if (k?.art) g.drawImage(k.art, dx, dy, dw, dh);
+    else if (k?.art) g.drawImage(litActor(k.art, opts.light, lightFace), dx, dy, dw, dh);
     else if (k && k.sw > 0) g.drawImage(img, k.sx, k.sy, k.sw, k.sh, dx, dy, dw, dh);   // just the painted part of the layer
     else g.drawImage(img, dx, dy, dw, dh);
     if (!B) g.restore();
@@ -698,7 +703,7 @@ function rigInked(id, imgs) {
 
 // Draw the layers (posed for this frame): straight onto the screen, or composed
 // on a scratch canvas first when the frame needs a hit flash or see-through.
-function drawRig(c, id, imgs, opts, t, flash, flashCol) {
+function drawRig(c, id, imgs, opts, t, flash, flashCol, lightFace) {
   const rig = RIGS[id];
   const { w, h, res } = rigFit(id, imgs), x0 = -w / 2, y0 = 13.5 - h;
   const species = rig.kind === 'species';
@@ -711,7 +716,7 @@ function drawRig(c, id, imgs, opts, t, flash, flashCol) {
     c.save();
     const b0 = rig.body && rig.body(t, opts);
     if (b0) c.transform(b0.sx, 0, -b0.lean, b0.sy, 13.5 * b0.lean, 13.5 * (1 - b0.sy) + b0.dy);
-    drawRigParts(c, rig, imgs, opts, t, x0, y0, w, h, null, res);
+    drawRigParts(c, rig, imgs, opts, t, x0, y0, w, h, null, res, lightFace);
     c.restore();
     return;
   }
@@ -728,7 +733,7 @@ function drawRig(c, id, imgs, opts, t, flash, flashCol) {
   if (b) g.transform(b.sx, 0, -b.lean, b.sy, 13.5 * b.lean, 13.5 * (1 - b.sy) + b.dy);
   const box = flash > 0.01 ? _rigBox : null;
   if (box) { box.x0 = box.y0 = Infinity; box.x1 = box.y1 = -Infinity; }
-  drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box, res);
+  drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box, res, lightFace);
   // A tinted copy of this frame, for the hit flash. (Species rigs no longer get a
   // white border traced round them: monsters go without one, see MONSTER_BOX.)
   // Only the posed layers' box (through the body's sway, in scratch pixels, with
@@ -873,6 +878,16 @@ export const creaturePuppetKind = (sprite, family) => (FAMILY_MOTION[family] ? F
 /** The sprite's rest silhouette for its ground shadow, shared with the drawing cache. */
 export function creatureCastImage(npcId, def) {
   return (def.boss && bossImage(npcId)) || speciesImage(def.family) || creatureImage(def.sprite);
+}
+
+/** The same painted body and fit used to draw an actor, for its cast shadow. */
+export function creatureCastArt(npcId, def, out) {
+  const town = !def.attackable && townImage(npcId);
+  const img = town?.naturalWidth ? town : creatureCastImage(npcId, def);
+  if (!img?.complete || !img.naturalWidth) return null;
+  out.img = img;
+  out.fit = img === town ? townArtScale(img) : creatureArtScale(img);
+  return out;
 }
 
 /** A boss or champion's portrait for the battle bar: its painted art and where
@@ -1104,6 +1119,7 @@ function cachedBitmap(key, box, draw) {
 // Measured extents (plus a margin) of the cached art.
 const MASCOT_BOX = { x0: -19, y0: -34, w: 38, h: 54 };
 const TOWN_ART_H = 40, TOWN_ART_FEET = 15;
+const townArtScale = (img) => Math.min(TOWN_ART_H / img.naturalHeight, MASCOT_BOX.w / img.naturalWidth);
 const OBJ_BOX = { x0: -33, y0: -45, w: 66, h: 68 };
 // Walk poses are snapped to 5 steps so a handful of bitmaps covers the cycle.
 const strideKey = () => (Math.round(_anim.stride * 2) / 2);
@@ -1125,7 +1141,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
     const pimg = simg || creatureImage(opts.sprite);
     const col = opts.color || '#8a8a8a';
     opts.rock = !FAMILY_MOTION[opts.family]?.posture; // a gait cue for creatures that step
-    return staged(ctx, cx, cy, opts, (c) => {
+    return staged(ctx, cx, cy, opts, (c, face) => {
       if (opts.boss && !opts.pet) bossAura(c, opts.time || 0, col);   // a pet (pets.js) is a boss in miniature, without the menace
       const t = opts.time || 0;
       if (opts.castK > 0) castBurst(c, opts.castK, opts.castCol || col);
@@ -1145,7 +1161,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       const rig = rigId ? rigInked(rigId, rigLayers(rigId)) : null;
       // A species rig's parts run on the clock, so each member of a pack runs a few
       // seconds apart from the next and they never swing in lock-step.
-      if (rig) { drawRig(c, rigId, rig, opts, opts.boss ? t : t + sd * 7, flash, flashCol); return; }
+      if (rig) { drawRig(c, rigId, rig, opts, opts.boss ? t : t + sd * 7, flash, flashCol, face); return; }
       const painted = pimg?.complete && pimg.naturalWidth;
       const drawBody = (g) => {
         if (painted) {
@@ -1176,11 +1192,16 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
         const kind = (bimg || simg) && !opts.still && (opts.boss || fullParts) ? creaturePuppetKind(opts.sprite, opts.family) : null;
         const inf = kind ? puppetInfo(key, sticker) : null;
         const put = (img) => (inf ? drawPuppet(c, img, kind, inf, opts, t, sd) : c.drawImage(img, ST_X0, ST_Y0, ST_W, ST_H));
-        put(sticker);
+        put(litActor(sticker, opts.light, face));
         // A white flash over the body when struck, a red pulse while a heavy blow charges.
         if (flash > 0.01) {
           const tint = monsterTint(sticker, flashCol);
-          if (tint) { c.globalAlpha = flash; put(tint); c.globalAlpha = 1; }
+          if (tint) {
+            const alpha = c.globalAlpha;
+            c.globalAlpha = alpha * flash;
+            put(tint);
+            c.globalAlpha = alpha;
+          }
         }
       } else drawBody(c);   // use the painted picture while its outline waits for a frame's bake allowance
       if (opts.boss && !bimg && !opts.pet) bossCrown(c, opts.time || 0);  // insignia unless the boss art has its own crown
@@ -1207,7 +1228,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
   // Townsfolk with idle parts blink, breathe and now and then wave (not in low
   // graphics). The parts are asked for with the picture, not once it is in:
   // one round trip instead of two while the game loads.
-  const idle = timg && !opts.low && TOWN_IDLE[npcId] ? rigLayers(npcId, townRig(npcId)) : null;
+  const idle = timg && !opts.low && !opts.trim && TOWN_IDLE[npcId] ? rigLayers(npcId, townRig(npcId)) : null;
   if (timg && timg.complete && timg.naturalWidth) {
     // One picture and no parts: it breathes, and now and then glances the
     // other way and back (motionkit.js), each on its own clock. Not while
@@ -1221,17 +1242,17 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
         opts.turn = lk.turn;
       }
     }
-    return staged(ctx, cx, cy, opts, (c) => {
+    return staged(ctx, cx, cy, opts, (c, face) => {
       // Same footprint as the drawn mascot: feet on the tile, about mascot height.
-      const s = Math.min(TOWN_ART_H / timg.naturalHeight, MASCOT_BOX.w / timg.naturalWidth);
+      const s = townArtScale(timg);
       const w = timg.naturalWidth * s, h = timg.naturalHeight * s;
-      if (idle && drawTownIdle(c, npcId, idle, h, opts.time || 0, sd)) return;
+      if (idle && drawTownIdle(c, npcId, idle, h, sd, opts, face)) return;
       if (still) { const b = breath(opts.time || 0, sd, animTempo(sd)); c.translate(0, TOWN_ART_FEET); c.scale(1 - b * 0.5, 1 + b); c.translate(0, -TOWN_ART_FEET); }
       // An A-Worthling is a mirror image of the Merchant, a little see-through.
       if (npcId === 'aworthling') c.globalAlpha *= 0.8;
       // A borrowed picture, recoloured (baked once, see tintedArt).
       const pic = TOWN_TINT[npcId] && 'filter' in c ? tintedArt(timg, TOWN_TINT[npcId]) || timg : timg;
-      c.drawImage(pic, -w / 2, TOWN_ART_FEET - h, w, h);
+      c.drawImage(litActor(pic, opts.light, face), -w / 2, TOWN_ART_FEET - h, w, h);
     });
   }
   return staged(ctx, cx, cy, opts, (c) => {
@@ -1277,23 +1298,27 @@ function townFrame(id, d, imgs, h, blink, arm, ang) {
   _townFrames.set(key, entry);
   return entry;
 }
-function drawTownIdle(c, id, imgs, h, t, seed) {
+function drawTownIdle(c, id, imgs, h, seed, opts, face) {
   const d = TOWN_IDLE[id];
+  const t = opts.time || 0, move = opts.move ?? (opts.moving ? 1 : 0);
+  const step = stepRock(opts.walk || 0) * move;
   const ph = Math.abs(seed * 37) % 10000;   // each townsperson on their own rhythm
   const blink = !!d.piv.body_blink && (t + ph) % 4300 < 150;
   // Every so often a friendly wave (or, without a loose arm, a little nod of
   // the whole body); otherwise the arm hangs, stirring a little.
-  const w = ((t + ph * 1.3) % 12000) / 1800, greet = w < 1 ? Math.sin(w * Math.PI) : 0;
-  const waving = greet > 0 && d.piv.arm_wave;
+  const w = ((t + ph * 1.3) % 12000) / 1800;
+  const greet = !opts.calm && w < 1 ? stepLift(w) * (1 - move) : 0;
+  const waving = greet > 0.02 && move < 0.06 && d.piv.arm_wave;
+  const sway = opts.calm ? 0 : Math.sin(t * 0.0021 + ph) * 0.05 * (1 - move) + step * 0.15;
   const ang = waving ? Math.round(Math.sin(w * Math.PI * 4) * greet * 0.24 / 0.04) * 0.04
-    : Math.round(Math.sin(t * 0.0021 + ph) * 0.05 / 0.025) * 0.025;
+    : Math.round(sway / 0.025) * 0.025;
   const arm = waving ? 'arm_wave' : d.piv.arm ? 'arm' : null;
   const f = townFrame(id, d, imgs, Math.round(h * 4) / 4, blink, arm, arm ? ang : 0);
   if (!f) return false;
-  const b = Math.sin(t * 0.0026 + ph) * 0.012;   // breathing
-  const nod = d.piv.arm_wave ? 0 : Math.sin(w * Math.PI * 2) * greet * 0.05;
+  const b = opts.calm ? 0 : Math.sin(t * 0.0026 + ph) * 0.012 * (1 - move);
+  const nod = opts.calm ? 0 : step * 0.025 + (d.piv.arm_wave ? 0 : Math.sin(w * Math.PI * 2) * greet * 0.05);
   c.save(); c.translate(0, TOWN_ART_FEET); c.rotate(nod); c.scale(1 - b * 0.5, 1 + b); c.translate(0, -TOWN_ART_FEET);
-  c.drawImage(f.img, f.x, f.y, f.w, f.h);
+  c.drawImage(litActor(f.img, opts.light, face), f.x, f.y, f.w, f.h);
   c.restore();
   return true;
 }
@@ -2251,6 +2276,15 @@ function heroImage(style) {
   return img;
 }
 const HERO_ART_H = 56, HERO_ART_W = 60, HERO_ART_FEET = 15;
+const heroBodyImage = (jobClass, style) => CLASS_HERO_ART.has(jobClass) ? heroImage(jobClass) : HERO_STYLES.includes(style) ? heroImage(style) : null;
+const heroArtScale = (img) => Math.min(HERO_ART_H / img.naturalHeight, HERO_ART_W / img.naturalWidth);
+export function heroCastArt(jobClass, style, out) {
+  const img = heroBodyImage(jobClass, style);
+  if (!img?.complete || !img.naturalWidth) return null;
+  out.img = img;
+  out.fit = heroArtScale(img);
+  return out;
+}
 // These heroes have complete paint for both facings. Each view uses the
 // puppet below so the newer paint stays consistent through the whole pose.
 export const PUPPET_HEROES = new Set(['ninja', 'sniper']);
@@ -2470,9 +2504,9 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
   const anim = opts.anim, calm = opts.calm || anim?.calm;
   const accent = classAccent(opts.jobClass || anim?.jobClass);
   const fancy = !opts.low && !anim?.low && !calm;
-  const himg = CLASS_HERO_ART.has(opts.jobClass) ? heroImage(opts.jobClass) : HERO_STYLES.includes(style) ? heroImage(style) : null;
+  const himg = heroBodyImage(opts.jobClass, style);
   const painted = himg && himg.complete && himg.naturalWidth;
-  staged(ctx, cx, cy, opts, (c) => {
+  staged(ctx, cx, cy, opts, (c, face) => {
     // A soft golden halo while any prayer is active — the only in-world sign
     // of it otherwise living entirely in the HUD's prayer orb/panel.
     if (opts.prayerActive) {
@@ -2495,6 +2529,9 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       const pose = k >= 0 ? heroAttackPose(style === 'dance' ? 'melee' : style, k, accent, HERO_CLIPS[clip?.id]?.hits) : null;
       const t = opts.time || 0;
       if (fancy && pose?.behind) pose.behind(c, k, t);
+      const screen = c;
+      const layer = beginHeroLight(opts.light, screen);
+      if (layer) c = layer;
       c.save();
       const b = _heroBody;
       // An animation clip (heroanim.js: per weapon type, life skill, idle)
@@ -2533,7 +2570,7 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       const layered = !puppet && ((rear && drawHeroBack(c, { ...opts, backView: true })) || drawHeroRig(c, opts) || drawRangedHeroRig(c, opts));
       if (!layered) {
         const pic = workReady ? work : puppet && rear ? back : himg;
-        const s = Math.min(HERO_ART_H / pic.naturalHeight, HERO_ART_W / pic.naturalWidth);
+        const s = heroArtScale(pic);
         const w = pic.naturalWidth * s, h = pic.naturalHeight * s;
         if (g) heroPuppet(c, pic, w, h, g, t, calm);
         else {
@@ -2555,6 +2592,7 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
         }
       }
       c.restore();
+      if (layer) { finishHeroLight(screen, opts.light, face); c = screen; }
       // A melee clip draws its own weapon's swoosh in place of the generic crescent.
       if (anim?.trail && style !== 'ranged' && style !== 'magic' && !opts.low) drawWeaponTrail(c, anim, accent);
       else if (fancy && pose?.front) pose.front(c, k, t);

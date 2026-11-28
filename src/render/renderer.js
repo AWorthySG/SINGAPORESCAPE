@@ -59,6 +59,7 @@ import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, DARK_REGIONS } from './
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
 import { TerrainFx, growBox, tileHash, paintGroundWash, naturalStone } from './terrainfx.js';
 import { sunShadow, drawSunShadow, drawCreatureContact, footfall } from './shadows.js';
+import { actorLight } from './actorlight.js';
 import { dropArc, dropFx, spawnFx, pickupFx } from './combatfx.js';
 import { applySquash, splatMotion, drawCritBurst, drawMissPuff, drawLootGlow, drawCoinGlint, motionOK } from './juice.js';
 import { spawnPose, deathPose, windupAge, hazardPulse, hazardIn } from './creatureanim.js';
@@ -329,6 +330,8 @@ export class Renderer {
     }
     this.weather.update(game, fdt);
     const sky = 1 - this.weather.state.gloom * 0.84;
+    sun.sky = sky;
+    const characterLight = trim ? null : actorLight(dayPhase, sky);
     const worldSun = !trim && this.depth.ok ? shadowVec(dayPhase, this._worldSun || (this._worldSun = {})) : null;
     const buildingLight = worldSun?.on ? buildingSun(worldSun, sky, this._buildingLight || (this._buildingLight = {})) : null;
     this.depth.shadows = 0;
@@ -488,7 +491,6 @@ export class Renderer {
         || Math.max(n.y, n.ty) * TILE + TILE / 2 - oy < -m || Math.min(n.y, n.ty) * TILE + TILE / 2 - oy > vh + m) continue;
       near.push(n);
     }
-    const creatureSun = worldSun;
     for (const n of near) {
       if (!n.alive && !(n.deathT > 0)) continue;
       const c = n.renderCenter();
@@ -520,7 +522,7 @@ export class Renderer {
             // It falls as it stood: in low graphics or slow frames a pack monster was
             // its single sticker a moment ago, so it stays one rather than switching
             // to its parts rig (composed afresh, see-through, every frame of the fall).
-            low: game.lowFx, trim: game.fxTrim,
+            low: game.lowFx, trim: game.fxTrim, calm, light: characterLight,
           });
           ctx.restore();
           ctx.globalAlpha = 1;
@@ -546,18 +548,16 @@ export class Renderer {
       const windAge = windupAge(n, timeMs);
       const turn = (n.turnT || 0) / TURN_MS;
       const land = spawn > 0 && spawn < 0.3 ? Math.sin(spawn / 0.3 * Math.PI) : 0;
-      const squash = Math.max(footfall(n.walkPhase, n.isMoving) * 0.6, land);
-      const monster = n.def.attackable;
-      if (monster) {
-        // Ground shadows go down before the depth-sorted bodies. Their feet
-        // follow attack lunges and knockback as well as regular movement.
-        const sx = cx + off.x, sy = cy + 12 * sc + off.y;
-        const face = (n.faceX || n.facing?.dx || 1) < 0 ? -1 : 1;
-        const cast = creatureSun?.on && this.depth.castCreatureShadow(ctx, n.artId || n.npcId, n.def, sx, sy, sc, turnFacing(face, turn), creatureSun, sp?.a);
-        drawCreatureContact(ctx, sx, sy, sc, n.def, sun, squash, sp, trim || cast);
-      }
+      const move = n.animMove ?? (n.isMoving ? 1 : 0);
+      const squash = Math.max(footfall(n.walkPhase, move > 0) * move * 0.6, land);
+      // Put all character shadows on the terrain so foreground shadows never
+      // darken the bodies behind them. Follow footfalls, lunges and knockback.
+      const sx = cx + off.x, sy = cy + 12 * sc + off.y;
+      const face = (n.faceX || n.facing?.dx || 1) < 0 ? -1 : 1;
+      const cast = worldSun?.on && this.depth.castCreatureShadow(ctx, n.artId || n.npcId, n.def, sx, sy, sc,
+        calm ? face : turnFacing(face, turn), worldSun, sky * (sp?.a ?? 1));
+      drawCreatureContact(ctx, sx, sy, sc, n.def, sun, squash, sp, trim || cast);
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
-        if (!monster) drawSunShadow(ctx, cx, cy + 12 * sc, 10 * sc * (sp ? sp.sx : 1), 4.5 * sc * (sp ? sp.sx : 1), sun, squash);
         if (sp) {
           const fy = cy + 12 * sc + off.y;
           ctx.save(); ctx.globalAlpha = sp.a;
@@ -595,7 +595,7 @@ export class Renderer {
           status: elementTint(game, n, timeMs),   // burning, chilled or cracked: a wash of the element's colour
           low: game.lowFx,   // low graphics: monsters and townsfolk skip their moving parts
           trim: game.fxTrim,   // frames running slow: monster packs skip theirs too (governor.js)
-          calm,
+          calm, light: characterLight,
         });
         if (sq) ctx.restore();
         if (sp) ctx.restore();
@@ -603,12 +603,19 @@ export class Renderer {
       } });
     }
     if (game.player.alive) {
-      const c = game.player.renderCenter();
+      const player = game.player, c = player.renderCenter();
       const cx = c.x - ox, cy = c.y - oy;
-      const off = game.player.renderOffset ? game.player.renderOffset() : { x: 0, y: 0 };
+      const off = player.renderOffset ? player.renderOffset() : { x: 0, y: 0 };
       const al = game.alignmentStyle ? game.alignmentStyle() : null;
       // The hero's clip this frame (life skill, weapon swing, idle), blended.
       const anim = heroAnimFrame(game, timeMs);
+      const face = calm ? player.faceX : turnFacing(player.faceX, player.turnT / TURN_MS);
+      const lift = Math.max(0, -(anim?.ch.by ?? 0));
+      const sx = cx + off.x + face * (anim?.ch.bx ?? 0), sy = cy + 13 + off.y;
+      const style = game.combatMode();
+      const cast = worldSun?.on && this.depth.castHeroShadow(ctx, game.jobClass, style, sx, sy, face, worldSun, sky, lift);
+      const squash = footfall(player.walkPhase, player.animMove > 0) * player.animMove * (player.running ? 0.8 : 0.5);
+      drawSunShadow(ctx, sx, sy, 10, 4.5, trim || cast ? null : sun, squash, lift);
       // Struck by a foe whose swing hasn't landed yet: no flinch until it does.
       const heroHurt = game.player.strikeWait > 0 ? 0 : game.player.hurt;
       // Fishing gear out on the water (line, bobber, net, pot, harpoon, the
@@ -618,17 +625,16 @@ export class Renderer {
         drawables.push({ sortY: sy, z: 3, draw: () => drawFishingGear(ctx, anim, cx + off.x, cy + off.y, cx, cy) });
       }
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
-        drawSunShadow(ctx, cx, cy + 13, 10, 4.5, sun, footfall(game.player.walkPhase, game.player.isMoving) * (game.player.running ? 0.8 : 0.5));
         if (al?.aura) this._auraBack(cx + off.x, cy + off.y, al, timeMs);
         const sk = game.player.swingProgress();
-        if (sk >= 0 && game.combatMode() === 'magic') this._castRing(cx, cy + 12, sk);
+        if (sk >= 0 && style === 'magic') this._castRing(cx, cy + 12, sk);
         const offhand = game.equipment.get('shield'), dualWield = game.equipment.isDualWielding();
         const offhandWeapon = !!offhand && !!getItem(offhand).equip?.weaponType;
         drawPlayer(ctx, cx + off.x, cy - 2 + off.y, {
-          anim, calm,
+          anim, calm, light: characterLight, low: game.lowFx,
           time: timeMs, facing: game.player.facing, fx: game.player.faceX, entity: game.player, hurt: heroHurt,
           moving: game.player.isMoving, swingK: sk,
-          hasBody: !!game.equipment.get('body'), hasWeapon: !!game.equipment.get('weapon'), weaponType: game.combatMode(),
+          hasBody: !!game.equipment.get('body'), hasWeapon: !!game.equipment.get('weapon'), weaponType: style,
           hasCape: !!game.equipment.get('cape'), hasHelm: !!game.equipment.get('head'),
           hasShield: !!offhand && !offhandWeapon && !/_quiver$/.test(offhand),
           offhandWeapon,

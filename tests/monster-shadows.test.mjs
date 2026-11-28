@@ -51,6 +51,19 @@ test('a monster cast uses one reusable silhouette, follows facing and sun, and w
     assert.deepEqual(draws[0].matrix.slice(4), [120, 90], 'the cast is rooted at the feet');
     assert.ok(draws[0].alpha > 0 && draws[0].alpha < 0.4);
     assert.equal(ctx.globalAlpha, 0.8);
+    depth.budget.frame();
+    assert.equal(depth.castCreatureShadow(ctx, 'banker', { attackable: false }, 80, 50, 1, -1, shadowVec(0.5)), true);
+    const town = draws.at(-1);
+    assert.deepEqual(town.matrix.slice(4), [80, 50]);
+    assert.equal(depth.castHeroShadow(ctx, 'rogue', 'melee', 100, 60, 1, shadowVec(0.5)), true);
+    const hero = draws.at(-1);
+    assert.deepEqual(hero.matrix.slice(4), [100, 60]);
+    assert.notEqual(hero.image, town.image, 'the hero and the townsperson each cast their own outline');
+    assert.equal(depth.castHeroShadow(ctx, 'rogue', 'melee', 100, 60, 1, shadowVec(0.5), 0.4, 4), true);
+    const lifted = draws.at(-1);
+    assert.equal(lifted.image, hero.image);
+    assert.ok(lifted.matrix[5] < hero.matrix[5] && lifted.alpha < hero.alpha, 'an airborne hero has a shifted, softer cast');
+    assert.equal(canvases, 6);
   } finally {
     if (doc === undefined) delete globalThis.document; else globalThis.document = doc;
     if (prevImage === undefined) delete globalThis.Image; else globalThis.Image = prevImage;

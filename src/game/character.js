@@ -1,11 +1,11 @@
 import { TILE, TICK_MS } from '../config.js';
 import { lerp } from '../core/utils.js';
+import { swingBeats } from '../render/motionkit.js';
 
 export const TURN_MS = 150;   // how long the turn-around takes on screen
 
 // Shared movement for the player and NPCs. Movement is time-based and decoupled
 // from the combat tick: walking = 1 tile / 600ms, running = 1 tile / 300ms.
-const easeInOut = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 // Easing steps for the drawn offset and walking weight. Most monsters share
 // each frame's dt, so reuse the calculations across them.
 let _easeDt = NaN, _offsetEase = 0, _walkEase = 0;
@@ -68,11 +68,9 @@ export class Character {
    *  plus any hit knockback easing home. Written into `out` when given. */
   _rawOffset(out = { x: 0, y: 0 }) {
     let x = 0, y = 0;
-    if (this.swing > 0) {
-      const p = 1 - this.swing / this.swingDur;
-      const amp = p < 0.18 ? -1.2 * Math.sin((p / 0.18) * Math.PI / 2)                     // wind up
-        : p < 0.42 ? -1.2 + 6.2 * (1 - Math.pow(1 - (p - 0.18) / 0.24, 3))                  // strike (ease out)
-          : 5 * (1 - easeInOut((p - 0.42) / 0.58));                                          // settle back
+    const beats = swingBeats(this.swingProgress());
+    if (beats) {
+      const amp = -1.2 * beats.wind + 5 * beats.hit;
       x += this.lungeDX * amp; y += this.lungeDY * amp;
     }
     if (this.knock > 0 && !(this.strikeWait > 0)) {   // pushed back by a hit, easing home
