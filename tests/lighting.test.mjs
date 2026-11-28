@@ -10,9 +10,9 @@ import { Game } from '../src/game/game.js';
 import { Renderer } from '../src/render/renderer.js';
 import { OBJECTS } from '../src/data/objects.js';
 import { DAY_CYCLE_MS, TILE } from '../src/config.js';
-import { LIGHTS, lightFor, nightDarkness, skyWashes, LightPass, nightMode, nightMultiply, twilightWash } from '../src/render/lighting.js';
+import { LIGHTS, lightFor, nightDarkness, regionalDark, skyWashes, LightPass, nightMode, nightMultiply, twilightWash } from '../src/render/lighting.js';
 import { makeProjection, projectFlat } from '../src/render/projection.js';
-import { moonDark } from '../src/render/atmosphere.js';
+import { moonDark, regionLightFor } from '../src/render/atmosphere.js';
 import {
   weatherAt, slotWeather, mistAt, regionWeather, Weather, WEATHER_SLOT_MS, RAIN_CHANCE, STORM_CHANCE, MIST_REGIONS, REGION_SKY,
 } from '../src/render/weather.js';
@@ -113,6 +113,18 @@ test('Marina Bay has a stronger gold sunset and a clear blue night', () => {
   assert.ok(marina._sky[1][1] > 160 && marina._sky[1][2] < 85);
   const moonlight = draw('Marina Bay', 0, 1)._dark;
   assert.ok(moonlight[2] > 180 && moonlight[2] > moonlight[1] + 95);
+});
+
+test('the sealed arena holds its light through the day while outdoor arenas still follow the sun', () => {
+  const gate = regionLightFor('The Endless Gate'), rift = regionLightFor('The Shadow Rift');
+  const day = regionalDark(0, 0, gate);
+  assert.ok(day[3] > 0.28 && day[3] < 0.5, 'indoor lighting gives the shrines room to glow');
+  assert.deepEqual(day, regionalDark(1, 1, gate));
+  assert.ok(skyWashes(0.735, undefined, gate.dusk, 0, gate.cover).every((wash) => wash[3] === 0));
+  const riftDay = regionalDark(0, 0, rift), riftNight = regionalDark(1, 1, rift);
+  assert.ok(riftDay[3] > 0.18 && riftNight[3] > riftDay[3]);
+  const floor = nightMultiply([0, 0, 0, 0], 1, riftNight);
+  assert.ok(Math.min(...floor) > 90, 'even the night floor has enough light for ground cues');
 });
 
 test('Transit Road lamps and its hawker stall carry amber light with steady reduced motion', () => {

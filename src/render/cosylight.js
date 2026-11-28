@@ -16,9 +16,7 @@
 // The light pass's warm, homely lights get the bloom; magic and boss glows keep
 // their own look.
 const WARM = new Set(['255,214,140', '255,150,70', '255,128,60', '255,166,90', '255,200,120', '255,206,140', '255,222,160',
-  '255,206,120', '255,236,170', '255,220,150', '255,210,160',
-  // ...and the neon lamps of Marina Bay and Chinatown (lighting.js NEON).
-  '255,120,200', '110,220,255', '255,140,210', '120,230,255']);
+  '255,206,120', '255,236,170', '255,220,150', '255,210,160']);
 export const MAX_BLOOMS = 24;
 const GRADE_W = 64, GRADE_H = 40;   // the grade canvas (all smooth gradient, so tiny is fine)
 
@@ -137,14 +135,17 @@ export class CosyLight {
    * vw x vh). `lights` is the light pass (for its gathered lights), `night`
    * the renderer's darkness (0 noon .. 1 midnight). False when it can't run.
    */
-  draw(ctx, game, lights, night, ox, oy, vw, vh, t, pj = null, wx = null) {
+  draw(ctx, game, lights, night, ox, oy, vw, vh, t, pj = null, wx = null, look = null) {
     this.blooms = 0;
     if (!this.ok) return false;
     const fvw = vw, fvh = vh;   // the depth view's flat rectangle (pj), for finding the lamps
     if (pj) { vw = pj.vw; vh = pj.vh; }
     const gr = cosyGrade(game.dayPhase ? game.dayPhase() : 0.5, this._grade);
     const gloom = wx?.gloom || 0;
-    const a = wx?.roofed ? 0 : gr.a * (1 - gloom * 0.78);
+    // The rich amber sunlight suits the warm districts. Where the evening is
+    // blue or violet, let the light pass's own colours show through it.
+    const warmth = look ? Math.max(0, Math.min(1, (look.dusk[0] - look.dusk[2]) / 170)) : 1;
+    const a = wx?.roofed ? 0 : gr.a * (0.32 + 0.68 * warmth) * (1 - (look?.cover || 0)) * (1 - gloom * 0.78);
     ctx.save();
     if (a > 0.002) {
       const pic = this._gradePic(gr);
@@ -163,14 +164,14 @@ export class CosyLight {
         }
       }
     }
-    const bk = bloomStrength(night + (1 - night) * gloom * 0.88);
+    const bk = bloomStrength(Math.max((look?.shade || 0) * 2.5, night + (1 - night) * gloom * 0.88));
     const scatter = Math.min(1, (wx?.mist || 0) * 0.74 + (wx?.rain || 0) * 0.38);
     if (bk > 0.02 && lights && lights.gather) {
       const list = lights._lights && lights.count ? lights._lights : lights.gather(game, ox, oy, fvw, fvh, t, pj);
       ctx.globalCompositeOperation = 'lighter';
       for (const L of list) {
         if (this.blooms >= MAX_BLOOMS) break;
-        if (!WARM.has(L.rgb.join(','))) continue;
+        if (!L.bloom && !WARM.has(L.rgb.join(','))) continue;
         const pic = this._bloomPic(L.rgb);
         if (!pic) break;
         const r = L.r * (0.42 + scatter * 0.14) * L.k, ry = r * (1 + 0.23 * scatter);

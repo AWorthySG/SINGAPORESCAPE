@@ -11,10 +11,11 @@ import { Game } from '../src/game/game.js';
 import { Renderer } from '../src/render/renderer.js';
 import { OBJECTS } from '../src/data/objects.js';
 import { TERRAIN } from '../src/data/world.js';
+import { DISTRICT_VISUALS } from '../src/data/districtVisuals.js';
 import { TILE } from '../src/config.js';
-import { timeGrade, blendedMood, Atmosphere, BLEND_TILES, moonDark, CRISP_CLEAR } from '../src/render/atmosphere.js';
+import { timeGrade, blendedMood, Atmosphere, BLEND_TILES, moonDark, CRISP_CLEAR, regionLightFor } from '../src/render/atmosphere.js';
 import { AmbientLife, windAt, swayLean, swayKind, LEAF_CAP, GLINT_CAP, BIRD_CAP, FLOCK_CAP } from '../src/render/ambient.js';
-import { LIGHTS, LightPass, NEON, NEON_ZONES } from '../src/render/lighting.js';
+import { LIGHTS, LightPass, DISTRICT_LAMPS } from '../src/render/lighting.js';
 import { HAZY, Weather, MIST_REGIONS, cloudShadeAt, CLOUD_ALPHA, CLOUD_COUNT } from '../src/render/weather.js';
 import { moodFor, ZONE_MOOD } from '../src/render/ambience.js';
 
@@ -69,7 +70,7 @@ test('the grade follows the day: crisp at noon, moonlit blue at night, neither a
   // Headless the pass returns early, so check the colour it keeps is the moon's once drawn with a DOM.
   withFakeDom(() => {
     const lp2 = new LightPass();
-    const g = freshGame(); g.playMs = 0;
+    const g = freshGame(); g.playMs = 0; g.currentZoneName = 'Singapore';
     lp2.draw(recordingCtx(), g, [0, 0, 0, 0], 1, null, 0, 0, 800, 600, 0);
     assert.deepEqual(lp2._dark.slice(0, 3), moonDark(1).slice(0, 3), 'midnight darkness is the moonlit blue');
   });
@@ -101,8 +102,8 @@ test('each region keeps its character: green-hazed Bukit Timah, warm Sentosa, co
 
 test('district ground lighting is tied to the terrain and turns off in trimmed graphics', () => {
   const transit = 'Transit Road, Nee Soon Camp';
-  const run = (zone, objects, night, low = false) => {
-    const world = { width: 8, height: 8, zoneAt: () => ({ name: zone }), terrainAt: (x) => x < 4 ? TERRAIN.STONE : TERRAIN.GRASS };
+  const run = (zone, objects, night, low = false, objectZone = zone) => {
+    const world = { width: 8, height: 8, zoneAt: () => ({ name: objectZone }), terrainAt: (x) => x < 4 ? TERRAIN.STONE : TERRAIN.GRASS };
     const amb = new AmbientLife();
     amb.update({ world, currentZoneName: zone }, 0, 0, 0, 0, 220, 160, night, null, low);
     amb._sprite = (name) => name;
@@ -120,6 +121,9 @@ test('district ground lighting is tied to the terrain and turns off in trimmed g
   assert.ok(forest.length > 0 && forest.length <= 24);
   assert.deepEqual(forest.slice(0, 2).map(([kind]) => kind), ['canopy-shade', 'canopy-sun']);
   assert.deepEqual(run('Mandai Rainforest', trees, 1), []);
+  const nearbyForest = run('Changi Coast', trees, 0, false, 'Jurong Forest');
+  assert.deepEqual(nearbyForest.slice(0, 2).map(([kind]) => kind), ['canopy-shade', 'canopy-cool']);
+  assert.deepEqual(nearbyForest, run('Jurong Forest', trees, 0));
 });
 
 test('the region grade blends across borders instead of snapping', () => {
@@ -161,27 +165,61 @@ test('the renderer samples the region mood only when you move to a new tile', ()
   g.world.zoneAt = zoneAt;
 });
 
+test('every mapped district has a distinct light palette, including the indoor arena', () => {
+  const zones = [...Object.keys(DISTRICT_VISUALS), 'The Endless Gate'];
+  const fallback = regionLightFor('Singapore');
+  for (const name of zones) assert.notEqual(regionLightFor(name), fallback, name);
+  assert.equal(new Set(zones.map((name) => regionLightFor(name).night.join(','))).size, zones.length);
+  assert.equal(new Set(zones.map((name) => regionLightFor(name).haze.join(','))).size, zones.length);
+  assert.ok(regionLightFor('The Shadow Rift').shade > regionLightFor('Mandai Rainforest').shade);
+  assert.ok(regionLightFor('Mandai Rainforest').shade > regionLightFor('Kampong Glam').shade);
+  assert.equal(regionLightFor('The Endless Gate').cover, 1);
+});
+
+test('a single border sample eases the sky, night, haze and ground shade together', () => {
+  const town = 'Chinatown', forest = 'Mandai Rainforest', border = 100;
+  let samples = 0;
+  const g = {
+    player: { x: border - 1, y: 20 }, currentZoneName: town,
+    world: { zoneAt: (x) => { samples++; return { name: x < border ? town : forest }; } },
+  };
+  const a = new Atmosphere();
+  const start = structuredClone(a.update(g, moodFor, 16));
+  assert.equal(samples, 9);
+  assert.ok(start.shade > 0 && start.shade < regionLightFor(forest).shade, 'the nearby forest affects the town side');
+  g.player.x = border; g.currentZoneName = forest;
+  const short = structuredClone(a.update(g, moodFor, 16));
+  const long = a.update(g, moodFor, 2000);
+  assert.equal(samples, 18, 'two tiles share the same samples between lighting and colour');
+  assert.ok(start.night[0] > short.night[0] && short.night[0] > long.night[0]);
+  assert.ok(start.dusk[1] < short.dusk[1] && short.dusk[1] < long.dusk[1]);
+  assert.ok(start.haze[3] < short.haze[3] && short.haze[3] < long.haze[3]);
+  assert.ok(start.shade < short.shade && short.shade < long.shade);
+  assert.ok(long.shade < regionLightFor(forest).shade);
+});
+
 // ---------------- Lights ----------------
-test('shop signs, homes and hideouts light up, and the neon districts tint their lamps', () => {
-  for (const id of ['sign', 'home_plot', 'smugglers_hold', 'rift_treasury']) {
+test('street fixtures and landmark lights use the palette at their location', () => {
+  for (const id of ['sign', 'home_plot', 'smugglers_hold', 'rift_treasury', 'observation_wheel', 'rift_obelisk', 'ghost_lantern', 'celestial_pavilion', 'gate_shrine']) {
     assert.ok(OBJECTS[id], `${id} is a real object`);
     assert.ok(LIGHTS[id] && LIGHTS[id].r > 0, `${id} gives off light`);
   }
-  for (const z of NEON_ZONES) assert.ok(ZONE_MOOD[z], `${z} is a real region`);
+  for (const z of Object.keys(DISTRICT_LAMPS)) assert.ok(ZONE_MOOD[z], `${z} is a real region`);
   const g = freshGame();
   const lp = new LightPass();
   lp._scan(g.world, 0);
   const lamps = lp._index.filter((o) => o.objId === 'lamp');
-  const neon = lamps.filter((o) => NEON_ZONES.has(g.world.zoneAt(o.x, o.y)?.name));
-  const plain = lamps.filter((o) => !NEON_ZONES.has(g.world.zoneAt(o.x, o.y)?.name));
-  assert.ok(neon.length > 0 && plain.length > 0, 'lamps in and out of the neon districts');
-  for (const o of neon) assert.ok(NEON.lamp.includes(lp._tint.get(o)), 'a neon lamp glows pink or cyan');
+  const zoneOf = (o) => g.world.zoneAt(o.x, o.y)?.name;
+  const coloured = lamps.filter((o) => DISTRICT_LAMPS[zoneOf(o)]);
+  const plain = lamps.filter((o) => !DISTRICT_LAMPS[zoneOf(o)]);
+  assert.ok(coloured.length > 0 && plain.length > 0, 'fixtures in and out of the lit districts');
+  for (const o of coloured) assert.ok(DISTRICT_LAMPS[zoneOf(o)].lamp.includes(lp._tint.get(o)));
   for (const o of plain) assert.equal(lp._tint.get(o), undefined, 'other lamps keep their warm light');
   // Placed at a Marina Bay lamp at night, a neon colour is among the lights gathered.
-  const o = neon[0];
+  const o = coloured.find((p) => zoneOf(p) === 'Marina Bay');
   g._movePlayerNear(o.x, o.y + 1, 2);
   const lights = lp.gather(g, g.player.x * TILE - 400, g.player.y * TILE - 300, 800, 600, 0);
-  assert.ok(lights.some((L) => NEON.lamp.includes(L.rgb)), 'the neon is lit');
+  assert.ok(lights.some((L) => L.bloom && DISTRICT_LAMPS['Marina Bay'].lamp.includes(L.rgb)), 'the waterfront glow is lit');
 });
 
 test('the light pool round lamps and fires is one baked sprite per colour, not a gradient a frame', () => {

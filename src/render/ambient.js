@@ -44,15 +44,24 @@ const TOWNS = new Set(['Kampong Glam', 'Chinatown', 'Marina Bay', 'Pulau Ubin', 
   'Transit Road, Nee Soon Camp']);
 const GRIM = new Set(['The Wilderness', 'Pulau Hantu', 'Tekong Badlands', 'The Shadow Rift']);
 const TRANSIT_ROAD = 'Transit Road, Nee Soon Camp';
-const MANDAI = 'Mandai Rainforest';
 const QUIET_WATER = new Set(['MacRitchie Reservoir', 'Sungei Buloh Wetlands', 'Changi Coast']);
-const CANOPY = new Set(['rain_tree', 'palm', 'mangrove_root']);
+const CANOPY = new Set(['rain_tree', 'forest_tree', 'palm', 'mangrove_root']);
+const CANOPY_LIGHT = {
+  'Bukit Timah': { sun: 'canopy-sun', shade: 0.28, light: 0.45 },
+  'Jurong Forest': { sun: 'canopy-cool', shade: 0.33, light: 0.37 },
+  'Mandai Rainforest': { sun: 'canopy-sun', shade: 0.43, light: 0.32 },
+  'MacRitchie Reservoir': { sun: 'canopy-cool', shade: 0.22, light: 0.28 },
+  'Sungei Buloh Wetlands': { sun: 'canopy-cool', shade: 0.24, light: 0.28 },
+  'Coney Island': { sun: 'canopy-sun', shade: 0.24, light: 0.34 },
+  'Pulau Ubin': { sun: 'canopy-sun', shade: 0.26, light: 0.36 },
+};
 const GROUND_ACCENT_CAP = 12;
 // The soft irregular pieces of each ground stamp, [x, y, r, height, opacity]
 // on a 64 px texture. The same small pictures are stretched and reused.
 const GROUND_STAMPS = {
   'canopy-shade': ['28,53,44', [[23, 28, 22, 1, 0.65], [38, 35, 23, 0.92, 0.65], [49, 20, 15, 1.02, 0.5]]],
   'canopy-sun': ['255,231,149', [[22, 21, 13, 0.65, 0.6], [40, 31, 17, 0.78, 0.5], [52, 24, 10, 0.9, 0.65], [30, 45, 10, 0.64, 0.45]]],
+  'canopy-cool': ['195,245,208', [[21, 27, 13, 0.56, 0.6], [43, 23, 16, 0.64, 0.55], [52, 36, 12, 0.56, 0.53], [36, 44, 11, 0.62, 0.47]]],
   'wet-cool': ['186,220,239', [[21, 18, 18, 0.35, 0.65], [39, 29, 23, 0.35, 0.5], [26, 43, 18, 0.3, 0.52]]],
   'wet-amber': ['255,184,99', [[29, 19, 19, 0.43, 0.8], [40, 31, 16, 0.34, 0.72], [25, 42, 12, 0.34, 0.52]]],
 };
@@ -366,49 +375,40 @@ export class AmbientLife {
   /** Diffuse ground light anchored to trees and lamps, below the actors. */
   drawDistrictGround(ctx, objs, ox, oy) {
     if (!this.on || !objs?.length) return;
-    if (this._zone === MANDAI) this._canopy(ctx, objs, ox, oy);
-    else if (this._zone === TRANSIT_ROAD) this._pavement(ctx, objs, ox, oy);
-  }
-
-  _canopy(ctx, objs, ox, oy) {
     const daylight = this._day * (1 - clamp01(this._gloom * 1.5));
-    if (daylight < 0.12) return;
-    const shade = this._sprite('canopy-shade'), sun = this._sprite('canopy-sun');
-    if (!shade || !sun) return;
-    let n = 0;
-    ctx.save();
-    for (const o of objs) {
-      if (o.depleted || (o.def.type !== 'tree' && !CANOPY.has(o.objId))) continue;
-      const h = tileHash(o.x, o.y, 83);
-      if (h > 0.56 || this._world.zoneAt?.(o.x, o.y)?.name !== MANDAI) continue;
-      const size = 100 + h * 68;
-      const x = o.x * TILE + TILE / 2 - ox, y = o.y * TILE + TILE - oy;
-      ctx.globalAlpha = 0.34 * daylight;
-      ctx.drawImage(shade, x - size * 0.45, y - size * 0.31, size, size * 0.63);
-      ctx.globalAlpha = 0.27 * daylight;
-      ctx.drawImage(sun, x + 3, y - size * 0.19, size * 0.8, size * 0.53);
-      if (++n >= GROUND_ACCENT_CAP) break;
-    }
-    ctx.restore();
-  }
-
-  _pavement(ctx, objs, ox, oy) {
-    const cool = this._sprite('wet-cool'), amber = this._sprite('wet-amber');
-    if (!cool || !amber) return;
     const wet = clamp01(this._gloom * 2.2);
     const dark = clamp01((this._night - 0.22) / 0.44);
     let n = 0;
     ctx.save();
     for (const o of objs) {
-      if (o.objId !== 'lamp' || this._world.zoneAt?.(o.x, o.y)?.name !== TRANSIT_ROAD) continue;
-      const terrain = this._world.terrainAt(o.x, o.y);
-      if (terrain !== TERRAIN.PATH && terrain !== TERRAIN.STONE) continue;
+      const lamp = o.objId === 'lamp';
+      const tree = daylight > 0.03 && !o.depleted && (o.def?.type === 'tree' || CANOPY.has(o.objId));
+      if (!lamp && !tree) continue;
+      const zone = this._world.zoneAt?.(o.x, o.y)?.name;
       const x = o.x * TILE + TILE / 2 - ox, y = o.y * TILE + TILE / 2 - oy;
-      ctx.globalAlpha = 0.27 + wet * 0.32;
-      ctx.drawImage(cool, x - 23, y - 12, 46, 42);
-      if (dark > 0.02) {
-        ctx.globalAlpha = dark * (0.48 + wet * 0.32);
-        ctx.drawImage(amber, x - 21, y - 10, 42, 43);
+      if (lamp && zone === TRANSIT_ROAD) {
+        const terrain = this._world.terrainAt(o.x, o.y);
+        if (terrain !== TERRAIN.PATH && terrain !== TERRAIN.STONE) continue;
+        const cool = this._sprite('wet-cool'), amber = dark > 0.02 && this._sprite('wet-amber');
+        if (!cool) continue;
+        ctx.globalAlpha = 0.27 + wet * 0.32;
+        ctx.drawImage(cool, x - 23, y - 12, 46, 42);
+        if (amber) {
+          ctx.globalAlpha = dark * (0.48 + wet * 0.32);
+          ctx.drawImage(amber, x - 21, y - 10, 42, 43);
+        }
+      } else {
+        const canopy = tree && CANOPY_LIGHT[zone];
+        if (!canopy) continue;
+        const h = tileHash(o.x, o.y, 83);
+        if (h > 0.56) continue;
+        const shade = this._sprite('canopy-shade'), sun = this._sprite(canopy.sun);
+        if (!shade || !sun) continue;
+        const size = 100 + h * 68, foot = y + TILE / 2;
+        ctx.globalAlpha = canopy.shade * daylight;
+        ctx.drawImage(shade, x - size * 0.45, foot - size * 0.31, size, size * 0.63);
+        ctx.globalAlpha = canopy.light * daylight;
+        ctx.drawImage(sun, x + 3, foot - size * 0.19, size * 0.8, size * 0.53);
       }
       if (++n >= GROUND_ACCENT_CAP) break;
     }
