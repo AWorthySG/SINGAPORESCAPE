@@ -1,7 +1,7 @@
 // Vector sprite library — cohesive hand-drawn art for creatures and world objects,
 // replacing the old emoji rendering. Everything is drawn relative to a centre
 // point (cx, cy) with the entity's "feet" near cy + 13.
-import { drawLayeredObject, drawShopStep, isDepthShop } from './streetdepth.js';
+import { drawLayeredObject, isDepthShop } from './streetdepth.js';
 import { fireScale } from '../game/bonfire.js';   // bonfires are drawn bigger
 import { itemIconImage } from './icons.js';
 import { CROPS } from '../data/trades.js';
@@ -272,7 +272,7 @@ for (const [id, r] of Object.entries(RESIDENTS)) if (!TOWN_ART.has(id) && TOWN_A
 const townFile = (id) => (TOWN_ART.has(id) ? id : TOWN_ALIAS[id] || null);
 // Keep a resident's new portrait and idle layers together in the offline cache.
 const REPAINTED_TOWN_ART = new Set(['banker', 'guide', 'hawker', 'pest_officer', 'shopkeeper', 'skills_tutor']);
-const townArtRevision = (id) => REPAINTED_TOWN_ART.has(id) ? '?v=2' : '';
+const townArtRevision = (id) => REPAINTED_TOWN_ART.has(id) ? '?v=3' : '';
 export const townArtSrc = (id) => TOWN_ART.has(id) ? `assets/creatures/townsfolk/${id}.webp${townArtRevision(id)}` : null;
 const _townImg = {};
 function townImage(id) {
@@ -1187,7 +1187,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
 }
 
 // ---- Townsfolk idle ----
-// The body (eyes open or shut) and near arm (hanging, or raised to wave) are
+// The body, optional blink and near arm (hanging, or raised to wave) are
 // composed into a frame (no white sticker rim: just the navy ink line), and each frame
 // is cached, so a frame costs one blit; breathing is a gentle stretch at draw time.
 const _townRigs = {};
@@ -1224,7 +1224,7 @@ function townFrame(id, d, imgs, h, blink, arm, ang) {
 function drawTownIdle(c, id, imgs, h, t, seed) {
   const d = TOWN_IDLE[id];
   const ph = Math.abs(seed * 37) % 10000;   // each townsperson on their own rhythm
-  const blink = (t + ph) % 4300 < 150;
+  const blink = !!d.piv.body_blink && (t + ph) % 4300 < 150;
   // Every so often a friendly wave (or, without a loose arm, a little nod of
   // the whole body); otherwise the arm hangs, stirring a little.
   const w = ((t + ph * 1.3) % 12000) / 1800, greet = w < 1 ? Math.sin(w * Math.PI) : 0;
@@ -2848,8 +2848,7 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time, upperAlpha) {
   const s = Math.min(mw / img.naturalWidth, mh / img.naturalHeight) * (look ? look.s : 1);
   const w = img.naturalWidth * s, h = img.naturalHeight * s;
   const shopDepth = isDepthShop(obj);
-  if (shopDepth) drawShopStep(ctx, cx, cy + foot, w);
-  else if (obj.def.footprint) {   // a landmark's shadow spans its footprint
+  if (obj.def.footprint) {   // a building's shadow spans its footprint
     ctx.fillStyle = 'rgba(34,48,74,0.16)';
     ellipse(ctx, cx, cy + foot - 2, w * 0.46, 7); ctx.fill();
   } else if (t !== 'fishing' && t !== 'dive' && foot > 0) {   // a soft contact shadow; fishing spots and reefs sit in the water, hanging things cast none
@@ -2859,7 +2858,8 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time, upperAlpha) {
   ctx.save();
   // Spent stalls, traps and fishing spots fade back; trees and rocks swap pictures instead.
   if (obj.depleted && t !== 'tree' && t !== 'rock') ctx.globalAlpha = 0.5;
-  if (obj.def.tint && !EVENT_KEYS.has(key) && 'filter' in ctx) img = tintedArt(img, obj.def.tint) || img;   // a borrowed picture, recoloured
+  if (obj.def.backdrop && 'filter' in ctx) img = tintedArt(img, 'saturate(.72) contrast(.88)') || img;
+  else if (obj.def.tint && !EVENT_KEYS.has(key) && 'filter' in ctx) img = tintedArt(img, obj.def.tint) || img;   // a borrowed picture, recoloured
   if (look && look.tint && 'filter' in ctx) img = tintedArt(img, look.tint) || img;
   if (t === 'tree' && !obj.depleted) {
     // The canopy leans gently about the base of the trunk.

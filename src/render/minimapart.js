@@ -216,6 +216,11 @@ function decorBuildings(c, objs, from, to, x0, y0, R) {
     if (!fp && def.type !== 'stall' && def.type !== 'bank') continue;
     const [fw, fd] = fp || [1, 1];
     const x = (o.x - x0) * R + R * 0.08, y = (o.y - fd + 1 - y0) * R + R * 0.08, w = fw * R - R * 0.16, h = fd * R - R * 0.16;
+    if (def.backdrop) {
+      c.fillStyle = 'rgba(84,97,77,.28)';
+      c.fillRect(x, y, w, h);
+      continue;
+    }
     c.fillStyle = 'rgba(34,48,74,0.25)';
     c.fillRect(x + lw, y + lw * 1.6, w, h);
     c.fillStyle = '#FFF6E4';

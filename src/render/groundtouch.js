@@ -26,11 +26,6 @@ const GRASSY = new Set([T.GRASS, T.DARKGRASS]);
 // beyond the moss that grows by any fresh water.
 const WET = new Set(['Sungei Buloh Wetlands', 'MacRitchie Reservoir', 'Mandai Rainforest', 'Punggol Waterway']);
 
-// Landmarks with a door or a counter people walk up to: the earth is worn in front.
-const DOORS = new Set(['shophouse_row_mint', 'shophouse_row_peach', 'shophouse_row_butter', 'shophouse_row_lilac',
-  'golden_dome_hall', 'hdb_block', 'dragon_playground', 'hawker_centre', 'chinese_temple', 'wet_market',
-  'spiky_dome_theatre', 'flower_dome', 'lifeguard_tower', 'lighthouse', 'kusu_turtle_temple', 'stilt_house',
-  'kranji_farmhouse', 'celestial_pavilion']);
 // Things you stand at to use: stalls, the bank, ranges, furnaces, anvils, benches, shrines...
 const WORKED = new Set(['stall', 'bank', 'range', 'furnace', 'anvil', 'craft', 'fletch', 'herblore', 'shrine',
   'offering', 'rest', 'transport', 'gate', 'saw', 'kiln', 'build', 'homebench', 'hawkstall']);
@@ -74,7 +69,7 @@ export function touchPlan(world, tx0, ty0, tx1, ty1, opts = {}) {
       // The foot of a landmark: its picture is a little wider than its footprint (sprites.js).
       const w = fp[0] * TILE, cx = o.x * TILE + w / 2;
       bases.push({ x0: cx - w * 0.52, x1: cx + w * 0.52, y: (o.y + 1) * TILE, k: 1 });
-      if (DOORS.has(o.objId)) {
+      if (o.objId === 'hawker_centre') {
         // In front of the middle of its front (either middle tile of an even width).
         const g = ground(o.x + Math.floor(fp[0] / 2), o.y + 1) ?? ground(o.x + Math.floor((fp[0] - 1) / 2), o.y + 1);
         if (g !== null) worn.push({ px: cx, py: (o.y + 1) * TILE + 8, rx: 10 + fp[0] * 2.5, ry: 6.5, t: g });

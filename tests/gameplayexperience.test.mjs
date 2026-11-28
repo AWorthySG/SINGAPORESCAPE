@@ -121,6 +121,8 @@ test('Kampong Glam shophouses use the depth treatment and the lower layer stays 
   assert.deepEqual(game.world.landmarks.filter(isDepthShop).map((o) => o.objId), ['shophouse_row_mint', 'shophouse_row_peach']);
   const slices = [];
   const ctx = { globalAlpha: 1, save() {}, restore() { this.globalAlpha = 1; }, drawImage(...args) { slices.push([this.globalAlpha, ...args.slice(1)]); } };
+  const expected = [[.4, 0, 0, 200, 80, 0, 0, 100, 40], [1, 0, 80, 200, 20, 0, 40, 100, 10]];
   drawLayeredObject(ctx, { naturalWidth: 200, naturalHeight: 100 }, 0, 0, 100, 50, .4, .2);
-  assert.deepEqual(slices, [[.4, 0, 0, 200, 80, 0, 0, 100, 40], [1, 0, 80, 200, 20, 0, 40, 100, 10]]);
+  drawLayeredObject(ctx, { width: 200, height: 100 }, 0, 0, 100, 50, .4, .2);
+  assert.deepEqual(slices, [...expected, ...expected]);
 });

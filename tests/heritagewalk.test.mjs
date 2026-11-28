@@ -3,7 +3,7 @@ import test from 'node:test';
 import { buildWorld } from '../src/data/world.js';
 import { World } from '../src/game/world.js';
 import { findPath } from '../src/engine/pathfinding.js';
-import { drawHeritageBank, drawMarketValance, heritageService, heritageTiles, paintHeritageTiles } from '../src/render/heritagewalk.js';
+import { drawHeritageBank, drawMarketValance, heritageService, heritageTiles, landmarkPhotoTiles, paintHeritageTiles } from '../src/render/heritagewalk.js';
 
 const map = buildWorld();
 const world = new World();
@@ -48,6 +48,23 @@ test('nearby services use the actual working counter, independently of a mouse h
   assert.equal(heritageService(world, { x: 52, y: 49 }), world.objectAt(52, 48));
   assert.equal(heritageService(world, { x: 64, y: 63 }), world.objectAt(64, 62));
   assert.equal(heritageService(world, { x: 61, y: 63 }), null);
+});
+
+test('camera tiles mark real photo subjects and decorative buildings stay in the streetscape', () => {
+  const photos = landmarkPhotoTiles(world, 0, 0, world.width, world.height);
+  assert.deepEqual(photos.map((p) => p.id), ['dome', 'playground', 'temple', 'wheel', 'gardens']);
+  for (const { subject, x, y } of photos) {
+    const building = world.objectAt(x, y - 1);
+    assert.equal(building.objId, subject);
+    assert.equal(building.def.backdrop, false);
+  }
+  assert.equal(world.landmarks.find((o) => o.objId === 'hawker_centre').def.backdrop, false);
+  for (const id of ['shophouse_row_mint', 'hdb_block', 'hawker_stall_drinks', 'wet_market']) {
+    const obj = world.objects.find((o) => o.objId === id);
+    assert.equal(obj.def.backdrop, true);
+    assert.equal(obj.def.verb, undefined);
+  }
+  assert.deepEqual(landmarkPhotoTiles(world, 48, 74, 50, 75).map((p) => p.id), ['playground']);
 });
 
 const callsFrom = (draw) => {
