@@ -196,7 +196,7 @@ export const PORTRAIT_CROPS = {
   'bosses/drowned_admiral': [0.498, 0.529, 0.751, 0.751],
   'bosses/durian_behemoth': [0.498, 0.546, 0.653, 0.653],
   'bosses/duyung_queen': [0.5, 0.524, 0.679, 0.679],
-  'bosses/eternal_wyrm': [0.498, 0.447, 0.787, 0.787],
+  'bosses/eternal_wyrm': [0.662, 0.366, 0.578, 0.578],
   'bosses/fenghuang': [0.5, 0.539, 0.723, 0.723],
   'bosses/goblin_warchief': [0.498, 0.482, 0.746, 0.746],
   'bosses/great_argus_monarch': [0.5, 0.564, 0.62, 0.62],

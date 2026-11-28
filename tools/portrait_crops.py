@@ -4,6 +4,8 @@ from PIL import Image
 root = sys.argv[1]
 out = {}
 HEAD_RIGHT = {'wild_arowana'}   # long, low pictures with the head on the right
+# The Wyrm's coiled body takes up most of its picture, so frame the face by hand.
+FACE_FRAMES = {'bosses/eternal_wyrm': (212, 117, 185)}
 for sub in ('species', 'bosses'):
     d = os.path.join(root, 'assets/creatures', sub)
     for f in sorted(os.listdir(d)):
@@ -24,7 +26,9 @@ for sub in ('species', 'bosses'):
             side = max(bh * 1.5, bw * 0.55)
             cx = x1 - side / 2 + side * 0.04
         cy = y0 + side / 2 - side * 0.04 if bh >= bw * 1.1 else (y0 + y1) / 2 - bh * 0.06
-        out[f'{sub}/{f[:-5]}'] = [round(cx / W, 3), round(cy / H, 3), round(side / W, 3), round(side / H, 3)]
+        key = f'{sub}/{f[:-5]}'
+        cx, cy, side = FACE_FRAMES.get(key, (cx, cy, side))
+        out[key] = [round(cx / W, 3), round(cy / H, 3), round(side / W, 3), round(side / H, 3)]
 lines = ',\n'.join(f"  '{k}': {json.dumps(v)}" for k, v in out.items())
 print(f"""// Portrait framing for the creature pictures, measured from each picture's
 // painted area (made by tools/portrait_crops.py; re-run it when art changes).

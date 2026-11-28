@@ -126,7 +126,7 @@ const SHADOW_BOX = { x0: -12, y0: -12, w: 24, h: 24 };
 
 // ================= CREATURES =================
 // Give the repainted monster art fresh URLs for players with the old art cached.
-const MONSTER_ART_REVISION = '?v=3';
+const monsterArtRevision = (id) => id === 'eternal_wyrm' ? '?v=4' : '?v=3';
 
 // Archetypes shipped as painted PNG art (assets/creatures/<sprite>.png). When the
 // image has loaded these replace the vector archetype for every monster of that
@@ -137,7 +137,7 @@ function creatureImage(sprite) {
   if (_creatureImg[sprite] !== undefined) return _creatureImg[sprite];
   if (typeof Image === 'undefined' || !CREATURE_PNGS.has(sprite)) { _creatureImg[sprite] = null; return null; }
   const img = new Image();
-  img.src = `assets/creatures/${sprite}.png${MONSTER_ART_REVISION}`;
+  img.src = `assets/creatures/${sprite}.png${monsterArtRevision()}`;
   _creatureImg[sprite] = img;
   return img;
 }
@@ -198,7 +198,7 @@ function speciesImage(family) {
   if (_speciesImg[family] !== undefined) return _speciesImg[family];
   if (typeof Image === 'undefined') { _speciesImg[family] = null; return null; }
   const img = new Image();
-  img.src = `assets/creatures/species/${speciesFile(family)}.webp${MONSTER_ART_REVISION}`;
+  img.src = `assets/creatures/species/${speciesFile(family)}.webp${monsterArtRevision()}`;
   _speciesImg[family] = img;
   return img;
 }
@@ -234,11 +234,12 @@ const artTint = (npcId, def) => (def.boss && bossFile(npcId) ? (BOSS_ART.has(npc
   : SPECIES_ART.has(def.family) ? null : SPECIES_TINT[def.family]) || null;
 const _bossImg = {};
 function bossImage(id) {
-  if (!id || !bossFile(id)) return null;
+  const file = id && bossFile(id);
+  if (!file) return null;
   if (_bossImg[id] !== undefined) return _bossImg[id];
   if (typeof Image === 'undefined') { _bossImg[id] = null; return null; }
   const img = new Image();
-  img.src = `assets/creatures/bosses/${bossFile(id)}.webp${MONSTER_ART_REVISION}`;
+  img.src = `assets/creatures/bosses/${file}.webp${monsterArtRevision(file)}`;
   _bossImg[id] = img;
   return img;
 }
@@ -398,11 +399,11 @@ const RIGS = {
     },
   },
   eternal_wyrm: {
-    order: ['tail', 'base', 'claw', 'head'],
+    order: ['tail', 'claw', 'base', 'head'],
     parts: {
-      tail: { piv: [0.2587, 0.7345], swing: (t, o) => Math.sin(t * (o.moving ? 0.009 : 0.0045)) * 0.12 },
-      claw: { piv: [0.7627, 0.6865], swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return a ? -0.14 * a.wind + 0.12 * a.hit : Math.sin(t * 0.0035 + 1) * 0.05; } },
-      head: { piv: [0.6188, 0.5185], swing: (t, o) => {
+      tail: { piv: [0.4152, 0.7822], swing: (t, o) => Math.sin(t * (o.moving ? 0.009 : 0.0045)) * 0.12 },
+      claw: { piv: [0.6989, 0.6441], swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return a ? -0.14 * a.wind + 0.12 * a.hit : Math.sin(t * 0.0035 + 1) * 0.05; } },
+      head: { piv: [0.4571, 0.3255], swing: (t, o) => {
         const a = atkPhase(o.attackK ?? -1);
         const roar = o.castK > 0 ? -0.06 * Math.sin(o.castK * Math.PI) : 0;   // rears up to roar on its signature move
         return (a ? -0.06 * a.wind + 0.07 * a.hit : Math.sin(t * 0.0021) * 0.035) + roar;
@@ -547,7 +548,7 @@ const rigFiles = (rig) => rig.files || rig.order;
 function rigLayers(id, rig = RIGS[id]) {
   if (!rig || typeof Image === 'undefined') return null;
   const imgs = _rigImg[id] || (_rigImg[id] = Object.fromEntries(rigFiles(rig).map((n) => {
-    const revision = rig.kind === 'town' ? townArtRevision(id) : MONSTER_ART_REVISION;
+    const revision = rig.kind === 'town' ? townArtRevision(id) : monsterArtRevision(id);
     const img = new Image();
     img.src = `assets/creatures/${rigDir(rig.kind)}/${id}_${n}.webp${revision}`;
     return [n, img];
@@ -846,10 +847,11 @@ export const puppetKinds = () => ({ ...PUPPET_KIND });
 /** A boss or champion's portrait for the battle bar: its painted art and where
  *  in the picture its head is (as a CSS background-position), or null. */
 export function portraitFor(npcId, def) {
-  const key = def.boss && bossFile(npcId) ? `bosses/${bossFile(npcId)}`
+  const boss = def.boss && bossFile(npcId);
+  const key = boss ? `bosses/${boss}`
     : speciesFile(def.family) ? `species/${speciesFile(def.family)}` : null;
   if (!key) return null;
-  const src = `assets/creatures/${key}.webp${MONSTER_ART_REVISION}`;
+  const src = `assets/creatures/${key}.webp${monsterArtRevision(boss)}`;
   const tint = artTint(npcId, def);
   return { src, ...portraitFrame(key, def), tint };
 }
