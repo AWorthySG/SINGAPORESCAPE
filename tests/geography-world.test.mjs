@@ -101,7 +101,7 @@ test('level-one woodcutting has safe trees a short walk from Kampong Glam', () =
   g.inventory.add('bronze_axe', 1);
   const pick = bestGatherPick(g, 'woodcutting');
   assert.equal(pick?.obj.objId, 'tree');
-  assert.equal(pick.trip.st, null);
+  assert.equal(pick.trip.st, undefined);
   const { x, y } = g.playerTile();
   assert.ok(Math.max(Math.abs(x - pick.obj.x), Math.abs(y - pick.obj.y)) <= 13);
 });

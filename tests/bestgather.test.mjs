@@ -547,12 +547,13 @@ test('death ends the mode: plain auto gather carries on near where you wake, nev
   assert.ok(startLifeSkill(g, 'woodcutting'));
   const tree = arrive(g);
   assert.equal(tree.objId, 'magic_tree');
+  const faresBeforeDeath = rides(g);
   g.playerDeath();
   assert.equal(g.autoGatherBest, null, 'it used to walk (or ride) you straight back to where you fell');
   playUntil(g, () => g.player.alive, 30);
   const woke = g.playerTile();
   playUntil(g, () => false, 30);
-  assert.equal(rides(g), 0);
+  assert.equal(rides(g), faresBeforeDeath);
   assert.ok(near(g.playerTile(), woke) <= 30, 'about the town (as plain auto gather always has)');
   assert.notEqual(g.player.action?.obj?.objId, 'magic_tree', 'not back at the magic trees');
 });

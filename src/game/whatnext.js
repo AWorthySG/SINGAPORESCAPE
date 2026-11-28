@@ -26,6 +26,7 @@ import { wouldWear } from './bestpick.js';
 import { gatherSources } from './skillguide.js';
 import { zoneLevel } from '../data/world.js';
 import { OBJECTS } from '../data/objects.js';
+import { planTravel } from './travel.js';
 
 export const MAX_GOALS = 3;
 // A gathering skill this close to its next new source gets a nudge.
@@ -214,55 +215,36 @@ function safeNodes(game) {
   const W = game.world, ok = safeZones(game), danger = dangerGrid(game), w = W.width;
   return (o) => ok(W.zoneAt?.(o.x, o.y)) && danger[o.y * w + o.x] !== 1;
 }
-/** The land you can walk on within cfg's walls, flooded from `from` (you) and
- *  labelled, other stretches of it only when first asked about (beside an MRT
- *  station): walk(t, node) says whether you can walk from tile t to stand beside
- *  node, steps(node) in how few steps you can from `from` (Infinity: you can't).
- *  Every node is then a look-up: a path search per node can't say "no way" until
- *  it has looked everywhere, and the tap and the mode ask of many. */
+/** Walking distances from the player's tile for the nearby gathering loop. */
 function safeLand(cfg, from, bufs) {
   const { width: w, height: h, isBlocked } = cfg, size = w * h;
-  if (bufs?.label.length !== size) bufs = { label: new Int32Array(size), steps: new Int32Array(size), q: new Int32Array(size) };
-  const { label, steps, q } = bufs;
-  label.fill(0);
-  let n = 0;
-  const flood = (i0) => {
-    let head = 0, tail = 0;
-    label[i0] = ++n; steps[i0] = 0; q[tail++] = i0;
-    while (head < tail) {
-      const i = q[head++], x = i % w, y = (i - x) / w;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-        const nx = x + dx, ny = y + dy, j = ny * w + nx;
-        if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= w || ny >= h || label[j] || isBlocked(nx, ny)) continue;
-        if (dx && dy && (isBlocked(x + dx, y) || isBlocked(x, y + dy))) continue;   // no cutting corners, as findPath
-        label[j] = n; steps[j] = steps[i] + 1; q[tail++] = j;
-      }
+  if (bufs?.steps.length !== size) bufs = { steps: new Int32Array(size), q: new Int32Array(size) };
+  const { steps, q } = bufs, home = from.y * w + from.x;
+  steps.fill(-1);
+  let head = 0, tail = 0;
+  // Start even in danger, so the player can walk out (as in findPath).
+  steps[home] = 0; q[tail++] = home;
+  while (head < tail) {
+    const i = q[head++], x = i % w, y = (i - x) / w;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx, ny = y + dy, j = ny * w + nx;
+      if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= w || ny >= h || steps[j] >= 0 || isBlocked(nx, ny)) continue;
+      if (dx && dy && (isBlocked(x + dx, y) || isBlocked(x, y + dy))) continue;   // no cutting corners, as findPath
+      steps[j] = steps[i] + 1; q[tail++] = j;
     }
-  };
-  const home = from.y * w + from.x;
-  flood(home);   // from your own tile even if the walls cover it (a trap you stand on), as a path search does
-  const beside = (node, L, best) => {
+  }
+  const beside = (node) => {
+    let best = Infinity;
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       const x = node.x + dx, y = node.y + dy, j = y * w + x;
-      if (x >= 0 && y >= 0 && x < w && y < h && label[j] === L && (best = Math.min(best, steps[j])) === 0) return 0;
+      if (x >= 0 && y >= 0 && x < w && y < h && steps[j] >= 0) best = Math.min(best, steps[j]);
     }
     return best;
   };
-  return {
-    bufs,
-    walk(t, node) {
-      if (!t) return false;
-      if (dist(t, node) <= 1) return true;
-      const i = t.y * w + t.x;
-      if (!label[i]) { if (isBlocked(t.x, t.y)) return false; flood(i); }
-      return beside(node, label[i], Infinity) < Infinity;
-    },
-    steps: (node) => (dist(from, node) <= 1 ? 0 : beside(node, label[home], Infinity)),
-  };
+  return { bufs, steps: (node) => (dist(from, node) <= 1 ? 0 : beside(node)) };
 }
-// The Life skills grid asks for every gathering skill at once, and the mode asks
-// on every idle tick: one flood serves them all while nothing has changed (the
-// same tile, fighting level, objects and monsters), and its buffers are kept.
+// The mode asks on every idle tick. Reuse the distances while the tile,
+// fighting level, objects and monsters are the same.
 let land = null;
 function safeLandNow(game) {
   const p = game.playerTile(), danger = dangerGrid(game), W = game.world;
@@ -338,68 +320,25 @@ export function bestGatherNode(game, skill, { exclude = null } = {}) {
   const reach = (o) => steps(o) < Infinity;
   return bestGather(game, skill, { nodes, exclude, near: AUTO_NEAR, wait: true, reach, cost: steps })?.obj || null;
 }
-/** How the Life skills shortcut gets to `node` keeping out of danger, or null:
- *  { cfg, st } rides the MRT to station st first (null: walks all the way). The
- *  ride a Go would take comes first, then walking, then a ride to any station
- *  nearer the node than you that a safe walk goes on from (a region only the
- *  MRT reaches safely). `ride`: whether you may take the MRT at all. */
-function safeTrip(game, node, cfg, walk, ride, at) {
-  const from = (st) => { const p = at(st); return p && !cfg.isBlocked(p.x, p.y) && walk(p, node); };
-  const hop = ride && game._mrtHopStation(node);
-  if (hop && from(hop)) return { cfg, st: hop };
-  if (walk(game.playerTile(), node)) return { cfg, st: null };
-  const any = ride && game._mrtHopStation(node, from);
-  return any ? { cfg, st: any } : null;
-}
-
-function ferryLegs(game, cfg, walk, ride, at) {
-  const { world: W } = game, links = W.ferryLinks || [];
-  if (!links.length) return [];
-  const crossings = links.flatMap(({ from, to }) => [[from, to], [to, from]]);
-  const queue = [{ tile: game.playerTile(), st: null, ferry: null }];
-  if (ride) for (const st of W.stations) {
-    const tile = at(st);
-    if (tile && !cfg.isBlocked(tile.x, tile.y)) queue.push({ tile, st, ferry: null });
-  }
-  const firstLanding = queue.length, seen = new Set();
-  for (const leg of queue) for (const [from, to] of crossings) {
-    if (seen.has(to) || cfg.isBlocked(to.x, to.y) || !walk(leg.tile, from)) continue;
-    const ferry = leg.ferry || W.objectAt(from.x, from.y);
-    if (ferry?.def.type !== 'ferry') continue;
-    seen.add(to);
-    queue.push({ tile: to, st: leg.st, ferry });
-  }
-  return queue.slice(firstLanding);
-}
-
-function gatheringTrips(game) {
-  const { cfg, walk } = safeLandNow(game), ride = !!game._mrtCanHop?.(), tiles = new Map();
-  const at = (st) => { if (!tiles.has(st)) tiles.set(st, game._nearestFree(st.x, st.y)); return tiles.get(st); };
-  let legs;
-  return (o) => {
-    const land = safeTrip(game, o, cfg, walk, ride, at);
-    if (land) return land;
-    legs ||= ferryLegs(game, cfg, walk, ride, at);
-    const leg = legs.find(({ tile }) => walk(tile, o));
-    return leg ? { cfg, st: leg.st, ferry: leg.ferry } : null;
-  };
-}
-
 /** A safe trip to this exact node, including a crossing when needed. */
 export function gatheringTrip(game, node) {
-  return safeNodes(game)(node) ? gatheringTrips(game)(node) : null;
+  return gatheringTravel(game, [node]);
 }
 
-/** Guide Go offers the closest reachable source of the requested kind. */
+export function gatheringTravel(game, candidates) {
+  const safe = safeNodes(game);
+  return planTravel(game, candidates.filter(safe), { range: 1, cfg: safeRouteCfg(game) });
+}
+
+/** Keep the recommended source near where you are, then compare routes to it. */
 export function gatheringPickFor(game, ids) {
-  const p = game.playerTile(), safe = safeNodes(game), route = gatheringTrips(game);
+  const safe = safeNodes(game), cfg = safeRouteCfg(game), here = game.playerTile();
   const candidates = nodesOf(game.world, [...new Set(ids)]).filter((o) => !o.depleted && !specialNode(o) && safe(o));
-  candidates.sort((a, b) => dist(p, a) - dist(p, b));
-  for (const obj of candidates) {
-    const trip = route(obj);
-    if (trip) return { obj, trip };
-  }
-  return null;
+  if (!candidates.length) return null;
+  const closest = candidates.reduce((a, b) => dist(here, b) < dist(here, a) ? b : a);
+  const opts = { range: 1, cfg };
+  const trip = planTravel(game, [closest], opts) || planTravel(game, candidates, opts);
+  return trip ? { obj: trip.goal, trip } : null;
 }
 /** Whether the mode may go to `node` by itself: somewhere safe, and a safe walk away. */
 export function safeToGather(game, node) {
@@ -409,7 +348,11 @@ export function safeToGather(game, node) {
  *  best source you can get to safely, anywhere, with that source and the trip
  *  there: { obj, src, trip } or null. A spent node beside you doesn't stop it. */
 export function bestGatherPick(game, skill) {
-  return bestGather(game, skill, { reach: gatheringTrips(game) });
+  for (const src of workable(game, skill)) {
+    const pick = gatheringPickFor(game, src.objIds);
+    if (pick) return { ...pick, src };
+  }
+  return null;
 }
 
 /** The next new source a skill opens, if it is within NEAR_UNLOCK levels: { src, gap } or null. */
