@@ -83,6 +83,7 @@ export function beginHeroLight(light, ctx) {
   const wanted = ctx.getTransform?.().d > 2.25 ? 3 : 2;
   if (!heroLayer || heroLayer.cv.width < w * wanted) heroLayer = canvas(w * wanted, h * wanted) || heroLayer;
   if (!heroLayer) return null;
+  heroLayer.screen = ctx;
   const { g } = heroLayer, res = heroLayer.cv.width / w;
   g.setTransform(res, 0, 0, res, -x * res, -y * res);
   g.globalAlpha = 1;
@@ -95,4 +96,20 @@ export function finishHeroLight(ctx, light, face) {
   const { x, y, w, h } = HERO_LAYER;
   paintLight(heroLayer.g, light, face, HERO_BODY, HERO_LAYER);
   ctx.drawImage(heroLayer.cv, x, y, w, h);
+  heroLayer.screen = null;
+}
+
+/** Where a point on the hero actually goes on screen, including through the light layer. */
+export function heroCanvasPoint(ctx, x, y, out) {
+  const m = ctx.getTransform();
+  out.x = m.a * x + m.c * y + m.e;
+  out.y = m.b * x + m.d * y + m.f;
+  if (ctx === heroLayer?.g && heroLayer.screen?.getTransform) {
+    const s = heroLayer.screen.getTransform();
+    const res = heroLayer.cv.width / HERO_LAYER.w;
+    const lx = out.x / res + HERO_LAYER.x, ly = out.y / res + HERO_LAYER.y;
+    out.x = s.a * lx + s.c * ly + s.e;
+    out.y = s.b * lx + s.d * ly + s.f;
+  }
+  return out;
 }

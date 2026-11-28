@@ -5312,7 +5312,8 @@ export class Game {
         const t0 = this.playerTile(); h.cx = t0.x; h.cy = t0.y; h.aimed = true; h.start = performance.now(); h.dur = 2 * TICK_MS;
       }
       if (this.tickCount < h.fireTick) { keep.push(h); continue; }
-      this.effects.push({ type: 'blast', x: h.cx * TILE + TILE / 2, y: h.cy * TILE + TILE / 2, r: (h.r + 0.5) * TILE, life: 380, maxLife: 380 });
+      this.effects.push({ type: 'blast', x: h.cx * TILE + TILE / 2, y: h.cy * TILE + TILE / 2, r: (h.r + 0.5) * TILE,
+        color: h.npc.def.ability?.color, primary: h.sign !== false || !!h.safe, safe: h.safe, life: 380, maxLife: 380 });
       this.addShake(3.5, 260);
       const t = this.playerTile();
       if (inHazard(h, t.x, t.y)) {   // (a safe circle's green hole is safe)

@@ -13,6 +13,7 @@ import { drawHeroArm, drawPictureTool, drawWeaponTrail, HERO_CLIPS } from './her
 import { drawHeroBack, heroBackReady } from './heroAnimArt.js';
 import { heroLit, bakeRim } from './herolight.js';
 import { beginHeroLight, finishHeroLight, litActor } from './actorlight.js';
+import { fxGlow, fxRing } from './fxdepth.js';
 import { poseBlender } from './poseBlend.js';
 import { swingBeats, turnWidth, turnFacing, turnHop, lookAround, breath, heroWalk, heroView, smooth, travelPhase } from './motionkit.js';
 import { animSeed, animTempo, stepLift, stepRock, fidget, hitFlash, flinch, telegraphGlow, telegraphShake, telegraphCrouch, fidgetLand } from './creatureanim.js';
@@ -379,16 +380,25 @@ function creaturePose(c, opts, t, seed) {
   c.translate(dx, dy + FEET); c.rotate(rot); c.scale(sx, sy); c.translate(0, -FEET);
 }
 // A boss's signature move: a burst of its ability colour from the ground up.
-function castBurst(c, k, col) {
-  const a = Math.sin(k * Math.PI);
+function castBurst(c, k, col, detail, calm) {
+  const a = Math.sin(k * Math.PI), r = 9 + (1 - (1 - k) ** 2) * 22;
   c.save();
-  c.globalCompositeOperation = 'lighter';
-  const r = 10 + (1 - k) * 22;
-  const g = c.createRadialGradient(0, -6, 0, 0, -6, r);
-  g.addColorStop(0, rgba(col, 0.55 * a)); g.addColorStop(0.6, rgba(col, 0.25 * a)); g.addColorStop(1, rgba(col, 0));
-  c.fillStyle = g; circle(c, 0, -6, r); c.fill();
-  c.strokeStyle = rgba(col, 0.8 * a); c.lineWidth = 2;
-  c.beginPath(); c.ellipse(0, FEET, 8 + (1 - k) * 18, (8 + (1 - k) * 18) * 0.35, 0, 0, Math.PI * 2); c.stroke();
+  if (detail) {
+    fxGlow(c, 0, FEET, r * 1.16, r * 0.51, col, a * 0.58);
+    fxGlow(c, 0, FEET - r * 0.9, r * 0.65, r * 1.23, col, a * 0.46);
+  }
+  fxRing(c, 0, FEET, r, r * 0.37, col, 2.5, a * 0.88, detail);
+  if (detail && !calm) {
+    c.globalAlpha *= a * 0.65;
+    c.strokeStyle = '#fff1ca'; c.lineWidth = 1.3; c.lineCap = 'round';
+    c.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const ang = i * Math.PI * 0.4 + k * 1.4;
+      const x = Math.cos(ang) * r * 0.89, y = FEET + Math.sin(ang) * r * 0.31 - k * 24;
+      c.moveTo(x, y); c.lineTo(x * 1.05, y - 4 - k * 6);
+    }
+    c.stroke();
+  }
   c.restore();
 }
 // A flat-colour copy of a sticker's silhouette, for hit and charge flashes.
@@ -1145,7 +1155,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
     return staged(ctx, cx, cy, opts, (c, face) => {
       if (opts.boss && !opts.pet) bossAura(c, opts.time || 0, col);   // a pet (pets.js) is a boss in miniature, without the menace
       const t = opts.time || 0;
-      if (opts.castK > 0) castBurst(c, opts.castK, opts.castCol || col);
+      if (opts.castK > 0) castBurst(c, opts.castK, opts.castCol || col, !opts.low && !opts.trim, opts.calm);
       const sd = animSeed(opts.entity, cx);
       creaturePose(c, opts, t, sd);
       // A crisp white flash as a blow lands; a slow red pulse building while a heavy blow charges.

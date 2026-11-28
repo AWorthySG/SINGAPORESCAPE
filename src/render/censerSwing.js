@@ -20,6 +20,7 @@
 // Clip progress u runs 0..1 over the game's swing time (heroanim.js 'censer').
 import { HERO_CLIPS } from './heroanim.js';
 import { heroLit } from './herolight.js';
+import { heroCanvasPoint } from './actorlight.js';
 import { classSpell } from '../data/magic.js';
 
 const TAU = Math.PI * 2;
@@ -155,6 +156,7 @@ function elementOf(opts) {
 // pixels, once it has (null before). `at` is when the swing was last drawn.
 const SHOT = { swing: 0, u: 1, at: -1e9, rel: false, rx: 0, ry: 0 };
 const _rp = { fx: 0, fy: 0, ax: 0, ay: 0, cx: 0, cy: 0 };
+const _release = { x: 0, y: 0 };
 
 /** Draw the censer swing for this attack frame: the arm from the shoulder
  *  (sx, sy), the chain, the censer, its glow, smoke and embers. `img` is the
@@ -261,8 +263,9 @@ export function drawCenserSwing(ctx, img, anim, sx, sy, w, opts = {}) {
   // Where the censer is on the canvas as the spell is flung (the bolt starts
   // there): worked out at exactly the release, the first frame past it.
   if (!SHOT.rel && u >= rel && ctx.getTransform) {
-    const q = censerPoints(rel, sx, sy, w, calm, _rp), m = ctx.getTransform();
-    SHOT.rx = m.a * q.cx + m.c * q.cy + m.e; SHOT.ry = m.b * q.cx + m.d * q.cy + m.f;
+    const q = censerPoints(rel, sx, sy, w, calm, _rp);
+    const point = heroCanvasPoint(ctx, q.cx, q.cy, _release);
+    SHOT.rx = point.x; SHOT.ry = point.y;
     SHOT.rel = true;
   }
   return true;
