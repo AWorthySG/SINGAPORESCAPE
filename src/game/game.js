@@ -462,7 +462,7 @@ const GATHER_FAST = new Set(['woodcut', 'mine', 'fish', 'hunt', 'dive', 'excavat
 // Thieving's numbers (Game.pickpocket, Game.stealFromStall), shared with the
 // skill guide's XP an hour (xprate.js) so the two can't drift apart.
 /** XP an ordinary pocket pays: it grows with level only up to 99 (past that the life-skill rate in addXp takes over). */
-export const pickpocketXp = (lvl) => 8 + Math.min(lvl, 99);
+export const pickpocketXp = (lvl) => Math.round((8 + Math.min(lvl, 99)) * 1.25);
 /** A theft's chance at a stall: a half at its level (or the stall's own `sure`), more with each level over, at most 95%. */
 export const stallChance = (def, lvl) => Math.min(0.95, (def.sure || 0.5) + (lvl - (def.level || 1)) * 0.012);
 export const STALL_STUN_TICKS = 3;   // caught at a stall: stunned this long
@@ -4701,6 +4701,12 @@ export class Game {
   }
 
   // ---------------- Thieving: market stalls ----------------
+  _canStealFromStall(def, level = this.skills.level('thieving')) {
+    if (!def.level || level >= def.level) return true;
+    this.msg(`You need Thieving level ${def.level} to steal from the ${def.name}.`, 'system');
+    return false;
+  }
+
   /** One attempt at a stall. Given the stall action `a`, a success keeps you
    *  at the stall, waiting quietly for it to restock and stealing again, until
    *  you're caught or move off. */
@@ -4711,7 +4717,7 @@ export class Game {
       this.msg('The stall has nothing left — wait for it to restock.', 'system'); return false;
     }
     const lvl = this.skills.level('thieving');
-    if (d.level && lvl < d.level) { this.msg(`You need Thieving level ${d.level} to steal from the ${d.name}.`, 'system'); return false; }
+    if (!this._canStealFromStall(d, lvl)) return false;
     // Success scales with level over the stall's requirement, from a half at
     // that level (or the stall's own `sure`: the endgame chests are surer, so
     // a new tier doesn't start far behind the one before it).
@@ -6405,7 +6411,10 @@ export class Game {
       case 'offering': return this.beginAction({ type: 'shrinemenu', obj, target: tgt }, tgt, true);
       case 'rest': return this.beginAction({ type: 'rest', obj }, tgt, true);
       case 'agility': return this.beginAction({ type: 'agility', obj }, tgt, true);
-      case 'stall': return this.beginAction({ type: 'stall', obj }, tgt, true);
+      case 'stall':
+        // Refuse before Auto Gather can remember the stall as its current target.
+        if (!this._canStealFromStall(obj.def)) return false;
+        return this.beginAction({ type: 'stall', obj }, tgt, true);
       case 'transport': return this.beginAction({ type: 'transport', obj, target: tgt }, tgt, true);
       case 'ferry': return this.beginAction({ type: 'ferry', obj, target: tgt }, tgt, true);
       case 'gate': return this.beginAction({ type: 'gate', obj, target: tgt }, tgt, true);

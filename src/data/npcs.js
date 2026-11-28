@@ -613,12 +613,12 @@ const TOWNSFOLK = {
   pest_officer: { name: 'Pest Control Officer Aziz', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'He keeps the island\'s pests in check, and pays well for help.', dialogue: 'pest' },
   // Endgame Thieving marks (Thieving 100 and 130): clicking one picks its pocket
   // (role 'mark'). `thieving` is the level, the fixed XP a pick and the loot,
-  // one weighted roll a pick (Game.pickpocket). Each pays about 35% more an
-  // hour than the best Thieving before it (tests/thieving-agility-tiers.test.mjs).
+  // one weighted roll a pick (Game.pickpocket). Both improve the XP rate
+  // over the best Thieving target at the previous tier.
   marina_high_roller: { name: 'High roller', level: 0, attackable: false, role: 'mark', wander: 3, examine: 'Fresh from the casino, pockets jingling. (Thieving 100)',
-    thieving: { level: 100, xp: 145, loot: [{ id: 'coins', min: 150, max: 400, weight: 75 }, { id: 'casino_chip', min: 1, max: 3, weight: 25 }] } },
+    thieving: { level: 100, xp: 235, loot: [{ id: 'coins', min: 150, max: 400, weight: 75 }, { id: 'casino_chip', min: 1, max: 3, weight: 25 }] } },
   jade_merchant: { name: 'Jade merchant', level: 0, attackable: false, role: 'mark', wander: 3, examine: 'A dealer in Temasek jade, purse heavy at his belt. (Thieving 130)',
-    thieving: { level: 130, xp: 195, loot: [{ id: 'coins', min: 250, max: 600, weight: 96 }, { id: 'raw_jade', weight: 4 }] } },
+    thieving: { level: 130, xp: 300, loot: [{ id: 'coins', min: 250, max: 600, weight: 96 }, { id: 'raw_jade', weight: 4 }] } },
   // The Merchant's hired mercenaries (spawned on contract, never placed in the world).
   mercenary_sellsword: { name: 'Sellsword', level: 0, attackable: false, wander: 0, examine: 'A blade for hire.' },
   mercenary_bruiser: { name: 'Bruiser', level: 0, attackable: false, wander: 0, examine: 'All muscle, paid by the hour.' },

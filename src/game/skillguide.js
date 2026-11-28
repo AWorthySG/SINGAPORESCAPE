@@ -60,7 +60,7 @@ export const SKILL_GUIDES = {
   construction: { use: 'Saw logs into planks at a sawmill, fire clay into bricks at a kiln, and build furniture from planks, nails (hammered from bars with Smithing) and bricks at a workbench. All three stand at the lumber yards in Kampong Glam and by Kranji Village, where there’s also a public anvil. Then build up your kampong home room by room in its Build window: each build pays a lump of Construction XP and gives your home a perk. From level 100 the endgame logs and bars make the finest furniture.', where: ['sawmill', 'kiln', 'workbench'] },
   hawkering: { use: `Rent your own stall at the Marina Bay hawker centre (${STALL_RENT.toLocaleString('en-GB')} coins) and serve the townsfolk who queue: each wants a dish you have (from your pack, or your bank), pays about a shop's price plus a tip, and gives Hawkering XP. Serve before their patience runs out; a long streak brings bigger tips and the stall's reputation grows. Turn on auto-serve (the auto gather switch) to keep serving from what you carry. Levels bring more counters, faster service, VIP regulars and signature dishes cooked at the stall's wok; from level 100 customers ask for the endgame dishes. Your stall's Menu tab lists every order.`, where: ['hawker_counter'] },
   firemaking: { use: 'Light a fire anywhere to cook on (use logs from your bag; you need a tinderbox). The endgame logs leave ashes, which Herblore and the Offering Shrine take.' },
-  thieving: { use: 'Coins, food and gems, stolen from market stalls (and pockets). From level 100, rich marks and then locked chests in the far regions.' },
+  thieving: { use: 'Pick pockets for coins, or steal from stalls for food, gems, spices, dyes, seeds, fish and jewellery. From level 100, pick rich marks’ pockets and crack locked chests in the far regions.' },
   agility: { use: 'Obstacle courses for XP and Marks of grace; powers the Dancer. From level 100, six long courses in the far regions.' },
   // Fighting skills: a short reference (perks, gear and where to train).
   attack: { use: 'Melee power: how hard your melee hits are. Every 20 levels unlocks a passive perk, and higher levels let you wield better weapons.', combat: true },
@@ -125,7 +125,7 @@ export function gatherSources() {
         note: `${d.name}: ${site?.setName || ''} set` });
     } else if (d.type === 'stall') {
       add({ key: id, skill: 'thieving', name: d.name, level: d.level, xp: d.xp, respawn: d.respawn, objIds: [id],
-        gives: d.loot.map((l) => ({ id: l.id, min: l.min || 1, max: l.max || 1, chance: share(d.loot, l) })), note: d.sure ? `${Math.round(d.sure * 100)}% of tries succeed` : '' });
+        gives: d.loot.map((l) => ({ id: l.id, min: l.min || 1, max: l.max || 1, chance: share(d.loot, l) })), note: d.sure ? `${Math.round(d.sure * 100)}% success at level ${d.level}` : '' });
     } else if (d.type === 'agility' && d.skill === 'agility') {
       add({ key: id, skill: 'agility', name: d.name, level: d.level, xp: d.xp, objIds: [id],
         gives: d.markChance ? [{ id: 'mark_of_grace', chance: d.markChance }] : [], note: d.verb ? `${d.verb}${d.finish ? ' (ends a lap: lap bonus)' : ''}` : '' });
@@ -137,7 +137,7 @@ export function gatherSources() {
       gives: (h.gives || []).map((g) => ({ id: g.id, min: g.min || 1, max: g.max || 1, chance: g.chance ?? 1 })), note: h.night ? '+25% XP at night' : '' });
   }
   // The endgame marks: townsfolk with pockets worth picking (and anyone else's, for coins).
-  add({ key: 'pickpocket', skill: 'thieving', name: 'Pickpocket townsfolk', level: 1, xp: 9, gives: [{ id: 'coins', min: 4, max: 13, chance: 1 }], note: 'Press P beside anyone in town; XP and coins grow with level' });
+  add({ key: 'pickpocket', skill: 'thieving', name: 'Pickpocket townsfolk', level: 1, xp: 11, gives: [{ id: 'coins', min: 4, max: 13, chance: 1 }], note: 'Press P beside anyone in town; XP and coins grow with level' });
   for (const [id, n] of Object.entries(NPCS)) {
     if (!n.thieving) continue;
     add({ key: `npc:${id}`, skill: 'thieving', name: n.name, npcId: id, level: n.thieving.level, xp: n.thieving.xp,
