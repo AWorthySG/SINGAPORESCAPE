@@ -28,6 +28,7 @@ export const ZONE_MOOD = {
   'Coney Island': [186, 226, 166, 0.06],
   'Gardens by the Bay': [196, 236, 206, 0.05],
   'Kranji Farmlands': [238, 220, 140, 0.06],
+  'Transit Road, Nee Soon Camp': [228, 224, 164, 0.07],
   'Tuas Docklands': [166, 178, 200, 0.08],
   'Temasek Ruins': [218, 186, 146, 0.08],
   'The Celestial Peaks': [212, 212, 250, 0.08],

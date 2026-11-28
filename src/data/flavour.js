@@ -24,6 +24,7 @@ export const REGION_FLAVOUR = {
   'Southern Islands': 'The Southern Islands include St John’s, Lazarus and Kusu Island. A legend says a giant turtle turned itself into Kusu Island to save two shipwrecked sailors.',
   'Punggol Waterway': 'Punggol was once a fishing village known for its seafood. Today a long waterway winds through its new homes and parks.',
   'Kranji Farmlands': 'The Kranji countryside is home to some of Singapore’s last working farms, which grow vegetables and raise goats, frogs and fish.',
+  'Transit Road, Nee Soon Camp': 'Transit Road once had a row of small shops selling snacks, gifts and everyday goods.',
   'Mandai Rainforest': 'Mandai is home to Singapore Zoo and the Night Safari, which is said to be the world’s first wildlife park made for visiting at night.',
   'Tuas Docklands': 'Tuas is at Singapore’s western tip, where the country’s newest container port is being built.',
   'Temasek Ruins': 'Temasek is an old name for Singapore, found in records from the 1300s, before the name Singapura came into use.',
