@@ -184,7 +184,13 @@
   outline-color: var(--hud-gold);
 }
 
-#game-root #chatbox.collapsed #chat-collapse { position: static; }
+#game-root #chatbox.collapsed #chat-collapse {
+  /* Keep the collapsed button's hit area anchored to the entire header. */
+  position: static;
+  transform: none;
+  translate: none;
+  scale: none;
+}
 #game-root #chatbox.collapsed #chat-collapse::before { content: ""; position: absolute; inset: 0; }
 
 #game-root #chatbox #chat-peek { display: none; }
