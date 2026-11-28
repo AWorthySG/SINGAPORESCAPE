@@ -371,13 +371,15 @@ test('townsfolk idle parts stay in lock-step with assets/creatures/townsfolk/idl
   const { fileURLToPath } = await import('node:url');
   const onDisk = new Set(readdirSync(fileURLToPath(new URL('../assets/creatures/townsfolk/idle/', import.meta.url))).filter((f) => f.endsWith('.webp')).map((f) => f.slice(0, -5)));
   const declared = new Set(townIdleIds().flatMap((id) => townIdleParts(id).map((p) => `${id}_${p}`)));
+  const smiley = new Set(['guide', 'pest_officer', 'hawker', 'shopkeeper', 'banker', 'skills_tutor']);
   assert.ok(townIdleIds().length > 0);
   assert.deepEqual([...declared].filter((f) => !onDisk.has(f)), [], 'declared idle part has no file');
   assert.deepEqual([...onDisk].filter((f) => !declared.has(f)), [], 'idle part file not declared');
   for (const id of townIdleIds()) {
     assert.ok(getNpc(id) && !getNpc(id).attackable, `${id} is a real townsfolk NPC`);
     assert.ok(townArt().has(id), `${id} also has its still picture (idle parts are sized against it)`);
-    for (const p of ['body', 'body_blink']) assert.ok(townIdleParts(id).includes(p), `${id} has ${p}`);
+    assert.ok(townIdleParts(id).includes('body'), `${id} has a body`);
+    assert.equal(townIdleParts(id).includes('body_blink'), !smiley.has(id), `${id} uses the expected eye poses`);
   }
 });
 
