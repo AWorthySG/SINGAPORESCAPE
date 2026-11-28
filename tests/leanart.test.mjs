@@ -13,7 +13,7 @@ const asked = [];
 globalThis.Image = class { constructor() { this.complete = false; this.naturalWidth = 0; asked.push(this); } };
 const { Game } = await import('../src/game/game.js');
 const { DepthView } = await import('../src/render/depthview.js');
-const { worldArtMax } = await import('../src/render/sprites.js');
+const { worldArtBox, worldArtMax } = await import('../src/render/sprites.js');
 const { TILE } = await import('../src/config.js');
 
 const ctx = new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => {}), set: (t, k, v) => { t[k] = v; return true; } });
@@ -69,4 +69,30 @@ test('night and a missing picture ask for nothing', () => {
   dv.castShadows(ctx, [], g.world.landmarks, 0, 0, 200, 400, 0.05, 0, 2);   // the sun is down: no shadows
   assert.equal(asked.length, n);
   assert.equal(worldArtMax({ def: { type: 'scenery' }, objId: 'no_such_thing_here' }), null);
+});
+
+test('a landmark’s cast is anchored at its frontage and fades in diffuse light', () => {
+  const o = { objId: 'chinese_temple', x: 10, y: 20, def: { type: 'scenery', footprint: [3, 3] } };
+  worldArtBox(o);
+  const image = asked.find((i) => i.src === 'assets/world/obj-chinese_temple.webp');
+  Object.assign(image, { complete: true, naturalWidth: 100, naturalHeight: 100 });
+  const dv = new DepthView();
+  dv.ok = true;
+  dv._silhouette = () => ({ cv: { width: 116, height: 116 }, pad: 8 });
+  const drawn = [];
+  const g = {
+    globalAlpha: 0.8,
+    save() { this.savedAlpha = this.globalAlpha; },
+    restore() { this.globalAlpha = this.savedAlpha; },
+    setTransform(...matrix) { this.matrix = matrix; },
+    drawImage() { drawn.push({ alpha: this.globalAlpha, matrix: this.matrix }); },
+  };
+  const scale = 1.6, ox = 9 * TILE, oy = 18 * TILE;
+  dv.castShadows(g, [], [o], ox, oy, 240, 240, 0.33, 0, scale, 1);
+  dv.castShadows(g, [], [o], ox, oy, 240, 240, 0.67, 0, scale, 0.45);
+  assert.equal(drawn.length, 2);
+  assert.deepEqual(drawn[0].matrix.slice(4), [2.5 * TILE * scale, (3 * TILE - 3) * scale]);
+  assert.ok(drawn[0].matrix[2] > 0 && drawn[1].matrix[2] < 0, 'the cast turns with the sun');
+  assert.ok(drawn[1].alpha < drawn[0].alpha / 2, 'cloud softens the cast');
+  assert.equal(g.globalAlpha, 0.8, 'other layers keep the original canvas state');
 });

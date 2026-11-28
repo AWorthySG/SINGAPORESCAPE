@@ -20,6 +20,8 @@ import { projectFlat } from './projection.js';
 // brightest thing about, ink stays ink) and lets the lamps paint warm light
 // into the map instead of only thinning the dark.
 
+const SHOP_LIGHT = { r: 56, rgb: [255, 214, 140], y: 12, win: true };
+
 // What gives off light, by object id: radius (world px), colour, how high above
 // the tile centre the light sits, how much it flickers (fires) or pulses
 // (magic), and `win` for buildings whose glow is their lit windows.
@@ -39,6 +41,12 @@ export const LIGHTS = {
   stall_gem: { r: 62, rgb: [200, 180, 255], y: -14, win: true },
   bank_booth: { r: 66, rgb: [255, 222, 160], y: -16, win: true },
   mrt_station: { r: 96, rgb: [214, 234, 255], y: -18, win: true },
+  shophouse_row_mint: SHOP_LIGHT, shophouse_row_peach: SHOP_LIGHT,
+  shophouse_row_butter: SHOP_LIGHT, shophouse_row_lilac: SHOP_LIGHT,
+  hawker_centre: { r: 72, rgb: [255, 200, 120], y: 8, win: true },
+  wet_market: { r: 68, rgb: [255, 222, 160], y: 8, win: true },
+  chinese_temple: { r: 62, rgb: [255, 206, 140], y: 12, win: true },
+  hdb_block: { r: 64, rgb: [255, 222, 160], y: 10, win: true },
   temple_vault: { r: 58, rgb: [255, 206, 120], y: -14, win: true },
   observatory_chest: { r: 58, rgb: [190, 210, 255], y: -10, win: true },
   // Shop signs and the homes' windows: a small warm lantern glow.
@@ -187,7 +195,8 @@ export class LightPass {
     for (const o of this._scan(game.world, t)) {
       const L = lightFor(o);
       if (!L) continue;
-      const x = o.x * TILE + TILE / 2 - ox, y = o.y * TILE + TILE / 2 + L.y - oy;
+      const width = o.def?.footprint?.[0] || 1;
+      const x = (o.x + width / 2) * TILE - ox, y = o.y * TILE + TILE / 2 + L.y - oy;
       if (!inView(x, y, L.r)) continue;
       let k = 1;
       if (L.flicker) k -= L.flicker * (0.5 + 0.5 * Math.sin(t * 0.017 + o.x * 2.3) * Math.sin(t * 0.0071 + o.y));

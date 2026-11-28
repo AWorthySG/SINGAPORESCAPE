@@ -18,9 +18,9 @@ import { bakeBudget } from './governor.js';
 //  - The far edge fades into a light haze in the sky's colour, with a few
 //    soft wisps drifting slower than the ground (a parallax layer).
 //
-// Low graphics, headless runs and the setting turned off keep the flat view
-// (tilt 0), which is exactly the old renderer. Reduce motion keeps the tilt
-// still: no lean-in during fights, no easing, no drifting wisps.
+// Low graphics, headless runs and the setting turned off keep the flat view.
+// Cast shadows also work on the flat ground at full graphics. Reduce motion
+// keeps the tilt still: no lean-in during fights, no easing, no drifting wisps.
 
 const EASE_MS = 260;       // the tilt eases in and out over about this long
 const LEAN_K = 2.5;        // a fight's camera push-in (zoomMul 1.06) leans the tilt a touch further
@@ -86,6 +86,7 @@ export function shadowVec(phase, out = {}) {
   const low = 1 - clamp01(elev);
   const len = 0.28 + 0.9 * low * low;       // short with the sun high, long near the horizon
   out.on = day > 0.02;
+  out.day = day;
   out.kx = -Math.cos(a) * len;              // away from the sun as it crosses from east to west
   out.ky = -0.5 * len;                      // ...and up the screen, away from the southern sun
   out.len = len;
@@ -187,7 +188,7 @@ export class DepthView {
   }
 
   /** A navy outline of a picture, soft-edged, baked once per picture. */
-  _silhouette(img, maxH = SIL_MAX) {
+  _silhouette(img, maxH = SIL_MAX, scenery = false) {
     let s = this._sil.get(img);
     if (s !== undefined) return s;
     // A few a frame (governor.js BakeBudget): entering an area asked for every
@@ -198,7 +199,7 @@ export class DepthView {
     s = null;
     try {
       const r = Math.min(1, maxH / img.naturalHeight), w = Math.max(2, Math.round(img.naturalWidth * r)), h = Math.max(2, Math.round(img.naturalHeight * r));
-      const pad = SIL_PAD;
+      const pad = scenery ? 8 : SIL_PAD;
       const a = document.createElement('canvas'); a.width = w; a.height = h;
       const ga = a.getContext('2d');
       ga.drawImage(img, 0, 0, w, h);
@@ -206,9 +207,20 @@ export class DepthView {
       ga.fillStyle = `rgb(${SHADOW_RGB})`; ga.fillRect(0, 0, w, h);
       const b = document.createElement('canvas'); b.width = w + pad * 2; b.height = h + pad * 2;
       const gb = b.getContext('2d');
-      if ('filter' in gb) gb.filter = 'blur(1.6px)';
+      if ('filter' in gb) gb.filter = scenery ? 'blur(2.8px)' : 'blur(1.6px)';
       gb.drawImage(a, pad, pad);
-      s = { cv: b };
+      if (scenery) {
+        // Wider, fainter edges away from the foot, where a tall shadow softens.
+        if ('filter' in gb) gb.filter = 'none';
+        gb.globalCompositeOperation = 'destination-in';
+        const fade = gb.createLinearGradient(0, pad, 0, h + pad);
+        fade.addColorStop(0, 'rgba(255,255,255,0.34)');
+        fade.addColorStop(0.64, 'rgba(255,255,255,0.78)');
+        fade.addColorStop(1, '#fff');
+        gb.fillStyle = fade;
+        gb.fillRect(0, 0, b.width, b.height);
+      }
+      s = { cv: b, pad };
     } catch { s = null; }
     this.budget.spend(this.budget.clock() - t0);
     this._sil.set(img, s);
@@ -236,8 +248,9 @@ export class DepthView {
 
   _drawSilhouette(g, sil, w, h) {
     // The baked outline carries a blur margin. Map the inner box to the picture's size.
-    const pw = sil.cv.width, ph = sil.cv.height, ix = w / (pw - 2 * SIL_PAD), iy = h / (ph - 2 * SIL_PAD);
-    g.drawImage(sil.cv, -w / 2 - SIL_PAD * ix, -h - SIL_PAD * iy, pw * ix, ph * iy);
+    const { cv, pad } = sil, pw = cv.width, ph = cv.height;
+    const ix = w / (pw - 2 * pad), iy = h / (ph - 2 * pad);
+    g.drawImage(cv, -w / 2 - pad * ix, -h - pad * iy, pw * ix, ph * iy);
   }
 
   /**
@@ -247,12 +260,13 @@ export class DepthView {
    * line and sheared with it. Short and tucked behind at noon, long and
    * slanting at morning and evening, none at night.
    */
-  castShadows(g, objs, landmarks, ox, oy, vw, vh, phase, time, D) {
+  castShadows(g, objs, landmarks, ox, oy, vw, vh, phase, time, D, sky = 1) {
     this.shadows = 0;
     const sv = shadowVec(phase, this._sv);
     if (!sv.on || !this.ok) return;
     const box = this._box;
-    g.globalAlpha = sv.alpha;
+    g.save();
+    g.globalAlpha *= sv.alpha * sky;
     // (bx, by): the middle of the picture's base, less `sink` px (its foot).
     const one = (o, bx, by, sink) => {
       // Every landmark on the island comes through here: one whose shadow
@@ -266,9 +280,9 @@ export class DepthView {
       const b = worldArtBox(o, time, box);
       if (!b || b.h < SHADOW_MIN_H) return;
       by += b.foot - sink;
-      const reach = b.h * sv.len + b.w;
-      if (bx < -reach || bx > vw + reach || by < -reach || by > vh + b.h + reach) return;
-      const sil = this._silhouette(b.img);
+      const dx = b.h * sv.kx, dy = b.h * sv.ky, half = b.w / 2 + 12;
+      if (bx + half + Math.max(0, dx) < 0 || bx - half + Math.min(0, dx) > vw || by + 12 < 0 || by + dy - 12 > vh) return;
+      const sil = this._silhouette(b.img, SIL_MAX, true);
       if (!sil) return;
       // Picture space: x across from the base's middle, y up (negative) from the base.
       // On the ground: x' = x - kx y, y' = -ky y (ky < 0 lays it up the screen).
@@ -286,8 +300,7 @@ export class DepthView {
       const fw = o.def.footprint[0];
       one(o, o.x * TILE + fw * TILE / 2 - ox, o.y * TILE + TILE / 2 - oy, 3);
     }
-    g.setTransform(D, 0, 0, D, 0, 0);
-    g.globalAlpha = 1;
+    g.restore();
   }
 
   /**

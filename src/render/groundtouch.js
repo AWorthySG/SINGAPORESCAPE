@@ -1,8 +1,6 @@
 // Small touches baked into the terrain chunks where surfaces meet, and a few
 // of each region's own (see terrainfx.js, which bakes them into each chunk
-// just after the soft edges and kerbs, before the scattered ground details;
-// the soft dark seam where grass meets a road, sand or water is drawn with
-// the soft edges there, as it follows their wavy line):
+// just after the soft edges and kerbs, before the scattered ground details):
 //
 //  - the ground darkened along the foot of buildings and walls;
 //  - worn earth in front of doors, stalls, counters and workbenches;
@@ -44,7 +42,7 @@ const near = (world, x, y, r, t) => {
 
 /**
  * Everything to bake for tiles [tx0, tx1) x [ty0, ty1), in world pixels:
- *  bases  [{ x0, x1, y, k }] the ground darkened below the line y from x0 to x1
+ *  bases  [{ x0, x1, y, k, depth }] the ground darkened along each footing
  *  worn   [{ px, py, rx, ry, t }] worn earth, on ground type t
  *  bits   [{ id, px, py, flip, s }] small touches (TOUCH_DETAILS), by their foot
  * Bands from objects just over the chunk's edges are included, so a band that
@@ -68,7 +66,7 @@ export function touchPlan(world, tx0, ty0, tx1, ty1, opts = {}) {
     if (fp) {
       // The foot of a landmark: its picture is a little wider than its footprint (sprites.js).
       const w = fp[0] * TILE, cx = o.x * TILE + w / 2;
-      bases.push({ x0: cx - w * 0.52, x1: cx + w * 0.52, y: (o.y + 1) * TILE, k: 1 });
+      bases.push({ x0: cx - w * 0.52, x1: cx + w * 0.52, y: (o.y + 1) * TILE, k: 1, depth: 17 });
       if (o.objId === 'hawker_centre') {
         // In front of the middle of its front (either middle tile of an even width).
         const g = ground(o.x + Math.floor(fp[0] / 2), o.y + 1) ?? ground(o.x + Math.floor((fp[0] - 1) / 2), o.y + 1);
@@ -91,7 +89,7 @@ export function touchPlan(world, tx0, ty0, tx1, ty1, opts = {}) {
   for (let i = 0; i < walls.length;) {
     let j = i;
     while (j + 1 < walls.length && walls[j + 1].y === walls[i].y && walls[j + 1].x === walls[j].x + 1) j++;
-    bases.push({ x0: walls[i].x * TILE - 3, x1: (walls[j].x + 1) * TILE + 3, y: (walls[i].y + 1) * TILE - 1, k: 0.8 });
+    bases.push({ x0: walls[i].x * TILE - 3, x1: (walls[j].x + 1) * TILE + 3, y: (walls[i].y + 1) * TILE - 1, k: 0.8, depth: 11 });
     i = j + 1;
   }
   // Small touches, tile by tile.
@@ -261,9 +259,11 @@ export class GroundTouch {
     // The foot of buildings and walls: a band of shade just in front, fading out downwards and at its ends.
     if (plan.bases.length && g.createLinearGradient) {
       for (const b of plan.bases) {
-        const x0 = b.x0 - ox, x1 = b.x1 - ox, y = b.y - oy, d = 11;
+        const x0 = b.x0 - ox, x1 = b.x1 - ox, y = b.y - oy, d = b.depth;
         const lg = g.createLinearGradient(0, y - 3, 0, y + d);
-        lg.addColorStop(0, `rgba(34,48,74,${0.16 * b.k})`); lg.addColorStop(0.35, `rgba(34,48,74,${0.1 * b.k})`); lg.addColorStop(1, 'rgba(34,48,74,0)');
+        lg.addColorStop(0, `rgba(34,48,74,${0.34 * b.k})`);
+        lg.addColorStop(0.36, `rgba(34,48,74,${0.15 * b.k})`);
+        lg.addColorStop(1, 'rgba(34,48,74,0)');
         g.fillStyle = lg;
         g.beginPath(); g.ellipse((x0 + x1) / 2, y - 3, (x1 - x0) / 2, d + 3, 0, 0, Math.PI); g.fill();
       }
