@@ -289,8 +289,7 @@ export function marinaPromenadePlan(world, tx0, ty0, tx1, ty1) {
   return tiles.length ? { points, tiles, paved } : null;
 }
 
-function paintMarinaPromenade(g, promenade, ox, oy) {
-  const { points, tiles } = promenade;
+function paintMarinaPromenade(g, points, tiles, ox, oy) {
   const trace = (scale) => {
     g.beginPath();
     const [firstX, firstY] = points[0];
@@ -307,9 +306,15 @@ function paintMarinaPromenade(g, promenade, ox, oy) {
   for (const { x, y } of tiles) g.rect(x * TILE - ox, y * TILE - oy, TILE, TILE);
   g.clip();
   // A few narrow, translucent shoulders let the stone bed into the bank.
+  const left = points[0][0], right = points.at(-1)[0];
   for (const [scale, colour, alpha] of [[1.09, '#a7987b', 0.34], [1, '#cdbd9f', 0.74], [0.90, '#e2d7bd', 0.92], [0.76, '#eae0cb', 0.58]]) {
     trace(scale);
-    g.fillStyle = colour;
+    const fade = g.createLinearGradient(left * TILE - ox, 0, right * TILE - ox, 0);
+    fade.addColorStop(0, colour + '00');
+    fade.addColorStop(0.11, colour);
+    fade.addColorStop(0.9, colour);
+    fade.addColorStop(1, colour + '00');
+    g.fillStyle = fade;
     g.globalAlpha = alpha;
     g.fill();
   }
@@ -317,10 +322,11 @@ function paintMarinaPromenade(g, promenade, ox, oy) {
   g.clip();
   for (const { x, y } of tiles) {
     const sx = x * TILE - ox, sy = y * TILE - oy;
+    const strength = Math.min(1, (x + 0.5 - left) / 3, (right - x + 0.5) / 3);
     g.fillStyle = '#937f69';
-    g.globalAlpha = 0.045 + tileHash(x, y, 1194) * 0.07;
+    g.globalAlpha = (0.045 + tileHash(x, y, 1194) * 0.07) * strength;
     g.fillRect(sx, sy, TILE, TILE);
-    paintSlabs(g, y, sx, sy, PROMENADE_JOINTS);
+    paintSlabs(g, y, sx, sy, { ...PROMENADE_JOINTS, strength: 0.85 * strength });
   }
   g.restore();
 }
@@ -1141,7 +1147,6 @@ export class TerrainFx {
       yield;
     }
     const promenade = marinaPromenadePlan(world, tx0, ty0, tx1, ty1);
-    if (promenade) paintMarinaPromenade(g, promenade, ox, oy);
     // 1. Soft edges. A row of tiles at a time: the masks of every tile in the
     //    row that takes a given neighbouring ground are gathered into one strip,
     //    that ground is filled across the strip and cut to the masks, and the
@@ -1154,9 +1159,13 @@ export class TerrainFx {
         const sy = y * TILE - oy;
         const row = [];
         for (let x = tx0; x < tx1; x++) for (const p of blendPlan(world, x, y)) row.push([x, p]);
-        if (!row.length) continue;
+        const paving = promenade?.tiles.filter((p) => p.y === y);
+        if (!row.length && !paving?.length) continue;
         const layers = [...new Set(row.map(([, p]) => p.t))].sort((a, b) => BLEND_RANK[a] - BLEND_RANK[b]);
         for (const t of layers) {
+          // The pavement sits over the land, with the feathered waterline
+          // still above its edge. Keep the normal blends outside the paving.
+          if (t === TERRAIN.WATER && paving?.length) paintMarinaPromenade(g, promenade.points, paving, ox, oy);
           // Only the stretch of the row between the first and last tile that takes this ground.
           let a = W, b = 0;
           for (const [x, p] of row) if (p.t === t) { a = Math.min(a, x * TILE - ox); b = Math.max(b, x * TILE - ox + TILE); }
@@ -1210,9 +1219,10 @@ export class TerrainFx {
           }
           g.drawImage(strip.c, a, 0, sw, TILE, a, sy, sw, TILE);
         }
+        if (layers.at(-1) !== TERRAIN.WATER && paving?.length) paintMarinaPromenade(g, promenade.points, paving, ox, oy);
         yield;
       }
-    }
+    } else if (promenade) paintMarinaPromenade(g, promenade.points, promenade.tiles, ox, oy);
     // 1b. Kerbs round the town paving, over the soft edges.
     this._kerbs(g, world, tx0, ty0, tx1, ty1, fill);
     paintHeritageTiles(g, world, tx0, ty0, tx1, ty1);
