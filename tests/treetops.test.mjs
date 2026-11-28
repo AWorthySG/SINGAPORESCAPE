@@ -3,7 +3,7 @@
 // trees stood in the world with a straight edge across its crown. Their tops
 // were closed off with an ink-lined cap of their own foliage. These tests keep
 // it that way: each tree picture leaves clear rows above its canopy, and the
-// renderer draws each picture whole (no source crop, no clip), swaying or not.
+// renderer draws every row of the picture, swaying or not.
 import './seed.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -38,13 +38,17 @@ function recordingCtx() {
   const c = { m: [1, 0, 0, 1, 0, 0], stack: [], draws: [], clips: 0, globalAlpha: 1, filter: 'none' };
   const mul = (a, b, cc, d, e, f) => { const [A, B, C, D, E, F] = c.m; c.m = [A * a + C * b, B * a + D * b, A * cc + C * d, B * cc + D * d, A * e + C * f + E, B * e + D * f + F]; };
   Object.assign(c, {
-    save() { c.stack.push([...c.m]); }, restore() { c.m = c.stack.pop() || c.m; },
+    save() { c.stack.push({ m: [...c.m], a: c.globalAlpha }); },
+    restore() { const s = c.stack.pop(); if (s) { c.m = s.m; c.globalAlpha = s.a; } },
     transform: mul, translate(x, y) { mul(1, 0, 0, 1, x, y); }, scale(x, y) { mul(x, 0, 0, y, 0, 0); },
     clip() { c.clips++; },
     drawImage(img, ...a) {
       const [x, y, w, h] = a.length === 4 ? a : a.slice(-4);
       const ys = [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].map(([px, py]) => c.m[1] * px + c.m[3] * py + c.m[5]);
-      c.draws.push({ args: a.length, top: Math.min(...ys), bottom: Math.max(...ys), h });
+      const left = (py) => c.m[0] * x + c.m[2] * py + c.m[4];
+      c.draws.push({ args: a.length, top: Math.min(...ys), bottom: Math.max(...ys), h,
+        startX: left(y), endX: left(y + h), alpha: c.globalAlpha,
+        sourceY: a.length === 8 ? a[1] : 0, sourceH: a.length === 8 ? a[3] : img.naturalHeight });
     },
   });
   for (const k of ['beginPath', 'closePath', 'moveTo', 'lineTo', 'ellipse', 'arc', 'fill', 'stroke', 'fillRect', 'rect']) c[k] = () => {};
@@ -55,15 +59,30 @@ test('a tree is drawn whole, its full height above its feet, at any moment of it
   const trees = Object.entries(OBJECTS).filter(([id, d]) => d.type === 'tree' && worldArt().has(`tree-${d.borrow || id}`));
   assert.ok(trees.length >= 18, `${trees.length} trees`);
   for (const [id, def] of trees) {
-    for (const time of [0, 700, 1300, 2600]) {   // across the lean, both ways
+    for (const bend of [0, -0.038, 0.024]) {
       const ctx = recordingCtx();
-      drawObjectSprite(ctx, { objId: id, def, x: 7, y: 9, depleted: false }, 100, 100, time);
+      drawObjectSprite(ctx, { objId: id, def, x: 7, y: 9, depleted: false }, 100, 100, 700, false, false, 1, null, bend);
       assert.equal(ctx.clips, 0, `${id}: nothing clips the canopy`);
-      const pic = ctx.draws.at(-1);
-      assert.ok(pic, `${id}: its picture is drawn`);
-      assert.equal(pic.args, 4, `${id}: the whole picture, no source crop`);
-      // The sway only shears sideways about the trunk base: the top stays put.
-      assert.ok(Math.abs(pic.bottom - pic.top - pic.h) < 1e-6, `${id}: drawn its full height`);
+      assert.equal(ctx.draws.length, bend ? 3 : 1);
+      let last = null, rows = 0;
+      for (const pic of ctx.draws) {
+        assert.equal(pic.sourceY, rows, `${id}: no source rows are lost`);
+        rows += pic.sourceH;
+        if (last) {
+          assert.ok(Math.abs(last.bottom - pic.top) < 1e-6);
+          assert.ok(Math.abs(last.endX - pic.startX) < 1e-6, `${id}: the bent bands join`);
+        }
+        last = pic;
+      }
+      assert.equal(rows, 200);
+      assert.ok(Math.abs(last.endX - (100 - Math.min(66, 74 * 170 / 200) / 2)) < 1e-6, `${id}: the root stays put`);
     }
   }
+});
+
+test('a bent canopy can fade while the root stays opaque', () => {
+  const ctx = recordingCtx();
+  drawObjectSprite(ctx, { objId: 'oak', def: OBJECTS.oak, x: 1, y: 1 }, 100, 100, 500, false, false, 0.4, null, -0.025);
+  assert.deepEqual(ctx.draws.map((d) => d.alpha), [0.4, 0.4, 1]);
+  assert.equal(ctx.globalAlpha, 1);
 });

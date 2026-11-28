@@ -2,6 +2,7 @@
 // replacing the old emoji rendering. Everything is drawn relative to a centre
 // point (cx, cy) with the entity's "feet" near cy + 13.
 import { drawBuildingSun, drawLayeredObject, isDepthShop } from './streetdepth.js';
+import { drawFoliage, foliageArt, foliageKind } from './foliage.js';
 import { fireScale } from '../game/bonfire.js';   // bonfires are drawn bigger
 import { itemIconImage } from './icons.js';
 import { CROPS, farmProgress } from '../data/trades.js';
@@ -2933,8 +2934,10 @@ export function worldArtBox(obj, time = 0, out = {}) {
   const img = key && worldImage(key);
   if (!readyArt(img)) return null;
   const [mw, mh, foot] = WORLD_ART[key];
-  const s = Math.min(mw / img.naturalWidth, mh / img.naturalHeight);
+  const look = obj.def.type === 'scenery' && BED_LOOKS[obj.objId] ? bedLook(obj) : null;
+  const s = Math.min(mw / img.naturalWidth, mh / img.naturalHeight) * (look?.s ?? 1);
   out.img = img; out.w = img.naturalWidth * s; out.h = img.naturalHeight * s; out.foot = foot;
+  out.flip = !!look?.flip;
   return out;
 }
 /** The box a world object's picture is fitted to ([w, h, foot], world px),
@@ -2974,14 +2977,15 @@ export function tintedArt(img, tint) {
   _tinted.set(key, c);
   return c;
 }
-function drawWorldArt(ctx, obj, img, key, cx, cy, time, upperAlpha, light) {
+function drawWorldArt(ctx, obj, img, key, cx, cy, time, upperAlpha, light, bend) {
   const [mw, mh, foot] = WORLD_ART[key];
   const t = obj.def.type;
   const look = t === 'scenery' && BED_LOOKS[obj.objId] ? bedLook(obj) : null;   // a flowerbed's own look
   const s = Math.min(mw / img.naturalWidth, mh / img.naturalHeight) * (look ? look.s : 1);
   const w = img.naturalWidth * s, h = img.naturalHeight * s;
   const shopDepth = isDepthShop(obj);
-  if (!obj.def.footprint && t !== 'fishing' && t !== 'dive' && foot > 0) {   // landmark footings are baked into the ground
+  const plant = foliageKind(obj);
+  if (!obj.def.footprint && !plant && t !== 'fishing' && t !== 'dive' && foot > 0) {   // plants and landmarks have soft shadows in the ground layer
     ctx.fillStyle = 'rgba(34,48,74,0.16)';
     ellipse(ctx, cx, cy + foot - 1, Math.min(w * 0.42, 22), Math.min(h * 0.12, 5)); ctx.fill();
   }
@@ -2991,20 +2995,15 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time, upperAlpha, light) {
   if (obj.def.backdrop && 'filter' in ctx) img = tintedArt(img, 'saturate(.72) contrast(.88)') || img;
   else if (obj.def.tint && !EVENT_KEYS.has(key) && 'filter' in ctx) img = tintedArt(img, obj.def.tint) || img;   // a borrowed picture, recoloured
   if (look && look.tint && 'filter' in ctx) img = tintedArt(img, look.tint) || img;
-  if (t === 'tree' && !obj.depleted) {
-    // The canopy leans gently about the base of the trunk.
-    const sway = Math.sin(time * 0.0012 + obj.x * 1.7 + obj.y) * 1.4;
+  if (plant) {
+    img = foliageArt(img);
     ctx.translate(cx, cy + foot);
-    ctx.transform(1, 0, -sway / 38, 1, 0, 0);
-    if (upperAlpha < 1) drawLayeredObject(ctx, img, -w / 2, -h, w, h, upperAlpha, .23);
-    else ctx.drawImage(img, -w / 2, -h, w, h);
+    if (look?.flip) ctx.scale(-1, 1);
+    drawFoliage(ctx, img, -w / 2, -h, w, h, look?.flip ? -bend : bend, upperAlpha);
   } else if (t === 'fishing') {
     // Fishing spots bob on the swell.
     const bob = Math.sin(time * 0.003 + obj.x + obj.y * 0.7) * 1.2;
     ctx.drawImage(img, cx - w / 2, cy + foot - h + bob, w, h);
-  } else if (look && look.flip) {
-    ctx.translate(cx, 0); ctx.scale(-1, 1);
-    ctx.drawImage(img, -w / 2, cy + foot - h, w, h);
   } else {
     const x = cx - w / 2, y = cy + foot - h, alpha = shopDepth ? upperAlpha : 1;
     if (alpha < 1) drawLayeredObject(ctx, img, x, y, w, h, alpha, 0.34);
@@ -3018,12 +3017,12 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time, upperAlpha, light) {
 
 // `low` (low graphics) and `still` (a school swirling there) only change how a
 // fishing spot's fish shows (drawCatchBadge).
-export function drawObjectSprite(ctx, obj, cx, cy, time = 0, low = false, still = false, upperAlpha = 1, light = null) {
+export function drawObjectSprite(ctx, obj, cx, cy, time = 0, low = false, still = false, upperAlpha = 1, light = null, bend = 0) {
   const t = obj.def.type;
   const key = readyWorldArtKey(obj, worldArtKey(obj, time));
   const art = key && worldImage(key);
   if (readyArt(art)) {
-    drawWorldArt(ctx, obj, art, key, cx, cy, time, upperAlpha, light);
+    drawWorldArt(ctx, obj, art, key, cx, cy, time, upperAlpha, light, bend);
     if (t === 'fishing') drawCatchBadge(ctx, obj, cx, cy, time, low, still);
     if (t === 'dive' && !low) drawDiveRipples(ctx, obj, cx, cy, time);
     return;
@@ -3033,11 +3032,10 @@ export function drawObjectSprite(ctx, obj, cx, cy, time = 0, low = false, still 
     const key = `obj|${t}|${obj.objId}|${obj.def.ore || ''}|${obj.depleted ? 1 : 0}`;
     const img = cachedBitmap(key, OBJ_BOX, (g) => drawObjectRaw(g, obj, 0, 0, 0));
     if (img) {
-      if (t === 'tree' && !obj.depleted) {
-        const sway = Math.sin(time * 0.0012 + obj.x * 1.7 + obj.y) * 1.4;
+      if (t === 'tree' && !obj.depleted && bend) {
         ctx.save();
         ctx.translate(cx, cy + 12);
-        ctx.transform(1, 0, -sway / 38, 1, 0, 0);
+        ctx.transform(1, 0, bend, 1, 0, 0);
         ctx.drawImage(img, OBJ_BOX.x0, OBJ_BOX.y0 - 12, OBJ_BOX.w, OBJ_BOX.h);
         ctx.restore();
       } else ctx.drawImage(img, cx + OBJ_BOX.x0, cy + OBJ_BOX.y0, OBJ_BOX.w, OBJ_BOX.h);

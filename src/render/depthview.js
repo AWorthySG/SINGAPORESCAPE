@@ -3,6 +3,7 @@ import { DEPTH_TILT, relV, rowScaleRel } from './projection.js';
 import { creatureArtScale, creatureCastImage, creatureFloats, worldArtBox, worldArtMax, SHADOW_RGB } from './sprites.js';
 import { clamp01, smooth } from './motionkit.js';
 import { bakeBudget } from './governor.js';
+import { foliageKind, foliageOffset } from './foliage.js';
 
 // The depth view (Settings > Depth view, on by default): the flat world seen
 // by a camera leaning back a little, using the same 2D sticker art.
@@ -260,13 +261,13 @@ export class DepthView {
    * line and sheared with it. Short and tucked behind at noon, long and
    * slanting at morning and evening, none at night.
    */
-  castShadows(g, objs, landmarks, ox, oy, vw, vh, phase, time, D, sky = 1) {
+  castShadows(g, objs, landmarks, ox, oy, vw, vh, phase, time, D, sky = 1, lean = null) {
     this.shadows = 0;
     const sv = shadowVec(phase, this._sv);
     if (!sv.on || !this.ok) return;
     const box = this._box;
     g.save();
-    g.globalAlpha *= sv.alpha * sky;
+    const shade = g.globalAlpha * sv.alpha * sky;
     // (bx, by): the middle of the picture's base, less `sink` px (its foot).
     const one = (o, bx, by, sink) => {
       // Every landmark on the island comes through here: one whose shadow
@@ -278,15 +279,18 @@ export class DepthView {
       const far = m[1] * sv.len + m[0] + ART_AHEAD, fy = by + m[2] - sink;
       if (bx < -far || bx > vw + far || fy < -far || fy > vh + m[1] + far) return;
       const b = worldArtBox(o, time, box);
-      if (!b || b.h < SHADOW_MIN_H) return;
+      const plant = foliageKind(o);
+      if (!b || b.h < (plant ? 20 : SHADOW_MIN_H)) return;
       by += b.foot - sink;
-      const dx = b.h * sv.kx, dy = b.h * sv.ky, half = b.w / 2 + 12;
+      const kx = sv.kx + (plant && lean ? foliageOffset(lean(o), 1, 1) : 0);
+      const dx = b.h * kx, dy = b.h * sv.ky, half = b.w / 2 + 12;
       if (bx + half + Math.max(0, dx) < 0 || bx - half + Math.min(0, dx) > vw || by + 12 < 0 || by + dy - 12 > vh) return;
       const sil = this._silhouette(b.img, SIL_MAX, true);
       if (!sil) return;
       // Picture space: x across from the base's middle, y up (negative) from the base.
       // On the ground: x' = x - kx y, y' = -ky y (ky < 0 lays it up the screen).
-      g.setTransform(D, 0, -sv.kx * D, -sv.ky * D, bx * D, by * D);   // (D: the ground canvas's px per world px)
+      g.globalAlpha = shade * (b.h < SHADOW_MIN_H ? 0.76 : 1);
+      g.setTransform(b.flip ? -D : D, 0, -kx * D, -sv.ky * D, bx * D, by * D);   // (D: the ground canvas's px per world px)
       this._drawSilhouette(g, sil, b.w, b.h);
       this.shadows++;
     };

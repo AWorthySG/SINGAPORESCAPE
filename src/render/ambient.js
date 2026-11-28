@@ -28,6 +28,7 @@ import { TERRAIN } from '../data/world.js';
 import { tileHash } from './terrainfx.js';
 import { fxImage, fxLoop, drawFx } from './fxart.js';
 import { plantLean, localWind } from './wind.js';
+import { foliageKind } from './foliage.js';
 import { applyRow } from './projection.js';
 import { arc } from './motionkit.js';
 
@@ -102,17 +103,11 @@ export function windAt(t, rain = 0, storm = 0) {
 }
 
 /** What kind of plant an object is for the breeze, or null if it doesn't sway. */
-export function swayKind(o) {
-  const t = o.def && o.def.type;
-  if (t === 'tree') return o.depleted ? null : (o.objId === 'bamboo' ? 'bamboo' : 'tree');
-  if (t === 'scenery' && SWAY[o.objId]) return o.objId;
-  return null;
-}
+export { foliageKind as swayKind };
 
 /** An object's lean in the breeze at time t: pushed over as a gust front
  *  rolls through its tile (wind.js), fluttering on a beat of its own. */
-export function swayLean(o, t, wind) {
-  const k = swayKind(o);
+export function swayLean(o, t, wind, k = foliageKind(o)) {
   if (!k) return 0;
   return plantLean(SWAY[k], o.x * TILE + TILE / 2, o.y * TILE, t, wind, SWAY_FREQ[k], tileHash(o.x, o.y, 61) * 6.283);
 }
@@ -311,8 +306,9 @@ export class AmbientLife {
    *  low plants only within SWAY_NEAR tiles of you). */
   lean(o, t) {
     if (!this.on) return 0;
-    if (LOW_PLANTS.has(o.objId) && (Math.abs(o.x - this._px) > SWAY_NEAR || Math.abs(o.y - this._py) > SWAY_NEAR)) return 0;
-    return swayLean(o, t, this.wind);
+    const k = foliageKind(o);
+    if (LOW_PLANTS.has(k) && (Math.abs(o.x - this._px) > SWAY_NEAR || Math.abs(o.y - this._py) > SWAY_NEAR)) return 0;
+    return swayLean(o, t, this.wind, k);
   }
 
   // ---------------- Baked sprites ----------------
