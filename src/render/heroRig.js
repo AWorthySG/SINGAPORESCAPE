@@ -15,8 +15,8 @@ export const HERO_RIG_CLASSES = ['swordsman', 'rogue', 'samurai', 'corsair', 'pa
 // pivot inside the picture). All in game units, feet on the ground at y = 15.
 const PLACED = {
   // The Monk's knuckled fist leads while the open palm guards the far side.
-  monk: { body: [-19, -38, 38.1, 46], left: [-7.5, 2.7, 8, 12.3], right: [0.4, 2, 9, 13],
-    sword: [8.5, -13.5, 18.5, 13.7, 3, 4.3], back: [-5.8, -13.5, 19.4, 12.3, 16.05, 5.57], strike: [8.8, -14.25, 20.9, 9.4, 3.42, 3.87] },
+  monk: { body: [-19, -38, 38.1, 46], left: [-12.2, 1.1, 11, 13.9], right: [1.5, 0.65, 11.5, 14.35],
+    sword: [10.5, -9.3, 16, 12.8, 3.5, 4.4], back: [-6, -9.5, 16, 10.2, 13.4, 6.4], strike: [10.6, -9.9, 19.6, 9.2, 3.85, 3.2] },
 };
 // Heavier weapons commit later; spears extend forward and whips sweep wider.
 const ATTACKS = {
@@ -46,21 +46,21 @@ const GRIP = {
 // Where the weapon arm's shoulder is (the painted attack arms hang from it),
 // and the off hand's for the dual wielders' second set.
 const SHOULDER = {
-  rogue: [15, -8], brawler: [14, -9], monk: [8.5, -13.5],
+  rogue: [15, -8], brawler: [14, -9], monk: [10.5, -9.3],
   merchant: [13, -6.8], lancer: [13, -8.5], halberdier: [13, -9],
   swordsman: [8.5, -9], corsair: [12, -8.2],
 };
 // (The Monk's palm strikes from its own back shoulder, so the thrust carries across the body.)
-const OFF_SHOULDER = { corsair: [-11.6, -8], rogue: [-11, -9], monk: [-5.8, -13.5] };
+const OFF_SHOULDER = { corsair: [-9.6, -7.2], rogue: [-11, -9], monk: [-6, -9.5] };
 // The upright polearms and cane lean out of the mascot's eyeline in guard.
 const GUARD_TURN = { samurai: 0.25, lancer: 0.62, halberdier: 0.74, merchant: 0.49 };
 // The rest art hangs from its painted cuff, some way below its original
 // raised blade. Size, cuff x/y and angle use the same shoulder as the swing.
 const DUELLIST_BLADE = {
-  swordsman: [23, 42, 19.2, 37, 1.65, -0.31],
-  corsair: [24.4, 32, 21.4, 28.2, 1.76, -0.36],
+  swordsman: [23, 42, 19.2, 37, 2.34, 0.38],
+  corsair: [32, 14.5, 3.9, 7.1, 0.23, 0.04],
 };
-const CORSAIR_OFF_BLADE = [21.4, 28, 18.8, 24.7, -2.15, -3.17];
+const CORSAIR_OFF_BLADE = [25.5, 11.7, 3.1, 5.7, -0.39, -3.34];
 // Shoulder, size and cuff pivot of the Swordsman's painted arm and buckler.
 const BUCKLER = [-9.7, -8, 20, 18, 16, 4.3];
 const images = new Map();
@@ -283,7 +283,7 @@ export function drawHeroRig(ctx, opts = {}) {
     const [bw, bh, bpx, bpy, turn] = CORSAIR_OFF_BLADE;
     // Mirror the far cuff so both scimitars sit in hands on opposite sides
     // of the coat. The far blade angles away while the near one leads.
-    drawIf('sword', osh[0], osh[1] + pose.breathe, bw, bh, turn - pose.back * 0.55, bpx, bpy, (1 - shown2) * arms, true);
+    drawIf('strike', osh[0], osh[1] + pose.breathe, bw, bh, turn - pose.back * 0.55, bpx, bpy, (1 - shown2) * arms, true);
     drawIf('strike', osh[0] + (pose.reach2 || 0), osh[1] + pose.breathe, 34, 15, (pose.back + 1.5) * -0.18, 4.6, 5.1, shown2 * arms);
   } else if (pairedWeapon) {
     drawIf('sword', -9, -10 + pose.breathe, 21, 38, -pose.back * 0.8 - 0.55, 21 * 0.83, 38 * 0.88, (1 - shown2) * arms);
@@ -338,7 +338,7 @@ export function drawHeroRig(ctx, opts = {}) {
     draw('sword', a[0], a[1] + pose.breathe, a[2], a[3], pose.sword + chamber * 0.9, a[4], a[5], (1 - shown) * arms);
     draw('strike', k[0] + reach, k[1] + pose.breathe, k[2], k[3], (pose.sword - 0.8) * 0.3, k[4], k[5], shown * arms);
   } else {
-    draw('sword', x, y, w, h, sa, spx, spy, (1 - shown) * arms);
+    draw(corsair ? 'strike' : 'sword', x, y, w, h, sa, spx, spy, (1 - shown) * arms);
     draw('strike', x + reach, y, kw, kh, ka, 4, 5, shown * arms);
     if (hand) drawGripHand(ctx, classId, 'fist', 0, 0, hand[0], hand[1], arms);
   }

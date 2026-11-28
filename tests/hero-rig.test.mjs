@@ -151,7 +151,7 @@ test('the Monk: bare hands without gloves, the palm over a chambered fist, feet 
     drawn = [];
     assert.equal(drawHeroBack(ctx, { jobClass: 'monk', facing: { dx: 0, dy: -1 } }), true);
     const feet = drawn.filter((d) => /backfoot/.test(d.name)).map((d) => d.x);
-    assert.deepEqual(feet, [-7.9, 0.1]);
+    assert.deepEqual(feet, [-11.3, 1.7]);
   } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
 });
 
@@ -177,7 +177,7 @@ test('Swordsman guards with an outward sword and shows the buckler only when shi
     const back = heroRigSrc('back');
     const preview = render({});
     assert.ok(preview.indexOf(back) > preview.indexOf(heroRigSrc('body')), 'the buckler sits in front of the coat');
-    assert.ok(draws.find(({ src }) => src === heroRigSrc('sword')).angle > 1.5, 'the sword points out past the cheek');
+    assert.ok(draws.find(({ src }) => src === heroRigSrc('sword')).angle > 2.2, 'the sword points down past the cheek');
     assert.ok(render({ hasShield: true }).includes(back));
     const shieldless = render({ hasShield: false });
     assert.ok(!shieldless.includes(back) && shieldless.some((src) => src.endsWith('swordsman_hand.webp')));
@@ -196,7 +196,7 @@ test('Corsair rests its scimitars on separate shoulders and follows through with
       restore() { [this.globalAlpha, mirror, x] = stack.pop(); },
       translate(dx) { x += dx; }, rotate() {}, scale(sx) { mirror *= Math.sign(sx); },
       drawImage(img) {
-        if (this.globalAlpha > 0.01 && img.src === heroRigSrc('sword', 'corsair')) guards.push({ x, mirror });
+        if (this.globalAlpha > 0.01 && img.src === heroRigSrc('strike', 'corsair')) guards.push({ x, mirror });
       },
     };
     assert.equal(drawHeroRig(ctx, { jobClass: 'corsair', hasWeapon: true, dualWield: true }), true);
