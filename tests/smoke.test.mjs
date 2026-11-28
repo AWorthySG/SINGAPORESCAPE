@@ -14,7 +14,7 @@ import { gatherChance } from '../src/game/skilling.js';
 import { XP_RATE } from '../src/config.js';
 import { NPCS, MONSTER_IDS, ALL_MONSTER_IDS, BOSS_IDS, getNpc, monsterHpScale } from '../src/data/npcs.js';
 import { itemArtSrc, itemIconSVG, hasIcon, skillIconSVG } from '../src/render/icons.js';
-import { readdirSync, existsSync } from 'node:fs';
+import { readdirSync, existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ITEMS } from '../src/data/items.js';
 import { SKILLS } from '../src/data/skills.js';
@@ -281,6 +281,21 @@ test('each item has its own sticker artwork and the item files match the registr
   assert.deepEqual(files, expected);
   for (const id of Object.keys(ITEMS)) {
     assert.equal(itemArtSrc(id), `assets/icons/item-${id}.webp`, `${id} uses its own sticker`);
+    const art = readFileSync(new URL(`../${itemArtSrc(id)}`, import.meta.url));
+    assert.equal(art.toString('ascii', 8, 12), 'WEBP', id);
+    const format = art.toString('ascii', 12, 16);
+    // Lossless WebP packs width, height and alpha into one word. Extended WebP stores them separately.
+    if (format === 'VP8L') {
+      const header = art.readUInt32LE(21);
+      assert.equal(header & 0x3fff, 159, `${id} width`);
+      assert.equal((header >>> 14) & 0x3fff, 159, `${id} height`);
+      assert.ok(header & (1 << 28), `${id} has transparency`);
+    } else {
+      assert.equal(format, 'VP8X', id);
+      assert.ok(art[20] & 0x10, `${id} has transparency`);
+      assert.equal(art.readUIntLE(24, 3), 159, `${id} width`);
+      assert.equal(art.readUIntLE(27, 3), 159, `${id} height`);
+    }
   }
   // Painted items still retain a vector fallback.
   assert.ok(hasIcon('logs') && hasIcon('raw_barramundi'));
