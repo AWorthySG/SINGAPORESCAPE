@@ -98,6 +98,29 @@ test('each region keeps its character: green-hazed Bukit Timah, warm Sentosa, co
   assert.ok(!MIST_REGIONS.has('Kampong Glam'));
 });
 
+test('district ground lighting is tied to the terrain and turns off in trimmed graphics', () => {
+  const transit = 'Transit Road, Nee Soon Camp';
+  const run = (zone, objects, night, low = false) => {
+    const world = { width: 8, height: 8, zoneAt: () => ({ name: zone }), terrainAt: (x) => x < 4 ? TERRAIN.STONE : TERRAIN.GRASS };
+    const amb = new AmbientLife();
+    amb.update({ world, currentZoneName: zone }, 0, 0, 0, 0, 220, 160, night, null, low);
+    amb._sprite = (name) => name;
+    const stamps = [];
+    amb.drawDistrictGround({ save() {}, restore() {}, drawImage: (...args) => stamps.push(args) }, objects, 0, 0);
+    return stamps;
+  };
+  const lamps = [{ objId: 'lamp', x: 1, y: 1 }, { objId: 'lamp', x: 5, y: 1 }];
+  assert.deepEqual(run(transit, lamps, 0).map(([kind]) => kind), ['wet-cool']);
+  assert.deepEqual(run(transit, lamps, 1).map(([kind]) => kind), ['wet-cool', 'wet-amber']);
+  assert.deepEqual(run(transit, lamps, 1, true), []);
+  assert.deepEqual(run('MacRitchie Reservoir', lamps, 0), []);
+  const trees = Array.from({ length: 30 }, (_, i) => ({ objId: 'oak', def: { type: 'tree' }, x: i % 6, y: Math.floor(i / 6) }));
+  const forest = run('Mandai Rainforest', trees, 0);
+  assert.ok(forest.length > 0 && forest.length <= 24);
+  assert.deepEqual(forest.slice(0, 2).map(([kind]) => kind), ['canopy-shade', 'canopy-sun']);
+  assert.deepEqual(run('Mandai Rainforest', trees, 1), []);
+});
+
 test('the region grade blends across borders instead of snapping', () => {
   // Two regions side by side, split at x = 100.
   const zone = (x) => (x < 100 ? 'Kampong Glam' : 'Bukit Timah');

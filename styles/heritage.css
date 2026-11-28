@@ -429,21 +429,59 @@
   box-shadow: 0 0 0 1px #719588, 0 0 0 3px #f5ecd7, 0 3px 8px #536c5540;
 }
 .atlas-map > img { display: block; width: 100%; height: auto; border-radius: inherit; }
+.atlas-relief { position: absolute; inset: 0; pointer-events: none; }
 .atlas-north, .atlas-strait {
   position: absolute;
   color: #254c48;
   pointer-events: none;
   font-weight: 900;
 }
-.atlas-north { top: 5%; left: 6%; display: grid; justify-items: center; font-size: var(--fs-xs); }
+.atlas-north {
+  top: 5%; left: 5%; display: grid; justify-items: center; align-content: center;
+  width: clamp(27px, 6%, 44px); aspect-ratio: 1; border: 1px solid #e8ecd095; border-radius: 50%;
+  background: #e8ecd025; font-size: var(--fs-xs); line-height: 1;
+}
 .atlas-north::after {
   content: "";
-  width: 14px;
-  height: 20px;
-  background: #254c48;
+  width: 12px;
+  height: 16px;
+  margin-top: 2px;
+  background: linear-gradient(90deg, #254c48 50%, #53766b 50%);
   clip-path: polygon(50% 0, 100% 100%, 50% 72%, 0 100%);
 }
-.atlas-strait { bottom: 12%; right: 13%; font-size: var(--fs-sm); letter-spacing: .09em; opacity: .85; }
+.atlas-strait { bottom: 10%; right: 28%; font-size: var(--fs-sm); letter-spacing: .09em; opacity: .85; }
+.atlas-inset {
+  position: absolute;
+  right: 3%;
+  bottom: 4%;
+  width: min(22%, 150px);
+  margin: 0;
+  padding: 4px;
+  border: 1px solid #e3d6ab;
+  border-radius: 7px;
+  background: #f8eed5;
+  box-shadow: 0 1px 4px #234a5050;
+  color: #24413f;
+  text-align: center;
+  pointer-events: none;
+}
+.atlas-inset[hidden] { display: none; }
+.atlas-inset > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2;
+  object-fit: contain;
+  border-radius: 4px;
+  background: radial-gradient(ellipse at bottom, #d6dfbc, #ece7cd 80%);
+}
+.atlas-inset--scene > img { object-fit: cover; }
+.atlas-inset figcaption {
+  margin: 3px 0 1px;
+  font-size: max(10px, var(--fs-xs));
+  font-weight: 800;
+  line-height: 1.12;
+}
 
 #modal-body .atlas-pin {
   position: absolute;

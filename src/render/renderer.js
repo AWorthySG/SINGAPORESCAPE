@@ -1,5 +1,6 @@
 import { drawHomeAlbum, drawIslandScarf } from './islandlife.js';
 import { drawHeritageBank, drawHeritageServiceCue, drawMarketValance, heritageLocations, heritageService } from './heritagewalk.js';
+import { drawDistrictScenery, visibleDistrictScenery } from './districtscenery.js';
 import { buildingSun, isDepthShop } from './streetdepth.js';
 import { damageNumber as splatNum } from '../core/utils.js';   // hitsplats: 54000 -> "54K"
 import { TILE, TICK_MS } from '../config.js';
@@ -365,8 +366,15 @@ export class Renderer {
     const { bank, market } = heritageLocations(W);
     if (W.objectsIn) W.objectsIn(x0 - 1, y0 - 1, x1 + 1, y1 + 1, visObjs);
     else { visObjs.length = 0; for (const o of W.objects) if (!(o.x < x0 - 1 || o.x > x1 + 1 || o.y < y0 - 1 || o.y > y1 + 1)) visObjs.push(o); }
+    this.amb.drawDistrictGround(ctx, visObjs, ox, oy);
     // Tilted, trees and landmarks stand a touch taller than flat (see the drawables loop).
     const riseTree = pj ? 0.05 * pj.tilt : 0, riseMark = pj ? 0.08 * pj.tilt : 0;
+    const scenery = this._districtScenery || (this._districtScenery = []);
+    for (const prop of visibleDistrictScenery(W, x0 - 1, y0 - 1, x1 + 1, y1 + 1, scenery)) {
+      const p = game.player;
+      const near = Math.max(Math.abs(p.x - prop.x), Math.abs(p.y - prop.y)) <= 1;
+      drawables.push({ sortY: prop.y + .18, z: 1, draw: () => drawDistrictScenery(ctx, prop, ox, oy, near ? .48 : 1) });
+    }
     for (const o of visObjs) {
       if (o.def.footprint) continue;   // landmarks: below, by their own list
       // Harvest judder: a struck tree/rock wobbles briefly as the resource pops.

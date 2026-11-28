@@ -1,7 +1,8 @@
 import { TILE } from '../config.js';
-import { composeWashes, buildVignette } from './ambience.js';
+import { blendMood, composeWashes, buildVignette } from './ambience.js';
 import { timeGrade, moonDark } from './atmosphere.js';
 import { projectFlat } from './projection.js';
+import { motionOK } from './juice.js';
 
 // The light pass: after dark the scene is covered by a darkness layer with
 // soft pools of light cut out of it around lamps, fires, furnaces, glowing
@@ -74,6 +75,11 @@ export const LIGHTS = {
 // Districts whose lamps are neon by night, and the colours they take in turn.
 export const NEON_ZONES = new Set(['Marina Bay', 'Chinatown']);
 export const NEON = { lamp: [[255, 120, 200], [110, 220, 255]], sign: [[255, 140, 210], [120, 230, 255]] };
+const TRANSIT_ROAD = 'Transit Road, Nee Soon Camp';
+const TRANSIT_LIGHTS = {
+  lamp: { r: 111, rgb: [255, 166, 90], y: -24, flicker: 0.035 },
+  hawker_stall_noodle: { r: 76, rgb: [255, 200, 120], y: -18, win: true },
+};
 const PLAYER_LIGHT = { r: 78, rgb: [255, 210, 160], y: -10 };
 const SPELL_LIGHT_R = 46, BLAST_LIGHT_R = 110, BOSS_LIGHT_R = 130;
 // Arrows, bullets, coins and shurikens are dull metal; anything else in
@@ -90,6 +96,19 @@ const POOL_REACH = 1.15, POOL_K = 0.95;
 // How much deeper than the old wash the night's multiply goes (the darkness
 // level is shared with the lights' timing, nightDarkness).
 export const NIGHT_DEPTH = 1.15;
+
+const DEFAULT_DUSK = [255, 128, 64, 0.22];
+const DEFAULT_NIGHT = [42, 65, 152, 0];
+// The dusk strength and night colour blend into the existing sky, so the
+// same lamp can read differently against forest, pavement or open water.
+const DISTRICT_SKIES = {
+  [TRANSIT_ROAD]: { dusk: [255, 170, 101, 0.23], night: [43, 71, 144, 0.52] },
+  'Mandai Rainforest': { dusk: [222, 192, 121, 0.16], night: [35, 76, 112, 0.52] },
+  'MacRitchie Reservoir': { dusk: [247, 193, 149, 0.16], night: [48, 84, 163, 0.42] },
+  'Marina Bay': { dusk: [255, 168, 73, 0.32], night: [35, 87, 192, 0.77] },
+  'Sungei Buloh Wetlands': { dusk: [223, 199, 142, 0.15], night: [42, 83, 127, 0.46] },
+  'Changi Coast': { dusk: [251, 191, 147, 0.18], night: [46, 87, 172, 0.42] },
+};
 
 /** How far the grade has turned from a wash (0, daylight) to the multiply
  *  light map (1), for the darkness level the lamps go by. Eased over the first
@@ -133,10 +152,11 @@ export function nightDarkness(night) {
  * 0.5 noon, 0.75 dusk): a rosy gold at dawn, a deep amber at dusk, a warm
  * haze through the late afternoon. Writes [dawn, dusk, haze] washes into `out`.
  */
-export function skyWashes(phase, out = [[255, 176, 150, 0], [255, 128, 64, 0], [236, 214, 178, 0]]) {
+export function skyWashes(phase, out = [[255, 176, 150, 0], [255, 128, 64, 0], [236, 214, 178, 0]], dusk = DEFAULT_DUSK, gloom = 0) {
   const bump = (c, w) => { const d = (phase - c) / w; return Math.exp(-d * d); };
   out[0][3] = 0.15 * bump(0.255, 0.045);
-  out[1][3] = 0.22 * bump(0.745, 0.05);
+  for (let i = 0; i < 3; i++) out[1][i] = dusk[i];
+  out[1][3] = dusk[3] * bump(0.745, 0.05) * (1 - 0.5 * gloom);
   out[2][3] = 0.1 * bump(0.63, 0.06);
   return out;
 }
@@ -155,9 +175,11 @@ export class LightPass {
     this._glow = new Map();                      // baked gradient pictures
     this._index = []; this._indexN = -1; this._indexAt = 0;   // the world's light-giving objects
     this._tint = new Map();                      // ...and any whose colour the district changes
+    this._fixtures = new Map();                  // regional lights with their own reach and falloff
     this._lights = [];                           // this frame's lights, reused
     this._sky = skyWashes(0.5);
     this._dark = moonDark(0, [0, 0, 0, 0]);   // indigo at dusk, moonlit blue at midnight (atmosphere.js)
+    this._sunset = [...DEFAULT_DUSK]; this._nightCast = [...DEFAULT_NIGHT]; this._paletteAt = null;
     this._tg = timeGrade(0.5);
     this._washes = [];
     this._grade = [0, 0, 0, 0];
@@ -173,13 +195,17 @@ export class LightPass {
   _scan(world, now) {
     const objs = world.objects;
     if (objs.length === this._indexN && now - this._indexAt < 2000) return this._index;
-    this._index.length = 0; this._tint.clear();
+    this._index.length = 0; this._tint.clear(); this._fixtures.clear();
     for (const o of objs) {
-      if (!LIGHTS[o.objId]) continue;
-      this._index.push(o);
       // Street lamps in the neon districts glow pink and cyan in turn.
-      const neon = NEON[o.objId] && world.zoneAt && NEON_ZONES.has(world.zoneAt(o.x, o.y)?.name);
-      if (neon) this._tint.set(o, NEON[o.objId][(o.x + o.y) & 1]);
+      const neon = NEON[o.objId], amber = TRANSIT_LIGHTS[o.objId];
+      if (!LIGHTS[o.objId] && !amber) continue;
+      if (neon || amber) {
+        const zone = world.zoneAt?.(o.x, o.y)?.name;
+        if (neon && NEON_ZONES.has(zone)) this._tint.set(o, neon[(o.x + o.y) & 1]);
+        if (amber && zone === TRANSIT_ROAD) this._fixtures.set(o, amber);
+      }
+      if (LIGHTS[o.objId] || this._fixtures.has(o)) this._index.push(o);
     }
     this._indexN = objs.length; this._indexAt = now;
     return this._index;
@@ -192,15 +218,16 @@ export class LightPass {
     const out = this._lights; out.length = 0;
     const add = (x, y, r, rgb, k) => { if (out.length < MAX_LIGHTS) out.push({ x, y, r, rgb, k }); };
     const inView = (x, y, r) => x > -r && y > -r && x < vw + r && y < vh + r;
+    const movingLight = motionOK(game);
     for (const o of this._scan(game.world, t)) {
-      const L = lightFor(o);
+      const L = this._fixtures.get(o) || lightFor(o);
       if (!L) continue;
       const width = o.def?.footprint?.[0] || 1;
       const x = (o.x + width / 2) * TILE - ox, y = o.y * TILE + TILE / 2 + L.y - oy;
       if (!inView(x, y, L.r)) continue;
       let k = 1;
-      if (L.flicker) k -= L.flicker * (0.5 + 0.5 * Math.sin(t * 0.017 + o.x * 2.3) * Math.sin(t * 0.0071 + o.y));
-      if (L.pulse) k -= L.pulse * (0.5 + 0.5 * Math.sin(t * 0.0023 + o.x + o.y * 1.7));
+      if (L.flicker) k -= L.flicker * (movingLight ? 0.5 + 0.5 * Math.sin(t * 0.017 + o.x * 2.3) * Math.sin(t * 0.0071 + o.y) : 0.5);
+      if (L.pulse) k -= L.pulse * (movingLight ? 0.5 + 0.5 * Math.sin(t * 0.0023 + o.x + o.y * 1.7) : 0.5);
       add(x, y, L.r, this._tint.get(o) || L.rgb, k);
     }
     const p = game.player;
@@ -290,8 +317,16 @@ export class LightPass {
     const fvw = vw, fvh = vh;
     if (pj) { vw = pj.vw; vh = pj.vh; }
     const phase = game.dayPhase ? game.dayPhase() : 0.5;
-    const sky = skyWashes(phase, this._sky);
-    moonDark(timeGrade(phase, 0, this._tg).moon, this._dark);
+    const district = DISTRICT_SKIES[game.currentZoneName];
+    const passed = this._paletteAt === null ? 2200 : Math.min(100, Math.max(0, t - this._paletteAt));
+    this._paletteAt = t;
+    blendMood(this._sunset, district?.dusk || DEFAULT_DUSK, passed);
+    blendMood(this._nightCast, district?.night || DEFAULT_NIGHT, passed);
+    const sky = skyWashes(phase, this._sky, this._sunset, wx?.gloom || 0);
+    const moon = timeGrade(phase, 0, this._tg).moon;
+    moonDark(moon, this._dark);
+    const cast = this._nightCast[3] * (0.4 + 0.6 * moon);
+    for (let i = 0; i < 3; i++) this._dark[i] += (this._nightCast[i] - this._dark[i]) * cast;
     // Storms darken the day enough for the lamps to come on.
     const dark = Math.max(nightDarkness(night), wx ? wx.gloom * 0.6 : 0);
     this._dark[3] = nightDarkness(night);

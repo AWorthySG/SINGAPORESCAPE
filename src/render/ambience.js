@@ -14,21 +14,21 @@ import { TILE } from '../config.js';
 export const ZONE_MOOD = {
   'Kampong Glam': [255, 206, 130, 0.07],
   Chinatown: [255, 186, 140, 0.07],
-  'Marina Bay': [150, 178, 238, 0.08],   // cool glass and water, lit warm and neon by night
+  'Marina Bay': [166, 191, 240, 0.09],   // pale daylight over glass and water
   'Bukit Timah': [150, 214, 130, 0.08],   // a humid green haze
   'Jurong Forest': [130, 204, 140, 0.07],
-  'Mandai Rainforest': [110, 196, 132, 0.09],
-  'MacRitchie Reservoir': [214, 232, 246, 0.1],
+  'Mandai Rainforest': [82, 155, 107, 0.14],   // deep green beneath the canopy
+  'MacRitchie Reservoir': [209, 233, 249, 0.1],   // open light over the reservoir
   'Punggol Waterway': [196, 226, 240, 0.08],
-  'Sungei Buloh Wetlands': [130, 206, 196, 0.08],
+  'Sungei Buloh Wetlands': [143, 206, 191, 0.09],
   'Sentosa Beach': [255, 220, 150, 0.07],   // sunny and warm
-  'Changi Coast': [150, 214, 230, 0.06],
+  'Changi Coast': [166, 223, 238, 0.07],
   'Southern Islands': [140, 210, 238, 0.07],
   'Pulau Ubin': [214, 228, 150, 0.06],
   'Coney Island': [186, 226, 166, 0.06],
   'Gardens by the Bay': [196, 236, 206, 0.05],
   'Kranji Farmlands': [238, 220, 140, 0.06],
-  'Transit Road, Nee Soon Camp': [228, 224, 164, 0.07],
+  'Transit Road, Nee Soon Camp': [150, 175, 181, 0.12],   // slate pavement and rain-cooled air
   'Tuas Docklands': [166, 178, 200, 0.08],
   'Temasek Ruins': [218, 186, 146, 0.08],
   'The Celestial Peaks': [212, 212, 250, 0.08],

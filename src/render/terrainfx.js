@@ -32,50 +32,329 @@ export function tileHash(x, y, s = 0) {
 // Water and banks carry the local palette even at noon, when the screen's
 // atmosphere is nearly clear. Washes tint the paper grain and painted ripples.
 const T = TERRAIN;
+const TRANSIT = 'Transit Road, Nee Soon Camp';
 const COAST = { [T.WATER]: ['#168f9b', 0.33], [T.SAND]: ['#ffebbb', 0.27] };
 const RESERVOIR = { [T.WATER]: ['#277577', 0.37], [T.SAND]: ['#aca67b', 0.34] };
-const WETLAND = { [T.WATER]: ['#356d55', 0.48], [T.SAND]: ['#98865f', 0.49] };
+const WETLAND = { [T.WATER]: ['#47635c', 0.52], [T.SAND]: ['#766451', 0.67] };
 const FOREST_FLOOR = { [T.GRASS]: ['#4e9669', 0.20], [T.DARKGRASS]: ['#2f7459', 0.29] };
 const HAUNTED = { [T.WATER]: ['#504574', 0.47], [T.GRASS]: ['#776c86', 0.28],
   [T.DARKGRASS]: ['#544666', 0.38], [T.SAND]: ['#b0959b', 0.38] };
 const MOUNTAIN = { [T.WATER]: ['#6c8db5', 0.39], [T.GRASS]: ['#97b7b9', 0.31],
   [T.DARKGRASS]: ['#63858d', 0.31], [T.SAND]: ['#c9d5db', 0.38] };
 const GROUND_WASHES = {
-  'Bukit Timah': FOREST_FLOOR,
-  'Jurong Forest': { ...FOREST_FLOOR, ...RESERVOIR },
-  'Mandai Rainforest': { ...FOREST_FLOOR, ...RESERVOIR },
-  'MacRitchie Reservoir': { ...FOREST_FLOOR, ...RESERVOIR },
-  'Sungei Buloh Wetlands': { ...FOREST_FLOOR, ...WETLAND },
-  'Punggol Waterway': RESERVOIR,
-  'Sentosa Beach': COAST,
-  'Southern Islands': COAST,
-  'Changi Coast': COAST,
-  'Coney Island': { ...FOREST_FLOOR, ...COAST },
-  'Marina Bay': { [T.WATER]: ['#346a9b', 0.31] },
-  'Tuas Docklands': { [T.WATER]: ['#456c87', 0.41], [T.SAND]: ['#bbb5ad', 0.27] },
-  'Pulau Hantu': HAUNTED,
-  'The Shadow Rift': HAUNTED,
-  'The Celestial Peaks': MOUNTAIN,
+  [TRANSIT]: { [T.GRASS]: ['#607d61', 0.30], [T.DARKGRASS]: ['#385149', 0.44],
+    [T.PATH]: ['#977a62', 0.26], [T.STONE]: ['#8c9697', 0.52] },
+  'Kampong Glam': { [T.STONE]: ['#bd7854', 0.36], [T.PATH]: ['#b68668', 0.31] },
+  Chinatown: { [T.STONE]: ['#b56f61', 0.27], [T.PATH]: ['#a8695d', 0.38] },
+  'Marina Bay': { [T.WATER]: ['#346a9b', 0.31], [T.STONE]: ['#f1e9d9', 0.50], [T.PATH]: ['#e1d8c7', 0.44] },
+  'Gardens by the Bay': { ...RESERVOIR, [T.STONE]: ['#c0d2b8', 0.34], [T.PATH]: ['#e2c8a8', 0.36] },
+  'Bukit Timah': { ...FOREST_FLOOR, [T.PATH]: ['#b48b58', 0.34], [T.SAND]: ['#c7ae81', 0.32] },
+  'Jurong Forest': { ...FOREST_FLOOR, ...RESERVOIR, [T.PATH]: ['#b1a16f', 0.30] },
+  'Mandai Rainforest': { [T.GRASS]: ['#77724e', 0.40], [T.DARKGRASS]: ['#4f5140', 0.52],
+    [T.PATH]: ['#9e7756', 0.46], ...RESERVOIR },
+  'MacRitchie Reservoir': { ...FOREST_FLOOR, ...RESERVOIR, [T.PATH]: ['#7f8a6c', 0.31], [T.WOOD]: ['#886d54', 0.20] },
+  'Sungei Buloh Wetlands': { ...FOREST_FLOOR, ...WETLAND, [T.DARKGRASS]: ['#566251', 0.35], [T.WOOD]: ['#796c58', 0.36] },
+  'Punggol Waterway': { ...RESERVOIR, [T.STONE]: ['#acb7b4', 0.34], [T.PATH]: ['#b6a583', 0.35] },
+  'Kranji Farmlands': { [T.GRASS]: ['#99a365', 0.22], [T.PATH]: ['#b48e65', 0.34], [T.STONE]: ['#b3a184', 0.23] },
+  'Sentosa Beach': { [T.WATER]: ['#23acaf', 0.50], [T.SAND]: ['#ffedbf', 0.54] },
+  'Southern Islands': { ...COAST, [T.SAND]: ['#e7d8ab', 0.37], [T.WOOD]: ['#9d7c61', 0.28] },
+  'Changi Coast': { [T.WATER]: ['#357c94', 0.43], [T.SAND]: ['#b69e83', 0.45], [T.WOOD]: ['#807f75', 0.34] },
+  'Pulau Ubin': { ...COAST, [T.SAND]: ['#b9ae91', 0.33], [T.PATH]: ['#a48c64', 0.34] },
+  'Coney Island': { ...FOREST_FLOOR, ...COAST, [T.SAND]: ['#c6b995', 0.33] },
+  'Tuas Docklands': { [T.WATER]: ['#456c87', 0.41], [T.SAND]: ['#bbb5ad', 0.38], [T.STONE]: ['#a3a6a6', 0.46] },
+  'Temasek Ruins': { [T.PATH]: ['#a68e68', 0.35], [T.DARKGRASS]: ['#7b7860', 0.35] },
+  'Tekong Badlands': { [T.SAND]: ['#9e8d75', 0.42], [T.DARKGRASS]: ['#615d50', 0.41], [T.PATH]: ['#947c66', 0.47] },
+  'The Wilderness': { [T.GRASS]: ['#807c62', 0.32], [T.DARKGRASS]: ['#505243', 0.49] },
+  'Pulau Hantu': { ...HAUNTED, [T.PATH]: ['#8b7383', 0.42] },
+  'The Shadow Rift': { ...HAUNTED, [T.PATH]: ['#645472', 0.54] },
+  'The Celestial Peaks': { ...MOUNTAIN, [T.PATH]: ['#a7b5b8', 0.43], [T.STONE]: ['#aabdc6', 0.24] },
 };
+
+function districtFade(z, x, y, span) {
+  if (z.x0 === undefined) return 1;
+  const edge = Math.min(x - z.x0, z.x1 - x, y - z.y0, z.y1 - y);
+  const f = Math.max(0, Math.min(1, edge / span));
+  return f * f * (3 - 2 * f);
+}
+
+// The two-lane strip across the top of the town is asphalt. Its southern
+// footpaths keep the warmer earth of the verge around the rain trees.
+const transitRoad = (z, t, y) => z.name === TRANSIT && t === T.PATH && y <= (z.y0 ?? y) + 5;
+
+function commonGround(g, t, x, y, sx, sy, strength) {
+  if (t !== T.GRASS && t !== T.DARKGRASS) return;
+  // Broad clumps are sampled in world coordinates so they join across chunk
+  // lines. Their slow colour changes keep the long mainland gaps readable.
+  const h = 0.56 * Math.sin(x * 0.13 + Math.sin(y * 0.15)) + 0.44 * Math.sin(y * 0.16 - x * 0.068);
+  g.fillStyle = h > 0 ? '#b2b478' : '#3b7061';
+  g.globalAlpha = Math.abs(h) * 0.27 * strength;
+  g.fillRect(sx, sy, TILE, TILE);
+  g.globalAlpha = 1;
+}
 
 /** Paint the same wash on a tile and on that material's feathered edges.
  * Fade into the neighbouring palette across the region's last five tiles. */
 export function paintGroundWash(g, world, t, x, y, sx, sy) {
-  if (t === T.STONE || t === T.WOOD || t === T.PATH) return;
   const zone = world.zoneAt?.(x, y);
-  const wash = zone && GROUND_WASHES[zone.name]?.[t];
+  if (!zone) { commonGround(g, t, x, y, sx, sy, 1); return; }
+  const asphalt = transitRoad(zone, t, y);
+  const wash = asphalt ? ['#384757', 0.83] : GROUND_WASHES[zone.name]?.[t];
+  const f = districtFade(zone, x, y, asphalt ? 3 : 5);
+  if (f < 1 || !wash) commonGround(g, t, x, y, sx, sy, wash ? 1 - f : 1);
   if (!wash) return;
-  const edge = Math.min(x - zone.x0, zone.x1 - x, y - zone.y0, zone.y1 - y);
-  if (!(edge > 0)) return;
-  const f = Math.min(1, edge / 5);
+  if (!f) return;
   g.fillStyle = wash[0];
-  g.globalAlpha = wash[1] * f * f * (3 - 2 * f);
+  g.globalAlpha = wash[1] * f;
   g.fillRect(sx, sy, TILE, TILE);
   g.globalAlpha = 1;
 }
 
 export function naturalStone(world, x, y) {
   return world.zoneAt?.(x, y)?.name === 'The Celestial Peaks';
+}
+
+// Motifs sit inside the material, underneath the scenery and particles. The
+// palettes and brush shapes stay distinguishable in daylight and at dusk.
+const PAVING = {
+  [TRANSIT]: ['slabs', '#495b60', '#d4ddd8', 16, 16],
+  'Kampong Glam': ['slabs', '#8d503e', '#ffd4a4', 16, 8],
+  Chinatown: ['slabs', '#81514d', '#f3bc9a', 16, 8],
+  'Marina Bay': ['slabs', '#8d9691', '#fff8e9', 32, 16],
+  'Gardens by the Bay': ['slabs', '#778b77', '#e8efcc', 16, 16],
+  'Punggol Waterway': ['slabs', '#718580', '#deebe1', 32, 16],
+  'Tuas Docklands': ['slabs', '#627479', '#c5c9c3', 32, 32],
+};
+const ROOTS = {
+  'Mandai Rainforest': ['roots', '#382e25', '#a58c60'],
+  'Bukit Timah': ['roots', '#5d4d30', '#ba9663'],
+  'Jurong Forest': ['roots', '#465238', '#c4aa7a'],
+  'Coney Island': ['roots', '#524634', '#ab9062'],
+};
+const BEACHES = {
+  'Sentosa Beach': ['ripple', '#c3a36d', '#fff4d2'],
+  'Changi Coast': ['shingle', '#8d796c', '#ded4bb'],
+  'Southern Islands': ['ripple', '#b6a17d', '#f9e9cc'],
+  'Pulau Ubin': ['shingle', '#7f855f', '#dfd9b4'],
+  'Coney Island': ['ripple', '#8f8064', '#e4d7b4'],
+};
+const SILT = ['silt', '#514436', '#bdad89'];
+const ASPHALT = ['asphalt', '#253543', '#a6c5d3'];
+const RESERVOIR_SHORE = ['silt', '#687457', '#c7c4a1'];
+const GRAVEL = ['shingle', '#655947', '#cdc7af'];
+const SCREE = ['shingle', '#647984', '#d2dde3'];
+const FIELD = ['furrows', '#7c6a43', '#c8b681'];
+
+/** A tile's stamped material, independent of canvas and lighting. */
+export function districtGroundPlan(world, t, x, y) {
+  if (t === T.WATER || t === T.WOOD) return null;
+  const region = world.zoneAt?.(x, y);
+  if (!region) return null;
+  const zone = region.name, earth = t === T.GRASS || t === T.DARKGRASS;
+  let material;
+  if (transitRoad(region, t, y)) material = ASPHALT;
+  else if (t === T.STONE) material = PAVING[zone] || (zone === 'The Celestial Peaks' ? SCREE : null);
+  else if (t === T.SAND) {
+    material = BEACHES[zone];
+    if (zone === 'Sungei Buloh Wetlands') material = SILT;
+    if (zone === 'MacRitchie Reservoir' || zone === 'Punggol Waterway') material = RESERVOIR_SHORE;
+    if (zone === 'Bukit Timah' || zone === 'Tekong Badlands' || zone === 'Tuas Docklands') material = GRAVEL;
+    if (zone === 'The Celestial Peaks') material = SCREE;
+  } else if (earth) {
+    material = ROOTS[zone];
+    if (zone === 'Sungei Buloh Wetlands' && t === T.DARKGRASS) material = SILT;
+    if (zone === 'Kranji Farmlands') material = FIELD;
+    if (zone === 'Tekong Badlands' || zone === 'Temasek Ruins' || zone === 'The Wilderness') material = GRAVEL;
+  } else if (t === T.PATH && zone === 'Mandai Rainforest') material = ROOTS[zone];
+  if (!material) return null;
+  const strength = districtFade(region, x, y, 3);
+  if (!strength) return null;
+  const [kind, ink, light, across, down] = material;
+  return { kind, ink, light, across, down, strength };
+}
+
+function paintSlabs(g, y, sx, sy, p) {
+  g.fillStyle = p.ink;
+  g.globalAlpha = 0.23 * p.strength;
+  // Offset successive courses like laid brick. World coordinates keep a
+  // course lined up when it crosses a chunk or tile boundary.
+  for (let row = 0; row < TILE; row += p.down) {
+    const h = (y * TILE + row) / p.down;
+    const offset = (h % 2) * p.across / 2;
+    g.fillRect(sx, sy + row, TILE, 0.85);
+    for (let col = offset; col < TILE; col += p.across) g.fillRect(sx + col, sy + row, 0.85, p.down);
+  }
+  g.fillStyle = p.light;
+  g.globalAlpha = 0.27 * p.strength;
+  for (let row = 1; row < TILE; row += p.down) g.fillRect(sx, sy + row, TILE, 0.7);
+}
+
+function paintAsphalt(g, world, x, y, sx, sy, p, low) {
+  const path = (dx, dy) => world.terrainAt(x + dx, y + dy) === T.PATH;
+  // The lane dashes are painted on the shared edge of the two road tiles,
+  // and stop at a corner or gate instead of writing over it.
+  if (x % 3 === 1 && path(1, 0) && path(-1, 0) && path(0, 1) && !path(0, -1)) {
+    g.fillStyle = '#e0d5ac';
+    g.globalAlpha = 0.61 * p.strength;
+    g.fillRect(sx + 5, sy + TILE - 2, 22, 1.5);
+  }
+  if (tileHash(x, y, 812) > (low ? 0.17 : 0.39)) return;
+  const cx = sx + 10 + tileHash(x, y, 813) * 12, cy = sy + 9 + tileHash(x, y, 814) * 13;
+  const width = 5 + tileHash(x, y, 815) * 4;
+  g.fillStyle = p.ink;
+  g.globalAlpha = 0.42 * p.strength;
+  g.beginPath(); g.moveTo(cx - width, cy + 1);
+  g.quadraticCurveTo(cx - width / 2, cy - 5, cx + width / 2, cy - 3);
+  g.quadraticCurveTo(cx + width + 3, cy - 0.5, cx + width - 2, cy + 2);
+  g.quadraticCurveTo(cx + 1, cy + 6, cx - width, cy + 1); g.fill();
+  const lamp = LAMPS.has(world.objectAt?.(x, y - 1)?.objId) || LAMPS.has(world.objectAt?.(x, y + 1)?.objId);
+  g.strokeStyle = lamp ? '#e5ba7d' : p.light;
+  g.lineWidth = 0.75;
+  g.globalAlpha = (lamp ? 0.6 : 0.31) * p.strength;
+  g.beginPath(); g.moveTo(cx - width * 0.58, cy); g.quadraticCurveTo(cx + 1, cy - 1.8, cx + width * 0.65, cy - 1.4); g.stroke();
+}
+
+function paintNaturalGround(g, x, y, sx, sy, p, low) {
+  const h = tileHash(x, y, 803);
+  if (h > (low ? 0.21 : 0.43)) return;
+  const cx = sx + 10 + tileHash(x, y, 804) * 12, cy = sy + 11 + tileHash(x, y, 805) * 9;
+  const flip = tileHash(x, y, 806) > 0.5 ? 1 : -1;
+  g.fillStyle = p.ink; g.strokeStyle = p.ink;
+  g.lineWidth = p.kind === 'silt' ? 2 : 1;
+  g.globalAlpha = (p.kind === 'roots' ? 0.48 : 0.32) * p.strength;
+  if (p.kind === 'roots') {
+    g.beginPath(); g.moveTo(cx - 7 * flip, cy - 7);
+    g.quadraticCurveTo(cx + 2 * flip, cy - 4, cx - flip, cy + 1);
+    g.quadraticCurveTo(cx - 3 * flip, cy + 5, cx + 4 * flip, cy + 8);
+    g.moveTo(cx - flip, cy + 1); g.quadraticCurveTo(cx + 4 * flip, cy + 4, cx + 8 * flip, cy + 3);
+    g.moveTo(cx - flip, cy - 2); g.quadraticCurveTo(cx + 3 * flip, cy - 3, cx + 7 * flip, cy - 1); g.stroke();
+    g.fillStyle = p.light;
+    g.beginPath(); g.ellipse(cx - 4 * flip, cy + 6, 2.2, 0.95, 0.55 * flip, 0, Math.PI * 2); g.fill();
+  } else if (p.kind === 'shingle') {
+    g.beginPath();
+    g.ellipse(cx - 3, cy, 2.3, 1.2, flip * 0.35, 0, Math.PI * 2);
+    g.moveTo(cx + 7, cy + 4); g.ellipse(cx + 5, cy + 4, 1.6, 1.05, flip * 0.3, 0, Math.PI * 2); g.fill();
+  } else {
+    const slope = p.kind === 'furrows' ? 5 : flip * 1.5;
+    for (let i = -1; i <= 1; i++) {
+      const py = cy + i * 4;
+      g.beginPath(); g.moveTo(cx - 9, py);
+      g.quadraticCurveTo(cx - 2, py - 3, cx + 8, py - slope); g.stroke();
+      g.strokeStyle = p.light;
+      g.beginPath(); g.moveTo(cx - 6, py + 1);
+      g.quadraticCurveTo(cx + 1, py - 1, cx + 7, py + 1 - slope); g.stroke();
+      g.strokeStyle = p.ink;
+    }
+  }
+}
+
+function paintDistrictGround(g, world, x, y, sx, sy, low) {
+  const p = districtGroundPlan(world, world.terrainAt(x, y), x, y);
+  if (!p) return;
+  if (p.kind === 'slabs') paintSlabs(g, y, sx, sy, p);
+  else if (p.kind === 'asphalt') paintAsphalt(g, world, x, y, sx, sy, p, low);
+  else paintNaturalGround(g, x, y, sx, sy, p, low);
+  g.globalAlpha = 1;
+}
+
+// Marina's pale paving runs between the theatre and the railings. Author the
+// centre line and widths in the same tiles as the harbour scenery.
+const MARINA_PROMENADE = [[184, 168.8, 0], [186.5, 169.07, 0.96], [188.2, 169.07, 1.26],
+  [191, 168.55, 1.28], [196, 168.4, 1.29], [199.9, 168.81, 1.32], [202.4, 169.14, 1.24],
+  [205.8, 170.13, 1.18], [208.6, 170.67, 0.9], [210.5, 170.71, 0]];
+const PROMENADE_JOINTS = { ink: '#857a68', light: '#fff9e9', across: 32, down: 16, strength: 0.85 };
+
+export function marinaPromenadePlan(world, tx0, ty0, tx1, ty1) {
+  const anchor = { x: 184, y: 168 };
+  const at = world.authoredTile?.(anchor) || anchor;
+  const dx = at.x - anchor.x, dy = at.y - anchor.y;
+  const left = Math.max(tx0, 184 + dx), right = Math.min(tx1, 211 + dx);
+  const top = Math.max(ty0, 166 + dy), bottom = Math.min(ty1, 173 + dy);
+  if (left >= right || top >= bottom) return null;
+  const points = MARINA_PROMENADE.map(([x, y, half]) => [x + dx, y + dy, half]);
+  const tiles = [], paved = new Set();
+  for (let x = left; x < right; x++) {
+    const next = points.findIndex(([px]) => px >= x + 0.5);
+    if (next < 1) continue;
+    const [ax, ay, aw] = points[next - 1], [bx, by, bw] = points[next];
+    const p = (x + 0.5 - ax) / (bx - ax);
+    const cy = ay + p * (by - ay), half = aw + p * (bw - aw);
+    for (let y = top; y < bottom; y++) {
+      const t = world.terrainAt(x, y);
+      const distance = Math.abs(y + 0.5 - cy);
+      if (t === T.WATER || t === T.WOOD || distance > half + 0.84) continue;
+      tiles.push({ x, y });
+      if (distance < half * 0.82) paved.add(y * world.width + x);
+    }
+  }
+  return tiles.length ? { points, tiles, paved } : null;
+}
+
+function paintMarinaPromenade(g, points, tiles, ox, oy) {
+  const trace = (scale) => {
+    g.beginPath();
+    const [firstX, firstY] = points[0];
+    g.moveTo(firstX * TILE - ox, firstY * TILE - oy);
+    for (const [x, y, half] of points) g.lineTo(x * TILE - ox, (y - half * scale) * TILE - oy);
+    for (let i = points.length - 1; i >= 0; i--) {
+      const [x, y, half] = points[i];
+      g.lineTo(x * TILE - ox, (y + half * scale) * TILE - oy);
+    }
+    g.closePath();
+  };
+  g.save();
+  g.beginPath();
+  for (const { x, y } of tiles) g.rect(x * TILE - ox, y * TILE - oy, TILE, TILE);
+  g.clip();
+  // A few narrow, translucent shoulders let the stone bed into the bank.
+  const left = points[0][0], right = points.at(-1)[0];
+  for (const [scale, colour, alpha] of [[1.09, '#a7987b', 0.34], [1, '#cdbd9f', 0.74], [0.90, '#e2d7bd', 0.92], [0.76, '#eae0cb', 0.58]]) {
+    trace(scale);
+    const fade = g.createLinearGradient(left * TILE - ox, 0, right * TILE - ox, 0);
+    fade.addColorStop(0, colour + '00');
+    fade.addColorStop(0.11, colour);
+    fade.addColorStop(0.9, colour);
+    fade.addColorStop(1, colour + '00');
+    g.fillStyle = fade;
+    g.globalAlpha = alpha;
+    g.fill();
+  }
+  trace(0.90);
+  g.clip();
+  for (const { x, y } of tiles) {
+    const sx = x * TILE - ox, sy = y * TILE - oy;
+    const strength = Math.min(1, (x + 0.5 - left) / 3, (right - x + 0.5) / 3);
+    g.fillStyle = '#937f69';
+    g.globalAlpha = (0.045 + tileHash(x, y, 1194) * 0.07) * strength;
+    g.fillRect(sx, sy, TILE, TILE);
+    paintSlabs(g, y, sx, sy, { ...PROMENADE_JOINTS, strength: 0.85 * strength });
+  }
+  g.restore();
+}
+
+const BAY_LIGHTS = { observation_wheel: '#efbd74', spiky_dome_theatre: '#b9d9dd' };
+
+/** Light from the skyline breaks into short strokes in the bay beyond its quay. */
+export function marinaGlintPlan(world, tx0, ty0, tx1, ty1) {
+  const out = [];
+  for (const o of world.landmarks || []) {
+    const colour = BAY_LIGHTS[o.objId];
+    if (!colour || o.x < tx0 - 7 || o.x >= tx1 + 6 || o.y < ty0 - 23 || o.y >= ty1) continue;
+    const cx = o.x + (o.def.footprint[0] - 1) / 2;
+    let start = o.y + 3;
+    while (start < o.y + 15 && world.terrainAt(Math.floor(cx), start) !== T.WATER) start++;
+    if (start === o.y + 15) continue;
+    for (let y = Math.max(ty0, start); y < Math.min(ty1, start + 8); y++) {
+      for (let x = Math.max(tx0, Math.floor(cx - 4)); x < Math.min(tx1, Math.ceil(cx + 4)); x++) {
+        const side = Math.abs(x - cx), depth = y - start;
+        const h = tileHash(x, y, o.objId === 'observation_wheel' ? 1191 : 1192);
+        if (h < 0.26 || world.terrainAt(x, y) !== T.WATER || world.objectAt?.(x, y)) continue;
+        const a = (1 - depth / 9) * Math.max(0, 1 - side / (2.5 + depth * 0.22)) * (0.16 + h * 0.24);
+        if (a < 0.06) continue;
+        out.push({ colour, a, x: x * TILE + 4 + h * 8, y: y * TILE + 5 + tileHash(x, y, 1193) * 20, w: 6 + h * 10 });
+      }
+    }
+  }
+  return out;
 }
 
 // ---------------- Soft edges ----------------
@@ -246,6 +525,12 @@ export function kerbPlan(world, tx0, ty0, tx1, ty1) {
 const KERB_STROKES = [[4.4, 3, 'rgba(255,248,234,0.97)'], [1.2, 0.65, 'rgba(61,54,66,0.58)'], [1.2, 5.8, 'rgba(120,90,60,0.21)']];
 // The near-facing edge drops below the top, tapering into the side edges.
 const KERB_FACE = [[9, 4, 'rgba(44,61,72,0.10)'], [5, 3.2, '#b3916e']];
+const KERB_COLOURS = {
+  [TRANSIT]: ['#c7cec9', '#465961', 'rgba(40,61,68,0.25)'],
+  'Kampong Glam': ['#efd6aa', '#744a37', 'rgba(110,64,42,0.24)'],
+  Chinatown: ['#e5c6a2', '#70453f', 'rgba(110,64,42,0.24)'],
+  'Marina Bay': ['#fbf6e8', '#808f92', 'rgba(58,77,90,0.19)'],
+};
 // Corner i of the tile at (sx, sy) (NE, SE, SW, NW): its point, and which way is into the tile.
 function corner(sx, sy, i) {
   const cx = i < 2 ? 1 : 0, cy = i === 1 || i === 2 ? 1 : 0;
@@ -319,6 +604,8 @@ export function detailTable(t, zone) {
     return { d: 0.38, w: [[dark ? 'tuft_dark' : 'tuft', 5], ['leaf_green', 1], ['pebble', 0.4], ...FLOWERS.map(([k, n]) => [k, n * bloom])] };
   }
   if (t === T.SAND) {
+    if (zone === 'Changi Coast') return { d: 0.34, w: [['pebble', 4], ['stone', 2], ['shell', 1]] };
+    if (zone === 'Sungei Buloh Wetlands' || zone === 'MacRitchie Reservoir') return { d: 0.22, w: [['leaf_brown', 3], ['pebble', 2]] };
     if (BEACH.has(zone)) return { d: 0.3, w: [['shell', 3], ['shell_spiral', 1.5], ['pebble', 2]] };
     return { d: 0.22, w: [['pebble', 3], ['shell', 0.6], ['stone', 0.8]] };
   }
@@ -334,6 +621,7 @@ export function detailTable(t, zone) {
 // Objects that drop petals on the paving round them, and lamps that leave a pool of shade.
 const BEDS = new Set(['flower', 'bush', 'orchid_planter', 'bougainvillea_pot', 'planter_box']);
 const LAMPS = new Set(['lamp', 'heritage_lamp', 'lantern_post']);
+const RUG_TOWNS = new Set(['Kampong Glam', 'Chinatown', 'Kranji Farmlands']);
 function pick(w, r) {
   let sum = 0;
   for (const [, n] of w) sum += n;
@@ -356,6 +644,7 @@ export function scatterPlan(world, tx0, ty0, tx1, ty1, opts = {}) {
     for (let x = tx0; x < tx1; x++) {
       const t = world.terrainAt(x, y);
       if (t === T.WATER || t === T.WOOD) continue;
+      if (opts.paved?.has(y * world.width + x)) continue;
       if (world.objectAt(x, y)) continue;
       if (t === T.STONE && !naturalStone(world, x, y)) { plazaDetail(world, x, y, opts, out); continue; }
       // A road's verge is the side facing off the road; the middle stays clear.
@@ -409,7 +698,7 @@ function plazaDetail(world, x, y, opts, out) {
   if (!tab) return;
   // A rug, a little way into its block (so two never touch), on clear paving only.
   const bx = Math.floor(x / RUG), by = Math.floor(y / RUG);
-  if (z?.name !== 'Tuas Docklands' && tileHash(bx, by, 220) < 0.5 * k && x === bx * RUG + 1 + Math.floor(tileHash(bx, by, 221) * (RUG - 3))
+  if (RUG_TOWNS.has(z?.name) && tileHash(bx, by, 220) < 0.5 * k && x === bx * RUG + 1 + Math.floor(tileHash(bx, by, 221) * (RUG - 3))
     && y === by * RUG + 1 + Math.floor(tileHash(bx, by, 222) * (RUG - 3))) {
     let clear = true;
     for (const [dx, dy] of [[1, 0], [0, 1], [1, 1]]) if (world.terrainAt(x + dx, y + dy) !== TERRAIN.STONE || obj(dx, dy)) clear = false;
@@ -427,6 +716,14 @@ function plazaDetail(world, x, y, opts, out) {
 function freshWater(world, x, y) {
   const z = world.zoneAt ? world.zoneAt(x, y) : null;
   return !!z && FRESH.has(z.name);
+}
+
+function shoreFoam(world, x, y) {
+  const zone = world.zoneAt?.(x, y)?.name;
+  if (zone === 'Sungei Buloh Wetlands') return 0.24;
+  if (zone === 'Sentosa Beach') return 0.93;
+  if (zone === 'Changi Coast') return 0.66;
+  return FRESH.has(zone) ? 0.44 : 0.78;
 }
 
 /**
@@ -449,7 +746,7 @@ export function waterDetailPlan(world, tx0, ty0, tx1, ty1) {
         out.push({ id: 'reed', px: x * TILE + fx, py: y * TILE + fy, flip: tileHash(x, y, 903) < 0.5, s: 0.85 + tileHash(x, y, 904) * 0.35, ph: h * 40 });
         continue;
       }
-      if (h > 0.86) {
+      if (h > 0.86 && world.zoneAt?.(x, y)?.name !== 'Sungei Buloh Wetlands') {
         let near = false;
         for (let dy = -3; dy <= 3 && !near; dy++) for (let dx = -3; dx <= 3; dx++) if (world.terrainAt(x + dx, y + dy) !== W) { near = true; break; }
         if (!near) continue;
@@ -760,7 +1057,11 @@ export class TerrainFx {
     const plan = kerbPlan(world, tx0, ty0, tx1, ty1);
     if (!plan.length) return;
     const ox = tx0 * TILE, oy = ty0 * TILE, R = KERB_R;
+    const groups = new Map();
     for (const k of plan) {
+      const colours = KERB_COLOURS[world.zoneAt?.(k.x, k.y)?.name];
+      if (!groups.has(colours)) groups.set(colours, []);
+      groups.get(colours).push(k);
       if (!k.round) continue;
       const sx = k.x * TILE - ox, sy = k.y * TILE - oy;
       for (let i = 0; i < 4; i++) {
@@ -770,6 +1071,7 @@ export class TerrainFx {
         const o = k.out[i] === TERRAIN.PATH || k.out[(i + 1) % 4] !== TERRAIN.PATH ? k.out[i] : k.out[(i + 1) % 4];
         g.fillStyle = fill(g, o);
         g.beginPath(); g.moveTo(px, py); g.lineTo(px + dx * R, py); g.arcTo(px, py, px, py + dy * R, R); g.closePath(); g.fill();
+        g.save(); g.clip(); paintGroundWash(g, world, o, k.x, k.y, sx, sy); g.restore();
       }
     }
     g.lineCap = 'butt';
@@ -779,24 +1081,27 @@ export class TerrainFx {
       for (const k of plan) if (k.sides & 4) kerbPath(g, k, k.x * TILE - ox, k.y * TILE - oy + drop, 0.5, true);
       g.stroke();
     }
-    // The lit top sits over the face, capped by the ink line and the inset bevel.
-    for (const [w, inset, style] of KERB_STROKES) {
-      g.lineWidth = w; g.strokeStyle = style;
-      g.beginPath();
-      for (const k of plan) if (k.sides) kerbPath(g, k, k.x * TILE - ox, k.y * TILE - oy, inset);
-      g.stroke();
-    }
-    // Inner corners: close the little gap where two neighbours' bands meet.
-    for (const k of plan) {
-      if (!k.cave) continue;
-      const sx = k.x * TILE - ox, sy = k.y * TILE - oy;
-      for (let i = 0; i < 4; i++) {
-        if (!(k.cave & (1 << i))) continue;
-        const [px, py, dx, dy] = corner(sx, sy, i);
-        g.fillStyle = KERB_STROKES[0][2];
-        g.fillRect(dx > 0 ? px + 0.8 : px - 5.2, dy > 0 ? py + 0.8 : py - 5.2, 4.4, 4.4);
-        g.lineWidth = KERB_STROKES[1][0]; g.strokeStyle = KERB_STROKES[1][2];
-        g.beginPath(); g.moveTo(px + dx * 0.7, py); g.lineTo(px + dx * 0.7, py + dy * 0.7); g.lineTo(px, py + dy * 0.7); g.stroke();
+    // The lit top sits over the face. Draw one continuous band, ink line and
+    // inset bevel per colourway so neighbouring sections meet cleanly.
+    for (const [colours, tiles] of groups) {
+      for (const [i, [w, inset, style]] of KERB_STROKES.entries()) {
+        g.lineWidth = w; g.strokeStyle = colours?.[i] ?? style;
+        g.beginPath();
+        for (const k of tiles) if (k.sides) kerbPath(g, k, k.x * TILE - ox, k.y * TILE - oy, inset);
+        g.stroke();
+      }
+      // Inner corners close the small gap between adjacent bands.
+      for (const k of tiles) {
+        if (!k.cave) continue;
+        const sx = k.x * TILE - ox, sy = k.y * TILE - oy;
+        for (let i = 0; i < 4; i++) {
+          if (!(k.cave & (1 << i))) continue;
+          const [px, py, dx, dy] = corner(sx, sy, i);
+          g.fillStyle = colours?.[0] ?? KERB_STROKES[0][2];
+          g.fillRect(dx > 0 ? px + 0.8 : px - 5.2, dy > 0 ? py + 0.8 : py - 5.2, 4.4, 4.4);
+          g.lineWidth = KERB_STROKES[1][0]; g.strokeStyle = colours?.[1] ?? KERB_STROKES[1][2];
+          g.beginPath(); g.moveTo(px + dx * 0.7, py); g.lineTo(px + dx * 0.7, py + dy * 0.7); g.lineTo(px, py + dy * 0.7); g.stroke();
+        }
       }
     }
   }
@@ -837,6 +1142,11 @@ export class TerrainFx {
     const ox = tx0 * TILE, oy = ty0 * TILE;
     let foam = null;
     const foamCells = new Set();   // FOAM_CELL-tile blocks that hold any foam (drawFoam copies only those)
+    for (let y = ty0; y < ty1; y++) {
+      for (let x = tx0; x < tx1; x++) paintDistrictGround(g, world, x, y, x * TILE - ox, y * TILE - oy, opts.low);
+      yield;
+    }
+    const promenade = marinaPromenadePlan(world, tx0, ty0, tx1, ty1);
     // 1. Soft edges. A row of tiles at a time: the masks of every tile in the
     //    row that takes a given neighbouring ground are gathered into one strip,
     //    that ground is filled across the strip and cut to the masks, and the
@@ -849,9 +1159,13 @@ export class TerrainFx {
         const sy = y * TILE - oy;
         const row = [];
         for (let x = tx0; x < tx1; x++) for (const p of blendPlan(world, x, y)) row.push([x, p]);
-        if (!row.length) continue;
+        const paving = promenade?.tiles.filter((p) => p.y === y);
+        if (!row.length && !paving?.length) continue;
         const layers = [...new Set(row.map(([, p]) => p.t))].sort((a, b) => BLEND_RANK[a] - BLEND_RANK[b]);
         for (const t of layers) {
+          // The pavement sits over the land, with the feathered waterline
+          // still above its edge. Keep the normal blends outside the paving.
+          if (t === TERRAIN.WATER && paving?.length) paintMarinaPromenade(g, promenade.points, paving, ox, oy);
           // Only the stretch of the row between the first and last tile that takes this ground.
           let a = W, b = 0;
           for (const [x, p] of row) if (p.t === t) { a = Math.min(a, x * TILE - ox); b = Math.max(b, x * TILE - ox + TILE); }
@@ -868,7 +1182,7 @@ export class TerrainFx {
                 const FW = Math.ceil(W / 2), FH = Math.ceil((ty1 - ty0) * TILE / 2);
                 foam = [makeCanvas(FW, FH, this.factory), opts.low ? null : makeCanvas(FW, FH, this.factory)];
               }
-              const strength = freshWater(world, x, y) ? 0.44 : 0.78;
+              const strength = shoreFoam(world, x, y);
               for (let f = 0; f < 2; f++) {
                 const fm = foam[f] && this._mask(p.bits, p.v, 'f' + f);
                 if (!fm) continue;
@@ -905,9 +1219,10 @@ export class TerrainFx {
           }
           g.drawImage(strip.c, a, 0, sw, TILE, a, sy, sw, TILE);
         }
+        if (layers.at(-1) !== TERRAIN.WATER && paving?.length) paintMarinaPromenade(g, promenade.points, paving, ox, oy);
         yield;
       }
-    }
+    } else if (promenade) paintMarinaPromenade(g, promenade.points, promenade.tiles, ox, oy);
     // 1b. Kerbs round the town paving, over the soft edges.
     this._kerbs(g, world, tx0, ty0, tx1, ty1, fill);
     paintHeritageTiles(g, world, tx0, ty0, tx1, ty1);
@@ -916,7 +1231,14 @@ export class TerrainFx {
     (this._touch || (this._touch = new GroundTouch(this.factory))).bake(g, world, tx0, ty0, tx1, ty1, opts);
     yield;
     // 2. Small details on the ground.
-    for (const d of scatterPlan(world, tx0, ty0, tx1, ty1, opts)) this._stamp(g, d, d.px - ox, d.py - oy);
+    const scatter = promenade ? { ...opts, paved: promenade.paved } : opts;
+    for (const d of scatterPlan(world, tx0, ty0, tx1, ty1, scatter)) this._stamp(g, d, d.px - ox, d.py - oy);
+    for (const d of marinaGlintPlan(world, tx0, ty0, tx1, ty1)) {
+      g.fillStyle = d.colour;
+      g.globalAlpha = d.a;
+      g.fillRect(d.x - ox, d.y - oy, d.w, 1.1);
+    }
+    g.globalAlpha = 1;
     paintDiveShoreTiles(g, world, tx0, ty0, tx1, ty1);
     yield;
     // 3. Contact shadows, and a little darkening of the ground beside walls and buildings.
