@@ -132,12 +132,12 @@
   #cmd-search .cs-hint { display: none; }
 }
 
-/* Phones: the quick bar folds to the search button and a "more" button that
+/* Touch: the quick bar folds to the search button and a "more" button that
    opens the favourites (they sat as a 2 x 3 block beside your hero). Desktops
    have room for the row and never show the more button. */
 #quickbar .qb-more { display: none; font-size: var(--fs-xl); font-weight: 900; line-height: 1; }
 #quickbar .qb-more.has-on::after { content: ""; position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--aw-accent); border: 1.5px solid var(--aw-white); }
-@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+@media (pointer: coarse) {
   #quickbar .qb-more { display: grid; }
   #quickbar:not(.open) .qb-slot, #quickbar:not(.open) .qb-edit { display: none; }
   #quickbar:not(.open) #qb-life { display: none; }   /* the Life skills grid opens from the unfolded bar */

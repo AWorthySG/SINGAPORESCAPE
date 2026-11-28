@@ -279,9 +279,9 @@ body.boss-on #rep-pill { display: none; }
 #quickbar .qb-key { right: -6px; min-width: 18px; white-space: nowrap; }
 @media (pointer: coarse), (hover: none) { #quickbar .qb-key { display: none; } }
 
-/* Phones: the folded panel launcher always says "Menu" under a fixed icon
+/* Touch: the folded panel launcher always says "Menu" under a fixed icon
    (it showed the last tab used: "Settings" read as a settings button). */
-@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+@media (pointer: coarse) {
   #sidepanel.collapsed .tab-btn.active > :not(.tab-label) { display: none !important; }   /* (the icon <img> sets display inline) */
   #sidepanel.collapsed .tab-btn.active::before {
     content: ""; display: block; width: 24px; height: 18px; margin: 3px 0 2px;
@@ -388,13 +388,12 @@ body.cb-safe #hp-bar.low::after {
   #settings-panel .set-act, #settings-panel .acct-open { min-height: 44px; }
 }
 
-/* ---------- Phone sheet chrome (ui.js _renderSubtabs, _fullForBag) ----------
-   The open sheet loses its title row (the lit tab names the view), Bag |
-   Gear and the bag's filters share one sideways-scrolling strip of chips,
-   the Bag and Gear open at the full snap, and the Gear view puts the worn
-   slots beside their totals instead of over a column of mostly empty room. */
-@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
-  #sidepanel:not(.collapsed) #panel-head { display: none; }
+/* ---------- Touch menus (ui.js _renderSubtabs, _fullForBag) ----------
+   A close button in the header and the same Bag | Gear strip on both sheets
+   and tablet panels. The filters can scroll sideways on smaller screens. */
+@media (pointer: coarse) {
+  #sidepanel:not(.collapsed) #panel-head { min-height: 44px; padding: 0 8px 0 12px; }
+  #sidepanel:not(.collapsed) #panel-collapse { width: 44px; height: 44px; }
   #panel-subtabs.with-bag {
     gap: 6px; align-items: center; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
   }
@@ -408,7 +407,17 @@ body.cb-safe #hp-bar.low::after {
   }
   #panel-subtabs.with-bag #inv-tabs { flex: none; flex-wrap: nowrap; overflow: visible; }
   #panel-subtabs.with-bag .inv-tab, #panel-subtabs.with-bag #inv-sort { flex: none; }
-  /* Gear: the worn slots (smaller, the empty ones quiet) beside their totals. */
+}
+@media (pointer: coarse) and (max-width: 540px) and (min-height: 501px) {
+  #sidepanel:not(.collapsed) .sheet-handle {
+    position: absolute; top: 0; left: 36%; width: 28%; height: 44px; z-index: 1;
+  }
+  #sidepanel:not(.collapsed) .sheet-handle::before { top: 19px; }
+  #sidepanel.sheet-full:not(.collapsed):has([data-view="inventory"]:not(.hidden)) { height: auto; }
+  #sidepanel:not(.collapsed) #panel-body { height: auto; }
+}
+/* Gear: the worn slots on narrow sheets sit beside their totals. */
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
   #sidepanel:not(.collapsed) .panel-view[data-view="equipment"]:not(.hidden) {
     display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: start;
   }
@@ -421,12 +430,11 @@ body.cb-safe #hp-bar.low::after {
 
 /* ---------- Quick actions (src/ui/quickbar.js) ----------
    Desktop: the box around the actions is no box (the row is as it was).
-   Phones: the "⋯" button opens them as a two-column sticker grid hanging
-   under it at the right edge (clear of your hero in the middle), each with
-   its name; a tap anywhere else folds it. */
+   Touch: the "⋯" button opens a labelled two-column sticker grid at the
+   right edge; a tap anywhere else folds it. */
 #quickbar .qb-pop { display: contents; }
 #quickbar .qb-lbl { display: none; }
-@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+@media (pointer: coarse) {
   #quickbar .qb-pop { display: none; }
   #quickbar.open { z-index: 66; }   /* over the action buttons and the open Auto card (65), under the sheets (70) */
   #quickbar.open .qb-pop {
@@ -449,13 +457,27 @@ body.cb-safe #hp-bar.low::after {
   #quickbar.open .qb-pop .qb-edit::before { display: none; }
   #quickbar.open .qb-more { box-shadow: 0 0 0 3px var(--aw-sun), var(--shadow-sticker-sm); }
 }
-/* Next to the minimap in landscape, with room to open and scroll the actions. */
-@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+@media (pointer: coarse) and (max-height: 500px) and (orientation: landscape) {
+  /* Keep search and the quick actions above the arc in a short view. */
   #quickbar {
-    top: calc(76px + var(--sa-t)); right: calc(140px + var(--sa-r));
-    flex-direction: row; flex-wrap: nowrap; max-height: none;
+    top: calc(112px + var(--sa-t)); right: calc(154px + var(--sa-r));
+    flex-flow: row nowrap; max-height: none;
   }
-  #quickbar.open .qb-pop { max-height: calc(100dvh - 136px - var(--sa-t) - var(--sa-b)); }
+  #quickbar.open .qb-pop { max-height: calc(100dvh - 176px - var(--sa-t) - var(--sa-b)); }
+}
+@media (pointer: coarse) and (min-width: 541px) and (min-height: 501px) {
+  #quickbar {
+    top: auto; left: auto; right: calc(var(--pad-r) + 68px); bottom: calc(var(--tablet-nav-b) + 9px);
+    gap: 6px; margin: 0; padding: 0; transform: none;
+  }
+  #quickbar .qb-btn { width: 44px; height: 44px; }
+  #quickbar.open .qb-pop { top: auto; bottom: calc(100% + 8px); max-height: calc(100dvh - var(--tablet-nav-b) - 78px); }
+  #hp-bar {
+    top: calc(8px + var(--sa-t)); left: calc(10px + var(--sa-l)); bottom: auto; transform: none;
+    width: min(240px, calc(100vw - 264px)); height: 26px;
+  }
+  #minimap-panel #hp-orb { display: none; }
+  #rep-pill { top: calc(206px + var(--sa-t)); left: auto; right: calc(12px + var(--sa-r)); transform: none; }
 }
 /* One entry for floating stickers (banners, toasts, pills, this grid): a
    small drop and settle. It moves with translate and scale, never
@@ -924,6 +946,7 @@ body.reduce-motion :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #mo
   }
   #sidepanel #panel-tabs .tab-btn :is(img, svg) { width: 22px; height: 22px; }
   #sidepanel #panel-tabs .tab-btn.active { background: var(--aw-accent); }
+  #sidepanel:not(.ps-big) #inventory-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 
   #chatbox { max-width: calc(50vw - 176px); }
   #centre-hud {
@@ -993,6 +1016,9 @@ body.reduce-motion :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #mo
   #ability-bar .auto-row .ab-switch { scale: .8; transform-origin: left center; margin-right: -6px; }
   #ability-bar .ability-btn { width: 46px; height: 46px; }
   #ability-bar .ability-btn .ab-icon :is(img, svg) { width: 28px; height: 28px; }
+}
+@media (min-width: 1024px) and (min-height: 501px) and (max-height: 820px) and (hover: hover) and (pointer: fine) {
+  #sidepanel:not(.ps-big) #inventory-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
 
 #keyboard-help, .panel-key { display: none; }
@@ -1222,13 +1248,14 @@ body.reduce-motion :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #mo
 }
 
 #sidepanel #inventory-grid .inv-slot:not(.filled) {
-  background: linear-gradient(150deg, #ecdec5, #f8ecd7);
+  background: var(--paper-grain), linear-gradient(150deg, #ecdec5, #f8ecd7);
   border-color: #c9b597;
-  box-shadow: inset 0 1px 2px rgba(34,48,74,.12);
+  box-shadow: inset 0 2px 4px rgba(77, 57, 33, .11), 0 1px 0 #fff9eb;
 }
 #sidepanel #inventory-grid .inv-slot.filled {
   background-color: var(--hud-ivory);
-  background-image: radial-gradient(ellipse at 50% 38%, #fffdf8 10%, transparent 72%);
+  background-image: radial-gradient(ellipse at 35% 25%, #fffdf8 10%, transparent 75%), var(--paper-grain);
+  box-shadow: inset 0 1px 0 #fffdf8, 0 1px 2px rgba(77, 57, 33, .08);
 }
 #sidepanel #inventory-grid .inv-slot.filled:hover {
   background-color: #f9e9c8;
@@ -1274,8 +1301,9 @@ body.reduce-motion :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #mo
   border-color: var(--hud-teal);
 }
 #ability-bar .auto-row {
-  background: var(--hud-ivory) var(--paper-grain);
-  border-color: var(--hud-enamel);
+  background: var(--paper-grain), linear-gradient(155deg, var(--hud-ivory), var(--hud-warm));
+  border-color: var(--hud-gold);
+  box-shadow: 0 0 0 1px var(--hud-enamel), 0 4px 0 rgba(25, 47, 61, .28), 0 6px 14px rgba(25, 47, 61, .12);
 }
 #ability-bar .ab-btn[aria-pressed="true"] {
   box-shadow: inset 0 2px #4e9988;
@@ -1293,7 +1321,7 @@ body.reduce-motion :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #mo
     background-image: linear-gradient(145deg, #fffaf0, #d6eee2);
   }
 }
-@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+@media (pointer: coarse) {
   #auto-menu-btn {
     background-color: var(--hud-enamel);
     color: #fff8e9;
@@ -1302,6 +1330,7 @@ body.reduce-motion :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #mo
   #interact-btn:not(.idle):not(.warn) {
     background-image: linear-gradient(155deg, #468078, var(--hud-teal));
   }
+  #interact-btn .ib-icon :is(img, svg) { width: 22px; height: 22px; }
   :is(#sidepanel, #modal-window) .sheet-handle::before {
     background-color: var(--hud-teal);
   }

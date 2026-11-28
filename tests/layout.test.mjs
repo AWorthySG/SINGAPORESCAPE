@@ -23,7 +23,7 @@ function mediaBlock(prelude) {
   throw new Error('unbalanced block');
 }
 
-test('phones get one Auto button and sheet handles; desktop keeps them hidden', () => {
+test('touch screens get one Auto button and phones get sheet handles', () => {
   // The Auto button lives in the action bar, beside the card of switches it opens.
   const bar = html.slice(html.indexOf('<div id="ability-bar">'), html.indexOf('<div id="adrenaline"'));
   assert.match(bar, /id="auto-menu-btn"[^>]*aria-controls="auto-row"/);
@@ -39,10 +39,12 @@ test('phones get one Auto button and sheet handles; desktop keeps them hidden', 
   // Hidden by default (desktop), shown only inside touch-only media blocks.
   assert.match(css, /\.sheet-handle \{ display: none; \}/);
   assert.match(css, /#auto-menu-btn \{ display: none; \}/);
+  const touch = mediaBlock('(pointer: coarse)');
+  assert.match(touch, /#auto-menu-btn \{\s*display: flex;/);
+  assert.match(touch, /#ability-bar \.auto-row \{ display: none;/);
+  assert.match(touch, /#ability-bar\.auto-open \.auto-row \{ display: flex; \}/);
   const phones = mediaBlock('(pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px)');
-  assert.match(phones, /#auto-menu-btn \{\s*display: flex;/);
-  assert.match(phones, /#ability-bar \.auto-row \{ display: none;/);
-  assert.match(phones, /#ability-bar\.auto-open \.auto-row \{ display: flex; \}/);
+  assert.match(phones, /#sidepanel:not\(\.collapsed\) \.sheet-handle \{ display: block; \}/);
 });
 
 test('touch screens get 44px targets, safe areas and an 85% sheet cap', () => {
@@ -52,8 +54,7 @@ test('touch screens get 44px targets, safe areas and an 85% sheet cap', () => {
   }
   assert.match(touch, /#modal-close \{ width: 44px; height: 44px;/);
   assert.match(touch, /#inv-sort \{ min-width: 44px; \}/);
-  const phones = mediaBlock('(pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px)');
-  for (const side of ['top', 'right', 'bottom', 'left']) assert.ok(phones.includes(`env(safe-area-inset-${side}`), `respects the ${side} safe area`);
+  for (const side of ['top', 'right', 'bottom', 'left']) assert.ok(touch.includes(`env(safe-area-inset-${side}`), `respects the ${side} safe area`);
   const portrait = mediaBlock('(pointer: coarse) and (max-width: 540px)');
   assert.match(portrait, /max-height: 85dvh/, 'sheets never cover more than 85% of the height');
   assert.match(portrait, /animation: sheetUp/, 'sheets slide up');
@@ -114,6 +115,23 @@ test('the Auto button opens and folds the card of switches; a tap elsewhere fold
   }
 });
 
+test('tablet menus start folded and respect a saved preference to keep them open', async () => {
+  const { UI } = await import('../src/ui/ui.js');
+  const saved = globalThis.matchMedia;
+  // A tall, wide touch viewport matches only the pointer part of the query.
+  globalThis.matchMedia = (query) => ({ matches: query.includes('(pointer: coarse)') });
+  try {
+    const panel = fakeEl('sidepanel'), chat = fakeEl('chatbox');
+    const ui = { _collapse: {}, _fullForBag() {}, _catchUpPanels() {}, _drawChat() {} };
+    UI.prototype._wireCollapse.call(ui, 'panel', panel, fakeEl('panel-collapse'), 'panel');
+    UI.prototype._wireCollapse.call(ui, 'chat', chat, fakeEl('chat-collapse'), 'chat');
+    assert.ok(panel.classList.contains('collapsed') && chat.classList.contains('collapsed'));
+    ui._collapse.panel = false;
+    UI.prototype._wireCollapse.call(ui, 'panel', panel, fakeEl('panel-collapse'), 'panel');
+    assert.ok(!panel.classList.contains('collapsed'));
+  } finally { globalThis.matchMedia = saved; }
+});
+
 test('sheets: a swipe down or a tap on the handle closes; a short drag snaps back', async () => {
   const { UI } = await import('../src/ui/ui.js');
   const panel = fakeEl('sidepanel'), handle = fakeEl('handle'), head = fakeEl('panel-head');
@@ -156,12 +174,15 @@ test('touch screens show one Attack button: Interact steps aside when it would s
   const { UI } = await import('../src/ui/ui.js');
   const cls = new Set();
   const verb = { innerHTML: '' };
-  const btn = { classList: { toggle: (c, on) => (on ? cls.add(c) : cls.delete(c)) }, querySelector: (s) => (s === '.ib-verb' ? verb : null), prepend() {}, title: '' };
+  const btn = fakeEl('interact-btn');
+  btn.classList.toggle = (c, on) => (on ? cls.add(c) : cls.delete(c));
+  btn.querySelector = (s) => (s === '.ib-verb' ? verb : null);
   const ui = { el: { interact: btn } };
   UI.prototype.setInteractLabel.call(ui, ['Attack', 'Goblin (level 2)']);
   assert.ok(cls.has('is-attack'), 'next to a foe it is the second Attack button, so it hides');
   UI.prototype.setInteractLabel.call(ui, ['Talk to', 'Auntie Mei']);
   assert.ok(!cls.has('is-attack'), 'it comes back for anything else');
+  assert.equal(btn.attrs['aria-label'], 'Talk to Auntie Mei');
   assert.equal(verb.innerHTML, 'Talk to<span class="ib-noun">Auntie Mei</span>', 'naming the action and who it is with');
   UI.prototype.setInteractLabel.call(ui, null);
   assert.ok(!cls.has('is-attack'));

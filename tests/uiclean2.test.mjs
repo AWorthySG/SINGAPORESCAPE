@@ -168,7 +168,7 @@ test('the phone sheet: the Bag, Gear and Skills open full; the bag filters join 
   assert.ok(!panel.classList.contains('sheet-full'), 'never while folded');
   panel.classList.remove('collapsed', 'compact-ui');
   UI.prototype._fullForBag.call(ui);
-  assert.ok(!panel.classList.contains('sheet-full'), 'desktops and tablets: no snap at all');
+  assert.ok(!panel.classList.contains('sheet-full'), 'desktop: no snap');
 
   // The strip: the filters move into the sub-tab row and back out.
   const view = el(), row = el(), bar = el(), grid = el();
@@ -196,7 +196,8 @@ test('the phone sheet: the Bag, Gear and Skills open full; the bag filters join 
     if (hadMM) globalThis.matchMedia = hadMM; else delete globalThis.matchMedia;
   }
   const css = strip(read('styles/compact.css'));
-  assert.match(css, /#sidepanel:not\(\.collapsed\) #panel-head \{ display: none; \}/, 'no title row on a phone sheet');
+  assert.match(css, /#sidepanel:not\(\.collapsed\) #panel-collapse \{ width: 44px; height: 44px; \}/, 'the sheet has a full-sized close button');
+  assert.match(css, /#sidepanel\.sheet-full:not\(\.collapsed\):has\(\[data-view="inventory"\]:not\(\.hidden\)\) \{ height: auto; \}/, 'the Bag fits its contents');
   assert.match(css, /#panel-subtabs\.with-bag \{[^}]*overflow-x: auto/, 'one sideways strip');
 });
 
