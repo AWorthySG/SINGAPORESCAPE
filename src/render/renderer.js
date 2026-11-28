@@ -37,7 +37,7 @@ const ARROW_LOOK = {
   eternal: { head: '#c27bff', fletch: '#ecd6ff', shaft: '#3a2a5a', trail: '#d6a8ff', glow: '#a855ff', size: 1.25, barbed: true },
 };
 import { labelMode, objectLabelAlpha, npcNameVisible, targetTag, targetTagY, TAG_H, elementTint } from './worldlabels.js';
-import { drawCreature, drawPlayer, drawObjectSprite, drawGroundItem, drawMiningRockSprite, miningRockSpriteLayout, fishCalm } from './sprites.js';
+import { drawCreature, drawPlayer, drawObjectSprite, drawGroundItem, drawMiningRockSprite, miningRockSpriteLayout, drawDiveWorldBed, fishCalm } from './sprites.js';
 import { drawMiningGround, rockLayout } from './miningRock.js';
 import { heroAnimFrame, drawFishingGear, strikeClock } from './heroanim.js';
 import { petDrawable } from './petsprite.js';
@@ -67,7 +67,8 @@ import { smooth, seg, arc as arcUp, turnFacing } from './motionkit.js';
 import { drawGrave } from './grave.js';
 import { drawFishSchool } from './fishschoolfx.js';
 import { playerBarVisible, drawPlayerHp } from './playerhp.js';
-import { drawBreathBar } from './diveart.js';   // Diving's breath meter
+import { DIVE_WATER_Y, drawBreathBar, drawDiveMarker } from './diveart.js';
+import { DIG_SITE_BOX, drawDigGround } from './digart.js';
 import { drawClassShot, drawClassEffect, drawClassAuras } from './classfx.js';   // the Priest's and the Zealot's own elements
 import { drawSpellBolt, fxFade, fxGlow, fxProgress, fxRing, fxWave, isSpellShot, spellPose } from './fxdepth.js';
 import { censerBolt } from './censerSwing.js';   // a Zealot's bolt leaves the swinging censer
@@ -79,6 +80,7 @@ import { bakeBudget } from './governor.js';
 
 // Gathering actions that show a progress ring over the node, and its colour.
 const GATHER_RING = { woodcut: '#4fa04f', mine: '#8a8fa0', fish: '#3a8fd8', hunt: '#d08a3a' };
+const GROUND_NODE_RINGS = new Set(['rock', 'dive', 'dig']);
 // The pill over your head while a boss's signature move holds you: [words, colour].
 const PLAYER_DOT_STATUS = { poison: ['Poisoned', '#2f8a2a'], burn: ['Burning', '#c0501a'], bleed: ['Bleeding', '#a01a2a'], chill: ['Chilled', '#2a7a9a'] };
 const ROOTED_STATUS = ['Rooted', '#6a4a2a'], STUNNED_STATUS = ['Stunned', '#7a5a9a'];
@@ -385,7 +387,8 @@ export class Renderer {
     }
     for (const o of visObjs) {
       if (o.def.footprint) continue;   // landmarks: below, by their own list
-      if (o.def.type === 'rock') {
+      const type = o.def.type;
+      if (type === 'rock') {
         const rock = miningRockSpriteLayout(o), cx = o.x * TILE + TILE / 2 - ox, cy = o.y * TILE + TILE / 2 - oy;
         const selected = !o.depleted && (game.hover?.obj === o || game.player.action?.obj === o);
         const reduced = calm || game.lowFx;
@@ -395,6 +398,20 @@ export class Renderer {
         // shape uses exactly the same ground contact as the shadow below it.
         drawables.push({ sortY: o.y + (TILE / 2 + rock.foot - 12) / TILE, z: 1,
           draw: () => drawMiningRockSprite(ctx, o, cx, cy, reduced, rock) });
+        continue;
+      }
+      if (type === 'dive' || type === 'dig') {
+        const cx = o.x * TILE + TILE / 2 - ox, cy = o.y * TILE + TILE / 2 - oy;
+        const selected = game.hover?.obj === o || game.player.action?.obj === o;
+        if (type === 'dive') {
+          drawDiveWorldBed(ctx, o, cx, cy);
+          drawables.push({ sortY: o.y + (TILE / 2 + DIVE_WATER_Y - 12) / TILE, z: 1,
+            draw: () => drawDiveMarker(ctx, o, cx, cy, timeMs, trim || calm, selected) });
+        } else {
+          drawDigGround(ctx, cx, cy, selected);
+          drawables.push({ sortY: o.y + (TILE / 2 + DIG_SITE_BOX[2] - 12) / TILE, z: 1,
+            draw: () => drawObjectSprite(ctx, o, cx, cy, timeMs) });
+        }
         continue;
       }
       // Harvest judder: a struck tree wobbles briefly as the resource pops.
@@ -1937,7 +1954,7 @@ export class Renderer {
         const sc = hv.npc.def.scale || 1;
         cx = c.x - ox; cy = c.y - oy + 12 * sc; rx = 11 * sc * pulse;
         col = hv.npc.attackable ? 'rgba(255,122,90,0.85)' : 'rgba(127,224,208,0.85)';
-      } else if (hv.obj && !hv.obj.depleted && hv.obj.def?.type !== 'rock') {
+      } else if (hv.obj && !hv.obj.depleted && !GROUND_NODE_RINGS.has(hv.obj.def?.type)) {
         cx = hv.obj.x * TILE + TILE / 2 - ox; cy = hv.obj.y * TILE + TILE * 0.72 - oy;
         rx = 12 * pulse; col = 'rgba(255,215,115,0.8)';
       }

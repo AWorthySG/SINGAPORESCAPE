@@ -307,7 +307,7 @@ export class DepthView {
     for (const o of objs) {
       if (o.def.footprint || o.def.overhead || o.depleted) continue;
       const t = o.def.type;
-      if (t === 'fishing' || t === 'fire' || t === 'farm') continue;
+      if (t === 'fishing' || t === 'dive' || t === 'dig' || t === 'fire' || t === 'farm') continue;
       one(o, o.x * TILE + TILE / 2 - ox, o.y * TILE + TILE / 2 - oy, 2);
     }
     for (const o of landmarks || []) {

@@ -3,9 +3,32 @@
 // site's colour) and the restoration bench. Sticker style: navy ink #22304A,
 // pastel fills. A few paths a frame, no garbage.
 const INK = '#22304A';
+export const DIG_SITE_BOX = [36, 25, 11];
 
-/** A dig site at tile centre (cx, cy). */
-export function drawDigSite(ctx, obj, cx, cy) {
+/** A shallow contact band in the ground plane, near the front of the trench. */
+export function drawDigGround(ctx, cx, cy, selected) {
+  const y = cy + DIG_SITE_BOX[2];
+  ctx.save();
+  ctx.fillStyle = 'rgba(66,55,46,0.14)';
+  ctx.beginPath(); ctx.ellipse(cx, y - 1.4, 15.5, 3.2, 0, 0, Math.PI * 2); ctx.fill();
+  if (selected) {
+    // Two exposed edges of the work marker stay visible around the earth.
+    ctx.strokeStyle = 'rgba(34,48,74,0.52)'; ctx.lineWidth = 2.7;
+    ctx.beginPath(); ctx.ellipse(cx, y - 0.1, 17.7, 3.8, 0, 0, Math.PI); ctx.stroke();
+    ctx.strokeStyle = '#ffdd91'; ctx.lineWidth = 1.25; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** Paint or stand-in for a dig site with its front at (cx, cy + foot). */
+export function drawDigSite(ctx, obj, cx, cy, art = null) {
+  if (art) {
+    const [maxW, maxH, foot] = DIG_SITE_BOX;
+    const scale = Math.min(maxW / art.naturalWidth, maxH / art.naturalHeight);
+    const w = art.naturalWidth * scale, h = art.naturalHeight * scale;
+    ctx.drawImage(art, cx - w / 2, cy + foot - h, w, h);
+    return;
+  }
   const col = obj.def.color || '#c8a070';
   // The trench: dug-over earth, darker inside.
   ctx.fillStyle = '#b8936a'; ctx.strokeStyle = INK; ctx.lineWidth = 1.2;
