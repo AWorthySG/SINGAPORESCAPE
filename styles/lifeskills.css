@@ -101,9 +101,9 @@
 
 .island-piano { --island-accent: #825e31; }
 .island-piano .piano-controls { display: grid; gap: .55rem; margin-block: .65rem; }
-.island-piano .piano-controls label { display: grid; gap: .15rem; font-weight: 750; }
+.island-piano .piano-controls label { display: grid; gap: .15rem; min-width: 0; font-weight: 750; }
 .island-piano .piano-controls select {
-  width: 100%; min-height: 44px; padding: .35rem .6rem;
+  width: 100%; min-width: 0; min-height: 44px; padding: .35rem .6rem; text-overflow: ellipsis;
   border: 1px solid #907650; border-radius: .55rem; background: #fffaf0; color: #253346;
 }
 .island-piano .piano-score-meta {

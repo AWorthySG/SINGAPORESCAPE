@@ -1,13 +1,17 @@
+import { CHILDHOOD_PIANO } from './piano-childhood.js';
+
 // Right-hand arrangements for the stage's C4 to C5 keyboard.
 // Each row is a bar. A bare pitch is a quarter note; pairs give pitch and beats.
 function score(info, bars) {
-  return {
-    ...info,
-    notes: bars.flat().map((note) => {
+  const notes = [], measureStarts = [];
+  for (const bar of bars) {
+    measureStarts.push(notes.length);
+    for (const note of bar) {
       const [midi, beats = 1] = Array.isArray(note) ? note : [note];
-      return { midi, beats };
-    }),
-  };
+      notes.push({ midi, beats });
+    }
+  }
+  return { ...info, notes, measureStarts };
 }
 
 export const PIANO_SCORES = [
@@ -153,6 +157,7 @@ export const PIANO_SCORES = [
     [[67, 0.5], [69, 0.5], [71, 0.5], [72, 0.5], [71, 0.5], [69, 0.5], [66, 0.5], [69, 0.5]],
     [[67, 4]],
   ]),
+  ...CHILDHOOD_PIANO.map(([info, bars]) => score(info, bars)),
 ];
 
 export const pianoScoreById = (id) => PIANO_SCORES.find((score) => score.id === id) || null;

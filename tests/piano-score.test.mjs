@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pianoKeyboardHTML, pianoMidiForKey, pianoNoteName, pianoStaffHTML, pianoStaffStarts } from '../src/ui/piano-score.js';
+import { pianoKeyboardHTML, pianoMidiForKey, pianoNoteName, pianoStaffHTML, pianoStaffStarts, pianoTimeSignature } from '../src/ui/piano-score.js';
 
 test('the piano has eight natural keys, five sharps, and a distinct shortcut for each pitch', () => {
   const keys = pianoKeyboardHTML();
@@ -16,7 +16,7 @@ test('the piano has eight natural keys, five sharps, and a distinct shortcut for
 
 test('the two-measure sheet shows note lengths, key signature and the active note', () => {
   const score = {
-    keySignature: 'G', beatsPerBar: 3,
+    keySignature: 'G', beatsPerBar: 3, measureStarts: [0, 3, 4],
     notes: [ { midi: 66, beats: .5 }, { midi: 67, beats: 1.5 }, { midi: 60, beats: 1 },
       { midi: 66, beats: 3 }, { midi: 67, beats: 3 } ],
   };
@@ -33,4 +33,32 @@ test('the two-measure sheet shows note lengths, key signature and the active not
   assert.match(last, /Measure 3 of 3/);
   assert.match(last, /data-piano-note="4" aria-current="step"/);
   assert.doesNotMatch(last, /piano-written-label/);
+});
+
+test('a pickup preserves bar placement and an F major score writes B flat on the B line', () => {
+  const score = {
+    keySignature: 'F', beatsPerBar: 3, timeSignature: [6, 8], measureStarts: [0, 1, 4],
+    notes: [{ midi: 60, beats: .5 }, { midi: 70, beats: 1.5 }, { midi: 69, beats: 1 }, { midi: 67, beats: .5 }, { midi: 65, beats: 2 }],
+  };
+  assert.deepEqual(pianoTimeSignature(score), [6, 8]);
+  assert.deepEqual(pianoTimeSignature({ beatsPerBar: 3 }), [3, 4]);
+  assert.equal(pianoNoteName(70, 'F'), 'B♭');
+  assert.equal(pianoNoteName(70), 'A♯');
+  const first = pianoStaffHTML(score, 1);
+  assert.deepEqual(pianoStaffStarts(score), [0, 4]);
+  assert.match(first, /F major, 6\/8 time, measures 1–2 of 3/);
+  assert.match(first, /piano-key-signature[^>]*>♭/);
+  assert.match(first, /piano-filled-head[^>]*cy="40"/);
+  assert.match(first, /piano-written-label[^>]*>B♭/);
+  assert.doesNotMatch(first, /piano-accidental/);
+  assert.match(pianoStaffHTML(score, 4), /Measure 3 of 3/);
+});
+
+test('sixteenth notes use two flags in either stem direction', () => {
+  const score = {
+    keySignature: 'C', beatsPerBar: 1, measureStarts: [0],
+    notes: [{ midi: 60, beats: .25 }, { midi: 71, beats: .25 }, { midi: 64, beats: .5 }],
+  };
+  const staff = pianoStaffHTML(score);
+  assert.equal((staff.match(/class="piano-flag"/g) ?? []).length, 5);
 });
