@@ -430,6 +430,7 @@ export function itemPageHTML(game, id, st = {}) {
   for (const s of by('casket')) misc.push(`${AOrAn(esc(s.tier))} clue's reward casket (${chanceText(s.chance)} a roll)`);
   for (const s of by('cull')) misc.push(`Now and then from culling harmless ${esc(s.from.join(', ').replace(/_/g, ' '))}`);
   for (const s of by('token')) misc.push(`Pest Control token shop: ${s.qty} for ${s.cost} tokens`);
+  for (const s of by('textileOrder')) misc.push(`Textile Arts ${s.level}: fill the ${esc(s.name)} order at the Chinatown textile workshop`);
   for (const s of by('slayer')) misc.push(`Slayer rewards: ${formatNumber(s.qty)} for ${s.cost} points`);
   if (misc.length) from += `<h4>Other ways</h4><ul class="sgx-ul">${misc.map((m) => `<li>${m}</li>`).join('')}</ul>`;
   html += `<div class="cx-sec"><h3 class="sgx-h3">Where it comes from</h3>${from || '<div class="modal-hint">Nowhere but quests and rewards.</div>'}</div>`;

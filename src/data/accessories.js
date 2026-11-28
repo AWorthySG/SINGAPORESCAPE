@@ -32,4 +32,26 @@ export const CRAFTED_ACCESSORIES = [
     255, 1550, [['celestial_bar', 1], ['rift_coral', 2], ['obsidian_shard', 1]], 'A ring cut from rift coral. It holds steady when facing bosses and cuts through armour.'],
   ['riftguard_amulet', 'Riftguard amulet', 'amulet', { defence: 250 }, { defence: 20, hp: 12, pierce: 4, bossDmg: 5 }, 98000,
     270, 1700, [['celestial_bar', 2], ['rift_coral', 3], ['obsidian_shard', 2]], 'A rift crystal mounted behind a thin shield. It protects its wearer and weakens the armour of their foes.'],
+
+  // Farmed leaves are pressed into the settings at a crafting table.
+  ['pandan_leaf_ring', 'Pandan leaf ring', 'ring', { defence: 20 }, { lifesteal: 1, hp: 3, defence: 2 }, 420,
+    28, 95, [['silver_bar', 1], ['pandan_leaves', 4]], 'A preserved pandan leaf sealed in glass. It steadies your guard and returns a little life.'],
+  ['pandan_leaf_amulet', 'Pandan leaf amulet', 'amulet', { defence: 30 }, { lifesteal: 2, hp: 5, defence: 4 }, 1150,
+    38, 125, [['gold_bar', 1], ['pandan_leaves', 6], ['emerald', 1]], 'Two leaves in green glass, suspended on a cord. Landed attacks return a little life.'],
+];
+
+// Clean excavated porcelain and mount it at the restoration bench.
+export const RESTORED_ACCESSORIES = [
+  ['heritage_porcelain_ring', 'Heritage porcelain ring', 'ring', { prayer: 35 }, { prayer: 5, defence: 3, critDmg: 2 }, 1100,
+    75, 210, [['porcelain_shard', 3], ['old_coin', 2]], 'A blue porcelain fragment, bordered in old coin metal. It builds Faith and sharpens critical hits.'],
+  ['heritage_porcelain_amulet', 'Heritage porcelain amulet', 'amulet', { prayer: 50 }, { prayer: 9, defence: 8, critDmg: 4 }, 2200,
+    86, 300, [['porcelain_shard', 5], ['old_coin', 4], ['silver_bar', 1]], 'Cleaned and remounted at the restoration bench. Its calm design builds Faith and deepens critical hits.'],
+];
+
+// The Chinatown textile workshop gives these for two of its paid orders.
+export const TEXTILE_ACCESSORIES = [
+  ['batik_bloom_ring', 'Batik bloom ring', 'ring', { defence: 10 }, { haste: 1, crit: 1 }, 240,
+    'Indigo cloth folded over a little bead. Its pattern helps its wearer strike quickly.'],
+  ['batik_night_amulet', 'Batik night amulet', 'amulet', { defence: 25 }, { crit: 2, critDmg: 2, haste: 1 }, 450,
+    'A woven medallion in the purple of mangosteen skin. It helps its wearer find weak spots.'],
 ];

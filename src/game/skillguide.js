@@ -205,7 +205,7 @@ const givesText = (g) => g.filter((x) => !x.rare && x.id !== 'coins').map((x) =>
 const ISLAND_ENTRIES = {
   sailing: VOYAGES.map((r) => ({ ...r, name: LANDINGS[r.from].name + ' → ' + LANDINGS[r.to].name, detail: 'Follow the channel markers.' })),
   photography: PHOTO_ASSIGNMENTS,
-  textile_arts: PATTERNS.map((p) => ({ ...p, detail: `Print a cotton scarf with ${name(p.dye)} and 8 coins.` })),
+  textile_arts: PATTERNS.map((p) => ({ ...p, detail: `Print a cotton scarf with ${name(p.dye)} and 8 coins.${p.reward ? ` Fill its Chinatown order for a ${name(p.reward).toLowerCase()}.` : ''}` })),
   music: TUNES.map((t) => ({ ...t, detail: `Perform at a hawker stage for ${t.tip} coins.` })),
 };
 export function guideEntries(skill) {
@@ -362,7 +362,7 @@ function dropIndex() {
 }
 
 /** Every way to get an item: [{ kind, ... }]. Kinds: node (a gathering source),
- *  recipe, drop (a monster), raredrop, shop, nest, casket, cull, token. */
+ *  recipe, drop (a monster), raredrop, shop, nest, casket, cull, token, textileOrder. */
 export function itemSources(id) {
   const out = [];
   for (const s of gatherSources()) {
@@ -370,6 +370,7 @@ export function itemSources(id) {
     if (g) out.push({ kind: 'node', source: s, chance: g.chance, min: g.min || 1, max: g.max || 1, rare: !!g.rare });
   }
   for (const r of allRecipes()) if (r.output?.id === id) out.push({ kind: 'recipe', recipe: r });
+  for (const p of PATTERNS) if (p.reward === id) out.push({ kind: 'textileOrder', name: p.name, level: p.level });
   for (const d of dropIndex().get(id) || []) out.push({ kind: 'drop', ...d });
   const rare = RARE_DROP_TABLE.find((e) => e.id === id);
   if (rare) out.push({ kind: 'raredrop', chance: share(RARE_DROP_TABLE, rare) });

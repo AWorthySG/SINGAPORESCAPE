@@ -152,6 +152,7 @@ export function dropChances(def) {
   }
   const rolls = boss ? 10 : 1;
   const out = [...merged.values()].map((m) => ({ ...m, chance: 1 - Math.pow(1 - Math.min(1, m.p), rolls) }));
+  if (boss) for (const { id, chance } of def.trophyDrops || []) out.push({ id, chance, min: 1, max: 1 });
   for (const a of def.alwaysDrop || []) out.push({ id: a.id, chance: 1, min: a.min || 1, max: a.max || 1, always: true });
   return out.sort((a, b) => b.chance - a.chance || getItem(a.id).name.localeCompare(getItem(b.id).name));
 }

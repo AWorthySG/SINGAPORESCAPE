@@ -4436,12 +4436,12 @@ export class UI {
     const render = (body) => {
       body.innerHTML = `<div class="modal-hint">${con ? CON_HINT[con] || CON_HINT.build : wok ? 'Cook signature dishes at your stall\'s wok, to serve. The Hawker Auntie sells the dry goods.' : skill === 'herblore'
         ? 'Brew farmed herbs into potions. Drink one from your pack for a boost in battle.'
-        : restore ? 'Clean an encrusted relic with a soft brush and two of its site\'s finds. Give the restored piece to Curator Siti, beside the bench, for her museum.'
+        : restore ? 'Use a soft brush to clean relics or restore jewellery. Give museum artefacts to Curator Siti, beside the bench.'
           : 'Carve logs with a knife, and tip arrow shafts with feathers and a metal bar.'}</div>`;
       const list = document.createElement('div');
       list.appendChild(this._doAllRow(con || skill, obj, con ? { saw: 'Saw all', kiln: 'Fire all' }[con] || 'Build all' : wok ? 'Cook all' : skill === 'herblore' ? 'Brew all' : restore ? 'Restore all' : 'Fletch all'));
       list.appendChild(this._makeQtyRow());
-      // Restoring lists only relics you have found (thirty-six rows of locked ones is a wall on a phone).
+      // Show only restoration recipes whose main material is in the pack.
       for (const r of restore ? recipes.filter((x) => g.inventory.has(x.inputs[0][0], 1)) : recipes) {
         const hasTool = !r.tool || g.hasTool(r.tool);
         const can = hasTool && g.skills.level(skill) >= r.level && r.inputs.every(([id, n]) => g.inventory.has(id, n));
@@ -4453,7 +4453,7 @@ export class UI {
         row.addEventListener('click', () => { g.startRecipe(skill, r, obj); this.closeModal(); });
         list.appendChild(row);
       }
-      if (restore && list.children.length <= 2) list.insertAdjacentHTML('beforeend', '<div class="modal-hint">No encrusted relics in your pack yet: dig at a heritage site and one turns up now and then.</div>');
+      if (restore && list.children.length <= 2) list.insertAdjacentHTML('beforeend', '<div class="modal-hint">Bring an encrusted relic or porcelain from a heritage dig to see its recipes.</div>');
       body.appendChild(list);
     };
     this.openModal(con ? obj.def.name : wok ? 'Stall wok' : skill === 'herblore' ? 'Herblore' : restore ? 'Restoration bench' : 'Fletching', render);

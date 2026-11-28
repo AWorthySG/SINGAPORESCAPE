@@ -266,7 +266,7 @@ test('the stand-in armour for loot is the same answer every time', () => {
     const eq = ITEMS[id].equip, lvl = req(id), metal = id.split('_')[0];
     let best = null;
     for (const [x, it] of Object.entries(ITEMS)) {
-      if (it.equip?.family !== fam || it.equip.slot !== eq.slot || req(x) > lvl) continue;
+      if (it.bossReward || it.equip?.family !== fam || it.equip.slot !== eq.slot || req(x) > lvl) continue;
       if (!best || req(x) > req(best) || (req(x) === req(best) && x.startsWith(metal + '_'))) best = x;
     }
     assert.equal(equivalentArmour(id, fam), best || id, `${id} as ${fam}`);
