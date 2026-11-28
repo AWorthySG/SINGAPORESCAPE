@@ -259,6 +259,23 @@ function stubFactory(log) {
   };
 }
 
+test('terrain chunks meet on a device pixel at a fractional ground scale', async () => {
+  const { Renderer } = await import('../src/render/renderer.js');
+  const scale = 1.53, span = TILE * 32;
+  const drawn = [];
+  Renderer.prototype._drawTerrainChunks.call({
+    ctx: { getTransform: () => ({ a: scale }), drawImage: (...args) => drawn.push(args.slice(5)) },
+    game: { world: { width: 64, height: 64 } },
+    terrainCanvas: { chunks: new Map() },
+    _chunk: () => ({}),
+  }, span - 55.27, span - 51.11, 200, 200);
+  assert.equal(drawn.length, 4);
+  const [[x, y, width, height], [right], [, bottom]] = drawn;
+  const pixel = (edge) => Math.abs(edge * scale - Math.round(edge * scale)) < 1e-9;
+  assert.ok(pixel(right) && pixel(bottom));
+  assert.ok(Math.abs(x + width - right) < 1e-9 && Math.abs(y + height - bottom) < 1e-9);
+});
+
 test('the animated water layer paints ripples in open water and a thin edge at a quay', async () => {
   const { Renderer } = await import('../src/render/renderer.js');
   const calls = [], ctx = stubFactory(calls)(32, 32).getContext('2d');

@@ -296,7 +296,7 @@ test('the fish is drawn as one sticker over its spot; low graphics keeps the lit
   // The renderer passes the low-motion option and whether a school is at the spot.
   const rsrc = readFileSync(new URL('../src/render/renderer.js', import.meta.url), 'utf8');
   assert.match(rsrc, /const still = o\.def\.type === 'fishing' && \(calm \|\| fishCalm\(o, game\.fishSchools\?\.at\(o\), timeMs\)\);/);
-  assert.equal(rsrc.match(/drawObjectSprite\(ctx, o, cx, cy, timeMs, !!game\.lowFx \|\| calm, still(?:, upper \? fade : 1)?\)/g)?.length, 2);
+  assert.equal(rsrc.match(/drawObjectSprite\(ctx, o, cx, cy, timeMs, !!game\.lowFx \|\| calm, still(?=[,)])/g)?.length, 2);
   // Draw it with every picture loaded, through a context that records its calls.
   globalThis.Image = class { constructor() { this.complete = true; this.naturalWidth = 160; this.naturalHeight = 160; } };
   try {

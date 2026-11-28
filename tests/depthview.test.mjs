@@ -15,10 +15,23 @@ import {
   DEPTH_TILT, makeProjection, projectRel, unprojectRel, worldToScreen, screenToWorld, rowTransform, projectFlat,
 } from '../src/render/projection.js';
 import { depthTarget, easeTilt, shadowVec, hazeColour, DepthView, slowGiveUp, GIVE_UP_MS } from '../src/render/depthview.js';
+import { buildingSun } from '../src/render/streetdepth.js';
 
 const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg}: ${a} vs ${b}`);
 // Phone (iPhone 13 at the game's zoom) and desktop views, in world px.
 const VIEWS = [[390 / 1.76, 844 / 1.76], [1440 / 1.875, 900 / 1.875], [800, 600]];
+
+test('buildings catch the sun on the side opposite their shadow, with less light under cloud', () => {
+  const dawn = buildingSun(shadowVec(0.31), 1);
+  const noon = buildingSun(shadowVec(0.5), 1);
+  const dusk = buildingSun(shadowVec(0.69), 1);
+  assert.ok(dawn.east > dawn.west);
+  assert.ok(dusk.west > dusk.east);
+  near(noon.east, noon.west, 1e-9, 'even roof light at noon');
+  const cloudy = buildingSun(shadowVec(0.69), 0.4);
+  near(cloudy.west, dusk.west * 0.4, 1e-9, 'cloud softens direct light');
+  assert.deepEqual(buildingSun(shadowVec(0), 1), { east: 0, west: 0 });
+});
 
 function fakeStorage() {
   const m = new Map();

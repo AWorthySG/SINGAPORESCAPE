@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { Renderer } from '../src/render/renderer.js';
 import { OBJECTS } from '../src/data/objects.js';
-import { DAY_CYCLE_MS } from '../src/config.js';
+import { DAY_CYCLE_MS, TILE } from '../src/config.js';
 import { LIGHTS, lightFor, nightDarkness, skyWashes, LightPass, nightMode, nightMultiply } from '../src/render/lighting.js';
 import { moonDark } from '../src/render/atmosphere.js';
 import {
@@ -52,6 +52,16 @@ test('every entry in the light table is a real object, with a sensible light', (
   for (const id of ['lamp', 'fire', 'furnace', 'range', 'magic_tree', 'skyglass_crystal', 'shrine', 'wave_gate', 'mrt_station']) {
     assert.ok(LIGHTS[id], `${id} gives off light`);
   }
+});
+
+test('a multi-tile facade lights the street from the centre of its frontage', () => {
+  const objId = 'shophouse_row_mint', x = 3, y = 4;
+  const def = OBJECTS[objId];
+  const game = { world: { objects: [{ objId, x, y, def }] } };
+  const [light] = new LightPass().gather(game, TILE, TILE, 240, 240, 0);
+  assert.equal(light.x, (x - 1 + def.footprint[0] / 2) * TILE);
+  assert.equal(light.y, (y - 0.5) * TILE + LIGHTS[objId].y);
+  assert.equal(light.rgb, LIGHTS[objId].rgb);
 });
 
 test('the world has lights where you would expect them, and a felled magic tree goes dark', () => {

@@ -1,7 +1,7 @@
 // Vector sprite library — cohesive hand-drawn art for creatures and world objects,
 // replacing the old emoji rendering. Everything is drawn relative to a centre
 // point (cx, cy) with the entity's "feet" near cy + 13.
-import { drawLayeredObject, isDepthShop } from './streetdepth.js';
+import { drawBuildingSun, drawLayeredObject, isDepthShop } from './streetdepth.js';
 import { fireScale } from '../game/bonfire.js';   // bonfires are drawn bigger
 import { itemIconImage } from './icons.js';
 import { CROPS, farmProgress } from '../data/trades.js';
@@ -2974,17 +2974,14 @@ export function tintedArt(img, tint) {
   _tinted.set(key, c);
   return c;
 }
-function drawWorldArt(ctx, obj, img, key, cx, cy, time, upperAlpha) {
+function drawWorldArt(ctx, obj, img, key, cx, cy, time, upperAlpha, light) {
   const [mw, mh, foot] = WORLD_ART[key];
   const t = obj.def.type;
   const look = t === 'scenery' && BED_LOOKS[obj.objId] ? bedLook(obj) : null;   // a flowerbed's own look
   const s = Math.min(mw / img.naturalWidth, mh / img.naturalHeight) * (look ? look.s : 1);
   const w = img.naturalWidth * s, h = img.naturalHeight * s;
   const shopDepth = isDepthShop(obj);
-  if (obj.def.footprint) {   // a building's shadow spans its footprint
-    ctx.fillStyle = 'rgba(34,48,74,0.16)';
-    ellipse(ctx, cx, cy + foot - 2, w * 0.46, 7); ctx.fill();
-  } else if (t !== 'fishing' && t !== 'dive' && foot > 0) {   // a soft contact shadow; fishing spots and reefs sit in the water, hanging things cast none
+  if (!obj.def.footprint && t !== 'fishing' && t !== 'dive' && foot > 0) {   // landmark footings are baked into the ground
     ctx.fillStyle = 'rgba(34,48,74,0.16)';
     ellipse(ctx, cx, cy + foot - 1, Math.min(w * 0.42, 22), Math.min(h * 0.12, 5)); ctx.fill();
   }
@@ -3001,8 +2998,6 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time, upperAlpha) {
     ctx.transform(1, 0, -sway / 38, 1, 0, 0);
     if (upperAlpha < 1) drawLayeredObject(ctx, img, -w / 2, -h, w, h, upperAlpha, .23);
     else ctx.drawImage(img, -w / 2, -h, w, h);
-  } else if (shopDepth && upperAlpha < 1) {
-    drawLayeredObject(ctx, img, cx - w / 2, cy + foot - h, w, h, upperAlpha, .34);
   } else if (t === 'fishing') {
     // Fishing spots bob on the swell.
     const bob = Math.sin(time * 0.003 + obj.x + obj.y * 0.7) * 1.2;
@@ -3010,18 +3005,25 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time, upperAlpha) {
   } else if (look && look.flip) {
     ctx.translate(cx, 0); ctx.scale(-1, 1);
     ctx.drawImage(img, -w / 2, cy + foot - h, w, h);
-  } else ctx.drawImage(img, cx - w / 2, cy + foot - h, w, h);
+  } else {
+    const x = cx - w / 2, y = cy + foot - h, alpha = shopDepth ? upperAlpha : 1;
+    if (alpha < 1) drawLayeredObject(ctx, img, x, y, w, h, alpha, 0.34);
+    else ctx.drawImage(img, x, y, w, h);
+    if (light && (obj.def.footprint || t === 'stall' || t === 'bank' || t === 'transport')) {
+      drawBuildingSun(ctx, img, x, y, w, h, light, alpha);
+    }
+  }
   ctx.restore();
 }
 
 // `low` (low graphics) and `still` (a school swirling there) only change how a
 // fishing spot's fish shows (drawCatchBadge).
-export function drawObjectSprite(ctx, obj, cx, cy, time = 0, low = false, still = false, upperAlpha = 1) {
+export function drawObjectSprite(ctx, obj, cx, cy, time = 0, low = false, still = false, upperAlpha = 1, light = null) {
   const t = obj.def.type;
   const key = readyWorldArtKey(obj, worldArtKey(obj, time));
   const art = key && worldImage(key);
   if (readyArt(art)) {
-    drawWorldArt(ctx, obj, art, key, cx, cy, time, upperAlpha);
+    drawWorldArt(ctx, obj, art, key, cx, cy, time, upperAlpha, light);
     if (t === 'fishing') drawCatchBadge(ctx, obj, cx, cy, time, low, still);
     if (t === 'dive' && !low) drawDiveRipples(ctx, obj, cx, cy, time);
     return;

@@ -1,6 +1,6 @@
 import { drawHomeAlbum, drawIslandScarf } from './islandlife.js';
 import { drawHeritageBank, drawHeritageServiceCue, drawMarketValance, heritageLocations, heritageService } from './heritagewalk.js';
-import { isDepthShop } from './streetdepth.js';
+import { buildingSun, isDepthShop } from './streetdepth.js';
 import { damageNumber as splatNum } from '../core/utils.js';   // hitsplats: 54000 -> "54K"
 import { TILE, TICK_MS } from '../config.js';
 import { drawBossMech, drawDangerMark, drawSafeZone } from './bossmechfx.js';
@@ -241,6 +241,7 @@ export class Renderer {
 
   render(timeMs) {
     const { game } = this;
+    const W = game.world;
     if (this._ctxMain && this.ctx === this.depth.g) this.ctx = this._ctxMain;   // a frame that failed mid-ground
     const main = this._ctxMain = this.ctx;
     let ctx = main;
@@ -323,6 +324,16 @@ export class Renderer {
     } else {
       this._drawTerrain(x0, y0, x1, y1, ox, oy, timeMs);
     }
+    this.weather.update(game, fdt);
+    const sky = 1 - this.weather.state.gloom * 0.84;
+    const worldSun = !trim && this.depth.ok ? shadowVec(dayPhase, this._worldSun || (this._worldSun = {})) : null;
+    const buildingLight = worldSun?.on ? buildingSun(worldSun, sky, this._buildingLight || (this._buildingLight = {})) : null;
+    this.depth.shadows = 0;
+    if (worldSun?.on) {
+      // A tall object can still cast into the view when its base is off-screen.
+      const casters = W.objectsIn ? W.objectsIn(x0 - 2, y0 - 1, x1 + 2, y1 + 2, this._casters || (this._casters = [])) : W.objects;
+      this.depth.castShadows(ctx, casters, W.landmarks, ox, oy, vw, vh, dayPhase, timeMs, ground ? this.depth.G : dpr, sky);
+    }
     drawHomeAlbum(ctx, game, ox, oy, vw, vh);
     const service = game.player.alive && heritageService(game.world, game.player);
     if (service && game.hover?.obj !== service) drawHeritageServiceCue(ctx, service, ox, oy);
@@ -330,7 +341,6 @@ export class Renderer {
     this._drawHazards(ox, oy, timeMs);
     // Weather (weather.js): the sky for this region and moment, then puddles and
     // ripples on the ground, under everyone. Looks only; never gameplay.
-    this.weather.update(game, fdt);
     this.weather.drawGround(ctx, game, ox, oy, vw, vh, timeMs, fdt, trim);
     // Critters move on and objects near you react (bushes sway, tall things fade).
     this.react.update(game, fdt);
@@ -352,12 +362,9 @@ export class Renderer {
     // The objects in view, kept for the node labels and signposts drawn later
     // this frame (the world holds thousands: its spatial index finds the few in view).
     const visObjs = this._visObjs || (this._visObjs = []);
-    const W = game.world;
     const { bank, market } = heritageLocations(W);
     if (W.objectsIn) W.objectsIn(x0 - 1, y0 - 1, x1 + 1, y1 + 1, visObjs);
     else { visObjs.length = 0; for (const o of W.objects) if (!(o.x < x0 - 1 || o.x > x1 + 1 || o.y < y0 - 1 || o.y > y1 + 1)) visObjs.push(o); }
-    // Tilted: trees, buildings and landmarks cast their outlines across the ground with the sun.
-    if (ground && !trim) this.depth.castShadows(ctx, visObjs, W.landmarks, ox, oy, vw, vh, dayPhase, timeMs, this.depth.G);
     // Tilted, trees and landmarks stand a touch taller than flat (see the drawables loop).
     const riseTree = pj ? 0.05 * pj.tilt : 0, riseMark = pj ? 0.08 * pj.tilt : 0;
     for (const o of visObjs) {
@@ -382,9 +389,9 @@ export class Renderer {
           ctx.save();
           ctx.globalAlpha = upper ? 1 : fade;
           if (lean) { ctx.translate(cx, cy + 13); ctx.transform(1, 0, lean, 1, 0, 0); ctx.translate(-cx, -(cy + 13)); }
-          drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx || calm, still, upper ? fade : 1);
+          drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx || calm, still, upper ? fade : 1, buildingLight);
           ctx.restore();
-        } else drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx || calm, still);
+        } else drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx || calm, still, 1, buildingLight);
         if (o.objId === 'bank_booth' && o.x === bank.x && o.y === bank.y) drawHeritageBank(ctx, cx, cy);
         if (o.objId === 'stall_food' && o.x === market.x && o.y === market.y) drawMarketValance(ctx, cx, cy, timeMs, trim || calm);
       } });
@@ -398,9 +405,10 @@ export class Renderer {
       if (right < ox || left > ox + vw || base < oy || base - fw * TILE * 1.6 - 2 * TILE > oy + vh) continue;
       const cx = o.x * TILE + fw * TILE / 2 - ox, cy = o.y * TILE + TILE / 2 - oy, fade = this.react.alpha(o);
       drawables.push({ sortY: o.y + 0.4, z: 1, rise: riseMark, draw: () => {
-        if (isDepthShop(o)) drawObjectSprite(ctx, o, cx, cy, timeMs, false, false, fade);
-        else if (fade < 1) { ctx.save(); ctx.globalAlpha = fade; drawObjectSprite(ctx, o, cx, cy, timeMs); ctx.restore(); }
-        else drawObjectSprite(ctx, o, cx, cy, timeMs);
+        const shop = isDepthShop(o);
+        if (!shop && fade < 1) { ctx.save(); ctx.globalAlpha = fade; }
+        drawObjectSprite(ctx, o, cx, cy, timeMs, false, false, shop ? fade : 1, buildingLight);
+        if (!shop && fade < 1) ctx.restore();
       } });
     }
     const fishSchoolTick = (game.tickCount || 0) + Math.max(0, Math.min(1, game.tickAcc / TICK_MS || 0));
@@ -457,7 +465,7 @@ export class Renderer {
         || Math.max(n.y, n.ty) * TILE + TILE / 2 - oy < -m || Math.min(n.y, n.ty) * TILE + TILE / 2 - oy > vh + m) continue;
       near.push(n);
     }
-    const creatureSun = !trim && this.depth.ok ? shadowVec(dayPhase, this._creatureSun || (this._creatureSun = {})) : null;
+    const creatureSun = worldSun;
     for (const n of near) {
       if (!n.alive && !(n.deathT > 0)) continue;
       const c = n.renderCenter();
@@ -1602,6 +1610,7 @@ export class Renderer {
   _drawTerrainChunks(ox, oy, vw, vh) {
     const { ctx, game } = this;
     const span = TERRAIN_CHUNK * TILE;
+    const scale = ctx.getTransform?.()?.a || 1;
     const maxCx = Math.ceil(game.world.width / TERRAIN_CHUNK) - 1, maxCy = Math.ceil(game.world.height / TERRAIN_CHUNK) - 1;
     const c0x = Math.max(0, Math.floor(ox / span)), c1x = Math.min(maxCx, Math.floor((ox + vw) / span));
     const c0y = Math.max(0, Math.floor(oy / span)), c1y = Math.min(maxCy, Math.floor((oy + vh) / span));
@@ -1616,7 +1625,13 @@ export class Renderer {
         const wx = cx * span, wy = cy * span;
         const sx = Math.max(0, ox - wx), sy = Math.max(0, oy - wy);
         const sw = Math.min(span, ox + vw - wx) - sx, sh = Math.min(span, oy + vh - wy) - sy;
-        if (sw > 0 && sh > 0) ctx.drawImage(cv, sx, sy, sw, sh, wx + sx - ox, wy + sy - oy, sw, sh);
+        if (sw <= 0 || sh <= 0) continue;
+        // Share the same pixel edge with the next chunk so neither blit leaves
+        // a sliver of the background showing through at a fractional scale.
+        const x = wx + sx - ox, y = wy + sy - oy;
+        const left = Math.round(x * scale), top = Math.round(y * scale);
+        const right = Math.round((x + sw) * scale), bottom = Math.round((y + sh) * scale);
+        ctx.drawImage(cv, sx, sy, sw, sh, left / scale, top / scale, (right - left) / scale, (bottom - top) / scale);
       }
     }
     // Polish within a small time budget per frame: chunks on screen first,

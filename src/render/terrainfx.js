@@ -178,17 +178,16 @@ function foamAlpha(a, frame) {
   return Math.min(1, Math.exp(-d * d) * 1.1);
 }
 
-// Where grass meets a road, sand or water, a soft navy seam runs along the
-// wavy line itself (where the neighbour's coverage is about half), a touch on
-// the grass side, so the grass reads as sitting a little above the ground
-// beside it. It follows the blend mask, so it is as wavy as the edge and never
-// shows the tile grid. SEAM_K is how dark it is beside each ground.
-export const SEAM_K = { [TERRAIN.PATH]: 1, [TERRAIN.SAND]: 0.75, [TERRAIN.WATER]: 1.2 };
+// Use the same curved edge as the terrain blend. The dry lip catches light
+// just before the edge, with a soft bank shadow falling over the lower side.
+const BANK_STRENGTH = { [TERRAIN.PATH]: 0.92, [TERRAIN.SAND]: 0.72, [TERRAIN.WATER]: 1 };
 const SEAM_GRASS = new Set([TERRAIN.GRASS, TERRAIN.DARKGRASS]);
-export function seamAlpha(a) {
-  if (a <= 0.02 || a >= 0.98) return 0;
-  const d = (a - 0.42) / 0.2;
-  return 0.17 * Math.exp(-d * d);
+function ridge(a, centre, width) {
+  const t = Math.max(0, 1 - Math.abs(a - centre) / width);
+  return t * t * (3 - 2 * t);
+}
+export function bankRelief(a) {
+  return 0.29 * ridge(a, 0.59, 0.36) - 0.24 * ridge(a, 0.23, 0.19);
 }
 
 // ---------------- Kerbs ----------------
@@ -244,7 +243,9 @@ export function kerbPlan(world, tx0, ty0, tx1, ty1) {
 
 // [line width, inset from the tile's edge, colour] of the kerb's strokes: the
 // cream band, the navy hairline on its outside, a faint lip of shade inside.
-const KERB_STROKES = [[4.4, 3, 'rgba(255,248,234,0.97)'], [1.3, 0.65, 'rgba(34,48,74,0.66)'], [1.2, 5.8, 'rgba(120,90,60,0.18)']];
+const KERB_STROKES = [[4.4, 3, 'rgba(255,248,234,0.97)'], [1.2, 0.65, 'rgba(61,54,66,0.58)'], [1.2, 5.8, 'rgba(120,90,60,0.21)']];
+// The near-facing edge drops below the top, tapering into the side edges.
+const KERB_FACE = [[9, 4, 'rgba(44,61,72,0.10)'], [5, 3.2, '#b3916e']];
 // Corner i of the tile at (sx, sy) (NE, SE, SW, NW): its point, and which way is into the tile.
 function corner(sx, sy, i) {
   const cx = i < 2 ? 1 : 0, cy = i === 1 || i === 2 ? 1 : 0;
@@ -252,15 +253,16 @@ function corner(sx, sy, i) {
 }
 // Trace a kerb's line `d` px in from the tile's kerbed sides: straight along
 // each side, a quarter circle round each rounded corner.
-function kerbPath(g, k, sx, sy, d) {
+function kerbPath(g, k, sx, sy, d, front = false) {
   const R = KERB_R, T = TILE;
   const r = (i) => k.round & (1 << i);
-  if (k.sides & 1) { g.moveTo(sx + (r(3) ? R : 0), sy + d); g.lineTo(sx + T - (r(0) ? R : 0), sy + d); }
-  if (k.sides & 2) { g.moveTo(sx + T - d, sy + (r(0) ? R : 0)); g.lineTo(sx + T - d, sy + T - (r(1) ? R : 0)); }
-  if (k.sides & 4) { g.moveTo(sx + (r(2) ? R : 0), sy + T - d); g.lineTo(sx + T - (r(1) ? R : 0), sy + T - d); }
-  if (k.sides & 8) { g.moveTo(sx + d, sy + (r(3) ? R : 0)); g.lineTo(sx + d, sy + T - (r(2) ? R : 0)); }
+  const sides = front ? k.sides & 4 : k.sides;
+  if (sides & 1) { g.moveTo(sx + (r(3) ? R : 0), sy + d); g.lineTo(sx + T - (r(0) ? R : 0), sy + d); }
+  if (sides & 2) { g.moveTo(sx + T - d, sy + (r(0) ? R : 0)); g.lineTo(sx + T - d, sy + T - (r(1) ? R : 0)); }
+  if (sides & 4) { g.moveTo(sx + (r(2) ? R : 0), sy + T - d); g.lineTo(sx + T - (r(1) ? R : 0), sy + T - d); }
+  if (sides & 8) { g.moveTo(sx + d, sy + (r(3) ? R : 0)); g.lineTo(sx + d, sy + T - (r(2) ? R : 0)); }
   for (let i = 0; i < 4; i++) {
-    if (!r(i)) continue;
+    if (!r(i) || (front && i !== 1 && i !== 2)) continue;
     const [px, py, dx, dy] = corner(sx, sy, i);
     const cx = px + dx * R, cy = py + dy * R;
     // From the north or south side round to the east or west one, the short way.
@@ -269,7 +271,7 @@ function kerbPath(g, k, sx, sy, d) {
     if (dl > Math.PI) dl -= 2 * Math.PI;
     if (dl <= -Math.PI) dl += 2 * Math.PI;
     g.moveTo(cx + Math.cos(a0) * (R - d), cy + Math.sin(a0) * (R - d));
-    g.arc(cx, cy, R - d, a0, a1, dl < 0);
+    g.arc(cx, cy, R - d, a0, a0 + dl * (front ? 0.54 : 1), dl < 0);
   }
 }
 
@@ -673,7 +675,7 @@ export class TerrainFx {
   /** `factory(w, h)` makes a canvas; by default document.createElement. */
   constructor(factory) {
     this.factory = factory;
-    this._masks = new Map();      // blend / foam masks by edge shape
+    this._masks = new Map();      // blend, foam and relief masks by edge shape
     this._sprites = new Map();    // ground detail sprites by id
     this._scratch = null;         // one tile, for masking a neighbour's ground
     this._shadow = null;
@@ -703,10 +705,12 @@ export class TerrainFx {
       const a = blendMask(bits, v);
       const img = cv.g.createImageData(TILE, TILE);
       for (let i = 0; i < a.length; i++) {
-        const k = kind === 'b' ? a[i] : kind === 's' ? seamAlpha(a[i]) : foamAlpha(a[i], kind === 'f0' ? 0 : 1);
-        if (kind === 's') { img.data[i * 4] = 34; img.data[i * 4 + 1] = 48; img.data[i * 4 + 2] = 74; }   // the seam is navy ink
-        else img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = 255;
-        img.data[i * 4 + 3] = Math.round(k * 255);
+        const k = kind === 'b' ? a[i] : kind === 'r' ? bankRelief(a[i]) : foamAlpha(a[i], kind === 'f0' ? 0 : 1);
+        const j = i * 4, shade = kind === 'r' && k > 0;
+        img.data[j] = shade ? 44 : 255;
+        img.data[j + 1] = shade ? 66 : (k < 0 ? 244 : 255);
+        img.data[j + 2] = shade ? 73 : (k < 0 ? 190 : 255);
+        img.data[j + 3] = Math.round(Math.abs(k) * 255);
       }
       cv.g.putImageData(img, 0, 0);
       m = cv.c;
@@ -768,9 +772,14 @@ export class TerrainFx {
         g.beginPath(); g.moveTo(px, py); g.lineTo(px + dx * R, py); g.arcTo(px, py, px, py + dy * R, R); g.closePath(); g.fill();
       }
     }
-    // The band, the hairline outside it, and a faint lip of shade just inside
-    // it, so the kerb reads as a raised sticker edge: one path each for the chunk.
     g.lineCap = 'butt';
+    for (const [w, drop, style] of KERB_FACE) {
+      g.lineWidth = w; g.strokeStyle = style;
+      g.beginPath();
+      for (const k of plan) if (k.sides & 4) kerbPath(g, k, k.x * TILE - ox, k.y * TILE - oy + drop, 0.5, true);
+      g.stroke();
+    }
+    // The lit top sits over the face, capped by the ink line and the inset bevel.
     for (const [w, inset, style] of KERB_STROKES) {
       g.lineWidth = w; g.strokeStyle = style;
       g.beginPath();
@@ -881,16 +890,16 @@ export class TerrainFx {
           sg.globalCompositeOperation = 'destination-in';
           sg.drawImage(mrow.c, a, 0, sw, TILE, a, 0, sw, TILE);
           sg.globalCompositeOperation = 'source-over';
-          // The seam along that edge (grass tiles only) goes onto the same strip, so it costs no extra copy.
-          const sk = SEAM_K[t];
+          // The bank relief goes onto the same strip, so it costs no extra copy.
+          const sk = BANK_STRENGTH[t];
           if (sk) {
+            sg.globalAlpha = sk;
             for (const [x, p] of row) {
-              if (p.t !== t || !SEAM_GRASS.has(world.terrainAt(x, y))) continue;
-              const sm = this._mask(p.bits, p.v, 's');
-              if (!sm) continue;
-              sg.globalAlpha = Math.min(1, sk);
-              sg.drawImage(sm, x * TILE - ox, 0);
-              if (sk > 1) { sg.globalAlpha = sk - 1; sg.drawImage(sm, x * TILE - ox, 0); }
+              if (p.t !== t) continue;
+              const base = world.terrainAt(x, y);
+              if (!SEAM_GRASS.has(base) && !(base === TERRAIN.SAND && t === TERRAIN.WATER)) continue;
+              const relief = this._mask(p.bits, p.v, 'r');
+              if (relief) sg.drawImage(relief, x * TILE - ox, 0);
             }
             sg.globalAlpha = 1;
           }

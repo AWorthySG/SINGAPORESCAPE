@@ -15,7 +15,7 @@ import { RIG_INK, RIG_SIZE, rigSize, inkRect, inkPart, shadeCreatureBody } from 
 import { bakeBudget } from '../src/render/governor.js';
 import { rigIds, rigInfo } from '../src/render/sprites.js';
 import { touchPlan, TOUCH_DETAILS, GroundTouch } from '../src/render/groundtouch.js';
-import { seamAlpha, SEAM_K, TerrainFx, FOREST, BEACH } from '../src/render/terrainfx.js';
+import { bankRelief, TerrainFx, FOREST, BEACH } from '../src/render/terrainfx.js';
 import { lootLook, lootGlow, drawLootGlow } from '../src/render/juice.js';
 import { pickupFx } from '../src/render/combatfx.js';
 import { RARITY } from '../src/game/loot.js';
@@ -190,19 +190,17 @@ test('background buildings have a contact shadow without a worn approach', () =>
   const cx = shop.x * TILE + shop.def.footprint[0] * TILE / 2;
   const base = p.bases.find((b) => Math.abs((b.x0 + b.x1) / 2 - cx) < 1 && b.y === (shop.y + 1) * TILE);
   assert.ok(base, 'its foot is darkened');
+  assert.ok(base.depth > 12 && base.x1 - base.x0 >= shop.def.footprint[0] * TILE);
   const worn = p.worn.find((d) => Math.abs(d.px - cx) < 1);
   assert.equal(worn, undefined, 'no foot traffic cue for a purely decorative storefront');
 });
 
-test('the seam follows the soft edge: dark on the line, nothing far from it', () => {
-  assert.equal(seamAlpha(0), 0);
-  assert.equal(seamAlpha(1), 0);
-  const peak = Math.max(...Array.from({ length: 101 }, (_, i) => seamAlpha(i / 100)));
-  assert.ok(peak > 0.1 && peak <= 0.17, 'faint');
-  assert.ok(seamAlpha(0.42) === peak || seamAlpha(0.42) > peak * 0.98);
-  assert.ok(seamAlpha(0.9) < peak * 0.1 && seamAlpha(0.05) < peak * 0.25);
-  assert.ok(SEAM_K[TERRAIN.PATH] && SEAM_K[TERRAIN.SAND] && SEAM_K[TERRAIN.WATER]);
-  assert.equal(SEAM_K[TERRAIN.STONE], undefined, 'paving keeps its kerb instead');
+test('the bank has a lit lip and a shadow on opposite sides of the terrain blend', () => {
+  assert.equal(bankRelief(0), 0);
+  assert.equal(bankRelief(1), 0);
+  assert.ok(bankRelief(0.23) < -0.15, 'light stays on the high side');
+  assert.ok(bankRelief(0.59) > 0.2, 'the low side takes the shade');
+  assert.ok(Math.abs(bankRelief(0.05)) < 0.03 && Math.abs(bankRelief(0.9)) < 0.03, 'both fade into the ground');
 });
 
 test('the touches bake headless against a stand-in canvas, the same picture every time', () => {
