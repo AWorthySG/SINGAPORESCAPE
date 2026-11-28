@@ -404,9 +404,10 @@ function loadFields(game, data) {
   assignLegacyQuality(game);   // old saves' per-item quality tally goes onto the copies you own
 
   let p = data.player || {};
-  // A revised mining site can have a rock on a player's former standing
+  // A revised gathering site can have an object on a player's former standing
   // tile. Stand beside it so an older save resumes in the same area.
-  if (game.world.inBounds(p.x, p.y) && game.world.objectAt(p.x, p.y)?.miningOrigin) {
+  const movedNode = game.world.inBounds(p.x, p.y) && game.world.objectAt(p.x, p.y);
+  if ((movedNode?.miningOrigin || movedNode?.gatheringOrigin) && game.world.isBlocked(p.x, p.y)) {
     const nearby = game._nearestFree(p.x, p.y);
     if (nearby) p = { ...p, ...nearby };
   }

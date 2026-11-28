@@ -133,7 +133,10 @@ export function gatherLevel(game, skill, node) {
 }
 /** Whether a region is safe for you to gather in or walk through (above). */
 function safeZones(game) {
-  const p = game.playerTile(), here = game.world.zoneAt?.(p.x, p.y), fight = game.fightLevel?.() || 1;
+  const p = game.playerTile(), W = game.world, here = W.zoneAt?.(p.x, p.y), fight = game.fightLevel?.() || 1;
+  // The Singapore layout guards actual paths to its training grounds, so safe
+  // walking there follows enemy reach even in a high-level district.
+  if (W.layout === 'singapore') return (z) => z === here || (!z?.wilderness && !z?.instance);
   const seen = new Map();
   return (z) => {
     if (!z || z === here) return true;
@@ -341,12 +344,62 @@ export function bestGatherNode(game, skill, { exclude = null } = {}) {
  *  nearer the node than you that a safe walk goes on from (a region only the
  *  MRT reaches safely). `ride`: whether you may take the MRT at all. */
 function safeTrip(game, node, cfg, walk, ride, at) {
-  const from = (st) => walk(at(st), node);
+  const from = (st) => { const p = at(st); return p && !cfg.isBlocked(p.x, p.y) && walk(p, node); };
   const hop = ride && game._mrtHopStation(node);
   if (hop && from(hop)) return { cfg, st: hop };
   if (walk(game.playerTile(), node)) return { cfg, st: null };
   const any = ride && game._mrtHopStation(node, from);
   return any ? { cfg, st: any } : null;
+}
+
+function ferryLegs(game, cfg, walk, ride, at) {
+  const { world: W } = game, links = W.ferryLinks || [];
+  if (!links.length) return [];
+  const crossings = links.flatMap(({ from, to }) => [[from, to], [to, from]]);
+  const queue = [{ tile: game.playerTile(), st: null, ferry: null }];
+  if (ride) for (const st of W.stations) {
+    const tile = at(st);
+    if (tile && !cfg.isBlocked(tile.x, tile.y)) queue.push({ tile, st, ferry: null });
+  }
+  const firstLanding = queue.length, seen = new Set();
+  for (const leg of queue) for (const [from, to] of crossings) {
+    if (seen.has(to) || cfg.isBlocked(to.x, to.y) || !walk(leg.tile, from)) continue;
+    const ferry = leg.ferry || W.objectAt(from.x, from.y);
+    if (ferry?.def.type !== 'ferry') continue;
+    seen.add(to);
+    queue.push({ tile: to, st: leg.st, ferry });
+  }
+  return queue.slice(firstLanding);
+}
+
+function gatheringTrips(game) {
+  const { cfg, walk } = safeLandNow(game), ride = !!game._mrtCanHop?.(), tiles = new Map();
+  const at = (st) => { if (!tiles.has(st)) tiles.set(st, game._nearestFree(st.x, st.y)); return tiles.get(st); };
+  let legs;
+  return (o) => {
+    const land = safeTrip(game, o, cfg, walk, ride, at);
+    if (land) return land;
+    legs ||= ferryLegs(game, cfg, walk, ride, at);
+    const leg = legs.find(({ tile }) => walk(tile, o));
+    return leg ? { cfg, st: leg.st, ferry: leg.ferry } : null;
+  };
+}
+
+/** A safe trip to this exact node, including a crossing when needed. */
+export function gatheringTrip(game, node) {
+  return safeNodes(game)(node) ? gatheringTrips(game)(node) : null;
+}
+
+/** Guide Go offers the closest reachable source of the requested kind. */
+export function gatheringPickFor(game, ids) {
+  const p = game.playerTile(), safe = safeNodes(game), route = gatheringTrips(game);
+  const candidates = nodesOf(game.world, [...new Set(ids)]).filter((o) => !o.depleted && !specialNode(o) && safe(o));
+  candidates.sort((a, b) => dist(p, a) - dist(p, b));
+  for (const obj of candidates) {
+    const trip = route(obj);
+    if (trip) return { obj, trip };
+  }
+  return null;
 }
 /** Whether the mode may go to `node` by itself: somewhere safe, and a safe walk away. */
 export function safeToGather(game, node) {
@@ -356,9 +409,7 @@ export function safeToGather(game, node) {
  *  best source you can get to safely, anywhere, with that source and the trip
  *  there: { obj, src, trip } or null. A spent node beside you doesn't stop it. */
 export function bestGatherPick(game, skill) {
-  const { cfg, walk } = safeLandNow(game), ride = !!game._mrtCanHop?.(), tiles = new Map();
-  const at = (st) => { if (!tiles.has(st)) tiles.set(st, game._nearestFree(st.x, st.y)); return tiles.get(st); };
-  return bestGather(game, skill, { reach: (o) => safeTrip(game, o, cfg, walk, ride, at) });
+  return bestGather(game, skill, { reach: gatheringTrips(game) });
 }
 
 /** The next new source a skill opens, if it is within NEAR_UNLOCK levels: { src, gap } or null. */

@@ -29,6 +29,7 @@ export const OBJECTS = {
   },
   willow: {
     name: 'Willow tree', label: 'Willow', type: 'tree', verb: 'Chop down', emoji: '🌳', blocking: true,
+    waterRoots: true,
     skill: 'woodcutting', level: 30, tool: 'axe', gives: 'willow_logs', xp: 67.5,
     lowChance: 0.20, highChance: 0.72, depleteChance: 0.125, respawn: 16,
     examine: 'Its branches droop into the water. (Woodcutting 30)',
@@ -71,6 +72,7 @@ export const OBJECTS = {
   },
   mangrove: {
     name: 'Mangrove tree', label: 'Mangrove', type: 'tree', verb: 'Chop down', emoji: '🌳', blocking: true,
+    waterRoots: true,
     skill: 'woodcutting', level: 40, tool: 'axe', gives: 'mangrove_logs', xp: 100,
     lowChance: 0.18, highChance: 0.66, depleteChance: 0.10, respawn: 20,
     examine: 'A tangle of salt-hardened mangrove. (Woodcutting 40)',
@@ -697,6 +699,7 @@ export const OBJECTS = {
   ruin: { name: 'Ruins', type: 'scenery', emoji: '🏚️', blocking: true, examine: 'Crumbling ruins from a forgotten age.' },
   fence: { name: 'Fence', type: 'scenery', emoji: '🪵', blocking: true, examine: 'A wooden fence.' },
   bush: { name: 'Bush', type: 'scenery', emoji: '🌿', blocking: false, examine: 'A leafy bush.' },
+  forest_tree: { name: 'Woodland tree', type: 'scenery', emoji: '🌳', blocking: true },
   flower: { name: 'Flowers', type: 'scenery', emoji: '🌺', blocking: false, examine: 'Pretty orchids.' },
   palm: { name: 'Palm tree', type: 'scenery', emoji: '🌴', blocking: true, examine: 'A tall palm.' },
   lamp: { name: 'Lamp post', type: 'scenery', emoji: '🏮', blocking: true, examine: 'It lights the path.' },

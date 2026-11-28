@@ -399,11 +399,12 @@ export class Renderer {
       const jx = !calm && o.shakeT > 0 ? Math.sin(o.shakeT * 0.09) * 1.7 * (o.shakeT / 280) : 0;
       const cx = o.x * TILE + TILE / 2 - ox + jx, cy = o.y * TILE + TILE / 2 - oy;
       const lit = night > 0.12 && isLightSource(o);
-      const fade = this.react.alpha(o), upper = o.def.type === 'tree' && !o.depleted;
+      const tree = o.def.type === 'tree' || o.objId === 'forest_tree';
+      const fade = this.react.alpha(o), upper = tree && !o.depleted;
       const lean = trim || calm ? 0 : this.react.skew(o, timeMs) + this.amb.lean(o, timeMs);
       // A spot's fish stops leaping while a school swirls there (fishCalm keeps when).
       const still = o.def.type === 'fishing' && (calm || fishCalm(o, game.fishSchools?.at(o), timeMs));
-      drawables.push({ sortY: o.y + (o.def.overhead ? 0.9 : 0.4), z: 1, rise: o.def.type === 'tree' ? riseTree : 0, draw: () => {   // (a hanging lantern goes over your head)
+      drawables.push({ sortY: o.y + (o.def.overhead ? 0.9 : 0.4), z: 1, rise: tree ? riseTree : 0, draw: () => {   // (a hanging lantern goes over your head)
         if (lit) {
           // A warm light pool blooms outward after dark — fires, furnaces,
           // ranges and street lamps become the island's night-time glow.

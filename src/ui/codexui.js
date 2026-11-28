@@ -16,6 +16,7 @@ import { RACES, raceOf } from '../data/races.js';
 import { formatNumber } from '../core/utils.js';
 import { itemIconSVG, playIconHTML, mechIcon } from '../render/icons.js';
 import { portraitFor } from '../render/sprites.js';
+import { hasWhiteMatte, loadCutoutPortraits } from '../render/worldcutout.js';
 import {
   CODEX_IDS, TYPE_FILTERS, SORTS, codexList, codexEntry, codexProgress, codexRegions, codexHabitats,
   isDiscovered, killsOf, championCapable, chanceText, nearestSpawn,
@@ -60,7 +61,7 @@ function artHTML(id, cls, seen) {
   // A borrowed picture wears its recolouring (not on a silhouette, which has its own filter).
   let tint = null;
   try { tint = seen ? portraitFor(id, d)?.tint : null; } catch { tint = null; }
-  return `<img class="${cls}${seen ? '' : ' cx-silhouette'}" src="${esc(src)}"${tint ? ` style="filter:${esc(tint)}"` : ''} alt="${seen ? esc(d.name) : 'Unknown creature'}" loading="lazy" decoding="async" />`;
+  return `<img class="${cls}${seen ? '' : ' cx-silhouette'}" ${hasWhiteMatte(src) ? 'data-cutout-src' : 'src'}="${esc(src)}"${tint ? ` style="filter:${esc(tint)}"` : ''} alt="${seen ? esc(d.name) : 'Unknown creature'}" loading="lazy" decoding="async" />`;
 }
 const codexRaceId = (id) => raceOf(getNpc(id), id);
 const CODEX_SET = new Set(CODEX_IDS);
@@ -235,6 +236,7 @@ export function openCodex(ui, id = null, { view, article } = {}) {
   const drawList = () => {
     if (!listEl) return;
     listEl.innerHTML = codexListHTML(game, st);
+    loadCutoutPortraits(listEl);
     // The empty Seen list's button: every creature, silhouettes and all.
     listEl.querySelector('.cx-show-unseen')?.addEventListener('click', () => { st.disc = 'all'; st.shown = PAGE_SIZE; render(listBody); });
     listEl.querySelector('.cx-more')?.addEventListener('click', () => {
@@ -317,6 +319,7 @@ export function openCodex(ui, id = null, { view, article } = {}) {
     const page = control('div', 'cx-entry');
     page.innerHTML = codexEntryHTML(game, id);
     body.appendChild(page);
+    loadCutoutPortraits(page);
     if (isDiscovered(game, id) && knownBossMove(id)?.hazards?.length) {
       const practice = control('button', 'wm-go', { type: 'button', textContent: 'Practise attacks' });
       practice.addEventListener('click', () => openBossPractice(ui, id));

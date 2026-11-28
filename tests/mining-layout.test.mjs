@@ -17,24 +17,20 @@ const within = (o, s) => o.x >= s.x0 && o.x <= s.x1 && o.y >= s.y0 && o.y <= s.y
 const miningNodes = (w) => w.objects.filter((o) => o.def.type === 'rock');
 const pair = () => [new Game(), new Game({ layout: 'singapore' })];
 
-test('both layouts loosen every mining grid and preserve the original nodes and transport access', () => {
+test('both layouts spread out the authored mines and preserve their nodes and transport access', () => {
   const baseline = buildWorld();
   const original = new Map(baseline.objects.filter((o) => getObject(o.objId).type === 'rock').map((o) => [key(o), o.objId]));
   let authored;
   for (const { world: w } of pair()) {
     const rocks = miningNodes(w);
-    assert.equal(rocks.length, 538);
+    const outcrop = w.resourceZones.find((s) => s.id === 'kampong_outcrop');
+    assert.equal(rocks.length, original.size + (w.layout === 'singapore' ? 5 : 0));
     const starts = new Set([
       w.spawnPoint, ...w.stations, ...w.ferryLinks.flatMap(({ from, to }) => [from, to]),
     ].map((o) => w._walkComponent(o)));
     const npcTiles = new Set(w.npcSpawns.map(key));
     const mapped = new Map();
     for (const rock of rocks) {
-      const before = w.legacyTile(rock.miningOrigin || rock);
-      const after = w.legacyTile(rock);
-      assert.equal(rock.objId, original.get(key(before)), key(before));
-      assert.equal(mapped.has(key(before)), false, `duplicate origin ${key(before)}`);
-      mapped.set(key(before), key(after));
       assert.equal(w.objectAt(rock.x, rock.y), rock, key(rock));
       assert.equal(npcTiles.has(key(rock)), false, key(rock));
       assert.equal(NO_ROCK.has(w.terrainAt(rock.x, rock.y)), false, key(rock));
@@ -43,11 +39,18 @@ test('both layouts loosen every mining grid and preserve the original nodes and 
         .filter(({ x, y }) => !w.isBlocked(x, y));
       assert.ok(stances.length >= 2, `cardinal stances at ${key(rock)}`);
       assert.ok(stances.some((p) => starts.has(w._walkComponent(p))), `approach to ${key(rock)}`);
+      if (outcrop && within(rock, outcrop)) continue;
+      // Check the authored spacing before any longer move out of enemy reach.
+      const before = w.legacyTile(rock.miningOrigin || rock.gatheringOrigin || rock);
+      const after = w.legacyTile(rock.gatheringOrigin || rock);
+      assert.equal(rock.objId, original.get(key(before)), key(before));
+      assert.equal(mapped.has(key(before)), false, `duplicate origin ${key(before)}`);
+      mapped.set(key(before), key(after));
       if (!rock.miningOrigin) continue;
       assert.ok(rock.def.level < 100, `${rock.objId} stays in its vein`);
       assert.equal(original.has(key(after)), false, `reused origin at ${key(after)}`);
       assert.equal(w.objectAt(rock.miningOrigin.x, rock.miningOrigin.y), null);
-      assert.equal(w.miningNodeAtOrigin(rock.miningOrigin.x, rock.miningOrigin.y), rock);
+      assert.equal(w.gatheringNodeAtOrigin(rock.miningOrigin.x, rock.miningOrigin.y), rock);
       assert.equal(Math.max(Math.abs(before.x - after.x), Math.abs(before.y - after.y)), 1);
     }
     assert.equal(mapped.size, original.size);
@@ -59,11 +62,12 @@ test('both layouts loosen every mining grid and preserve the original nodes and 
     for (const site of [...quarries, ...hubs]) {
       const nodes = rocks.filter((r) => within(r, site));
       assert.equal(nodes.length, site.count, site.id);
-      assert.ok(nodes.filter((r) => r.miningOrigin).length >= site.count / 2, site.id);
+      if (site !== outcrop) assert.ok(nodes.filter((r) => r.miningOrigin).length >= site.count / 2, site.id);
     }
     for (const site of hubs) assert.equal(w.objectAt(site.cx, site.cy)?.sign, site.name);
     const graniteTile = w.authoredTile({ x: 80, y: 17 });
-    assert.equal(w.objectAt(graniteTile.x, graniteTile.y)?.objId, 'granite_rock');
+    const granite = w.objectAt(graniteTile.x, graniteTile.y) || w.gatheringNodeAtOrigin(graniteTile.x, graniteTile.y);
+    assert.equal(granite?.objId, 'granite_rock');
   }
 });
 
@@ -74,7 +78,12 @@ test('old mining targets and standing positions resume in the revised mine', () 
   try {
     const [legacy, singapore] = pair();
     const { world: w } = legacy;
-    const rock = miningNodes(w).find((o) => o.miningOrigin);
+    const rock = miningNodes(w).find((o) => {
+      if (!o.miningOrigin) return false;
+      const tile = geographicTile(o.x, o.y);
+      return singapore.world.objectAt(tile.x, tile.y)?.objId === o.objId;
+    });
+    assert.ok(rock);
     const origin = rock.miningOrigin;
     const oldTarget = { kind: 'work', id: rock.objId, ...origin };
     json = JSON.stringify({ ...snapshot(legacy), player: { ...snapshot(legacy).player, ...point(rock) }, resumeTask: oldTarget });
@@ -92,6 +101,13 @@ test('old mining targets and standing positions resume in the revised mine', () 
     assert.deepEqual(singapore.resumeTask, { ...oldTarget, ...dest });
     assert.ok(Math.max(Math.abs(singapore.player.x - dest.x), Math.abs(singapore.player.y - dest.y)) === 1);
     assert.equal(singapore.world.isBlocked(singapore.player.x, singapore.player.y), false);
+
+    const relocated = miningNodes(singapore.world).find((o) => o.objId === 'gem_rock' && o.gatheringOrigin);
+    assert.ok(relocated);
+    const gemTask = { kind: 'work', id: relocated.objId, ...relocated.gatheringOrigin };
+    json = JSON.stringify({ ...snapshot(singapore), resumeTask: gemTask });
+    assert.equal(loadGame(singapore), true);
+    assert.deepEqual(singapore.resumeTask, { ...gemTask, ...point(relocated) });
   } finally {
     if (storage === undefined) delete globalThis.localStorage;
     else globalThis.localStorage = storage;

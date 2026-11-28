@@ -11,6 +11,7 @@ import { getNpc } from '../data/npcs.js';
 import { itemIconSVG, playIconHTML } from '../render/icons.js';
 import { portraitFor } from '../render/sprites.js';
 import { petArtSrc } from '../render/petsprite.js';
+import { hasWhiteMatte, loadCutoutPortraits } from '../render/worldcutout.js';
 import { PAGES, PAGE_BY_ID } from '../game/collection.js';
 import { PET_BY_ID } from '../game/pets.js';
 
@@ -22,7 +23,7 @@ function petArt(id, size = 40) {
   const P = PET_BY_ID[id];
   let src = petArtSrc(id);
   if (!src) try { src = P && portraitFor(P.npcId, getNpc(P.npcId))?.src; } catch { src = null; }
-  return src ? `<img class="cl-pet-img" width="${size}" height="${size}" src="${esc(src)}" alt="" loading="lazy" decoding="async" />`
+  return src ? `<img class="cl-pet-img" width="${size}" height="${size}" ${hasWhiteMatte(src) ? 'data-cutout-src' : 'src'}="${esc(src)}" alt="" loading="lazy" decoding="async" />`
     : `<span class="cl-pet-paw" style="font-size:${Math.round(size * 0.6)}px">${playIconHTML('ui-pets', Math.round(size * 0.8))}</span>`;
 }
 
@@ -75,6 +76,7 @@ export function openCollection(ui, pageId = null) {
       + `<div class="cl-page">${collectionPageHTML(g, page)}</div>`
       + (titles.length ? `<label class="cl-pick">Title <select class="cl-title-sel"><option value="">None</option>${titles.map((x) => `<option value="${esc(x.id)}"${c.title === x.id ? ' selected' : ''}>${esc(x.title)}</option>`).join('')}</select></label>` : '')
       + `<div class="skill-group">${playIconHTML('ui-pets', 18)} Pets <small>${Object.keys(g.pets.owned).length} found</small></div><div class="cl-pets">${petsHTML(g)}</div>`;
+    loadCutoutPortraits(body);
     body.querySelector('.cl-page-sel').addEventListener('change', (e) => { ui._clPage = e.target.value; openCollection(ui); });
     body.querySelector('.cl-title-sel')?.addEventListener('change', (e) => { c.setTitle(e.target.value || null); });
     for (const b of body.querySelectorAll('.cl-pet-btn')) {

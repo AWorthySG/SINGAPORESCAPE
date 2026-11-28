@@ -149,7 +149,7 @@ function makeCanvas() {
 // far their picture reaches above and to each side of the tile centre.
 const TALL = { tree: [62, 30], bank: [42, 28], transport: [38, 33], stall: [38, 28], shrine: [44, 27],
   offering: [44, 27], rest: [42, 24], furnace: [38, 25], range: [34, 25] };
-const TALL_SCENERY = { palm: [54, 25], ruin: [32, 22], wall: [24, 20] };
+const TALL_SCENERY = { forest_tree: TALL.tree, palm: [54, 25], ruin: [32, 22], wall: [24, 20] };
 const BRUSHY = new Set(['bush', 'flower']);   // what sways as you push through it
 export const SEE_THROUGH_ALPHA = 0.45;
 const FADE_RATE = 0.008;      // per ms: ~0.15s to fade either way
