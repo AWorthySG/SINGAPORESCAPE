@@ -26,6 +26,7 @@ import { toolLadder } from '../src/game/tools.js';
 import { gatherSources, diveSpotList, guideEntries, GATHER_SKILLS, SKILL_GUIDES } from '../src/game/skillguide.js';
 import { xpRate } from '../src/game/xprate.js';
 import { chebyshev } from '../src/core/utils.js';
+import { diveShoreAt } from '../src/render/diveart.js';
 
 function fakeStorage() {
   const m = new Map();
@@ -82,6 +83,10 @@ test('every reef is placed in its region, in the water, with land you can walk t
     for (const o of os) {
       assert.equal(zoneAt(o.x, o.y)?.name, s.region, `${s.id} in ${s.region}`);
       assert.equal(w.terrain[o.y * w.width + o.x], TERRAIN.WATER, `${s.id} at ${o.x},${o.y} is in the water`);
+      const stand = diveShoreAt(g.world, o);
+      assert.ok(stand && !g.world.isBlocked(stand.x, stand.y), `${s.id} has a walkable shore marker`);
+      assert.notEqual(g.world.terrainAt(stand.x, stand.y), TERRAIN.WATER, 'the marker is on dry ground');
+      assert.equal(Math.abs(stand.x - o.x) + Math.abs(stand.y - o.y), 1, 'you can dive from the marker');
     }
     // Far regions for the endgame reefs, as the endgame fish.
     if (s.level >= 130) assert.ok(zoneAt(os[0].x, os[0].y).far || zoneAt(os[0].x, os[0].y).lo >= 120, `${s.id} is in a far region`);

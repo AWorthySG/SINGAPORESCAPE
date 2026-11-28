@@ -18,6 +18,7 @@ import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
 import { drawObjectSprite, drawCreature, drawPlayer } from './sprites.js';
 import { paintHeritageTiles } from './heritagewalk.js';
+import { paintDiveShoreTiles } from './diveart.js';
 import { GroundTouch } from './groundtouch.js';
 
 /** A stable 0..1 hash of a tile (and an optional salt). */
@@ -869,6 +870,7 @@ export class TerrainFx {
     yield;
     // 2. Small details on the ground.
     for (const d of scatterPlan(world, tx0, ty0, tx1, ty1, opts)) this._stamp(g, d, d.px - ox, d.py - oy);
+    paintDiveShoreTiles(g, world, tx0, ty0, tx1, ty1);
     yield;
     // 3. Contact shadows, and a little darkening of the ground beside walls and buildings.
     const sh = this._shadowSprite();

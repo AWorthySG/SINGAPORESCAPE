@@ -56,6 +56,7 @@ export function placeLumberYards(game) {
     const at = findYard(w, game.home, a);
     if (!at) continue;
     for (const [objId, dx] of a.anvil ? WITH_ANVIL : YARD) w.addObject(objId, at.x + dx, at.y + 1);
+    if (a.anvil) w.addObject('sign', at.x + 6, at.y, { sign: 'Kranji lumber yard' });
     out.push({ name: a.name, ...at });
   }
   return out;

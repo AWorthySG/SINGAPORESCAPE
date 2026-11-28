@@ -63,6 +63,7 @@ import { resolveExcavate } from './archaeology.js';
 import { installSkillUnlocks, runSkillAction, extraCrop, growTicks } from './skillunlocks.js';
 import { Home } from './home.js';
 import { placeLumberYards } from './construction.js';
+import { placeIslandSites } from './islandlife.js';
 import { HawkerStall } from './hawkerstall.js';
 import { CROP_BY_SEED, cropFor, POTIONS, greenFingersChance } from '../data/trades.js';
 import { saveGame, loadGame, hasSave } from './save.js';
@@ -435,7 +436,7 @@ export const BONE_PRAYER_XP = getItem('bones').prayerXp;   // plain bones; every
 const ALCHEMY = { level: 21, xp: 65, runes: { nature_rune: 1, fire_rune: 5 } };
 
 // Actions that can fire the instant you press (no random roll to exploit by spamming).
-const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'fletchmenu', 'herbmenu', 'farm', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk', 'shrinemenu', 'homemenu']);
+const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'fletchmenu', 'herbmenu', 'farm', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk', 'shrinemenu', 'homemenu', 'islandmenu']);
 const GATHER_ACTIONS = new Set(['woodcut', 'mine', 'fish', 'stall']);
 // Gathering (woodcutting, mining, fishing, Hunter) goes this much faster: every
 // 1/(GATHER_SPEED-1) ticks an extra roll, so each action takes about 20% less
@@ -565,6 +566,7 @@ export class Game {
     installSkillUnlocks(this);        // life skill unlocks at 10/25/50/75/99 (skillunlocks.js)
     this.home = new Home(this);       // the kampong home plot in Kranji (home.js)
     this.lumberYards = placeLumberYards(this);   // Construction's sawmills, kilns and workbenches (construction.js)
+    placeIslandSites(this.world);
     this.hawker = new HawkerStall(this);   // your stall at the Marina Bay hawker centre: Hawkering (hawkerstall.js)
     this.gathering = new Gathering(this);   // gathering streaks, lucky finds and daily skilling contracts (gathering.js)
     this.fishSchools = new FishSchools(this);   // a school of fish now and then at a spot near you (fishschool.js)
@@ -1571,6 +1573,7 @@ export class Game {
       // The Endless Gate asks first (its panel shows your best wave); its exit portal just takes you out.
       case 'gate': return this._tickArrival(a, a.target, true, () => (a.obj.objId === 'wave_exit' ? this.waves.leave() : this.ui ? this.ui.openWaveGate?.(a.obj) : this.waves.enter()));
       case 'openbank': return this._tickArrival(a, a.target, true, () => this.ui?.openBank());
+      case 'islandmenu': return this._tickArrival(a, a.target, true, () => this.ui?.openSkillGuide?.(a.obj.def.skill));
       case 'homemenu': return this._tickArrival(a, a.target, true, () => this.bus.emit('homeopen', a.obj.def.room ? `${a.obj.def.homeTab}:${a.obj.def.room}` : a.obj.def.homeTab));   // homeui.js (a piece of furniture opens its room)
       case 'openshop': return this._tickArrival(a, a.target, true, () => this.ui?.openShop(a.shop));
       case 'talk': return this._tickArrival(a, a.target, true, () => this.ui?.openDialogue(a.npc));
@@ -6313,6 +6316,7 @@ export class Game {
       case 'herblore': return this.beginAction({ type: 'herbmenu', obj, target: tgt }, tgt, true);
       case 'saw': case 'kiln': case 'build': case 'homebench': return this.beginAction({ type: 'conmenu', obj, target: tgt }, tgt, true);
       case 'hawkstall': return this.beginAction({ type: 'hawkmenu', obj, target: tgt }, tgt, true);
+      case 'islandsite': return this.beginAction({ type: 'islandmenu', obj, target: tgt }, tgt, true);
       case 'farm': return this.beginAction({ type: 'farm', obj, target: tgt }, tgt, true);
       case 'bank': return this.beginAction({ type: 'openbank', target: tgt }, tgt, true);
       case 'shrine': return this.beginAction({ type: 'pray', obj }, tgt, true);

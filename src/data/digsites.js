@@ -9,6 +9,9 @@ import { DIG_SITES, DIG_SITE_SIZE } from './archaeology.js';
 
 // Where the museum stands: the curator by Chinatown's south side, the bench beside them.
 export const MUSEUM_AT = { x: 84, y: 64 };
+// Two of the starter spots form a teaching trench on the museum's south lawn.
+export const TEACHING_DIG_TILES = [[84, 66], [86, 66]];
+export const TEACHING_DIG_ART = 'obj-kampong_ruins-1';
 
 /**
  * ctx: world.js's { T, width, height, get, inB, isFree, placeObj, placeNpc, inTown, inNewTown, objects, npcSpawns, start, rand }.
@@ -34,6 +37,8 @@ export function placeDigSites({ T, width: W, height: H, get, inB, isFree, placeO
   const walk = (x, y) => inB(x, y) && reach[y * W + x] === 1 && isFree(x, y) && !npcAt.has(y * W + x);
   const open = (x, y) => walk(x, y) && GROUND.includes(get(x, y)) && !inTown(x, y) && !inNewTown(x, y)
     && N4.filter(([dx, dy]) => walk(x + dx, y + dy)).length >= 2;
+  const teaching = TEACHING_DIG_TILES.filter(([x, y]) => walk(x, y) && GROUND.includes(get(x, y))
+    && N4.filter(([dx, dy]) => walk(x + dx, y + dy)).length >= 2);
   for (const s of DIG_SITES) {
     const [x0, y0, x1, y1] = s.rect, all = [];
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (open(x, y)) all.push([x, y]);
@@ -44,7 +49,11 @@ export function placeDigSites({ T, width: W, height: H, get, inB, isFree, placeO
       let placed = 0;
       while (placed < DIG_SITE_SIZE && near.length) {
         const [x, y] = near.splice(Math.floor(rand() * near.length), 1)[0];
-        if (open(x, y) && placeObj(s.id, x, y)) placed++;
+        if (!open(x, y)) continue;
+        // Keep the same five resource nodes and the same seeded draws for later sites.
+        const lesson = s.id === 'kampong_ruins' && teaching[placed - DIG_SITE_SIZE + teaching.length];
+        if (lesson && placeObj(s.id, ...lesson, { art: TEACHING_DIG_ART, displayName: 'Museum teaching trench' })) placed++;
+        else if (placeObj(s.id, x, y)) placed++;
       }
       break;
     }

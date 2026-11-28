@@ -1,8 +1,30 @@
 import { LANDINGS, LOOMS, PATTERNS, PHOTO_ASSIGNMENTS, STAGES, TUNES, VOYAGES } from '../data/islandlife.js';
 import { getItem } from '../data/items.js';
+import { OBJECTS } from '../data/objects.js';
 import { teleportPlayer, unlockFx } from './skillunlocks.js';
 
 export const nearIslandSite = (p, site, range = 2) => Math.max(Math.abs(p.x - site.x), Math.abs(p.y - site.y)) <= range;
+const WAYFINDING = [
+  [260, 52, 'Sailing landing →'], [276, 46, 'Sailing landing →'],
+  [55, 93, 'Shell shallows ↙'], [49, 96, 'Shell shallows ←'],
+];
+
+// Share the exact sites with the skill panels, so Interact and Go lead to the same places.
+export function placeIslandSites(world) {
+  for (const site of LOOMS) {
+    world.addObject('batik_loom', site.x, site.y, { def: { ...OBJECTS.batik_loom, level: site.level } });
+  }
+  for (const site of STAGES) {
+    world.addObject('busker_stage', site.x, site.y, { def: { ...OBJECTS.busker_stage, level: site.level } });
+  }
+  for (const site of Object.values(LANDINGS)) {
+    world.addObject('sailing_landing', site.x, site.y, { def: { ...OBJECTS.sailing_landing, name: site.name } });
+  }
+  for (const [x, y, sign] of WAYFINDING) {
+    if (!world.isBlocked(x, y) && !world.objectAt(x, y)) world.addObject('sign', x, y, { sign });
+  }
+}
+
 const ids = (raw, table) => table.filter((row) => Array.isArray(raw) && raw.includes(row.id)).map((row) => row.id);
 const dailyKeys = new Set([
   ...VOYAGES.filter((v) => v.freight).map((v) => 'freight:' + v.id),

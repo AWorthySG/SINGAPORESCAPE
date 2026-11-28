@@ -1,11 +1,6 @@
 import { TILE } from '../config.js';
-import { islandPhotoArt, LANDINGS, LOOMS, PATTERNS, PHOTO_ASSIGNMENTS, STAGES } from '../data/islandlife.js';
+import { islandPhotoArt, PATTERNS, PHOTO_ASSIGNMENTS } from '../data/islandlife.js';
 
-const SITES = [
-  ...Object.values(LANDINGS).map((site) => ({ ...site, kind: 'boat' })),
-  ...LOOMS.map((site) => ({ ...site, kind: 'cloth' })),
-  ...STAGES.map((site) => ({ ...site, kind: 'stage' })),
-];
 const INK = '#344259';
 const polygon = (g, points, colour) => {
   g.beginPath();
@@ -16,38 +11,7 @@ const polygon = (g, points, colour) => {
   g.stroke();
 };
 
-export function drawIslandSites(g, game, ox, oy, width, height, time, calm) {
-  for (const { x, y, kind } of SITES) {
-    const px = (x + .5) * TILE - ox, py = (y + .5) * TILE - oy;
-    if (px < -36 || px > width + 36 || py < -36 || py > height + 36) continue;
-    g.save();
-    g.translate(px, py);
-    g.strokeStyle = INK;
-    g.lineWidth = 1;
-    g.fillStyle = 'rgba(52,66,89,.16)';
-    g.beginPath();
-    g.ellipse(1, 4, 16, 7, 0, 0, Math.PI * 2);
-    g.fill();
-    if (kind === 'boat') {
-      g.fillStyle = '#b79370';
-      g.fillRect(-14, -5, 28, 13);
-      g.fillStyle = '#e3c598';
-      for (let i = -12; i < 13; i += 5) g.fillRect(i, -5, 3, 13);
-      const sway = calm ? 0 : Math.sin(time / 680 + x) * 2;
-      polygon(g, [[-8, 0], [8, 0], [4, 4], [-5, 4]], '#347d7c');
-      polygon(g, [[0, -17], [0, -1], [8 + sway, -1]], '#ffdf9d');
-      polygon(g, [[-1, -13], [-1, -1], [-7 + sway, -1]], '#d47f68');
-    } else {
-      const cloth = kind === 'cloth';
-      g.fillStyle = cloth ? '#99536c' : '#826445';
-      g.fillRect(-15, -8, 30, 16);
-      for (let i = -12; i < 13; i += 6) {
-        if (cloth) polygon(g, [[i, -5], [i + 2, 0], [i, 5], [i - 2, 0]], '#f4cd91');
-        else { g.fillStyle = '#dec08b'; g.fillRect(i, -7, 2, 14); }
-      }
-    }
-    g.restore();
-  }
+export function drawHomeAlbum(g, game, ox, oy, width, height) {
   const display = PHOTO_ASSIGNMENTS.find((p) => p.id === game.islandLife?.display);
   if (!display || !game.home?.owned || !game.home.origin) return;
   const t = game.home.tile(4, 3);

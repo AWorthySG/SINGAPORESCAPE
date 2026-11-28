@@ -2,9 +2,63 @@
 // floating dive buoy in the reef's colour over a patch of coral and rippling
 // rings) and the breath bar over the hero while they dive. Sticker style: navy
 // ink #22304A, pastel fills. A few paths a frame, no garbage.
+import { TILE } from '../config.js';
 import { DIVE_SPOT_BY_ID } from '../data/diving.js';
 
 const INK = '#22304A';
+const SHORE_SIDES = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+
+/** A walkable shore tile beside the reef, with room to see the marker. */
+export function diveShoreAt(world, reef) {
+  let fallback = null;
+  for (const [dx, dy] of SHORE_SIDES) {
+    const x = reef.x + dx, y = reef.y + dy;
+    if (world.isBlocked(x, y)) continue;
+    const tile = { x, y };
+    if (!world.objectAt(x, y)) return tile;
+    fallback ||= tile;
+  }
+  return fallback;
+}
+
+// Inlay the mask at the standing tile, once per chunk and once per shared approach.
+export function paintDiveShoreTiles(ctx, world, x0, y0, x1, y1) {
+  const nearby = world.objectsIn?.(x0 - 1, y0 - 1, x1, y1);
+  if (!nearby) return;
+  const seen = new Set();
+  for (const o of nearby) {
+    if (o.def.type !== 'dive') continue;
+    const at = diveShoreAt(world, o);
+    if (!at || at.x < x0 || at.y < y0 || at.x >= x1 || at.y >= y1) continue;
+    const key = at.y * world.width + at.x;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const x = (at.x - x0 + .5) * TILE, y = (at.y - y0 + .5) * TILE;
+    ctx.fillStyle = '#315b64';
+    ctx.beginPath(); ctx.ellipse(x, y, 10, 7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fdf2d1';
+    ctx.beginPath();
+    ctx.ellipse(x - 3, y, 3.4, 2.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + 3, y, 3.4, 2.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fdf2d1'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(x + 6, y); ctx.lineTo(x + 8, y - 1); ctx.lineTo(x + 8, y - 4); ctx.stroke();
+  }
+}
+
+/** A red-and-white dive flag. Its pole ends at the float at (x, y). */
+export function drawDiveFlag(ctx, x, y) {
+  ctx.save();
+  ctx.strokeStyle = INK; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 19); ctx.stroke();
+  ctx.fillStyle = '#e76b57';
+  ctx.fillRect(x, y - 19, 12, 8);
+  ctx.fillStyle = '#fff7dc';
+  ctx.beginPath(); ctx.moveTo(x + 1, y - 19); ctx.lineTo(x + 4, y - 19);
+  ctx.lineTo(x + 11, y - 11); ctx.lineTo(x + 8, y - 11); ctx.closePath(); ctx.fill();
+  ctx.strokeRect(x, y - 19, 12, 8);
+  ctx.restore();
+}
 
 /** A reef at tile centre (cx, cy). The buoy bobs on its own beat (its tile). */
 export function drawDiveSpot(ctx, obj, cx, cy, time = 0) {
@@ -38,11 +92,7 @@ export function drawDiveSpot(ctx, obj, cx, cy, time = 0) {
   ctx.beginPath(); ctx.arc(cx + 5, by, 4.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(cx + 1.2, by - 0.9, 7.6, 1.8);
-  // ...and its little flag on a stick.
-  ctx.strokeStyle = INK; ctx.lineWidth = 1.1;
-  ctx.beginPath(); ctx.moveTo(cx + 5, by - 4); ctx.lineTo(cx + 5, by - 11); ctx.stroke();
-  ctx.fillStyle = '#f06a5a';
-  ctx.beginPath(); ctx.moveTo(cx + 5, by - 11); ctx.lineTo(cx + 10, by - 9); ctx.lineTo(cx + 5, by - 7); ctx.closePath(); ctx.fill(); ctx.stroke();
+  drawDiveFlag(ctx, cx + 5, by - 2);
 }
 
 export const BREATH_BAR_W = 34;
