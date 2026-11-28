@@ -13,7 +13,7 @@ export function drawDigGround(ctx, cx, cy, selected) {
   ctx.beginPath(); ctx.ellipse(cx, y - 1.4, 15.5, 3.2, 0, 0, Math.PI * 2); ctx.fill();
   if (selected) {
     // Two exposed edges of the work marker stay visible around the earth.
-    ctx.strokeStyle = 'rgba(75,61,42,0.52)'; ctx.lineWidth = 2.7;
+    ctx.strokeStyle = 'rgba(34,48,74,0.52)'; ctx.lineWidth = 2.7;
     ctx.beginPath(); ctx.ellipse(cx, y - 0.1, 17.7, 3.8, 0, 0, Math.PI); ctx.stroke();
     ctx.strokeStyle = '#ffdd91'; ctx.lineWidth = 1.25; ctx.stroke();
   }

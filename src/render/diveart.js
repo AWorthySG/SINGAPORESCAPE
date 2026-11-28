@@ -60,7 +60,7 @@ export function drawDiveBed(ctx, obj, cx, cy, art = null) {
     const w = art.naturalWidth * scale, h = art.naturalHeight * scale;
     // Let the actual water colour through the stone and coral. The bright
     // buoy is drawn separately at full opacity on the surface.
-    ctx.globalAlpha *= 0.83;
+    ctx.globalAlpha *= 0.89;
     ctx.drawImage(art, cx - w / 2, cy + foot - h, w, h);
   } else {
     // A muted patch of sand and the reef's own colour while its art loads.
@@ -115,7 +115,7 @@ export function drawDiveMarker(ctx, obj, cx, cy, time = 0, reduced = false, sele
   drawDiveRipples(ctx, obj, cx, cy, time, reduced);
   ctx.save();
   if (selected) {
-    ctx.strokeStyle = 'rgba(90,88,66,0.52)'; ctx.lineWidth = 2.6;
+    ctx.strokeStyle = 'rgba(34,48,74,0.52)'; ctx.lineWidth = 2.6;
     ctx.beginPath(); ctx.ellipse(x, waterY, 9.5, 3.8, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.strokeStyle = '#ffdf94'; ctx.lineWidth = 1.15; ctx.stroke();
   }
