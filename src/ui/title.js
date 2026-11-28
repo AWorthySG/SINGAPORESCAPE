@@ -1,6 +1,6 @@
 // The title screen, the loading bar and the animated heroes of the class picker.
 //
-// - Title: a painted evening in Kampong Glam, with animated heroes and petals.
+// - Title: a painted evening on Transit Road, with the mascot on the footpath.
 //   The layered skyline and live island tour cover a failed key-art load.
 // - Loading: the Enter button waits behind a progress bar driven by real image
 //   loads (every picture the game asks for while it renders the title's shots
@@ -31,7 +31,9 @@ import { cosySkylineSvg, dressTitle } from './cosytitle.js';
 // TITLE_ART: the screen uses it at once (tests/render.test.mjs keeps TITLE_ART
 // in lock-step with the folder). Until then each slot has a placeholder.
 export const TITLE_ART_SLOTS = {
+  'transit-road-evening': { size: 'landscape, opaque', use: 'the main title scene with clear space on the left for the wordmark', placeholder: 'the painted skyline and live island tour' },
   'kampong-evening': { size: 'landscape, opaque', use: 'the title scene with clear space on the left for the wordmark', placeholder: 'the painted skyline and live island tour' },
+  'kampong-guide': { size: '280px tall, transparent', use: 'the map-carrying mascot by the loading bar and on the desktop title scene', placeholder: 'none' },
   skyline: { size: '2400x700 (any height), transparent, seamless left-right', use: 'the near band behind the title heroes: rain trees, palms and Supertree-style towers', placeholder: 'the cosy neighbourhood SVG (cosytitle.js)' },
   backdrop: { size: '1920x1080, opaque', use: 'a painted key-art scene shown while the game loads (before the live world fades in)', placeholder: 'the cream paper background' },
   'backdrop-portrait': { size: '1080x1920, opaque', use: 'the same key art cropped for phones held upright', placeholder: 'the cream paper background' },
@@ -47,7 +49,7 @@ export const TITLE_ART_SLOTS = {
   medallion: { size: '256x256, round, transparent outside', use: 'the mascot\'s portrait filling the ribbon\'s sun disc on small screens (MD-1)', placeholder: 'the sitting mascot' },
 };
 /** The slots that have a painted file in assets/title/. */
-export const TITLE_ART = new Set(['kampong-evening', 'backdrop', 'backdrop-portrait', 'sky', 'clouds', 'skyline-far', 'skyline-mid', 'skyline', 'foreground', 'logo-banner', 'mascot-sit', 'medallion']);
+export const TITLE_ART = new Set(['transit-road-evening', 'kampong-evening', 'kampong-guide', 'backdrop', 'backdrop-portrait', 'sky', 'clouds', 'skyline-far', 'skyline-mid', 'skyline', 'foreground', 'logo-banner', 'mascot-sit', 'medallion']);
 export const titleArtSrc = (slot) => (TITLE_ART.has(slot) ? `assets/title/${slot}.webp` : null);
 /** The painted slots the title shows at once: asked for while the loading bar
  *  runs (and counted by it), so the city fades in whole. */
@@ -538,18 +540,16 @@ export function titleCast(w, h, cardW = w) {
   return TITLE_HEROES.slice(0, titleSpots(w, h, cardW).length);
 }
 const PETALS = ['petal_pink', 'frangipani', 'leaf_green', 'leaf_lime', 'petal_pink', 'dust_m'];
-const LOAD_MIN_MS = 700;      // the bar never just flashes past
-const LOAD_MAX_MS = 12000;    // ...and never holds the player up for long
+const SKYLINE_MIN_LOAD_MS = 700; // keep the fallback's opening reveal from flashing past
+const LOAD_MAX_MS = 12000;    // a slow asset cannot keep the player waiting forever
 // How long after the Enter button shows the live world can still be glimpsed:
 // the cream paper fades out (1.1s after 0.1s) as the painted sky fades in
 // (1.1s after 0.15s, title.css). After that the sky covers it, with room to spare.
 export const SKY_IN_MS = 1800;
-/** Is the live world behind the title out of sight? It is once the painted
- *  sky (an opaque picture over the whole screen) has loaded and faded in, until
- *  the title hands the camera back to the player. Then the world need not be
- *  drawn: the camera's tour behind the sky is never seen. */
-export function worldOutOfSight({ ready, skyIn, sinceReady, handedBack }) {
-  return !!(ready && skyIn && !handedBack && sinceReady >= SKY_IN_MS);
+/** Rest the renderer when opaque art covers a ready title. The skyline takes
+ *  a moment to fade in, while the main painting is already visible. */
+export function worldOutOfSight({ ready, skyIn, sinceReady, handedBack, keyArt }) {
+  return !!(ready && skyIn && !handedBack && (keyArt || sinceReady >= SKY_IN_MS));
 }
 
 export class TitleScreen {
@@ -577,20 +577,25 @@ export class TitleScreen {
     this.el = {
       fill: splash.querySelector('.sl-fill'), bar: splash.querySelector('#splash-loader'),
       tip: splash.querySelector('.sl-tip'), status: splash.querySelector('.sl-status'),
+      enterLabel: splash.querySelector('.splash-enter-label'),
       fade: splash.querySelector('.title-fade'), place: splash.querySelector('.title-place'),
       heroes: splash.querySelector('.title-heroes'), sky: splash.querySelector('.title-skyline'),
       petals: splash.querySelector('.title-particles'), keyArt: splash.querySelector('.title-keyart'),
     };
     document.body.classList.add('title-on');
     if (this.still) splash.classList.add('title-still');
-    this._showTip();
+    if (!this.keyArtActive) this._showTip();
   }
+
+  get keyArtActive() { return this.splash?.classList?.contains?.('title-keyart-on') ?? false; }
 
   /** Count every picture the game creates from now until loading ends. */
   trackImages() {
     this._untrack = trackImages(this.tracker);
     this.tracker.job('fonts');
-    try { document.fonts?.ready.then(() => this.tracker.done('fonts'), () => this.tracker.done('fonts')); } catch { this.tracker.done('fonts'); }
+    const fontsReady = () => this.tracker.done('fonts');
+    const ready = globalThis.document?.fonts?.ready;
+    if (ready) ready.then(fontsReady, fontsReady); else fontsReady();
   }
 
   /** Run `fn` once loading is done (at once if it already is, or there's no
@@ -601,15 +606,9 @@ export class TitleScreen {
     this._later.push(fn);
   }
 
-  /** Ask for the title's own pictures now, before the game is built: the
-   *  painted city, the title heroes this screen has room for and the petals.
-   *  They need nothing from the game, and the connection would otherwise sit
-   *  idle while the world is generated. (attach does this too, if no one has.) */
+  /** Track the painted scene, or warm the skyline if that image is unavailable. */
   warm() {
     if (!this.splash || this._titleArt) return;
-    for (const id of this._cast()) warmHero(id);
-    // The drifting petals (fxImage's own Image is counted like any other).
-    if (!this.still && !this.lowFx) for (const k of PETALS) fxImage(`particle-${k}`);
     const keyArt = this.el.keyArt;
     if (keyArt) {
       this._titleArt = [this.tracker.add(keyArt)];
@@ -622,6 +621,9 @@ export class TitleScreen {
   /** Set up the layered skyline if the key art is unavailable. */
   _useSkyline() {
     this.splash.classList.remove('title-keyart-on');
+    this._showTip();
+    for (const id of this._cast()) warmHero(id);
+    if (!this.still && !this.lowFx) for (const k of PETALS) fxImage(`particle-${k}`);
     this._titleArt = TITLE_START_ART.filter((s) => titleArtSrc(s) && !(s === 'clouds' && this.lowFx)).map((s) => {
       if (typeof Image !== 'function') return null;
       const img = new Image(); img.src = titleArtSrc(s);
@@ -647,12 +649,14 @@ export class TitleScreen {
     if (titleArtSrc('medallion')) this.splash.style.setProperty('--title-medallion', `url("${new URL(titleArtSrc('medallion'), document.baseURI).href}")`);
     const mascot = this.splash.querySelector('.splash-mascot');
     if (mascot && titleArtSrc('loading-hero')) mascot.src = titleArtSrc('loading-hero');
+    if (this.ready && !this.leaving) this._startSkylineActors();
   }
 
   /** The game is built: hook its camera, and warm up the heroes we'll need. */
   attach(game) {
     this.game = game;
     if (!this.splash) return;
+    if (this.el.enterLabel && !game.pendingStyleChoice) this.el.enterLabel.textContent = 'Continue adventure';
     const cast = this._cast();
     this.warm();
     if (game.jobClass) warmHero(game.jobClass);
@@ -674,13 +678,16 @@ export class TitleScreen {
   /** True while the live world can't be seen behind the title (worldOutOfSight):
    *  the game loop skips drawing it then. */
   get worldHidden() {
-    return this.active && worldOutOfSight({ ready: this.ready, skyIn: this._skyIn(), sinceReady: this._sinceReady, handedBack: this._handedBack });
+    return this.active && worldOutOfSight({
+      ready: this.ready, skyIn: this._skyIn(), sinceReady: this._sinceReady,
+      handedBack: this._handedBack, keyArt: this.keyArtActive,
+    });
   }
 
   /** The title heroes this screen shows (all of them when it can't be measured). */
   _cast() {
+    if (this.keyArtActive) return [];
     const c = this.el?.heroes, card = this.splash?.querySelector('.splash-inner');
-    if (!c?.clientWidth && this.splash?.classList?.contains('title-keyart-on')) return [];
     const w = c?.clientWidth || globalThis.innerWidth || 0;
     if (!w) return TITLE_HEROES;
     return titleCast(w, c?.clientHeight || 150, card?.getBoundingClientRect?.().width || w);
@@ -690,50 +697,44 @@ export class TitleScreen {
   frame(dt) {
     if (!this.active || !this.game) return;
     const cam = this.game.camera;
+    const keyArt = this.keyArtActive;
     if (!this.ready) {
       this.loadMs += dt;
-      // Show the opening shot for a frame or two first (behind the cream), so its
-      // pictures are asked for: the bar waits for those. The later shots come
-      // eleven seconds apart, so theirs needn't hold the player up.
+      // Draw the opening view twice behind the title so its images join the
+      // loading tracker. Only the fallback skyline steers the opening camera.
       if (this._preload < 2) {
-        const s = TITLE_SHOTS[0];
-        cam.cx = s.from[0] * TILE; cam.cy = s.from[1] * TILE;
-        // Framed as it will first be seen: at the shot's zoom, with the depth
-        // view's tilt already in place. (Eased in, the tilt took a dozen slow
-        // loading frames, each showing a little more ground, whose pictures
-        // were then asked for, and waited for, a frame at a time.)
-        const v = titleCameraAt(0, TITLE_SHOTS, this.still);
-        cam.setZoomMul?.(v.zoom);
+        if (!keyArt) {
+          const s = TITLE_SHOTS[0];
+          cam.cx = s.from[0] * TILE; cam.cy = s.from[1] * TILE;
+          cam.setZoomMul?.(titleCameraAt(0, TITLE_SHOTS, this.still).zoom);
+        }
+        // Start with the final tilt so the first draw requests all of its art.
         cam.tilt = depthTarget(this.game, cam);
         this._preload++;
         return;
       }
-      // Loaded: glance at each later shot for a frame, still behind the
-      // cream and no longer counted, so their pictures start coming in. (One
-      // frame asks for them all; a second only held the button back on a slow
-      // phone, where each of these frames bakes a fresh patch of ground.)
-      // Not under the painted sky: it hides those shots, so they never need
-      // their pictures, and the button shows the moment the bar is full.
+      // If the fallback skyline cannot cover the other tour shots, give each
+      // shot one untracked frame to start loading its images.
       if (this._rest != null) {
-        const s = this._skyIn() ? null : TITLE_SHOTS[1 + this._rest];
+        const s = keyArt || this._skyIn() ? null : TITLE_SHOTS[1 + this._rest];
         if (s) { cam.cx = s.from[0] * TILE; cam.cy = s.from[1] * TILE; this._rest++; return; }
         this._becomeReady();
       } else {
         this._updateBar(dt);
-        if (this._rest != null && this._skyIn()) this._becomeReady();
+        if (this._rest != null && (keyArt || this._skyIn())) this._becomeReady();
       }
     }
     if (this.ready) this._sinceReady += dt;
-    if (this.leaving) return;   // the camera returns to the player
-    const keyArt = this.splash.classList.contains('title-keyart-on');
-    if (keyArt && this.worldHidden) return;
+    // The painted title preloads the player's actual opening view, even for a
+    // returning save. The skyline fallback has its own camera tour.
+    if (keyArt || this.leaving) return;
     this.t += this.ready && !this.still ? dt : 0;
     if (this.ready) this._parallax(dt);
     const v = titleCameraAt(this.t, TITLE_SHOTS, this.still);
     cam.cx = v.x; cam.cy = v.y;
     cam.setZoomMul?.(v.zoom);
-    if (!keyArt && this.el.fade) this.el.fade.style.opacity = this.ready ? v.fade.toFixed(3) : '0';
-    if (!keyArt && v.shot !== this._shot && this.el.place) {
+    if (this.el.fade) this.el.fade.style.opacity = this.ready ? v.fade.toFixed(3) : '0';
+    if (v.shot !== this._shot && this.el.place) {
       this._shot = v.shot;
       this.el.place.textContent = v.name;
       // Restart the caption's fade-in for the new place.
@@ -779,18 +780,19 @@ export class TitleScreen {
 
   _updateBar(dt) {
     const st = this.tracker.status();
-    const target = 0.1 + 0.9 * st.ratio;
-    // Eases toward the real figure (at most the whole bar in ~0.6s), never back.
-    // A slow phone's long loading frames count in full (only a stall such as a
-    // hidden tab is capped): capped at a tenth of a second, three frames a
-    // second held a finished bar back by a couple of seconds.
-    this.shown = Math.max(this.shown, Math.min(target, this.shown + Math.min(dt, 500) / 600));
+    const keyArt = this.keyArtActive;
+    // Only the skyline reveal waits for the animated bar. The painted title
+    // shows Enter as soon as the actual loading work is complete.
+    const target = keyArt ? st.ratio : Math.min(0.1 + 0.9 * st.ratio, this.shown + Math.min(dt, 500) / 600);
+    this.shown = Math.max(this.shown, target);
     if (this.el.fill) this.el.fill.style.transform = `scaleX(${this.shown.toFixed(3)})`;
     this.el.bar?.setAttribute('aria-valuenow', String(Math.round(this.shown * 100)));
-    if (this.el.status) this.el.status.textContent = st.total ? `Painting the island… ${st.loaded} / ${st.total}` : 'Painting the island…';
-    if (Math.floor(this.loadMs / TIP_MS) !== this._tipN) this._showTip();
-    const done = (st.idle && this.loadMs >= LOAD_MIN_MS && this.shown >= 0.99) || this.loadMs >= LOAD_MAX_MS;
-    if (done) { this._untrack(); this._rest = 0; }
+    if (!keyArt) {
+      if (this.el.status) this.el.status.textContent = st.total ? `Painting the island… ${st.loaded} / ${st.total}` : 'Painting the island…';
+      if (Math.floor(this.loadMs / TIP_MS) !== this._tipN) this._showTip();
+    }
+    const filled = keyArt || (this.loadMs >= SKYLINE_MIN_LOAD_MS && this.shown >= 0.99);
+    if ((st.idle && filled) || this.loadMs >= LOAD_MAX_MS) { this._untrack(); this._rest = 0; }
   }
 
   _showTip() {
@@ -805,10 +807,14 @@ export class TitleScreen {
     this.el.bar?.setAttribute('aria-valuenow', '100');
     this.splash.classList.add('ready');
     this.splash.classList.remove('loading');
-    this._startHeroes();
-    if (!this.still && !this.lowFx) this._startPetals();
+    if (!this.keyArtActive) this._startSkylineActors();
     // Now that the player can come in, fetch what the start didn't need.
     for (const fn of this._later.splice(0)) { try { fn(); } catch (e) { console.error(e); } }
+  }
+
+  _startSkylineActors() {
+    this._startHeroes();
+    if (!this.still && !this.lowFx) this._startPetals();
   }
 
   _startHeroes() {
@@ -846,28 +852,54 @@ export class TitleScreen {
     }
   }
 
-  /** Leave the title: dip to cream, hand the camera back to the player and the
-   *  HUD back to the screen, call `onIn` (e.g. open the class picker), then
-   *  fade the splash away. */
+  /** Reveal the opening view and hand play back to the game. */
   exit(onIn) {
     if (!this.active || this.leaving) return;
     this.leaving = true;
     const s = this.splash;
     s.style.pointerEvents = 'none';
-    const swap = () => {
-      this._handedBack = true;   // the world is drawn again from here (worldHidden)
+    const handBack = () => {
+      this._handedBack = true;
       if (this.game) { this.game.camera.snapped = false; this.game.camera.setZoomMul?.(1); }
       document.body.classList.remove('title-on');
-      try { onIn?.(); } catch (e) { console.error(e); }
-      s.classList.add('leaving');
-      const end = () => {
-        s.classList.add('hidden'); this.stage?.stop(); this.active = false; if (this.el.petals) this.el.petals.innerHTML = '';
-        if (this._onPointer) removeEventListener('pointermove', this._onPointer);
-      };
-      if (this.still) end(); else setTimeout(end, 560);
     };
-    if (this.still) { swap(); return; }
+    const enter = () => {
+      try { onIn?.(); } catch (e) { console.error(e); }
+    };
+    const hide = () => {
+      s.classList.add('hidden'); this.stage?.stop(); this.active = false; if (this.el.petals) this.el.petals.innerHTML = '';
+      if (this._onPointer) removeEventListener('pointermove', this._onPointer);
+    };
+    if (this.still) {
+      handBack();
+      hide();
+      enter();
+      return;
+    }
+    if (this.keyArtActive) {
+      // Fade over the preloaded canvas. Resuming the renderer or building the
+      // class picker first can block the next paint for longer than the fade.
+      const finish = () => {
+        clearTimeout(fallback);
+        s.removeEventListener('transitionend', faded);
+        handBack();
+        hide();
+        enter();
+      };
+      const faded = (event) => {
+        if (event.target === s && event.propertyName === 'opacity') finish();
+      };
+      const fallback = setTimeout(finish, 550);
+      s.addEventListener('transitionend', faded);
+      s.classList.add('leaving');
+      return;
+    }
     if (this.el.fade) { this.el.fade.style.transition = 'opacity .26s ease'; this.el.fade.style.opacity = '1'; }
-    setTimeout(swap, 280);
+    setTimeout(() => {
+      handBack();
+      enter();
+      s.classList.add('leaving');
+      setTimeout(hide, 560);
+    }, 280);
   }
 }

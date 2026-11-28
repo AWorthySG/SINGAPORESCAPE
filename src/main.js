@@ -130,6 +130,7 @@ input.onKey((e) => {
 // browser scales it up). `autoScale` drops further if frames keep running slow.
 const PIXEL_BUDGET = 2.4e6;
 let autoScale = 1;
+let sceneNeedsRedraw = true;
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   // Cap the backing-store density at 2x: 3x phone screens look the same at 2x
@@ -138,6 +139,7 @@ function resize() {
   const dpr = Math.max(0.6, Math.min(game.lowFx ? 1 : 2, window.devicePixelRatio || 1, budget) * autoScale);
   canvas.width = Math.floor(w * dpr);
   canvas.height = Math.floor(h * dpr);
+  sceneNeedsRedraw = true;
   // Zoom the world in so it never looks far away: at most VIEW_TILES tiles across
   // the shorter side and VIEW_TILES_LONG along the longer one.
   const zoom = Math.max(1, Math.min(2.2, Math.max(Math.min(w, h) / (VIEW_TILES * TILE), Math.max(w, h) / (VIEW_TILES_LONG * TILE))));
@@ -179,11 +181,15 @@ function frame() {
     game.update(dt);
     const p1 = ph ? now() : 0;
     if (!title.active) game.playMs = (game.playMs || 0) + dt;   // time played (saved; shown when choosing a cloud save)
+    const loadingTitle = title.active && !title.ready;
     title.frame(dt);   // on the title: tours the camera, runs the loading bar
     const p2 = ph ? now() : 0;
-    // Behind the title's painted sky the world can't be seen: it isn't drawn
-    // then, so the title (its heroes, petals and Enter button) runs smoothly.
-    if (!title.worldHidden) renderer.render(t);
+    // Keep the opening view cached for the fade, including the last loading
+    // frame and any resize that cleared the canvas behind the title.
+    if (sceneNeedsRedraw || loadingTitle || !title.worldHidden) {
+      renderer.render(t);
+      sceneNeedsRedraw = false;
+    }
     const p3 = ph ? now() : 0;
     ui.renderMinimap();
     // Frames whose work keeps running long trim the decorative extras (governor.js).
@@ -218,7 +224,7 @@ const splashEnter = document.getElementById('splash-enter');
 function hideSplash() {
   if (!title.ready) return;   // still loading (the button only shows once it's done)
   game.audio.unlock();
-  // Dip to cream, hand the camera back, open the class picker, fade the title away.
+  // Hand the camera back and open the class picker when needed.
   title.exit(() => {
     if (game.pendingStyleChoice || game.pendingClassChoice) ui.openStyleChoice();
     else showResumeNotice(ui);

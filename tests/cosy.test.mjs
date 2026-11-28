@@ -269,7 +269,7 @@ test('the page shares well: description, Open Graph and Twitter cards, theme col
   assert.match(html, /rel="icon"/);
   assert.match(html, /<link rel="stylesheet" href="styles\/cosy.css" \/>/);
   assert.ok(html.indexOf('styles/cosy.css') > html.indexOf('styles/title.css'), 'after title.css, which it builds on');
-  assert.match(html, /class="title-keyart" src="assets\/title\/kampong-evening\.webp"/);
+  assert.match(html, /class="title-keyart" src="assets\/title\/transit-road-evening\.webp"/);
   const css = readFileSync(new URL('../styles/cosy.css', import.meta.url), 'utf8');
   const noComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
   assert.equal((noComments.match(/\{/g) || []).length, (noComments.match(/\}/g) || []).length, 'braces balanced');

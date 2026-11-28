@@ -502,23 +502,41 @@
 
   <!-- Title screen and the loading progress driven by src/ui/title.js. -->
   <div id="splash" class="loading title-keyart-on">
-    <img class="title-keyart" src="assets/title/kampong-evening.webp" alt="" fetchpriority="high" />
+    <img class="title-keyart" src="assets/title/transit-road-evening.webp" alt="" fetchpriority="high" />
+    <div class="splash-brand">
+      <span class="splash-brand-primary">
+        <span class="splash-brand-mark">
+          <img src="assets/logo.svg" alt="" width="575" height="160" fetchpriority="low" />
+        </span>
+        <span>A-Worthy Education</span>
+      </span>
+      <span class="splash-brand-nib">
+        <img src="assets/education-gold-nib.webp" alt="" width="76" height="138" fetchpriority="low" />
+      </span>
+    </div>
+    <div class="title-guide" aria-hidden="true"></div>
     <div class="title-skyline" aria-hidden="true"></div>
     <canvas class="title-heroes" aria-hidden="true"></canvas>
     <div class="title-particles" aria-hidden="true"></div>
     <div class="title-place" aria-hidden="true"></div>
     <div class="splash-inner">
+      <p class="splash-scene">Transit Road, Nee Soon Camp</p>
       <div class="splash-crest">
         <img src="assets/title/mascot-sit.webp" alt="" class="splash-mascot" />
         <h1 class="splash-title">A-Worthy Adventure</h1>
       </div>
-      <p class="splash-sub">Explore a Singapore of shophouses, forest trails and spirits.</p>
-      <div id="splash-loader" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-        <div class="sl-track"><div class="sl-fill"></div></div>
-        <p class="sl-status">Loading the game&hellip;</p>
-        <p class="sl-tip" aria-live="polite"></p>
+      <p class="splash-sub">
+        <strong class="splash-tagline">Always an adventure with A-Worthy</strong>
+        Explore the A-Worthy World, any way you like.
+      </p>
+      <div class="splash-action">
+        <div id="splash-loader" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="sl-track"><div class="sl-fill"></div></div>
+          <p class="sl-status">Unfolding the map&hellip;</p>
+          <p class="sl-tip" aria-live="polite"></p>
+        </div>
+        <button id="splash-enter"><span class="splash-enter-label">Begin adventure</span> <span aria-hidden="true">&rarr;</span></button>
       </div>
-      <button id="splash-enter">Enter Kampong Glam <span aria-hidden="true">&rarr;</span></button>
     </div>
     <div class="title-fade" aria-hidden="true"></div>
   </div>
