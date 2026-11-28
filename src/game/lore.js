@@ -90,7 +90,7 @@ export function collect(story, id, how = '', quiet = false) {
   g.msg(`Lore page found: “${page.title}” (${page.region}).${where} Read it in the Journal's Story tab.`, 'level');
   if (!quiet) {
     g.banner?.(`<span class="big">📜 Lore page found!</span>${page.title}`);
-    g.bus.emit('sfx', 'pickup');
+    g.bus.emit('sfx', how === 'spot' ? 'interact:read' : 'pickup');
   }
   g.saveSoon = true;
   checkSets(story, quiet);

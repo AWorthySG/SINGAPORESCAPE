@@ -173,6 +173,7 @@ function startLine(game, l) {
   Object.assign(q, { state: 'active', step: 0, n: 0 });
   game.msg(`Quest started — ${l.name}: ${l.steps[0].text}.`, 'level');
   game.banner?.(`<span class="big">Quest started!</span>${l.name}`);
+  game.bus.emit('sfx', 'interact:quest');
   return true;
 }
 
@@ -204,6 +205,7 @@ function stepAtNpc(game, l, useAlternative = false) {
   game._rqSaid = handIn.say || '';
   if (handIn.say) game.msg(`${getNpc(st.to || l.giver).name}: ${handIn.say}`, 'system');
   advance(game, l);
+  game.bus.emit('sfx', 'interact:quest');
   return true;
 }
 
@@ -276,7 +278,7 @@ function hopTo(game, giverId, what) {
   p.stopNow(); p.clearAction();
   p.x = p.tx = tile.x; p.y = p.ty = tile.y; p.progress = 0; p.moving = false; p.path = [];
   game.spawnSparkle?.(p, '#ffd36b', 14);
-  game.bus.emit('sfx', 'travel');
+  game.bus.emit('sfx', what === 'teleport' ? 'travel:teleport' : 'travel:ferry');
   game.updateRegion?.();
   game.ui?.closeModal?.();
   return true;
@@ -308,7 +310,11 @@ export function regionAction(game, action) {
     case 'shop':
       if (q.state !== 'done' || l.unlock.type !== 'shop') return false;
       // After the dialogue box has closed (the option closes it as it runs).
-      setTimeout(() => game.ui?.openShop?.(l.unlock.shop), 0);
+      setTimeout(() => {
+        if (!game.ui?.openShop) return;
+        game.ui.openShop(l.unlock.shop);
+        game.bus.emit('sfx', 'interact:shop');
+      }, 0);
       return true;
     case 'ferry': {
       if (q.state !== 'done' || l.unlock.type !== 'ferry') return false;

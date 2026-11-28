@@ -5,13 +5,17 @@ import { leafArt } from '../render/fxart.js';
 // Little reactions to the player moving through the world, made from the game's
 // own particles (so they share its cap): dust kicked up at your feet as you run
 // or turn sharply, and leaves shaken loose from trees you pass beneath. Purely
-// cosmetic and off in low graphics.
+// cosmetic and off in low graphics. Footstep audio also follows the gait.
 
 // Dust colours per ground: sandy on sand, pale on paths and paving, a soft
 // grey-green on grass. Water throws none.
 const DUST = {
   [TERRAIN.SAND]: '#e9d7ad', [TERRAIN.PATH]: '#e2cfa8', [TERRAIN.STONE]: '#ddd5c6', [TERRAIN.WOOD]: '#cfb48e',
   [TERRAIN.GRASS]: '#c9d9b4', [TERRAIN.DARKGRASS]: '#bccfa8',
+};
+const FOOTSTEP = {
+  [TERRAIN.STONE]: 'footstep:stone', [TERRAIN.GRASS]: 'footstep:grass', [TERRAIN.DARKGRASS]: 'footstep:grass',
+  [TERRAIN.PATH]: 'footstep:path', [TERRAIN.WOOD]: 'footstep:wood', [TERRAIN.SAND]: 'footstep:sand', [TERRAIN.WATER]: 'footstep:water',
 };
 const LEAF_CHANCE = 0.3;   // per tile stepped beside a tree
 
@@ -26,14 +30,20 @@ function rnd() {
 /** Call once a frame: watches the player's steps and turns. State lives on `st`. */
 export function footFx(game, st) {
   const p = game.player;
-  if (game.lowFx || !p.alive) { st.phase = p.walkPhase; st.tile = -1; return; }
+  // walkPhase advances with travel, including the frame a last step lands.
+  // Reading it separately from the particles keeps audio on low graphics.
+  const stepped = Math.floor(p.walkPhase + 1e-9) > Math.floor((st.phase ?? p.walkPhase) + 1e-9);
+  st.phase = p.walkPhase;
+  if (p.alive && stepped) {
+    const cue = FOOTSTEP[game.world.terrainAt(p.x, p.y)];
+    if (cue) game.bus.emit('sfx', cue);
+  }
+  if (game.lowFx || !p.alive) { st.tile = -1; return; }
   const c = p.renderCenter();
-  // A footstep (walkPhase counts tiles walked) while running: a small puff behind.
-  const stepped = Math.floor(p.walkPhase) !== Math.floor(st.phase ?? p.walkPhase);
+  // A running footstep raises a small puff behind the player.
   if (stepped && p.running && p.moving) dust(game, c.x - (p.facing?.dx || 0) * 6, c.y + 13, 2);
   // A sharp turn (the sprite's turn-around just started): a bigger scuff.
   if (p.turnT > (st.turn || 0) && p.moving) dust(game, c.x, c.y + 13, 4);
-  st.phase = p.walkPhase;
   st.turn = p.turnT;
   // Each new tile beside a tree may shake a leaf or two loose (and rustle it).
   const tile = p.y * game.world.width + p.x;

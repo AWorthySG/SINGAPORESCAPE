@@ -167,7 +167,8 @@ export function makeBatch(game, a, once) {
     }
   });
   if (any > 0) {
-    game.bus.emit('sfx', a.type === 'smith' ? 'clang' : 'gather');
+    const { skill } = makeInfo(a);
+    game.bus.emit('sfx', `make:${skill === 'hawkering' ? 'hawker' : skill}`);
     game.spawnSparkle?.(game.player, '#ffd24a', 10);
   }
   return false;

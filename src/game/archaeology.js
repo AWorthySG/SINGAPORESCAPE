@@ -45,7 +45,7 @@ export function resolveExcavate(game, action) {
   const name = getItem(c.id).name.toLowerCase();
   const fc = objCenter(obj);
   game.spawnPoof?.(fc.x, fc.y, def.color || '#c8a070');
-  game.bus.emit('sfx', 'gather');
+  game.bus.emit('sfx', 'gather:archaeology');
   game.msg(n > 1 ? `You dig up two ${many(name)}.` : `You dig up ${aOrAn(name)}.`);
   const site = DIG_SITE_BY_ID[def.site || obj.objId];
   if (site && roll() < relicChance(game, tb)) findRelic(game, site, lvl);

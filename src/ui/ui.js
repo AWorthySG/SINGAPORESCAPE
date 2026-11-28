@@ -338,11 +338,15 @@ export class UI {
     document.addEventListener('mousedown', (e) => {
       if (!this.el.contextMenu.contains(e.target)) this.hideContextMenu();
     });
-    // One delegated, quiet click tick for every HUD control.
+    // HUD feedback belongs to a deliberate selection, never a panel redraw.
     document.addEventListener('click', (e) => {
-      if (e.target.closest('button, .chat-tab, .ctx-item, .dialogue-option, .inv-slot.filled, .equip-slot.filled, .item-cell, .orb')) {
-        this.bus.emit('sfx', 'click');
-      }
+      const tabs = '.tab-btn, .subtab-btn, .chat-tab, .inv-tab, [role="tab"]';
+      const items = '.inv-slot.filled, .equip-slot.filled, .item-cell';
+      const choices = '.ctx-item, .dialogue-option, .dlg-bye, .class-spot-go';
+      const control = e.target.closest?.(`button, .orb, ${tabs}, ${items}, ${choices}`);
+      if (!control || control.closest(':disabled, [aria-disabled="true"], .mrt-row.current')) return;
+      const kind = control.matches(tabs) ? 'tab' : control.matches(items) ? 'item' : control.matches(choices) ? 'choice' : 'panel';
+      this.bus.emit('sfx', `ui:${kind}`);
     });
 
     // Bus subscriptions.
@@ -364,7 +368,9 @@ export class UI {
     this.bus.on('inventory', () => this.scheduleInventory());
     installPressStates();   // pressed looks on iPhones (motion.js)
     // Loot landing: the Bag tab (or the phone's folded menu button) gives a little hop.
-    this.bus.on('sfx', (n) => { if (n === 'pickup') this._soon('lootBump', () => this._lootBump()); });
+    this.bus.on('sfx', (n) => {
+      if (n === 'pickup' || n === 'gather:farming' || n === 'interact:stall') this._soon('lootBump', () => this._lootBump());
+    });
     // Gear changes come in bursts (every worn piece gains mastery on a kill), so redraw once a frame.
     this.bus.on('equipment', () => { this._soon('equipment', () => this.renderEquipment()); this._soon('combat', () => this.renderCombatPanel()); this.scheduleInventory(); });
     // Busy events (every hit gives XP, adrenaline, rhythm) only mark a panel to
@@ -4635,7 +4641,7 @@ export class UI {
     if (npc.def.dialogue === 'museum') return openMuseum(this, npc);   // Archaeology's museum (museumui.js)
     if (npc.def.dialogue === 'story') return this.game.story?.talkTo(npc);   // a story messenger (story.js)
     const tree = given || personalise(this.game, npc, npc.def.moral ? this._moralTree(npc.def.moral) : npc.def.dialogue === 'region' ? regionDialogue(this.game, npc) : getDialogue(npc.def.dialogue));   // memory.js
-    if (!tree) { this.game.msg(`${npc.name} has nothing to say.`); return; }
+    if (!tree) { this.game.msg(`${npc.name} has nothing to say.`); return false; }
     const show = (nodeId) => {
       const node = tree[nodeId];
       if (!node || nodeId === 'end') { this.closeModal(); return; }

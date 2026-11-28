@@ -2,6 +2,7 @@ import { bossPracticeTip, knownBossMove } from './bosspractice.js';
 import { updateFirstJourney } from './firstjourney.js';
 import { getObject } from '../data/objects.js';   // quest guides read node levels
 import { EventBus } from '../core/events.js';
+import { impactCue } from '../audio/impactProfile.js';
 import { goldenMult, goldenSkills, GOLDEN_HOUR_XP, SKILL_HOURS } from '../data/skillhours.js';
 import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
 import { compareGear, deltaText, gearRating, effectiveRating, offenceFirstScore, weaponStyle, reqLevel, swingBeats } from './gear.js';
@@ -128,6 +129,13 @@ const AUTO_QUEST_ACTIONS = {
   mystic_trial: ['mysticStart', 'mysticTurnIn'], island_provisions: ['provisionsStart', 'provisionsTurnIn'], champion: ['championStart', 'championTurnIn'],
   ...RQ.REGION_AUTO_ACTIONS,
 };
+// Quest dialogue can remind or refuse. Use the quest's progress to tell those
+// apart from a start, hand-in or lesson that really went through.
+const QUEST_FOR_DIALOGUE = new Map(Object.entries({
+  ...AUTO_QUEST_ACTIONS,
+  redemption: ['redemptionStart', 'redemptionTurnIn'],
+  corruption: ['corruptionStart', 'corruptionTurnIn'],
+}).flatMap(([id, actions]) => actions.filter((action) => action && !action.startsWith('rq:')).map((action) => [action, id])));
 // Stations whose menu auto quest runs with "make everything" (autoprocess.js kinds).
 const AUTO_QUEST_STATION = { furnace: 'smelt', range: 'cook', fire: 'cook', anvil: 'smith', craft: 'craft', fletch: 'fletching', herblore: 'herblore',
   saw: 'saw', kiln: 'kiln', build: 'build', homebench: 'homebench' };
@@ -1495,6 +1503,7 @@ export class Game {
     this.inventory.add(id, r.qty);
     this.collection.record('slayer', id, r.qty);
     this.msg(`You redeem ${r.qty > 1 ? r.qty + ' x ' : ''}${getItem(id).name} for ${r.cost} Slayer points.`, 'system');
+    this.bus.emit('sfx', 'interact:buy');
     this.bus.emit('slayer');
   }
 
@@ -1522,33 +1531,39 @@ export class Game {
       // Smelting is instant: the whole batch at once, and with "Smelt all" every
       // kind of bar your ores allow, one after another in the same moment.
       case 'smelt': return this._tickContinuous(a, a.obj, () => batched(this, () => {   // the bag and XP told once (autoprocess.js)
-        smeltBatch(this, a);
+        let made = false;
+        const smelt = () => {
+          smeltBatch(this, a, false);
+          made ||= a.tally?.made > 0;
+        };
+        smelt();
         while (a.all) {
           (a.done ||= new Set()).add(jobKey(a));
           const nxt = nextJob(this, a.all, a.done);
           if (!nxt || nxt.type !== 'smelt') break;
           Object.assign(a, { rawId: undefined, recipe: undefined, skill: undefined }, nxt);
-          smeltBatch(this, a);
+          smelt();
         }
+        if (made) this.bus.emit('sfx', 'make:smelting');
         return false;
       }));
       case 'hunt': return this._tickContinuous(a, a.obj, () => resolveHunt(this, a));
       case 'dive': return this._tickContinuous(a, a.obj, () => resolveDive(this, a));   // with a pause for air (diving.js)
       case 'excavate': return this._tickContinuous(a, a.obj, () => resolveExcavate(this, a));   // (archaeology.js)
-      case 'restoremenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('archaeology', a.obj));
-      case 'fletchmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('fletching', a.obj));
-      case 'herbmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('herblore', a.obj));
-      case 'conmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('construction', a.obj));
+      case 'restoremenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('archaeology', a.obj), 'interact:workbench');
+      case 'fletchmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('fletching', a.obj), 'interact:workbench');
+      case 'herbmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('herblore', a.obj), 'interact:workbench');
+      case 'conmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('construction', a.obj), 'interact:workbench');
       // Hawkering: walk up to your stall (open it, once rented), and run it while you stand there.
       case 'hawkmenu': return this._tickArrival(a, a.obj, true, () => { if (this.hawker.rented) this.hawker.open(); this.bus.emit('hawkeropen'); });
       case 'hawk': return this.hawker.tickAction(a);
       case 'farm': return this._tickArrival(a, a.obj, true, () => { this.tendPatch(a.obj, a.seed); if (this.autoGather) { this._autoLife = { kind: 'farm' }; this.autoGatherBest = null; } });
       // One-shot arrival actions (open a UI / talk).
-      case 'cookmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openCookMenu(a.obj));
-      case 'smeltmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openSmeltMenu(a.obj));
-      case 'smithmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openSmithMenu(a.obj));
-      case 'craftmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openCraftMenu(a.obj));
-      case 'shrinemenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openOfferingShrine());
+      case 'cookmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openCookMenu(a.obj), 'interact:workbench');
+      case 'smeltmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openSmeltMenu(a.obj), 'interact:workbench');
+      case 'smithmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openSmithMenu(a.obj), 'interact:workbench');
+      case 'craftmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openCraftMenu(a.obj), 'interact:workbench');
+      case 'shrinemenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openOfferingShrine(), 'interact:altar');
       case 'pray': return this._tickArrival(a, a.obj, true, () => {
         this.player.hp = this.maxHp();
         this.prayerPoints = this.maxPrayer();
@@ -1559,7 +1574,7 @@ export class Game {
         if (this.inventory.slots.some((x) => x && isBone(x.id))) this.msg(`You could offer your bones here for ${home ? this.home.altarMult() : ALTAR_XP_MULT}x Prayer XP (right-click them).`, 'system');
         this.addGood(1); // devotion is a small good
         if (!home) this.markPillar('monument');
-      });
+      }, 'interact:altar');
       case 'rest': return this._tickArrival(a, a.obj, true, () => {
         this.player.hp = this.maxHp();
         this.runEnergy = 100;
@@ -1567,18 +1582,23 @@ export class Game {
         this.spawnSparkle(this.player, '#f5a623', 16);
         this.msg('You rest at the A-Worthy Mascot Statue. Health restored.', 'system');
         this.markPillar('obelisk');
-      });
+      }, 'interact:rest');
       case 'thieve': return this._tickArrival(a, a.target, true, () => { this.pickpocket(a.npc); if (this.autoGather) { this._autoLife = { kind: 'thieve', npc: a.npc }; this.autoGatherBest = null; } });
       case 'agility': return this._tickContinuous(a, a.obj, () => this.resolveAgility(a.obj));
       case 'stall': return this._tickContinuous(a, a.obj, () => this.stealFromStall(a.obj, a));
       case 'transport': return this._tickArrival(a, a.target, true, () => this.ui?.openTransport(a.obj));
       // The Endless Gate asks first (its panel shows your best wave); its exit portal just takes you out.
-      case 'gate': return this._tickArrival(a, a.target, true, () => (a.obj.objId === 'wave_exit' ? this.waves.leave() : this.ui ? this.ui.openWaveGate?.(a.obj) : this.waves.enter()));
-      case 'openbank': return this._tickArrival(a, a.target, true, () => this.ui?.openBank());
+      case 'gate': return this._tickArrival(a, a.target, true, () => {
+        if (a.obj.objId === 'wave_exit') return this.waves.leave();
+        if (!this.ui) return this.waves.enter();
+        this.ui.openWaveGate?.(a.obj);
+        this.bus.emit('sfx', 'interact:door');
+      });
+      case 'openbank': return this._tickArrival(a, a.target, true, () => this.ui?.openBank(), 'interact:bank');
       case 'islandmenu': return this._tickArrival(a, a.target, true, () => this.ui?.openSkillGuide?.(a.obj.def.skill));
-      case 'homemenu': return this._tickArrival(a, a.target, true, () => this.bus.emit('homeopen', a.obj.def.room ? `${a.obj.def.homeTab}:${a.obj.def.room}` : a.obj.def.homeTab));   // homeui.js (a piece of furniture opens its room)
-      case 'openshop': return this._tickArrival(a, a.target, true, () => this.ui?.openShop(a.shop));
-      case 'talk': return this._tickArrival(a, a.target, true, () => this.ui?.openDialogue(a.npc));
+      case 'homemenu': return this._tickArrival(a, a.target, true, () => this.bus.emit('homeopen', a.obj.def.room ? `${a.obj.def.homeTab}:${a.obj.def.room}` : a.obj.def.homeTab), 'interact:home');   // homeui.js (a piece of furniture opens its room)
+      case 'openshop': return this._tickArrival(a, a.target, true, () => this.ui?.openShop(a.shop), 'interact:shop');
+      case 'talk': return this._tickArrival(a, a.target, true, () => this.ui?.openDialogue(a.npc), 'interact:talk');
       case 'storyobj': return this._tickArrival(a, a.target, true, () => this.story.useObject(a.obj));
       case 'questtalk': return this._tickArrival(a, a.target, true, () => this._autoQuestTalk(a.quest, a.npc));
       default: p.clearAction();
@@ -2006,14 +2026,15 @@ export class Game {
   }
 
   /** One-shot action: approach, then fire `onArrive` and clear. */
-  _tickArrival(a, target, adjacent, onArrive) {
+  _tickArrival(a, target, adjacent, onArrive, cue) {
     if (!this._isReached(target, adjacent)) {
       if (!this.player.isMoving) this.player.clearAction();
       return;
     }
     this.player.stop();
     this.player.clearAction();
-    onArrive();
+    const result = onArrive();
+    if (cue && result !== false) this.bus.emit('sfx', cue);
   }
 
   _tickAttack(a) {
@@ -2194,7 +2215,7 @@ export class Game {
     if (!spec) { this.msg('This weapon has no special attack.'); return; }
     if (this.specEnergy < spec.cost) { this.msg(`You need ${spec.cost}% special energy for ${spec.name}.`); return; }
     this.specArmed = !this.specArmed;
-    if (this.specArmed) { this.msg(`${spec.name} armed — your next hit is special.`, 'system'); this.bus.emit('sfx', 'spec'); }
+    if (this.specArmed) { this.msg(`${spec.name} armed — your next hit is special.`, 'system'); this.bus.emit('sfx', 'ability:ready'); }
     this.bus.emit('spec');
   }
 
@@ -2321,7 +2342,10 @@ export class Game {
     if (ab.kind === 'attack') {
       // Toggle-arm like a special; spent and put on cooldown when the hit lands.
       this.armedAbility = this.armedAbility === id ? null : id;
-      if (this.armedAbility) this.msg(`${ab.name} readied — your next hit unleashes it.`, 'system');
+      if (this.armedAbility) {
+        this.msg(`${ab.name} readied — your next hit unleashes it.`, 'system');
+        this.bus.emit('sfx', 'ability:ready');
+      }
       this.bus.emit('ability');
       return;
     }
@@ -2336,7 +2360,7 @@ export class Game {
       this.msg('You brace for impact — incoming damage halved!', 'system');
       this.spawnSparkle(this.player, '#7fd8ff', 12);
       abilityAccent(this);
-      this.bus.emit('sfx', 'spec');
+      this.bus.emit('sfx', 'ability:guard');
     } else if (ab.kind === 'buff') {
       // A class buff: one at a time, a new one replaces the last. A stacking
       // buff (the Ranger's skills) runs alongside it and the other stacking ones.
@@ -2350,7 +2374,7 @@ export class Game {
         this.addHitsplat(this.player, 0, { text: ab.name });
         this.spawnSparkle(this.player, '#ffd24a', 14);
         abilityAccent(this);
-        this.bus.emit('sfx', 'spec');
+        this.bus.emit('sfx', 'ability:buff');
       }
     } else if (ab.kind === 'heal') {
       const heal = Math.max(1, Math.round(this.maxHp() * ab.healFrac));
@@ -2359,7 +2383,7 @@ export class Game {
       this.spawnSparkle(this.player, '#7fff8f', 14);
       abilityAccent(this);
       this.bus.emit('hp');
-      this.bus.emit('sfx', 'eat');
+      this.bus.emit('sfx', 'ability:heal');
     }
     // A guard or buff that also mends you (`healFrac`; a heal skill's own heal is just above).
     if (ab.healFrac && ab.kind !== 'heal') {
@@ -2529,8 +2553,17 @@ export class Game {
     this._abRider = ab && (ab.bleed || ab.sunder || ab.holyfire) ? ab : null;   // a bleed, armour break or holy fire once the blow lands
     if (ab?.guard) { if (!(this.braceTicks > 0)) this.braceCounter = 0; this.braceTicks = Math.max(this.braceTicks || 0, ab.guard); }
     if (ab?.summon && this.jobClass === 'merchant') for (let k = 0; k < ab.summon; k++) Mercs.spawnFollower(this);
-    if (spec) { this.msg(`Special attack: ${spec.name}!`, 'combat'); this.spawnSparkle(this.player, '#ffd24a', 12); }
-    if (ab) { this.msg(`Ability: ${ab.name}!`, 'combat'); this.spawnSparkle(this.player, '#ff9a3a', 10); abilityAccent(this); this.bus.emit('sfx', 'spec'); }
+    if (spec) {
+      this.msg(`Special attack: ${spec.name}!`, 'combat');
+      this.spawnSparkle(this.player, '#ffd24a', 12);
+      if (!ab) this.bus.emit('sfx', 'ability:special');
+    }
+    if (ab) {
+      this.msg(`Ability: ${ab.name}!`, 'combat');
+      this.spawnSparkle(this.player, '#ff9a3a', 10);
+      abilityAccent(this);
+      this.bus.emit('sfx', ab.tier === 'ultimate' ? 'ability:ultimate' : 'ability:attack');
+    }
     if (weak) this.spawnSparkle(npc, '#9affd0', 6);
     if (race === 'strong') this.spawnSparkle(npc, '#ffd24a', 5);
     // Say it once per foe: an "Effective!" pop the first time your weapon bites, or "Resisted".
@@ -2750,7 +2783,8 @@ export class Game {
     if (dmg > 0 && !opts.aoe && this._hitMode && weaknessOf(npc.def) === this._hitMode) opts = { ...opts, weak: true };   // a "weak!" tag on the number
     this.addHitsplat(npc, dmg, opts);
     if (dmg > 0) {
-      this.bus.emit('sfx', wasCrit ? 'crit' : 'hit'); this._hitAdrenaline(wasCrit);   // a crit lands with its own crunch
+      this.bus.emit('sfx', impactCue(npc.def, npc.npcId, wasCrit));
+      this._hitAdrenaline(wasCrit);
       // A running average of your landed hits, so auto battle can tell when a
       // foe is about to drop and hold its big skills back.
       this._autoHitAvg = this._autoHitAvg ? this._autoHitAvg * 0.8 + dmg * 0.2 : dmg;
@@ -2773,7 +2807,7 @@ export class Game {
   /** A monster is winding up a heavy blow — flash a warning the player can react to. */
   npcTelegraph(npc) {
     this.spawnSparkle(npc, '#ff5a5a', 8);
-    this.bus.emit('sfx', 'spec');
+    this.bus.emit('sfx', 'ability:windup');
     if ((npc.def.level || 0) >= 30) this.msg(`${npc.name} is winding up a heavy attack — Brace yourself!`, 'combat');
   }
 
@@ -3302,7 +3336,7 @@ export class Game {
     // (`el` lets the renderer draw a Priest's beam, falling blade or ground circle, a stored Wrath's swell: render/classfx.js.)
     this._projectile(npc, (c.crit || fancy) ? spell.critTint || spell.tint : spell.tint, 'bolt', 0, !!(c.crit || fancy),   // the element's colour, brighter and bigger for a crit
       { el: spell.element, power: el.retribution ? ClassEl.wrathBonus(this) : 0 });
-    this.bus.emit('sfx', `atk:${this.weaponType() || 'staff'}`);   // staves shimmer, wands sparkle, orbs hum
+    this.bus.emit('sfx', `atk:${this.weaponType() || 'staff'}:${spell.element}`);
     // The number shows the element: gold where it bites, grey where it's resisted, else its own colour.
     const tint = mods.race === 'strong' ? '#f5b82e' : mods.race === 'weak' ? '#9aa3b2' : ELEMENTS[spell.element]?.splat;
     ClassEl.markFoe(this, npc, spell, true);
@@ -3582,7 +3616,7 @@ export class Game {
     this.inventory.add('coins', coins);
     this.skills.addXp('magic', ALCHEMY.xp);
     this.spawnSparkle(this.player, '#F5B82E', 12);
-    this.bus.emit('sfx', 'spec');
+    this.bus.emit('sfx', 'interact:alchemy');
     this.msg(`Alchemy turns your ${item.name.toLowerCase()} into ${coins} coins.`, 'system');
     return true;
   }
@@ -3666,6 +3700,7 @@ export class Game {
     if (this.combatMode() === 'dance' && Math.random() < danceEvade(this.skills.agility, p.danceStyle) * (heavy ? 0.5 : 1)) {
       this.addHitsplat(p, 0, { text: 'Dodged!' });
       this.spawnSparkle(p, '#ff8ac0', 5);
+      this.bus.emit('sfx', 'ability:dodge');
       this._dodgeXp(npc);
       if (this._shouldRetaliate()) this.attackNpc(npc);
       return;
@@ -3674,6 +3709,7 @@ export class Game {
     const dodge = (perk.dodge || 0) + this.buffMod('dodge') + Monk.dodge(this);   // perks, a dodging class buff and a Monk's light feet
     if (dodge && Math.random() < dodge * (heavy ? 0.5 : 1)) {   // Evasion / Graceful perks
       this.addHitsplat(p, 0, { text: 'Dodged!' });
+      this.bus.emit('sfx', 'ability:dodge');
       this._dodgeXp(npc);
       if (this._shouldRetaliate()) this.attackNpc(npc);
       return;
@@ -3681,6 +3717,7 @@ export class Game {
     // Radiance's Dazzle: a dazzled foe's blows miss more often.
     if (ClassEl.dazzleMiss(this, npc, heavy)) {
       this.addHitsplat(p, 0, { text: 'Dazzled!' });
+      this.bus.emit('sfx', 'ability:dodge');
       if (this._shouldRetaliate()) this.attackNpc(npc);
       return;
     }
@@ -3689,6 +3726,7 @@ export class Game {
     if (heavy && dmg === 0) dmg = Math.max(1, Math.round(max * 1.2)); // a telegraphed blow always stings
     if (heavy) { this._slash(p, '#ff6a5a'); this.addShake(4, 260); }
     if (npc.slowTicks > 0) dmg = Math.floor(dmg * (1 - ELEMENTS.water.chill));   // Water's Chill: a chilled foe hits softer
+    const incoming = dmg;
     const prot = this.protectFactor();
     if (prot) dmg = Math.floor(dmg * (1 - prot));
     // A skill's thorns or counter strikes back a share of the blow as it came, before the guard.
@@ -3705,7 +3743,14 @@ export class Game {
     p.takeDamage(dmg);
     if (dmg > 0) this._knock(p, npc);
     this.addHitsplat(p, dmg, { crit: heavy && dmg > 0 });
-    if (dmg > 0) { this.spawnHitSparks(p, heavy ? '#ff5a5a' : '#ff8a8a'); this.bus.emit('sfx', 'hurt'); this._gainAdrenaline((heavy ? 2 : 1) * ADREN_PER_HURT + this._adrenTrait('hurt')); Bless.faithGain(this, 'hurt'); }
+    if (dmg > 0) {
+      this.spawnHitSparks(p, heavy ? '#ff5a5a' : '#ff8a8a');
+      this.bus.emit('sfx', heavy ? 'hurt:heavy' : 'hurt:melee');
+      this._gainAdrenaline((heavy ? 2 : 1) * ADREN_PER_HURT + this._adrenTrait('hurt'));
+      Bless.faithGain(this, 'hurt');
+    } else if (incoming > 0) {
+      this.bus.emit('sfx', 'ability:block');
+    }
     if (heavy) this.msg(`${npc.name} unleashes a heavy blow${this.braceTicks > 0 ? ' — you brace and soften it!' : '!'}`, 'combat');
     this.bus.emit('hp');
     if (this._shouldRetaliate()) this.attackNpc(npc);
@@ -3916,7 +3961,7 @@ export class Game {
     this._guardReadyAt = this.tickCount + GUARD_COOLDOWN;
     out[0].chatText = 'Halt, villain!'; out[0].chatTimer = 4;
     this.msg(`The town watch knows your face: ${out.length > 1 ? 'two guards close' : 'a guard closes'} in!`, 'combat');
-    this.bus.emit('sfx', 'spec');
+    this.bus.emit('sfx', 'ability:windup');
     return out;
   }
 
@@ -4474,7 +4519,7 @@ export class Game {
   // ---------------- New skills: Prayer, Thieving, Agility ----------------
   /** Bury bones from a stack (any kind): 100 at a time by default, or `count` (Infinity = the whole stack).
    *  Offering at an A-Worthy Monument (`altar`) pays ALTAR_XP_MULT x. Each bone also restores a little Faith. */
-  buryBones(index, count = BURY_BATCH, altar = false) {
+  buryBones(index, count = BURY_BATCH, altar = false, quiet = false) {
     const s = this.inventory.slotAt(index);
     if (!s || !isBone(s.id)) { this.msg('You can only bury bones.'); return 0; }
     if (altar && !this.nearShrine()) { this.msg('You need to be at an A-Worthy Monument to offer bones.'); return 0; }
@@ -4488,6 +4533,7 @@ export class Game {
     this.spawnSparkle(this.player, altar ? '#9adcff' : '#ffe89a', Math.min(24, 6 + n));
     const what = n > 1 ? `${n} ${it.name.toLowerCase()}` : `the ${it.name.toLowerCase()}`;
     this.msg(altar ? `You offer ${what} at the monument.` : `You bury ${what}.`, 'system');
+    if (n > 0 && !quiet) this.bus.emit('sfx', altar ? 'interact:offer' : 'interact:bury');
     return n;
   }
   /** Bury (or offer) every kind of bone in the pack. Walks backwards: removeAt only nulls a slot
@@ -4495,8 +4541,9 @@ export class Game {
   buryAllBones(altar = false) {
     if (altar && !this.nearShrine()) { this.msg('You need to be at an A-Worthy Monument to offer bones.'); return 0; }
     let total = 0;
-    for (let i = this.inventory.size - 1; i >= 0; i--) { const s = this.inventory.slotAt(i); if (s && isBone(s.id)) total += this.buryBones(i, Infinity, altar); }
-    if (!total) this.msg('You have no bones.');
+    for (let i = this.inventory.size - 1; i >= 0; i--) { const s = this.inventory.slotAt(i); if (s && isBone(s.id)) total += this.buryBones(i, Infinity, altar, true); }
+    if (total) this.bus.emit('sfx', altar ? 'interact:offer' : 'interact:bury');
+    else this.msg('You have no bones.');
     return total;
   }
   /** Close enough to an A-Worthy Monument to offer bones there. */
@@ -4529,6 +4576,7 @@ export class Game {
       this.addEvil(1); // theft tips you toward evil
       this.spawnSparkle(this.player, '#ffe24a', 6);
       this.msg(`You pick the ${npc.name}'s pocket and steal ${qty > 1 ? qty + ' x ' : ''}${getItem(pick.id).name}.`, 'system');
+      this.bus.emit('sfx', 'interact:thieve');
       return;
     }
     // Pickpocketing never fails any more (life skills never fail).
@@ -4541,6 +4589,7 @@ export class Game {
       this.addEvil(1); // theft tips you toward evil
       this.spawnSparkle(this.player, '#ffe24a', 6);
       this.msg(`You pick the ${npc.name}'s pocket and steal ${coins} coins.`, 'system');
+      this.bus.emit('sfx', 'interact:thieve');
     }
   }
 
@@ -4560,6 +4609,7 @@ export class Game {
     const lvl = this.skills.level('agility');
     const xpScale = this.agilityXpScale(lvl);
     this.skills.addXp('agility', (d.xp || 18) * xpScale);
+    this.bus.emit('sfx', 'interact:agility');
     this.runEnergy = Math.min(100, this.runEnergy + 8);
     this.bus.emit('run');
     this.spawnPoof(obj.x * TILE + TILE / 2, obj.y * TILE + TILE / 2 - 6, '#8fd6ff');
@@ -4655,7 +4705,7 @@ export class Game {
       const name = getItem(pick.id).name;
       this.msg(`You steal ${qty > 1 ? qty + ' x ' : ''}${name} from the ${d.name}.`, 'system');
       obj.depleted = true; obj.respawnTimer = d.respawn || 5; // the stall is emptied briefly
-      this.bus.emit('sfx', 'pickup');
+      this.bus.emit('sfx', 'interact:stall');
       if (a) { a.stealing = true; return true; }
     } else {
       const dmg = randInt(1, 3);
@@ -4869,7 +4919,7 @@ export class Game {
     this.msg(`A World Boss has appeared: ${n.name}! It's coming for you.`, 'level');
     this.banner(`<span class="big">World Boss!</span>${n.name} rises nearby`);
     this.addShake(5, 400);
-    this.bus.emit('sfx', 'spec');
+    this.bus.emit('sfx', 'roar');
     return n;
   }
 
@@ -4950,7 +5000,7 @@ export class Game {
       this.addHitsplat(npc, 0, { text: 'Interrupted!' });
       this.spawnSparkle(npc, '#7fd8ff', 16);
       this.msg(`Knowledge Strike! You interrupt ${npc.name}.`, 'combat');
-      this.bus.emit('sfx', 'spec');
+      this.bus.emit('sfx', 'ability:interrupt');
     } else if (npc.alive && this.player.alive) {
       this._fireBossSpecial(npc);
     }
@@ -4975,6 +5025,7 @@ export class Game {
         const { atkRoll, defRoll, max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, p.style);
         const dmg = Math.min(p.hp, Math.round(rollAttack(atkRoll, defRoll, max) * 1.6) + 2);
         p.takeDamage(dmg); this.addHitsplat(p, dmg); this.spawnHitSparks(p, '#ff5a3a'); this.bus.emit('hp');
+        if (dmg > 0) this.bus.emit('sfx', 'hurt:heavy');
         this.msg(`${npc.name} unleashes a crushing slam!`, 'combat');
         if (p.hp <= 0) this.playerDeath();
         break;
@@ -5033,7 +5084,7 @@ export class Game {
       this.hazards.push({ ...sq, npc, kind: pattern, sign: i === 0 || sq.r > 0, fireTick: this.tickCount + delay, start: now, dur: delay * TICK_MS });
     });
     this.spawnSparkle(npc, '#ff5a5a', 10);
-    this.bus.emit('sfx', 'spec');
+    this.bus.emit('sfx', 'ability:windup');
     this.msg(HAZARD_TEXT[pattern]?.(npc.name) || `${npc.name} marks the ground. Move out of the red!`, 'combat');
   }
 
@@ -5073,7 +5124,7 @@ export class Game {
     this.msg(`${npc.name} uses ${ab.name}! ${ab.desc}`, 'combat');
     this.addHitsplat(npc, 0, { text: ab.name });
     this.spawnSparkle(npc, ab.color || '#ffd24a', 14);
-    this.bus.emit('sfx', 'spec');
+    this.bus.emit('sfx', 'ability:boss');
     const def = npc.def;
     for (const fx of ab.fx) {
       if (!p.alive) break;
@@ -5089,7 +5140,10 @@ export class Game {
             if (this.braceTicks > 0) dmg = Math.floor(dmg * 0.5);
             dmg = Math.min(p.hp, this._perkReduce(dmg, npc));
             p.takeDamage(dmg); this.addHitsplat(p, dmg, { crit: dmg > 0 });
-            if (dmg > 0) this.spawnHitSparks(p, ab.color || '#ff5a3a');
+            if (dmg > 0) {
+              this.spawnHitSparks(p, ab.color || '#ff5a3a');
+              this.bus.emit('sfx', 'hurt:heavy');
+            }
             if (fx.steal && dmg > 0 && npc.healCapped(dmg * fx.steal) > 0) this.spawnSparkle(npc, '#5fe08a', 6);
           }
           this.bus.emit('hp');
@@ -5172,8 +5226,10 @@ export class Game {
     const d = this.playerDot;
     if (d && p.alive) {
       const dmg = Math.min(p.hp, Math.max(1, Math.round(d.dmg * (1 - (this.perkMods('defence').dotReduce || 0)))));
+      const hp = p.hp;
       p.takeDamage(dmg);
       this.addHitsplat(p, dmg, { tint: DOT_KINDS[d.kind]?.color });
+      if (p.hp < hp) this.bus.emit('sfx', d.kind === 'burn' || d.kind === 'chill' ? 'hurt:magic' : 'hurt:hazard');
       this.bus.emit('hp');
       if (--d.ticks <= 0) this.playerDot = null;
       if (p.hp <= 0) { this.playerDot = null; this.playerDeath(d.boss ? d : null); }
@@ -5212,7 +5268,7 @@ export class Game {
         if (this.braceTicks > 0) dmg = Math.floor(dmg * 0.5);
         dmg = Math.min(p.hp, this._perkReduce(dmg, h.npc));
         p.takeDamage(dmg); this.addHitsplat(p, dmg, { crit: true }); this.spawnHitSparks(p, '#ff5a3a');
-        this.bus.emit('sfx', 'hurt'); this.bus.emit('hp');
+        this.bus.emit('sfx', 'hurt:hazard'); this.bus.emit('hp');
         this.msg(`${h.npc.name}'s attack hits you for ${dmg}!`, 'combat');
         if (p.hp <= 0) { this.playerDeath({ boss: h.npc.npcId, pattern: h.kind }); break; }
       } else {
@@ -5234,10 +5290,12 @@ export class Game {
       this.player.hp = Math.max(1, Math.round(this.maxHp() * POTIONS[saver].revive));
       this.msg(`Your ${POTIONS[saver].name.toLowerCase()} flares up and you rise from the ashes!`, 'level');
       this.spawnSparkle(this.player, POTIONS[saver].color, 18);
+      this.bus.emit('sfx', 'interact:revive');
       this.bus.emit('hp'); this.bus.emit('potions');
       return;
     }
     this.msg('Oh dear, you are dead!', 'combat');
+    this.bus.emit('sfx', 'interact:defeat');
     ClassEl.reset(this);   // no ward or stored Wrath carried into the next life
     // Killed by a boss you hadn't beaten yet: auto battle steers clear of it for a while.
     {
@@ -6459,7 +6517,7 @@ export class Game {
         if (p && p.rank > 0 && (!best || p.rank > best.gain)) best = { i, gain: p.rank };
       });
       if (!best) break;
-      this.equipItem(best.i);
+      this.equipItem(best.i, { quiet: true });
       changed++;
     }
     // Dual wielders: the best matching weapon left in the pack goes in the off-hand.
@@ -6474,12 +6532,14 @@ export class Game {
       this.inventory.slots.forEach((s, i) => {
         if (s && canDualPair(s.id, main) && this._canEquipNow(s.id) && offScore(s.id, s.q || null) > br) { bi = i; br = offScore(s.id, s.q || null); }
       });
-      if (bi >= 0) { this.equipItem(bi, { offhand: true }); changed++; }
+      if (bi >= 0) { this.equipItem(bi, { offhand: true, quiet: true }); changed++; }
     }
     // Guns: load the strongest rounds in the pack (rounds.js).
     if (Rounds.isGunId(this.equipment.get('weapon')) && Rounds.loadBestRounds(this)) changed++;
     // What went on, for the note on screen (whatnextui.js): the chat line below is out of sight on a phone.
-    this.bus.emit('equipBest', wornChanges(before, wornSnapshot(this.equipment)));
+    const changes = wornChanges(before, wornSnapshot(this.equipment));
+    this.bus.emit('equipBest', changes);
+    if (changes.some((piece) => piece.to)) this.bus.emit('sfx', 'interact:equip');
     this.msg(changed ? `Best in slot: you put on ${changed} better piece${changed > 1 ? 's' : ''} of gear.` : 'You are already wearing your best gear.', changed ? 'level' : 'system');
     return changed;
   }
@@ -6574,6 +6634,7 @@ export class Game {
     this.equipment.set(slot, s.id, q);
     if (prev) this.inventory.add(prev, 1, prevQ);
     if (carry) applyCarry(this.equipment, carry);
+    if (!opts.quiet) this.bus.emit('sfx', 'interact:equip');
     // Say plainly whether that was a step up, so players learn which gear is better.
     // (Not when ★ or lines came across: the carry lines below say what happened,
     // and the bare piece's numbers called a better sword a "Downgrade".)
@@ -6737,6 +6798,7 @@ export class Game {
     this.inventory.remove(matId, n);
     this.shrine.points += n * per;
     this.msg(`You offer ${n} x ${getItem(matId).name} at the shrine: +${n * per} shrine points.`, 'system');
+    this.bus.emit('sfx', 'interact:offer');
     this.bus.emit('shrine');
     this.saveSoon = true;
     return n * per;
@@ -6808,23 +6870,23 @@ export class Game {
     if ((out === 'downgrade' || out === 'broken') && this.inventory.count(UP_WARD) > 0) {
       this.inventory.remove(UP_WARD, 1);
       this.msg(`The refine went badly, but your upgrade ward crumbled instead: your ${name(lv)} is unharmed.`, 'system');
-      this.bus.emit('sfx', 'hurt');
+      this.bus.emit('sfx', 'interact:refine_fail');
       return 'warded';
     }
     if (out === 'success') {
       refines[id] = next;
       this.equipment._changed();
       this.spawnSparkle(this.player, '#9fd8ff', 16);
-      this.bus.emit('sfx', 'level');
+      this.bus.emit('sfx', 'interact:refine');
       this.msg(`Refine success! Your ${name(next)} shines brighter.`, 'level');
       if (next === MAX_REFINE) this.banner(`<span class="big">${refineTag(MAX_REFINE)}!</span>${getItem(id).name} is fully refined`);
     } else if (out === 'fail') {
-      this.bus.emit('sfx', 'hurt');
+      this.bus.emit('sfx', 'interact:refine_fail');
       this.msg(`The refine failed. Your ${name(lv)} is unharmed, but the scrolls are used up.`, 'system');
     } else if (out === 'downgrade') {
       if (lv - 1 > 0) refines[id] = lv - 1; else delete refines[id];
       this.equipment._changed();
-      this.bus.emit('sfx', 'hurt');
+      this.bus.emit('sfx', 'interact:refine_fail');
       this.msg(`The refine failed and your gear lost a level: it is now ${name(lv - 1)}. (An upgrade ward would have saved it.)`, 'combat');
     } else {
       // Broken: one copy is destroyed (the worn one first) and the type's refine resets.
@@ -6851,7 +6913,7 @@ export class Game {
         delete eqp.refines[id];
       }
       this.equipment._changed();
-      this.bus.emit('sfx', 'hurt');
+      this.bus.emit('sfx', 'interact:refine_fail');
       this.addShake(4, 300);
       this.msg(`The refine shattered your ${name(lv)}! It is destroyed. (An upgrade ward would have saved it.)`, 'combat');
       this.banner(`<span class="big">Broken!</span>${getItem(id).name} shattered`);
@@ -6860,9 +6922,17 @@ export class Game {
   }
 
   /** Load the rounds in pack slot `index` into the ammo slot (rounds.js). */
-  loadRounds(index) { return Rounds.loadRounds(this, index); }
+  loadRounds(index) {
+    const loaded = Rounds.loadRounds(this, index);
+    if (loaded) this.bus.emit('sfx', 'interact:equip');
+    return loaded;
+  }
   /** Take the loaded rounds back into the pack. */
-  unloadRounds() { return Rounds.unloadRounds(this); }
+  unloadRounds() {
+    const unloaded = Rounds.unloadRounds(this);
+    if (unloaded) this.bus.emit('sfx', 'interact:unequip');
+    return unloaded;
+  }
 
   unequip(slot) {
     if (slot === 'ammo') return this.unloadRounds();
@@ -6873,6 +6943,7 @@ export class Game {
     this.equipment.clearSlot(slot);
     this.inventory.add(id, 1, q);
     this.msg(`You remove the ${getItem(id).name.toLowerCase()}.`);
+    this.bus.emit('sfx', 'interact:unequip');
   }
 
   // Drop lets go of the whole stack, and a stack can now be millions (a slot
@@ -6994,7 +7065,7 @@ export class Game {
     this.skills.addXp('farming', c.plantXp);
     this.spawnPoof(obj.x * TILE + TILE / 2, obj.y * TILE + TILE / 2, '#8a6a3a');
     this.msg(`You plant the ${c.name.toLowerCase()} seed. It will be ready in about ${Math.ceil(c.grow * TICK_MS / 1000)}s.`);
-    this.bus.emit('sfx', 'gather');
+    this.bus.emit('sfx', 'interact:plant');
     return true;
   }
 
@@ -7013,7 +7084,7 @@ export class Game {
     this.msg(`You harvest ${n} ${c.name.toLowerCase()}.`);
     recordHarvest(this, obj, c, rolled);   // now and then the patch gives its yield many times over (jackpot.js)
     if (Math.random() < 0.25) { this.inventory.add(c.seed, 1); this.msg(`You save ${aOrAn(c.name.toLowerCase())} seed for next time.`); }
-    this.bus.emit('sfx', 'pickup');
+    this.bus.emit('sfx', 'gather:farming');
     return true;
   }
 
@@ -7041,7 +7112,7 @@ export class Game {
     }
     this.spawnSparkle(this.player, pot.color, 10);
     this.msg(pot.group ? `You drink the ${pot.name.toLowerCase()}. You feel stronger for ${Math.round(pot.ms / 60000)} minutes.` : `You drink the ${pot.name.toLowerCase()}.`);
-    this.bus.emit('sfx', 'eat');
+    this.bus.emit('sfx', 'interact:potion');
     this.bus.emit('potions');
   }
 
@@ -7083,6 +7154,8 @@ export class Game {
   }
 
   handleDialogueAction(action) {
+    const quest = this.quests[QUEST_FOR_DIALOGUE.get(action)];
+    const state = quest?.state, stage = quest?.stage;
     if (action === 'giveStarter') this.giveStarter();
     else if (action === 'questStart') {
       const q = this.quests.bone_collector;
@@ -7136,6 +7209,7 @@ export class Game {
     else if (action.startsWith('rq:')) RQ.regionAction(this, action);
     else if (action.startsWith('moral:')) { const [, id, side] = action.split(':'); this.moralChoose(id, side); }
     else if (action.startsWith('qc:')) { const [, key, side] = action.split(':'); chooseQuest(this, key, side); }   // a quest line's Good / Evil choice
+    if (quest && (quest.state !== state || quest.stage !== stage)) this.bus.emit('sfx', 'interact:quest');
     this.bus.emit('quest');
   }
 
@@ -7812,6 +7886,7 @@ export class Game {
       if (got <= 0) { this.msg('Your inventory is full.'); return; }
       this.inventory.remove('coins', price * got);
       this.msg(`You buy ${got} x ${getItem(itemId).name} for ${price * got} coins.${got < qty ? ' (That is all your coins cover.)' : ''}`);
+      this.bus.emit('sfx', 'interact:buy');
       return;
     }
     for (let i = 0; i < qty; i++) {
@@ -7821,10 +7896,13 @@ export class Game {
       this.inventory.add(itemId, 1);
       bought++;
     }
-    if (bought) this.msg(`You buy ${bought} x ${getItem(itemId).name} for ${price * bought} coins.`);
+    if (bought) {
+      this.msg(`You buy ${bought} x ${getItem(itemId).name} for ${price * bought} coins.`);
+      this.bus.emit('sfx', 'interact:buy');
+    }
   }
 
-  sellItem(shopId, itemId, qty = 1) {
+  sellItem(shopId, itemId, qty = 1, quiet = false) {
     const shop = getShop(shopId);
     if (itemId === 'coins') return;
     const price = Math.max(1, Math.round(getItem(itemId).value * shop.sellMul * this.priceFactor().sell));
@@ -7834,6 +7912,7 @@ export class Game {
     this.inventory.remove(itemId, sell);
     this.inventory.add('coins', price * sell);
     this.msg(`You sell ${sell} x ${getItem(itemId).name} for ${price * sell} coins.`);
+    if (!quiet) this.bus.emit('sfx', 'interact:sell');
   }
 
   /** Is this gear for another class? Weapons of another type, armour of another
@@ -7859,8 +7938,9 @@ export class Game {
     const ids = [...new Set(this.inventory.slots.filter(Boolean).map((s) => s.id))].filter((id) => this.unrelatedToClass(id));
     if (!ids.length) { this.msg('You have nothing for other classes to sell.', 'system'); return 0; }
     const before = this.inventory.count('coins');
-    for (const id of ids) this.sellItem(shopId, id, this.inventory.count(id));
+    for (const id of ids) this.sellItem(shopId, id, this.inventory.count(id), true);
     const earned = this.inventory.count('coins') - before;
+    if (earned > 0) this.bus.emit('sfx', 'interact:sell');
     this.msg(`You sell ${ids.length} kinds of gear for other classes for ${earned} coins.`, 'system');
     return earned;
   }
@@ -7873,6 +7953,7 @@ export class Game {
     const amount = Math.min(qty, have);
     if (amount <= 0) return;
     for (const p of this.inventory.take(itemId, amount, q)) this.bank.deposit(itemId, p.n, p.q);
+    this.bus.emit('sfx', 'interact:deposit');
     updateFirstJourney(this, true);
   }
 
@@ -7885,6 +7966,7 @@ export class Game {
       if (n > 0) { for (const p of this.inventory.take(id, n)) this.bank.deposit(id, p.n, p.q); moved += n; }
     }
     if (moved) {
+      this.bus.emit('sfx', 'interact:deposit');
       updateFirstJourney(this, true);
       this.msg('You deposit your inventory.', 'system');
     }
@@ -7896,6 +7978,7 @@ export class Game {
     const amount = this.inventory.canAdd(itemId, want);
     if (amount <= 0) { this.msg('Your inventory is full.'); return; }
     for (const p of this.bank.take(itemId, amount, q)) this.inventory.add(itemId, p.n, p.q);
+    this.bus.emit('sfx', 'interact:withdraw');
   }
 
   // ---------------- MRT fast travel ----------------
@@ -7927,7 +8010,7 @@ export class Game {
     p.x = p.tx = tile.x; p.y = p.ty = tile.y; p.progress = 0; p.moving = false; p.path = [];
     this.spawnSparkle(this.player, '#8fd6ff', 14);
     this.msg(`You take the MRT to ${st.name}.`, 'system');
-    this.bus.emit('sfx', 'travel');
+    this.bus.emit('sfx', 'travel:mrt');
     this.updateRegion();
     if (!this._autoTrip) this.ui?.closeModal();   // a ride you chose closes the map; an auto trip doesn't (_autoRun)
     return true;

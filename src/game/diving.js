@@ -67,7 +67,7 @@ export function resolveDive(game, action) {
   const name = getItem(c.id).name.toLowerCase();
   const fc = objCenter(obj);
   game.spawnPoof?.(fc.x, fc.y, '#bfe9ff');
-  game.bus.emit('sfx', 'gather');
+  game.bus.emit('sfx', 'gather:diving');
   game.msg(n > 1 ? `You dive and bring up two ${many(name)}.` : `You dive and bring up ${aOrAn(name)}.`);
   if (def.pearl && roll() < def.pearl.chance * (1 + tb.find)) findPearl(game, def.pearl);
   if (roll() < (def.chest || 1) * (1 + tb.find) / CHEST_RATE) sunkenChest(game, obj, c.level);

@@ -491,7 +491,7 @@ export class Waves {
     for (const at of [50, 25, 10]) {
       if (before > at && now <= at && now > 0) {
         g.msg(`The A-Worthy Shrine is at ${now}%! Drive them off it!`, 'combat');
-        g.bus.emit('sfx', 'hurt');
+        g.bus.emit('sfx', 'hurt:hazard');
         break;
       }
     }
@@ -586,7 +586,7 @@ export class Waves {
       g.addShake(4, 320);
     } else g.banner(`<span class="big">Wave ${n}</span>${count} monsters, level ${this.level}${leader ? `, led by ${leader}${champs > 1 ? ` and ${champs - 1} more` : ''}` : ''}`, 'waves');
     g.msg(`Wave ${n} begins: ${count} monsters of level ${this.level}${leader ? `, led by ${leader}` : ''}.`, 'combat');
-    g.bus.emit('sfx', 'spec');
+    g.bus.emit('sfx', boss ? 'roar' : 'ability:windup');
     g.checkAchievements();
     g.bus.emit('waves');
   }

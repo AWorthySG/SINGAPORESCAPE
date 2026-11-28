@@ -3,11 +3,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Sfx } from '../src/audio/sfx.js';
+import { ACTION_SOUNDS } from '../src/audio/actionSounds.js';
+import { ABILITY_SOUNDS, HURT_SOUNDS, IMPACT_SOUNDS } from '../src/audio/combatSounds.js';
+import { ELEMENTS } from '../src/data/magic.js';
 
 // A pretend Web Audio that records every node made and where it connects.
 function fakeAudio() {
   const made = [];
-  const param = () => { const ev = []; return { ev, value: 0, setValueAtTime: (v, t) => ev.push(['set', v, t]), linearRampToValueAtTime: (v, t) => ev.push(['lin', v, t]), exponentialRampToValueAtTime: (v, t) => ev.push(['exp', v, t]) }; };
+  const param = () => { const ev = []; return { ev, value: 0, setValueAtTime: (v, t) => ev.push(['set', v, t]), linearRampToValueAtTime: (v, t) => ev.push(['lin', v, t]), exponentialRampToValueAtTime: (v, t) => ev.push(['exp', v, t]), setTargetAtTime: (v, t) => ev.push(['target', v, t]) }; };
   const node = (kind, extra = {}) => { const n = { kind, gain: param(), frequency: param(), Q: param(), out: [], connect(to) { this.out.push(to); return to; }, start() {}, stop() {}, ...extra }; made.push(n); return n; };
   class Ctx {
     constructor() { this.currentTime = 0; this.sampleRate = 8000; this.state = 'running'; this.destination = node('dest'); }
@@ -181,4 +184,139 @@ test('on auto battle the level-up chime comes at most once every few seconds', a
   assert.equal(played.length, 2);
   auto = false; a.ctx.currentTime = 14.5; handlers.levelup();
   assert.equal(played.length, 3, 'off auto battle, a quarter of a second apart is enough');
+});
+
+const timbre = (made) => made.flatMap((node) => {
+  if (node.kind === 'osc') return [[node.type, ...node.frequency.ev.map((e) => e[1])]];
+  if (node.kind === 'filter') return [[node.type, node.frequency.value]];
+  return [];
+});
+
+test('material impacts have distinct timbres and keep their ordinary hit material on a critical', () => {
+  const { s, made } = setup();
+  s._random = () => 0.5;
+  const heard = new Set();
+  Object.keys(IMPACT_SOUNDS).forEach((material, i) => {
+    made.length = 0;
+    s.ctx.currentTime = i * 2;
+    s.play(`hit:${material}`);
+    const ordinary = timbre(made);
+    assert.ok(ordinary.length > 0, material);
+    heard.add(JSON.stringify(ordinary));
+
+    made.length = 0;
+    s.ctx.currentTime += 1;
+    s.play(`crit:${material}`);
+    const critical = timbre(made);
+    assert.deepEqual(critical.slice(0, ordinary.length), ordinary, material);
+    assert.ok(critical.length > ordinary.length, 'critical accent');
+  });
+  assert.equal(heard.size, Object.keys(IMPACT_SOUNDS).length);
+});
+
+test('impacts share the existing volley limit, and crit cooldown plays the struck material', () => {
+  const { s, made } = setup();
+  s._random = () => 0.5;
+  s.play('crit:metal');
+  const first = voices(made).length;
+  s.play('hit:slime');
+  s.play('crit:beast');
+  assert.equal(voices(made).length, first, 'no layered impacts on a crit');
+
+  made.length = 0;
+  s.ctx.currentTime = 0.04;
+  s.play('crit:slime');
+  const fallback = timbre(made);
+  s.play('hit:beast');
+  s.play('hit');
+  assert.deepEqual(timbre(made), fallback, 'all hits share one limit');
+
+  made.length = 0;
+  s.ctx.currentTime = 1;
+  s.play('hit:slime');
+  assert.ok(fallback.length > 0, 'suppressed impacts did not take the hit slot');
+  assert.deepEqual(timbre(made), fallback);
+});
+
+test('all spell elements have a distinct layer and share the weapon attack slot', () => {
+  const { s, made } = setup();
+  s._random = () => 0.5;
+  s.play('atk:staff');
+  const core = timbre(made);
+  const heard = new Set();
+  Object.keys(ELEMENTS).forEach((element, i) => {
+    made.length = 0;
+    s.ctx.currentTime = i + 1;
+    s.play(`atk:staff:${element}`);
+    const release = timbre(made);
+    assert.deepEqual(release.slice(0, core.length), core, element);
+    assert.ok(release.length > core.length, element);
+    heard.add(JSON.stringify(release));
+    s.play('atk:wand');
+    assert.deepEqual(timbre(made), release, 'elemental casts and other attacks share one limit');
+  });
+  assert.equal(heard.size, Object.keys(ELEMENTS).length);
+});
+
+test('action and combat recipes stay behind the SFX slider and reuse the noise buffer', () => {
+  const { s, made } = setup();
+  const names = [...Object.keys(ACTION_SOUNDS),
+    ...Object.keys(HURT_SOUNDS).map((key) => `hurt:${key}`),
+    ...Object.keys(ABILITY_SOUNDS).map((key) => `ability:${key}`)];
+  const reachesSfx = (n, depth = 0) => n === s.sfxGain || (depth < 4 && n.out.some((o) => reachesSfx(o, depth + 1)));
+  const buffers = new Set();
+  names.forEach((name, i) => {
+    made.length = 0;
+    s.ctx.currentTime = i + 1;
+    s.play(name);
+    const played = voices(made);
+    assert.ok(played.length > 0, name);
+    assert.ok(played.every((voice) => reachesSfx(voice)), name);
+    played.filter((voice) => voice.kind === 'noise').forEach((voice) => buffers.add(voice.buffer));
+  });
+  assert.equal(buffers.size, 1);
+
+  made.length = 0;
+  s.setMuted(true);
+  s.ctx.currentTime += 1;
+  ['hit:metal', 'atk:staff:wind', 'ability:ultimate', 'gather:fishing'].forEach((name) => s.play(name));
+  assert.equal(voices(made).length, 0);
+});
+
+test('rapid footsteps and material gather cues share limits within their families', () => {
+  const { s, made } = setup();
+  for (const prefix of ['gather:', 'footstep:']) {
+    const [first, next] = Object.keys(ACTION_SOUNDS).filter((key) => key.startsWith(prefix));
+    s.play(first);
+    const count = voices(made).length;
+    s.play(next);
+    assert.equal(voices(made).length, count);
+    s.ctx.currentTime += 0.2;
+    s.play(next);
+    assert.ok(voices(made).length > count);
+  }
+});
+
+test('audio does not consume the game random stream', () => {
+  fakeAudio();
+  const original = Math.random;
+  const originalTimer = globalThis.setInterval;
+  const timers = [];
+  try {
+    Math.random = () => { throw new Error('audio used gameplay randomness'); };
+    globalThis.setInterval = (fn) => timers.push(fn);
+    const s = new Sfx(bus());
+    s._randomState = 123456;
+    s.ambienceSource = () => ({ zone: 'Chinatown', night: 0 });
+    s.unlock();
+    assert.ok(s.ctx);
+    assert.ok(s.amb);
+    assert.equal(timers.length, 2);
+    for (const tick of timers) tick();
+    for (const name of ['atk:staff:wind', 'crit:metal', 'hit:beast', 'gather:mining']) s.play(name);
+    assert.ok(s._noiseBuf);
+  } finally {
+    Math.random = original;
+    globalThis.setInterval = originalTimer;
+  }
 });

@@ -160,7 +160,7 @@ export function resolveWoodcut(game, action) {
     // A moonlit tree gives more under the moon (a bonus for night chopping, never a lock).
     game.skills.addXp('woodcutting', def.night && game.isNight() ? def.xp * NIGHT_TREE_BONUS : def.xp);
     const wc = objCenter(obj); game.spawnPoof(wc.x, wc.y, '#caa15a');
-    game.world.shake(obj, 280); game.bus.emit('sfx', 'gather'); // the tree judders as the log falls
+    game.world.shake(obj, 280); game.bus.emit('sfx', 'gather:woodcutting'); // the tree judders as the log falls
     const logName = getItem(def.gives).name.toLowerCase();
     // Double logs: a sturdy bough sometimes drops an extra.
     // (Stewardship adds to the chance while you are Neutral, see culling.js.)
@@ -229,7 +229,7 @@ export function resolveMine(game, action) {
     game.inventory.add(yieldId, 1);
     game.skills.addXp('mining', def.xp);
     const mc = objCenter(obj); game.spawnPoof(mc.x, mc.y, def.ore || '#cfcfcf');
-    game.world.shake(obj, 280); game.bus.emit('sfx', 'gather'); // the rock judders as ore breaks free
+    game.world.shake(obj, 280); game.bus.emit('sfx', 'gather:mining'); // the rock judders as ore breaks free
     const oreName = getItem(yieldId).name.toLowerCase();
     // Rich seam: a chance at a second yield, and once that is certain a chance
     // at a third (EXTRA_AT_TOP).
@@ -305,6 +305,7 @@ export function resolveFish(game, action) {
     if (Math.random() < trophyChance(tb)) {
       game.inventory.add(pick.id, 1);
       game.skills.addXp('fishing', xpEach * TROPHY_XP_MULT);
+      game.bus.emit('sfx', 'gather:fishing');
       game.inventory.add('coins', 50 + Math.round(pick.xp));
       game.spawnSparkle(game.player, '#ffd24a', 14); game.spawnPoof(fc.x, fc.y, '#ffe79a');
       game.msg(`A TROPHY catch! A magnificent ${nm}!`, 'level');
@@ -324,7 +325,7 @@ export function resolveFish(game, action) {
     game.inventory.add(pick.id, n + (three ? 1 : 0));
     game.skills.addXp('fishing', xpEach * n);
     game.spawnPoof(fc.x, fc.y, '#bfe3ff');
-    game.bus.emit('sfx', 'gather');
+    game.bus.emit('sfx', 'gather:fishing');
     game.msg(three ? `A huge catch! You haul in three ${nm}.` : big ? `A big catch! You haul in two ${nm}.` : `You catch ${aOrAn(nm)}.`);
     game.fishSchools?.onCatch(obj, pick.xp ? xpEach / pick.xp : 1, pick.id);   // maybe a whole school (fishschool.js)
   }
@@ -476,7 +477,7 @@ export function resolveSmelt(game, action) {
 
 /** Smelt every bar the materials in your pack allow, all at once, and say
  *  what came out. Returns false (the furnace is done). */
-export function smeltBatch(game, action) {
+export function smeltBatch(game, action, sound = true) {
   action.tally = null;
   const cap = makeCap(action);   // the amount chosen at the furnace, or all of it
   // A pet roll for every bar, and the bag and XP told once for the lot (autoprocess.js).
@@ -485,7 +486,7 @@ export function smeltBatch(game, action) {
   if (!t || (!t.made && !t.failed)) return false;
   const name = getItem(action.recipe.result).name.toLowerCase();
   const bars = t.made + t.extra;
-  game.bus.emit('sfx', 'clang');
+  if (sound && bars > 0) game.bus.emit('sfx', 'make:smelting');
   game.msg(`You smelt ${bars} ${name}${bars === 1 ? '' : 's'}`
     + (t.extra ? ` (${t.extra} extra from a hot crucible)` : '')
     + (t.failed ? `; ${t.failed} lot${t.failed === 1 ? '' : 's'} of ore ${t.failed === 1 ? 'was' : 'were'} too impure` : '') + '.');
@@ -543,7 +544,7 @@ export function resolveSmith(game, action) {
   game.inventory.add(r.result, r.qty || 1);   // upgrade stones come several to a bar
   game.skills.addXp('smithing', makeXp(game, 'smithing', r.xp));
   const t = action.tally;   // a batch (makeBatch) counts the extras and says it once
-  if (!t) game.bus.emit('sfx', 'clang');
+  if (!t) game.bus.emit('sfx', 'make:smithing');
   const lvl = game.skills.level('smithing');
   const itemName = getItem(r.result).name.toLowerCase();
   // Flawless work: a chance to forge an extra piece for free, and once that is
@@ -630,7 +631,7 @@ export function resolveHunt(game, action) {
   const xpEach = (def.night && game.isNight() ? def.xp * NIGHT_TREE_BONUS : def.xp) * hx.xpMult;
   game.skills.addXp('hunter', xpEach);
   const c = objCenter(obj); game.spawnPoof(c.x, c.y, def.color || '#caa15a');
-  game.world.shake(obj, 280); game.bus.emit('sfx', 'gather');
+  game.world.shake(obj, 280); game.bus.emit('sfx', 'gather:hunter');
   game.msg(`The trap springs! You catch ${got.join(' and ')}.`);
   huntJackpot(game, obj, { xpEach });   // now and then the whole flock at once (jackpot.js)
   if (Math.random() < def.depleteChance) {

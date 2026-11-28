@@ -70,7 +70,7 @@ export function startMechanic(game, n) {
   n.mech = m;
   n._mechN = (n._mechN || 0) + 1;
   active(game).add(n);
-  game.bus.emit('sfx', 'spec');
+  game.bus.emit('sfx', 'ability:windup');
   return m;
 }
 
@@ -206,8 +206,11 @@ function hurtPlayer(game, n, frac, color) {
   dmg = Math.min(p.hp, game._perkReduce(dmg, n));
   p.takeDamage(dmg);
   game.addHitsplat(p, dmg, { crit: dmg > 0 });
-  if (dmg > 0) game.spawnHitSparks?.(p, color);
-  game.bus.emit('sfx', 'hurt'); game.bus.emit('hp');
+  if (dmg > 0) {
+    game.spawnHitSparks?.(p, color);
+    game.bus.emit('sfx', 'hurt:hazard');
+  }
+  game.bus.emit('hp');
   if (p.hp <= 0) game.playerDeath();
   return dmg;
 }

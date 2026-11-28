@@ -258,6 +258,7 @@ export class Home {
     this.refresh();
     g.banner?.('<span class="big">Your kampong home</span>The Kranji plot is yours: a chest, a range, a hearth and farm patches');
     g.msg('You buy the Kranji plot. Visit the board for upgrades; teleport home from the house button by the map.', 'level');
+    g.bus.emit('sfx', 'interact:buy');
     g.bus.emit('home');
     g.saveSoon = true;
     return true;
@@ -298,7 +299,7 @@ export class Home {
     const xp = makeXp(g, 'construction', next.xp || 0);
     if (xp > 0) g.skills.addXp('construction', xp);
     g.spawnSparkle?.(g.player, '#e4c48e', 14);
-    g.bus.emit('sfx', 'clang');
+    g.bus.emit('sfx', 'make:construction');
     g.msg(`You build: ${next.name}. ${next.desc}.`, 'level');
     g.bus.emit('home');
     g.saveSoon = true;
@@ -324,6 +325,7 @@ export class Home {
     }
     g.inventory.remove(id, n);
     e.qty += n;
+    g.bus.emit('sfx', 'interact:deposit');
     g.bus.emit('home');
     return n;
   }
@@ -338,6 +340,7 @@ export class Home {
     g.inventory.add(id, n);
     e.qty -= n;
     if (e.qty <= 0) this.chest = this.chest.filter((x) => x !== e);
+    g.bus.emit('sfx', 'interact:withdraw');
     g.bus.emit('home');
     return n;
   }

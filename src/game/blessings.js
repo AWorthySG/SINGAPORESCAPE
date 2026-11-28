@@ -126,12 +126,14 @@ export function equipBlessing(game, id) {
   set.add(id);
   if (act.kind === 'stack') game.msg(`${p.name} stacks with ${act.with.map((o) => PRAYER_BY_ID[o].name).join(' and ')}: the weaker bonuses count at ${Math.round(STACK_SHARE * 100)}%.`);
   game.spawnSparkle?.(game.player, '#ffe89a', 6);
+  game.bus.emit('sfx', 'ability:bless');
   game.bus.emit('prayer');
   return true;
 }
 
 export function unequipBlessing(game, id) {
   if (!game.activePrayers.delete(id)) return false;
+  game.bus.emit('sfx', 'ability:bless');
   game.bus.emit('prayer');
   return true;
 }
@@ -170,7 +172,7 @@ export function prayerBurst(game) {
   game.burstZeal = BURST_ZEAL_TICKS;
   game.addHitsplat?.(p, 0, { text: 'Faith Burst' });
   game.spawnSparkle?.(p, '#ffe89a', 22);
-  game.bus.emit('sfx', 'spec');
+  game.bus.emit('sfx', 'ability:faith');
   game.msg(`Faith Burst! You heal ${heal}, a ward stops every blow for 3s, and you deal +${Math.round(pow.zeal * 100)}% damage for 8s.`, 'combat');
   game.bus.emit('hp'); game.bus.emit('prayer');
   return true;

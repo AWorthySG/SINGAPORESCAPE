@@ -44,7 +44,10 @@ export function depositLoot(game) {
     if (n > 0) { for (const p of game.inventory.take(id, n)) game.bank.deposit(id, p.n, p.q); moved += n; }
   }
   game.msg(moved ? 'You bank your loot and keep your tools.' : 'Nothing to bank: your pack holds only tools and kept items.', 'system');
-  if (moved) updateFirstJourney(game, true);
+  if (moved) {
+    game.bus.emit('sfx', 'interact:deposit');
+    updateFirstJourney(game, true);
+  }
   return moved;
 }
 

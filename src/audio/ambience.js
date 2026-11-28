@@ -49,8 +49,9 @@ export function ambienceMix(zone, night = 0) {
 /** The fixed node graph for the beds, built on an existing AudioContext and
  *  connected into `out` (the game's master gain, so mute and volume apply). */
 export class AmbienceBed {
-  constructor(ctx, out) {
+  constructor(ctx, out, random = Math.random) {
     this.ctx = ctx;
+    this.random = random;
     this.out = ctx.createGain();
     this.out.gain.value = 0;
     this.out.connect(out);
@@ -60,7 +61,7 @@ export class AmbienceBed {
     const len = ctx.sampleRate * 2;
     const buf = ctx.createBuffer(1, len, ctx.sampleRate);
     const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    for (let i = 0; i < len; i++) d[i] = random() * 2 - 1;
     const noise = ctx.createBufferSource();
     noise.buffer = buf; noise.loop = true;
     const lfo = (freq, depth, param, type = 'sine') => {
@@ -108,9 +109,9 @@ export class AmbienceBed {
     this.out.gain.setTargetAtTime(level, t, 0.6);
     // In town, the odd clink of a spoon on a plate (an envelope on the one
     // tone, never a new node).
-    if (mix.town > 0.2 && Math.random() < 0.3) {
-      const at = t + Math.random() * 0.8;
-      this.clinkOsc.frequency.setValueAtTime(2200 + Math.random() * 1400, at);
+    if (mix.town > 0.2 && this.random() < 0.3) {
+      const at = t + this.random() * 0.8;
+      this.clinkOsc.frequency.setValueAtTime(2200 + this.random() * 1400, at);
       this.clinkGain.gain.setValueAtTime(0, at);
       this.clinkGain.gain.linearRampToValueAtTime(0.05, at + 0.005);
       this.clinkGain.gain.exponentialRampToValueAtTime(0.0001, at + 0.18);

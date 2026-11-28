@@ -223,6 +223,7 @@ export class HawkerStall {
     this.today.served += c.qty; this.today.coins += coins; this.today.tips += tip;
     this.rep = Math.min(REP_MAX, this.rep + REP_SERVE * (c.vip ? 10 : 1));
     this.serveReady = this.t + this.service().ticks;
+    if (!quick) g.bus.emit('sfx', 'make:hawker');
     g.spawnSparkle?.(g.player, '#ffd24a', c.vip ? 12 : 5);
     g.addHitsplat?.(g.player, 0, { text: `+${coins.toLocaleString('en-GB')} coins` });
     if (c.vip) g.msg(`${c.name} is delighted: a ${tip.toLocaleString('en-GB')}-coin tip!`, 'level');
