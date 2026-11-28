@@ -8,10 +8,10 @@ import { CROPS } from '../data/trades.js';
 import { drawHeroRig } from './heroRig.js';
 import { drawRangedHeroRig } from './rangedHeroRig.js';
 import { drawPictureTool, drawWeaponTrail } from './heroanim.js';
-import { drawHeroBack } from './heroAnimArt.js';
+import { drawHeroBack, heroBackReady } from './heroAnimArt.js';
 import { heroLit, bakeRim } from './herolight.js';
 import { poseBlender } from './poseBlend.js';
-import { swingBeats, turnWidth, turnHop, lookAround, breath } from './motionkit.js';
+import { swingBeats, turnWidth, turnHop, lookAround, breath, heroWalk, heroView } from './motionkit.js';
 import { animSeed, animTempo, stepLift, stepRock, fidget, hitFlash, flinch, telegraphGlow, telegraphShake, telegraphCrouch, fidgetLand } from './creatureanim.js';
 import { CREATURE_RIGS, TOWN_IDLE, bossRig, stride, gaitPhase } from './creatureRigs.js';
 import { RIG_INK, rigSize, inkPart, inkRig, shadeCreatureBody } from './rigink.js';
@@ -65,7 +65,7 @@ const _anim = { stride: 0 };
 // Run `draw` centred at (cx,cy), mirrored if facing left, with a vertical bob
 // and (when moving) a leg-swing phase exposed to the draw function. Creatures
 // without drawn legs pass opts.rock to get a gait-suggesting body rock instead.
-function staged(ctx, cx, cy, opts, draw) {
+function staged(ctx, cx, cy, opts, draw, planted = false) {
   const t = opts.time || 0;
   // Walking blends in and out with the character's eased walk weight (opts.move),
   // so the hop, bob and rock fade rather than switching on and off as it
@@ -88,12 +88,16 @@ function staged(ctx, cx, cy, opts, draw) {
     // lands, easing in and out as walking starts and stops.
     bob = -Math.abs(Math.sin(g.phase * Math.PI)) * 1.7 * g.move;
   }
+  if (planted) bob = 0;
   // Turning round: squash through edge-on rather than snapping to the mirror
   // image. A cosine, like a card spun about its edge: full width for longer,
   // and only a moment edge-on, with a little hop so it reads as a step round
   // (motionkit.js).
   const turn = g ? g.turn : opts.turn;
-  if (turn > 0) { fx *= turnWidth(turn) * (turn > 0.5 ? -1 : 1); if (!opts.calm) bob -= turnHop(turn); }
+  if (turn > 0) {
+    fx *= (opts.anim?.calm ? 1 : turnWidth(turn) * (turn > 0.5 ? -1 : 1));
+    if (!opts.calm && !opts.anim?.calm) bob -= turnHop(turn);
+  }
   ctx.save();
   ctx.translate(cx, cy + bob);
   ctx.scale(fx * s, s);
@@ -2237,10 +2241,8 @@ function heroImage(style) {
   return img;
 }
 const HERO_ART_H = 56, HERO_ART_W = 60, HERO_ART_FEET = 15;
-// Classes whose portrait has been redrawn but whose layered rig parts (and
-// painted back view) still show the old look. Until the redesigned rig sheets
-// arrive they walk and fight as the single-picture puppet below, which uses
-// the new portrait. The old rig files stay registered, just unused here.
+// These heroes have complete paint for both facings. Each view uses the
+// puppet below so the newer paint stays consistent through the whole pose.
 export const PUPPET_HEROES = new Set(['ninja', 'sniper']);
 
 // ---- Puppet animation for the painted hero ----
@@ -2269,38 +2271,35 @@ function heroRig(img) {
       const c = document.createElement('canvas'); c.width = Math.max(1, sw); c.height = Math.max(1, sh);
       c.getContext('2d').drawImage(cnv, sx, sy, sw, sh, 0, 0, sw, sh); return c;
     };
-    rig = { W, H, cut, split, body: part(0, 0, W, cut), back: part(0, cut, split, H - cut), front: part(split, cut, W - split, H - cut) };
+    // A small overlap at the cut lets a boot tuck under the hem as it moves.
+    const overlap = Math.round(H * 0.025);
+    rig = { W, H, cut, split, overlap, body: part(0, 0, W, cut + overlap), back: part(0, cut, split, H - cut), front: part(split, cut, W - split, H - cut) };
   } catch { rig = null; }
   _puppets.set(img, rig);
   return rig;
 }
-function heroPuppet(c, img, w, h, g, t) {
+function heroPuppet(c, img, w, h, g, t, calm) {
   const rig = typeof document !== 'undefined' ? heroRig(img) : null;
   const top = HERO_ART_FEET - h, k = w / (rig ? rig.W : img.naturalWidth);
   const m = g.move;
-  // Phase 0..2 per two tiles: the back foot swings on 0..1, the front on 1..2.
-  const p = g.phase % 2, sw = Math.sin(p * Math.PI);
-  const backLift = Math.max(0, sw) * m, frontLift = Math.max(0, -sw) * m;
-  const land = 1 - Math.abs(sw);                       // 1 as a foot plants
-  const breathe = (1 - m) * Math.sin(t * 0.0032) * 0.018;
+  const walk = heroWalk(g, calm);
+  const breathe = calm ? 0 : (1 - m) * Math.sin(t * 0.0032) * 0.013;
   // Standing, the weight shifts slowly from foot to foot (a sway about the
   // feet, out of step with the breath), so a one-picture hero never stands frozen.
-  const sway = (1 - m) * (Math.sin(t * 0.0011) * 0.022 + Math.sin(t * 0.0029 + 1.3) * 0.006);
+  const sway = calm ? 0 : (1 - m) * (Math.sin(t * 0.0011) * 0.014 + Math.sin(t * 0.0029 + 1.3) * 0.005);
+  if (rig && m > 0.001) {
+    const fy = top + rig.cut * k, fh = (rig.H - rig.cut) * k, bw = rig.split * k;
+    c.drawImage(rig.back, -w / 2 + walk.step * 1.6, fy - walk.liftB, bw, fh);
+    c.drawImage(rig.front, -w / 2 + bw - walk.step * 1.6, fy - walk.liftF, w - bw, fh);
+  }
   c.save();
-  // Lean into the walk (more when running) and squash slightly on each footfall.
+  // Let the coat and shoulders rise with the step above the planted boot.
   c.translate(0, HERO_ART_FEET);
-  c.rotate(m * (g.run ? 0.1 : 0.06) + sway);
-  const sy = 1 + breathe - land * land * 0.035 * m, sx = 1 - breathe * 0.5 + land * land * 0.025 * m;
-  c.scale(sx, sy);
+  c.rotate(m * (calm ? 0.025 : g.run ? 0.08 : 0.05) + sway);
+  c.scale(1 - breathe * 0.5, 1 + breathe);
   c.translate(0, -HERO_ART_FEET);
-  if (!rig) { c.drawImage(heroLit(img), -w / 2, top, w, h); c.restore(); return; }
-  const fy = top + rig.cut * k, fh = (rig.H - rig.cut) * k, bw = rig.split * k, fw = (rig.W - rig.split) * k;
-  // Feet first, so a lifted foot tucks up behind the body. A swinging foot
-  // rises and travels forward; the planted one slides back under the body.
-  const stride = 2.2 * m;
-  c.drawImage(rig.back, -w / 2 + (backLift - frontLift) * stride, fy - backLift * 3.2, bw, fh);
-  c.drawImage(rig.front, -w / 2 + bw + (frontLift - backLift) * stride, fy - frontLift * 3.2, fw, fh);
-  c.drawImage(rig.body, -w / 2, top, w, rig.cut * k);
+  if (rig && m > 0.001) c.drawImage(rig.body, -w / 2, top - walk.rise, w, (rig.cut + rig.overlap) * k);
+  else c.drawImage(heroLit(img), -w / 2, top, w, h);
   c.restore();
 }
 
@@ -2433,7 +2432,6 @@ const smoothstep01 = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3
 
 export function drawPlayer(ctx, cx, cy, opts = {}) {
   const style = opts.hasWeapon && (opts.weaponType === 'ranged' || opts.weaponType === 'magic' || opts.weaponType === 'dance') ? opts.weaponType : 'melee';
-  // The Dancer has no painted art yet, so it uses the drawn mascot in a silk outfit.
   const himg = CLASS_HERO_ART.has(opts.jobClass) ? heroImage(opts.jobClass) : HERO_STYLES.includes(style) ? heroImage(style) : null;
   const painted = himg && himg.complete && himg.naturalWidth;
   staged(ctx, cx, cy, opts, (c) => {
@@ -2462,12 +2460,12 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       const b = _heroBody;
       // An animation clip (heroanim.js: per weapon type, life skill, idle)
       // moves the whole body; it blends itself, so it skips blendHero.
-      const anim = opts.anim;
+      const anim = opts.anim, calm = opts.calm || anim?.calm;
       if (anim) {
         const ch = anim.ch;
         b.dx = ch.bx; b.dy = ch.by; b.rot = ch.lean; b.sy = 1 - ch.squash; b.sx = 1 + ch.squash * 0.6;
         // A spin (the Dancer's whip) turns the body round like a card on its edge.
-        if (ch.spin) { const k = Math.cos(ch.spin * Math.PI * 2); b.sx *= Math.sign(k || 1) * Math.max(0.12, Math.abs(k)); }
+        if (ch.spin && !calm) b.sx *= Math.cos(ch.spin * Math.PI * 2);
       } else {
         b.dx = pose ? pose.dx : 0; b.dy = pose ? pose.dy : 0; b.rot = pose ? pose.rot : 0; b.sx = pose ? pose.sx : 1; b.sy = pose ? pose.sy : 1;
         blendHero(opts.entity, b, t, k, HERO_BLEND);
@@ -2477,26 +2475,37 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
         c.translate(b.dx - fl * 2.5, b.dy);
         c.translate(0, HERO_ART_FEET); c.rotate(b.rot - fl * 0.12); c.scale(b.sx + fl * 0.04, b.sy - fl * 0.05); c.translate(0, -HERO_ART_FEET);
       }
-      const s = Math.min(HERO_ART_H / himg.naturalHeight, HERO_ART_W / himg.naturalWidth);
-      const w = himg.naturalWidth * s, h = himg.naturalHeight * s;
       const g = opts.gait;
-      // Walking up the screen shows the painted back view where a class has one.
-      const layered = !PUPPET_HEROES.has(opts.jobClass) && (drawHeroBack(c, opts) || drawHeroRig(c, opts) || drawRangedHeroRig(c, opts));
+      const puppet = PUPPET_HEROES.has(opts.jobClass);
+      const north = opts.facing?.dx === 0 && opts.facing.dy < 0 && !(anim?.ch?.mix > 0.05);
+      const back = puppet && (g || north) ? heroImage(`puppet/${opts.jobClass}-back`) : null;
+      const ready = north && (puppet ? !!back?.complete && back.naturalWidth > 0 : heroBackReady(opts.jobClass));
+      const view = heroView(g ? opts.entity : null, ready, t, calm);
+      if (view.width < 1) {
+        const turn = g?.turn ?? opts.turn;
+        c.translate(0, -Math.max(0, view.rise - turnHop(turn)));
+        c.scale(Math.min(1, view.width / turnWidth(turn)), 1);
+      }
+      const layered = !puppet && ((view.rear && drawHeroBack(c, { ...opts, backView: true })) || drawHeroRig(c, opts) || drawRangedHeroRig(c, opts));
       if (!layered) {
-        if (g && !pose) heroPuppet(c, himg, w, h, g, t);
+        const pic = puppet && view.rear ? back : himg;
+        const s = Math.min(HERO_ART_H / pic.naturalHeight, HERO_ART_W / pic.naturalWidth);
+        const w = pic.naturalWidth * s, h = pic.naturalHeight * s;
+        if (g) heroPuppet(c, pic, w, h, g, t, calm);
         else {
           // A side-to-side rock while walking, as the monsters do (a gait cue).
           const mv = g ? g.move : opts.moving ? 1 : 0;
-          if (mv > 0.001) c.rotate(Math.sin(t * 0.018 + cx) * 0.06 * mv);
-          c.drawImage(heroLit(himg), -w / 2, HERO_ART_FEET - h, w, h);
+          if (mv > 0.001 && !calm) c.rotate(Math.sin(t * 0.018 + cx) * 0.06 * mv);
+          c.drawImage(heroLit(pic), -w / 2, HERO_ART_FEET - h, w, h);
         }
         // A single picture can't move its arms: it just bobs and leans, with the tool in a fist.
         if (anim) drawPictureTool(c, anim);
-      }
-      if (!layered && pose && pose.flash > 0) {   // a white flash over the body on the strike frame
-        c.globalAlpha = pose.flash * 0.35; c.globalCompositeOperation = 'lighter';
-        c.drawImage(himg, -w / 2, HERO_ART_FEET - h, w, h);
-        c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+        if (pose && pose.flash > 0) {
+          c.save();
+          c.globalAlpha *= pose.flash * 0.35; c.globalCompositeOperation = 'lighter';
+          c.drawImage(pic, -w / 2, HERO_ART_FEET - h, w, h);
+          c.restore();
+        }
       }
       c.restore();
       // A melee clip draws its own weapon's swoosh in place of the generic crescent.
@@ -2670,7 +2679,7 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       c.fillStyle = '#e6b34a'; circle(c, sx, sy, 1.7); c.fill(); // boss/emblem
       c.fillStyle = '#fff3c0'; circle(c, sx - 0.5, sy - 0.7, 0.6); c.fill();
     }
-  });
+  }, painted && !!opts.gait);
 }
 
 // ================= OBJECTS =================

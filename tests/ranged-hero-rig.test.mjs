@@ -46,11 +46,11 @@ test('ranged and magic boots alternate with the game gait and breathe at rest', 
 });
 
 function context() {
-  const stack = [], draws = [], lines = [];
+  const stack = [], draws = [], lines = [], scales = [];
   return {
-    draws, lines, globalAlpha: 0.7,
+    draws, lines, scales, globalAlpha: 0.7,
     save() { stack.push(this.globalAlpha); }, restore() { this.globalAlpha = stack.pop(); },
-    translate() {}, rotate() {}, drawImage(img) { draws.push(img.src); },
+    translate() {}, rotate() {}, scale(x) { scales.push(x); }, drawImage(img) { draws.push(img.src); },
     beginPath() {}, moveTo(x, y) { lines.push([x, y]); }, lineTo(x, y) { lines.push([x, y]); },
     stroke() {}, closePath() {}, fill() {},
   };
@@ -89,7 +89,14 @@ test('rig loading stays per class and never draws incomplete or broken parts', (
     drawRangedHeroRig(rest, { jobClass: 'ranger' });
     drawRangedHeroRig(drawn, { jobClass: 'ranger', swingK: 0.5 });
     drawRangedHeroRig(shot, { jobClass: 'ranger', swingK: 0.64 });
+    assert.equal(rest.lines.length, 3, 'the resting bow has a string and no nocked arrow');
     assert.ok(drawn.lines[1][0] < rest.lines[1][0], 'string nock follows the pulling hand');
     assert.ok(shot.lines.length < drawn.lines.length, 'nocked arrow is hidden during release');
+    const paired = context(), single = context();
+    drawRangedHeroRig(paired, { jobClass: 'pistoler', hasWeapon: true, dualWield: true });
+    drawRangedHeroRig(single, { jobClass: 'pistoler', hasWeapon: true, dualWield: false });
+    assert.ok(paired.draws.includes(rangedHeroSrc('pistoler', 'back')));
+    assert.deepEqual(paired.scales, [-1], 'the offhand pistol rests outward');
+    assert.ok(!single.draws.includes(rangedHeroSrc('pistoler', 'back')), 'single pistoler leaves the offhand free');
   } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
 });

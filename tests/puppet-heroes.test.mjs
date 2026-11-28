@@ -5,26 +5,31 @@ import { readFileSync } from 'node:fs';
 import { drawPlayer, PUPPET_HEROES, CLASS_HERO_ART } from '../src/render/sprites.js';
 import { sampleHeroClip } from '../src/render/heroanim.js';
 
-// The Ninja and Sniper have redrawn portraits; until their redesigned
-// rig sheets arrive they are drawn in the world from that one picture.
+// The Ninja and Sniper have repainted full figures for both facings.
 const REDRAWN = ['ninja', 'sniper'];
 
-// Width, height and alpha flag from a WebP's extended (VP8X) header.
+// Width, height and alpha flag are stored differently in lossy and lossless WebP.
 function webpInfo(path) {
   const b = readFileSync(new URL('../' + path, import.meta.url));
   assert.equal(b.toString('ascii', 0, 4), 'RIFF');
+  if (b.toString('ascii', 12, 16) === 'VP8L') {
+    assert.equal(b[20], 0x2f, `${path}: lossless WebP signature`);
+    const flags = b.readUInt32LE(21);
+    return { alpha: !!(flags & (1 << 28)), w: 1 + (flags & 0x3fff), h: 1 + ((flags >>> 14) & 0x3fff) };
+  }
   assert.equal(b.toString('ascii', 12, 16), 'VP8X', `${path}: extended WebP (needed for alpha)`);
   return { alpha: !!(b[20] & 0x10), w: 1 + b.readUIntLE(24, 3), h: 1 + b.readUIntLE(27, 3) };
 }
 
-test('the redrawn portraits are 256 px tall with transparency, like the others', () => {
+test('front and rear puppet artwork fits the in-world portrait frame', () => {
   for (const id of REDRAWN) {
     assert.ok(CLASS_HERO_ART.has(id), id);
-    const { alpha, w, h } = webpInfo(`assets/creatures/hero/${id}.webp`);
-    assert.ok(alpha, `${id}: has alpha`);
-    assert.equal(h, 256, `${id}: 256 px tall`);
-    // Wide enough for the arms, but the in-world fit (60x56) stays height-bound.
-    assert.ok(w >= 200 && w <= 256 * 60 / 56, `${id}: width ${w}`);
+    for (const file of [`${id}.webp`, `puppet/${id}-back.webp`]) {
+      const { alpha, w, h } = webpInfo(`assets/creatures/hero/${file}`);
+      assert.ok(alpha, `${file}: has alpha`);
+      assert.equal(h, 256, `${file}: 256 px tall`);
+      assert.ok(w >= 200 && w <= 256 * 60 / 56, `${file}: width ${w}`);
+    }
   }
 });
 
@@ -49,14 +54,15 @@ test('the redrawn classes draw as the portrait puppet; the others keep their rig
       for (const extra of [{}, { swingK: 0.5 }, { facing: { dx: 0, dy: -1 } }, { dualWield: true, swingK: 0.3 },
         { anim: sampleHeroClip('chop', 0.5, { tool: 'bronze_axe', jobClass: id }) }]) {
         const srcs = drawn(id, style, extra);
-        assert.ok(srcs.includes(`assets/creatures/hero/${id}.webp`), `${id}: the new portrait is drawn (${JSON.stringify(extra)})`);
+        const file = extra.facing?.dy < 0 ? `puppet/${id}-back.webp` : `${id}.webp`;
+        assert.ok(srcs.includes(`assets/creatures/hero/${file}`), `${id}: the matching view is drawn (${JSON.stringify(extra)})`);
         assert.ok(!srcs.some((s) => s.includes('/rig/') || s.includes('/anim/')), `${id}: no old rig or animation parts: ${srcs}`);
       }
     }
     // Classes with current art still assemble from their rig parts.
     assert.ok(drawn('swordsman', 'melee').some((s) => s.includes('/rig/')), 'swordsman still uses its rig');
     assert.ok(drawn('archer', 'ranged').some((s) => s.includes('/rig/')), 'archer still uses its rig');
-    // The Pistoler keeps its existing portrait and rig (the owner chose not to swap it).
+    // The Pistoler's repainted layers still use the articulated rig.
     assert.ok(!PUPPET_HEROES.has('pistoler'));
     assert.ok(drawn('pistoler', 'ranged').some((s) => s.includes('/rig/pistoler-')), 'pistoler still uses its rig');
   } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }

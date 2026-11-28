@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import {
   clamp01, seg, easeOut, easeIn, easeInOut, smooth, easeOutBack, springOut, arc,
   swingBeats, strikeLead, WIND_END, STRIKE_AT, HOLD_END,
-  turnWidth, turnHop, TURN_MIN_W, lookAround, LOOK_MS, breath,
+  turnWidth, turnHop, TURN_MIN_W, lookAround, LOOK_MS, breath, heroWalk, heroView,
 } from '../src/render/motionkit.js';
 import { deathPose, telegraphCrouch, CROUCH_MS, fidget, fidgetLand, FIDGET_MS, LAND_MS } from '../src/render/creatureanim.js';
 import { Character } from '../src/game/character.js';
@@ -64,6 +64,28 @@ test('turning round: full width outside the turn, a card-flip squeeze inside, a 
   assert.ok(worstStep(turnWidth, 200) < 0.05, 'the squeeze is smooth');
   assert.equal(turnHop(0), 0); assert.equal(turnHop(1), 0);
   assert.ok(turnHop(0.5) > 1, 'hops as it turns');
+});
+
+test('hero walking lifts one foot at a time and settles as movement fades', () => {
+  const left = heroWalk({ phase: 0.5, move: 1 });
+  const right = heroWalk({ phase: 1.5, move: 1 });
+  assert.ok(left.liftB > 3 && right.liftF > 3);
+  assert.equal(left.liftF + right.liftB, 0);
+  assert.ok(heroWalk({ phase: 0.5, move: 1 }, true).liftB < left.liftB);
+  const still = heroWalk({ phase: 0.5, move: 0 });
+  assert.equal(still.rise + still.liftB + still.liftF, 0);
+});
+
+test('a hero turns at the narrow midpoint and can reverse without jumping', () => {
+  const player = {};
+  assert.deepEqual(heroView(player, false, 0), { rear: false, width: 1, rise: 0 });
+  assert.equal(heroView(player, true, 10).rear, false);
+  const edge = heroView(player, true, 80);
+  assert.equal(edge.rear, true);
+  assert.ok(edge.width < 0.2);
+  assert.deepEqual(heroView(player, false, 80), edge);
+  assert.deepEqual(heroView(player, false, 220), { rear: false, width: 1, rise: 0 });
+  assert.deepEqual(heroView(player, true, 230, true), { rear: true, width: 1, rise: 0 });
 });
 
 test('townsfolk glance about now and then, each on their own clock, turning smoothly', () => {

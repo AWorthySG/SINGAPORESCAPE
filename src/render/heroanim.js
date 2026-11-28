@@ -1323,8 +1323,8 @@ function star(c, x, y, r, k) {
 // from the usual shoulders sat inside the chest and vanished into it, leaving
 // two empty sleeves. His hang from the sleeve ends instead, and the back one is
 // drawn over the body, as his own rig arms are (see armInFront).
-// (The redrawn Monk's arms hang from the sides of its round bean.)
-const SKILL_SHOULDER = { brawler: [13, -13, -1], monk: [13, -15, 0] };
+// The Monk's tool grips follow the mantle openings of its fighting rig.
+const SKILL_SHOULDER = { brawler: [13, -13, -1], monk: [10.5, -6, 1.7] };
 /** Whether a class's back life-skill arm is drawn over its body, not behind it. */
 export const armInFront = (jobClass) => !!SKILL_SHOULDER[jobClass];
 /** The life-skill arms for a painted rig: the back one before the body (after

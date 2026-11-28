@@ -13,15 +13,15 @@
 // The DOM side only runs in a browser (main.js and ui.js call it). Everything
 // else here (the camera path, the load counter, the tips, the art slots, the
 // hero drawing) is plain code the tests drive headlessly.
-import { drawPlayer, drawShadow, heroArtSrc } from '../render/sprites.js';
+import { drawPlayer, drawShadow, heroArtSrc, PUPPET_HEROES } from '../render/sprites.js';
 import { HERO_RIG_CLASSES, HERO_RIG_PARTS, heroRigSrc } from '../render/heroRig.js';
 import { RANGED_HERO_CLASSES, RANGED_HERO_PARTS, rangedHeroSrc } from '../render/rangedHeroRig.js';
 import { ANIM_ART, IDLE_FACES, animArtSrc, swingArtReady, warmHeroAnim } from '../render/heroAnimArt.js';
 import { sampleHeroClip, blendHeroFrame, weaponClipId, HERO_CLIPS } from '../render/heroanim.js';
 import { fxImage } from '../render/fxart.js';
 import { depthTarget } from '../render/depthview.js';
-import { CLASS_BY_ID } from '../data/classes.js';
-import { starterOffhand } from '../game/equipment.js';
+import { CLASS_BY_ID, starterWeapon } from '../data/classes.js';
+import { canDualWield, starterOffhand } from '../game/equipment.js';
 import { TILE } from '../config.js';
 import { cosySkylineSvg, dressTitle } from './cosytitle.js';
 
@@ -160,6 +160,7 @@ export function heroIdleArt(classId) {
   const out = [];
   const pic = heroArtSrc(classId);
   if (pic) out.push(pic);
+  if (PUPPET_HEROES.has(classId)) return out;
   if (HERO_RIG_CLASSES.includes(classId)) for (const p of HERO_RIG_PARTS) out.push(heroRigSrc(p, classId));
   if (RANGED_HERO_CLASSES.includes(classId)) for (const p of RANGED_HERO_PARTS) out.push(rangedHeroSrc(classId, p));
   for (const f of ANIM_ART[classId]?.faces || []) if (IDLE_FACES.includes(f)) out.push(animArtSrc(`${classId}_${f}`));
@@ -180,13 +181,14 @@ export function heroReady(classId) {
   return !imgs || imgs.every((img) => img.complete);
 }
 // The classes that start with a weapon in each hand show both in the previews.
-const DUAL_START = new Set(['pistoler', 'monk']);
+const startsDual = (classId) => !!CLASS_BY_ID[classId] && canDualWield(starterWeapon(classId));
+const previewReady = (classId) => PUPPET_HEROES.has(classId) || swingArtReady(classId);
 const IDLE_MS = HERO_CLIPS.idle.dur || 3200;
 /** How long a preview swing lasts: slower than in a fight, so it reads. */
 export function previewAttackMs(clipId) { return HERO_CLIPS[clipId]?.shot ? 520 : 640; }
 export function attackClipFor(classId, n = 0) {
   const cls = CLASS_BY_ID[classId];
-  return weaponClipId(cls ? cls.weapon : null, DUAL_START.has(classId), n);
+  return weaponClipId(cls ? cls.weapon : null, startsDual(classId), n);
 }
 
 /**
@@ -196,16 +198,16 @@ export function attackClipFor(classId, n = 0) {
  * Nothing is drawn until the hero's idle pictures are in, so it appears whole
  * rather than as a stand-in that changes under the player's eyes; false then.
  */
-export function drawClassHero(ctx, actor, x, y, now) {
+export function drawClassHero(ctx, actor, x, y, now, calm = false) {
   const cls = CLASS_BY_ID[actor.classId];
   if (!cls || !heroReady(actor.classId)) return false;
   // A swing asked for before its painted arms were in starts once they are
   // (or after a moment regardless, should one never arrive).
-  if (actor.swingWant != null && (swingArtReady(actor.classId) || now - actor.swingWant > SWING_WAIT_MS)) {
+  if (actor.swingWant != null && (previewReady(actor.classId) || now - actor.swingWant > SWING_WAIT_MS)) {
     actor.attackAt = now; actor.swingWant = null;
   }
-  const dual = DUAL_START.has(actor.classId);
-  const held = { jobClass: actor.classId, weapon: cls.weapon, offhand: dual ? starterOffhand(actor.classId) : null };
+  const dual = startsDual(actor.classId);
+  const held = { jobClass: actor.classId, weapon: cls.weapon, offhand: dual ? starterOffhand(actor.classId) : null, calm };
   let frame = null;
   if (actor.attackAt != null) {
     const clip = actor.clip || attackClipFor(actor.classId, actor.swings || 0);
@@ -230,7 +232,7 @@ const SWING_WAIT_MS = 1500;
 export function swingActor(actor, now) {
   actor.swings = (actor.swings || 0) + 1;
   actor.clip = attackClipFor(actor.classId, actor.swings);
-  if (swingArtReady(actor.classId)) { actor.attackAt = now; actor.swingWant = null; } else actor.swingWant = now;
+  if (previewReady(actor.classId)) { actor.attackAt = now; actor.swingWant = null; } else actor.swingWant = now;
 }
 
 /**
@@ -263,7 +265,7 @@ export class HeroStage {
     let all = true;
     for (const a of this.layout(w, h, now)) {
       ctx.setTransform(dpr * a.scale, 0, 0, dpr * a.scale, dpr * a.x, dpr * a.y);
-      if (!drawClassHero(ctx, a.actor, 0, 0, now)) all = false;
+      if (!drawClassHero(ctx, a.actor, 0, 0, now, this.still)) all = false;
     }
     // Still stages stop redrawing after a while: only once every hero is on it.
     if (all) this._drawn++;
@@ -664,8 +666,8 @@ export class TitleScreen {
       if (game.pendingStyleChoice || game.pendingClassChoice) {
         for (const id of Object.keys(CLASS_BY_ID)) warmHero(id);
       }
-      for (const id of cast) swingArtReady(id);
-      if (game.jobClass) warmHeroAnim(game.jobClass);
+      for (const id of cast) previewReady(id);
+      if (game.jobClass && !PUPPET_HEROES.has(game.jobClass)) warmHeroAnim(game.jobClass);
     });
   }
 

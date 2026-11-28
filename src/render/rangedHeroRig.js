@@ -1,8 +1,9 @@
 import { poseBlender, swapOpacity } from './poseBlend.js';
-import { drawHeroArm, drawGripHand } from './heroanim.js';
+import { drawHeroArm, drawGripHand, HERO_CLIPS } from './heroanim.js';
 import { drawAnimBody, drawSwingArm, drawEmptyArm, hasSwingArt, swingPhase } from './heroAnimArt.js';
 import { heroLit } from './herolight.js';
 import { drawCenserSwing, censerBackTurn } from './censerSwing.js';
+import { heroWalk } from './motionkit.js';
 
 // Ranged and magic limbs are separate from the melee pilot so each batch can
 // be reviewed independently. All parts must load before replacing a portrait.
@@ -28,9 +29,9 @@ const blendRanged = poseBlender();
 const RANGED_BLEND = ['draw', 'release', 'charge', 'cast'];
 const smooth = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
 
-export function rangedHeroPose(classId, gait = {}, time = 0, swing = -1) {
+export function rangedHeroPose(classId, gait = {}, time = 0, swing = -1, calm = false) {
   const move = Math.max(0, Math.min(1, gait.move || 0));
-  const step = Math.sin((gait.phase || 0) * Math.PI) * move;
+  const { step, liftB, liftF, rise } = heroWalk(gait, calm);
   const active = swing >= 0 && swing <= 1;
   let draw = 0, release = 0, charge = 0, cast = 0;
   if (active && classId === 'pistoler') {
@@ -48,14 +49,14 @@ export function rangedHeroPose(classId, gait = {}, time = 0, swing = -1) {
     charge = smooth(swing / 0.6) * (1 - smooth((swing - 0.72) / 0.28));
     cast = smooth((swing - 0.6) / 0.14) * (1 - smooth((swing - 0.74) / 0.26));
   }
-  return { step, breathe: Math.sin(time * 0.0032) * 0.35 * (1 - move), draw, release, charge, cast };
+  return { step, liftB, liftF, breathe: Math.sin(time * 0.0032) * (calm ? 0.12 : 0.35) * (1 - move) - rise, draw, release, charge, cast };
 }
 
 /** The class at rest with an animation clip's channels added (heroanim.js):
  *  draw, release, charge and cast, the second pistol's kick, a crouch and
  *  lifted feet. Clips start and end at rest, so this meets the old pose. */
 export function rangedAnimPose(classId, opts, ch) {
-  const pose = rangedHeroPose(classId, opts.gait, opts.time || 0, -1);
+  const pose = rangedHeroPose(classId, opts.gait, opts.time || 0, -1, opts.anim?.calm || opts.calm);
   const unit = (v) => Math.max(0, Math.min(1, v || 0));
   pose.draw = unit(ch.draw); pose.release = unit(ch.release);
   pose.charge = unit(ch.charge); pose.cast = unit(ch.cast);
@@ -65,11 +66,11 @@ export function rangedAnimPose(classId, opts, ch) {
   // The Pistoler's back gun is still the rig's, so it keeps its aim and kick.
   if (ch.paint && classId !== 'pistoler' && hasSwingArt(classId)) pose.draw = pose.release = pose.charge = pose.cast = 0;
   pose.breathe += ch.crouch || 0;
-  pose.liftF = Math.max(0, ch.liftF || 0);
-  pose.liftB = Math.max(0, ch.liftB || 0);
+  pose.liftF += Math.max(0, ch.liftF || 0);
+  pose.liftB += Math.max(0, ch.liftB || 0);
   // Feet stay planted as the body is kicked back (see heroRig.js rigAnimPose).
-  pose.plantB = Math.max(0, ch.bx || 0) * 0.6;
-  pose.plantF = Math.min(0, ch.bx || 0) * 0.6;
+  pose.plantB = Math.max(0, ch.bx || 0) * (1 - Math.min(1, pose.liftB / 3));
+  pose.plantF = Math.min(0, ch.bx || 0) * (1 - Math.min(1, pose.liftF / 3));
   return pose;
 }
 
@@ -88,22 +89,31 @@ export function drawRangedHeroRig(ctx, opts = {}) {
   if (RANGED_HERO_PARTS.some((part) => !image(part).complete || !image(part).naturalWidth)) return false;
   const anim = opts.anim;
   const pose = anim ? rangedAnimPose(classId, opts, anim.ch)
-    : blendRanged(opts.entity, rangedHeroPose(classId, opts.gait, opts.time || 0, opts.swingK ?? -1), opts.time || 0, opts.swingK ?? -1, RANGED_BLEND);
+    : blendRanged(opts.entity, rangedHeroPose(classId, opts.gait, opts.time || 0, opts.swingK ?? -1, opts.calm), opts.time || 0, opts.swingK ?? -1, RANGED_BLEND);
   // Life skills put the bow, guns or staff away for mitten arms holding a tool.
   const arms = anim ? 1 - Math.min(1, anim.ch.mix) : 1;
-  const draw = (part, x, y, w, h, angle = 0, px = 0, py = 0, opacity = 1) => {
+  const draw = (part, x, y, w, h, angle = 0, px = 0, py = 0, opacity = 1, scaleX = 1) => {
     if (opacity <= 0) return;
     ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.globalAlpha *= opacity;
+    if (scaleX !== 1) ctx.scale(scaleX, 1);
     ctx.drawImage(heroLit(image(part)), -px, -py, w, h);   // with its rim light (herolight.js)
     ctx.restore();
   };
   const placed = PLACED[classId];
-  const [lx, ly, lw, lh] = placed ? placed.left : [-10, -1, 13, 16], [rx, ry, rw, rh] = placed ? placed.right : [1, -1, 13, 16];
-  draw('left', lx - pose.step * 1.5 - (pose.plantB || 0), ly - Math.max(0, pose.step) * 3 - (pose.liftB || 0), lw, lh);
-  draw('right', rx + pose.step * 1.5 - (pose.plantF || 0), ry - Math.max(0, -pose.step) * 3 - (pose.liftF || 0), rw, rh);
   const bow = classId === 'ranger' || classId === 'archer';
   const guns = classId === 'pistoler';
+  const bootY = guns ? -4 : -1;
+  const [lx, ly, lw, lh] = placed ? placed.left : [-10, bootY, 13, 15 - bootY];
+  const [rx, ry, rw, rh] = placed ? placed.right : [1, bootY, 13, 15 - bootY];
+  draw('left', lx - pose.step * 1.5 - (pose.plantB || 0), ly - pose.liftB, lw, lh);
+  draw('right', rx + pose.step * 1.5 - (pose.plantF || 0), ry - pose.liftF, rw, rh);
   if (anim) drawHeroArm(ctx, anim, 'back', -11 + pose.breathe);
+  // With one pistol the off hand rests at the hip, clear of its firing arm.
+  if (guns && (opts.dualWield === false || opts.hasWeapon === false) && arms > 0.001) {
+    ctx.save(); ctx.globalAlpha *= arms;
+    drawEmptyArm(ctx, classId, -7, -10 + pose.breathe, -0.52 + pose.step * 0.25, 9);
+    ctx.restore();
+  }
   // The rifle is held in both hands, so the Sniper's back hand steadies it (below).
   const rifle = classId === 'sniper' && anim?.weapon === 'rifle';
   // The Zealot's censer swings on its own chain through an attack (censerSwing.js).
@@ -119,48 +129,64 @@ export function drawRangedHeroRig(ctx, opts = {}) {
   // An attack plays the painted wind-up, mid and follow-through arms in place
   // of the bow, the front pistol, the rifle or the staff.
   const kind = bow ? 'bow' : guns || classId === 'sniper' ? 'gun' : 'staff';
-  const frame = anim && anim.kind === 'combat' && hasSwingArt(classId) ? swingPhase(anim.ch, 'main', kind) : null;
+  const painted = anim?.kind === 'combat' && hasSwingArt(classId);
+  const frame = painted ? swingPhase(anim.ch, 'main', kind) : null;
   const sh = SHOULDER[classId];
   if (censer && drawCenserSwing(ctx, image('weapon'), anim, placed.weapon[0], placed.weapon[1] + pose.breathe, placed.weapon[2], opts)) { /* drawn */ }
   else if (frame && !guns) drawSwingArm(ctx, classId, anim, 'main', kind, sh[0], sh[1] + pose.breathe);
   // With no weapon equipped the hand is empty: the painted bare arm.
   else if (opts.hasWeapon === false && drawEmptyArm(ctx, classId, 8, -12 + pose.breathe, 0.25 + pose.step * 0.3, 12)) { /* drawn */ }
   else if (guns) {
-    // Two pistols: the back hand aims level from the shoulder and kicks up on
-    // each shot; the front hand swings its pistol from upright to level, and a
-    // muzzle flash blooms at the front barrel on release.
     const y = -12 + pose.breathe;
-    // With an animation clip the two hands take turns (kick2 is the back one's
-    // shot): the back gun sits a little lower, so each muzzle and its flash
-    // reads on its own, and each gun jerks up and back on its own shot.
-    const backKick = anim ? pose.kick2 : pose.release;
-    const by = y + 3;
-    draw('back', -7 - backKick * 2, by, 31, 13, -backKick * 0.3 + pose.step * 0.05, 2, 6);
-    if (backKick > 0) draw('action', 24 - backKick * 2, by - 7 - backKick * 2, 14, 9, -backKick * 0.3, 2, 4, anim ? backKick : 0);
+    if (opts.dualWield === true) {
+      // The far pistol rests to the side. It turns through edge-on at the
+      // shoulder, levels for its own shot, then settles back out of the face.
+      const hit = HERO_CLIPS[anim?.id]?.hits?.[1];
+      const aim = Number.isFinite(hit)
+        ? smooth((anim.u - hit + 0.2) / 0.2) * (1 - smooth((anim.u - hit - 0.08) / 0.2))
+        : anim ? 0 : Math.max(pose.draw, pose.release);
+      const kick = anim ? pose.kick2 : pose.release;
+      const x = -7 + aim * 6 - kick * 2;
+      const by = y + 5 - aim * 2;
+      const angle = 0.26 * (1 - aim) - kick * 0.3 + pose.step * 0.07;
+      draw('back', x, by, 24, 12, angle, 2, 6, 1, aim * 2 - 1);
+      if (kick > 0 && aim > 0.75) {
+        const mx = x + Math.cos(angle) * 20.5 + Math.sin(angle) * 3;
+        const my = by + Math.sin(angle) * 20.5 - Math.cos(angle) * 3;
+        draw('action', mx, my, 13, 9, angle, 2, 4, kick);
+      }
+    }
     if (frame) drawSwingArm(ctx, classId, anim, 'main', kind, sh[0], sh[1] + pose.breathe);
     else {
-      draw('weapon', 14 - pose.release * 1.5, y + 2, 14, 23, pose.draw * 1.25 - pose.release * 0.35, 3, 21);
+      draw('weapon', 9.5 - pose.release * 1.5, y + 3.7, 14, 23, 0.24 + pose.draw - pose.release * 0.35 + pose.step * 0.09, 3, 21);
       draw('action', 27, y - 6, 16, 10, 0, 2, 5, pose.release);
     }
   } else if (bow) {
-    const y = -11 + pose.breathe;
     const shortbow = classId === 'archer';
-    draw('weapon', 14, y, shortbow ? 21 : 22, shortbow ? 40 : 46, 0, 1.5, shortbow ? 23 : 25);
-    // The string follows the drawing hand, rather than stretching a painted
-    // bowstring. The arrow here is a nocked visual; combat owns projectiles.
-    const nock = (shortbow ? 23 : 24) - pose.draw * 9;
+    // Guard also raises the bow in the gaps before and after a painted shot,
+    // meeting the shoulder height at which those pictures hand off.
+    const arc = painted && anim.ch.paint ? anim.ch.arc || 0 : 0;
+    const handoff = Math.min(arc, 4 - arc) / 0.4;
+    const raised = smooth(Math.max(handoff, pose.draw, pose.release * 0.8));
+    const y = -11 + pose.breathe + (1 - raised) * 4.3;
+    const angle = (0.37 + pose.step * 0.13) * (1 - raised);
+    draw('weapon', 14, y, shortbow ? 21 : 22, shortbow ? 40 : 46, angle, 1.5, shortbow ? 23 : 25);
+    // Both string ends and the nocked arrow turn with the bow. Only show the
+    // arrow as it is drawn, leaving the idle silhouette clear of the face.
+    const nock = (shortbow ? 9 : 10) - pose.draw * 9;
     ctx.save(); ctx.strokeStyle = '#f4e5bc'; ctx.lineWidth = 0.7;
-    ctx.beginPath(); ctx.moveTo(shortbow ? 22 : 24, y - (shortbow ? 21 : 23)); ctx.lineTo(nock, y); ctx.lineTo(24, y + (shortbow ? 17 : 22)); ctx.stroke();
-    if (pose.release < 0.05) {
+    ctx.translate(14, y); ctx.rotate(angle);
+    ctx.beginPath(); ctx.moveTo(shortbow ? 8 : 10, shortbow ? -21 : -23); ctx.lineTo(nock, 0); ctx.lineTo(10, shortbow ? 17 : 22); ctx.stroke();
+    if (pose.draw > 0.04 && pose.release < 0.05) {
       ctx.strokeStyle = '#815b36'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(nock - 3, y); ctx.lineTo(nock + 25, y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(nock - 3, 0); ctx.lineTo(nock + 25, 0); ctx.stroke();
       ctx.fillStyle = '#d8e1e6'; ctx.beginPath();
-      ctx.moveTo(nock + 28, y); ctx.lineTo(nock + 23, y - 2); ctx.lineTo(nock + 23, y + 2); ctx.closePath(); ctx.fill();
+      ctx.moveTo(nock + 28, 0); ctx.lineTo(nock + 23, -2); ctx.lineTo(nock + 23, 2); ctx.closePath(); ctx.fill();
     }
     ctx.restore();
-    // The relaxed hand and the drawing hand swap rather than overlap.
+    // The other hand hangs by the hip, then opens out towards the string.
     const drawn = swapOpacity(pose.draw);
-    draw('back', -10, y, 34, 11, 0, 0, 5, 1 - drawn);
+    draw('back', -10, y, 15 + raised * 19, 11, (1 - raised) * (1.38 + pose.step * 0.18), 0, 5, 1 - drawn);
     draw('action', -10, y, 29, 16, 0, 0, 3, drawn);
   } else if (classId === 'sniper') {
     // The long gun levels into a still aim, kicks up on the shot and flashes at
@@ -187,7 +213,7 @@ export function drawRangedHeroRig(ctx, opts = {}) {
     const angle = -pose.charge * 0.2 + pose.cast * 1.1 + pose.step * 0.12;
     const cast = swapOpacity(pose.cast);
     const staff = classId === 'wizard';   // the long staff's drawings are sized their own way
-    draw('weapon', 14, -10 + pose.breathe, 20, staff ? 54 : 39, angle + 0.3, staff ? 18 : 5, staff ? 45 : 33, 1 - cast);
+    draw('weapon', 14, -10 + pose.breathe, 20, staff ? 54 : 39, angle + (staff ? 0.56 : 0.3), staff ? 18 : 5, staff ? 45 : 33, 1 - cast);
     draw('action', 14, -10 + pose.breathe, staff ? 48 : 35, staff ? 16 : 13, (angle - 1.1) * 0.3, 4, 5, cast);
   }
   if (arms < 1) ctx.restore();

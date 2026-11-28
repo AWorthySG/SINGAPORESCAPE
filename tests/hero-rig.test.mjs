@@ -110,9 +110,8 @@ test('Rogue and Samurai caches are isolated and preserve canvas opacity', () => 
   } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
 });
 
-// The redrawn Monk (sheets MK-a/b/c): its glove only when monk gloves are
-// worn, its palm strike over the knuckled arm (pulled down to the hip so the
-// glove never lands on the knuckles), and a back view on its wide stance.
+// The Monk wears its open palm glove only when equipped. The opposite fist
+// chambers during the palm strike, and the rear view keeps its close stance.
 test('the Monk: bare hands without gloves, the palm over a chambered fist, feet apart from behind', async () => {
   const { sampleHeroClip } = await import('../src/render/heroanim.js');
   const { drawHeroBack } = await import('../src/render/heroAnimArt.js');
@@ -148,10 +147,66 @@ test('the Monk: bare hands without gloves, the palm over a chambered fist, feet 
     assert.ok(palm.indexOf('monk_offfollow') > palm.indexOf('monk-sword'), palm.join());
     assert.ok(drawn.find((d) => d.name === 'monk-sword').turn - restTurn > 0.8, 'the fist is chambered');
     assert.equal(stack.length, 0, 'transforms and opacity are balanced');
-    // From behind, the feet stand as wide apart as the front view's.
+    // The front and rear sandals are centred under the robe.
     drawn = [];
     assert.equal(drawHeroBack(ctx, { jobClass: 'monk', facing: { dx: 0, dy: -1 } }), true);
     const feet = drawn.filter((d) => /backfoot/.test(d.name)).map((d) => d.x);
-    assert.deepEqual(feet, [-16.8, 4.3]);
+    assert.deepEqual(feet, [-11.3, 1.7]);
+  } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
+});
+
+test('Swordsman guards with an outward sword and shows the buckler only when shielded', () => {
+  assert.notEqual(swordsmanPose({}, 0, 0.3).sword, swordsmanPose({}, 0).sword);
+  const previous = globalThis.Image;
+  globalThis.Image = class { constructor() { this.complete = true; this.naturalWidth = 100; this.naturalHeight = 100; } };
+  try {
+    const draws = [], stack = [];
+    let angle = 0;
+    const ctx = {
+      globalAlpha: 1,
+      save() { stack.push([this.globalAlpha, angle]); },
+      restore() { [this.globalAlpha, angle] = stack.pop(); },
+      translate() {}, rotate(turn) { angle += turn; }, scale() {},
+      drawImage(img) { if (this.globalAlpha > 0.01) draws.push({ src: img.src, angle }); },
+    };
+    const render = (opts) => {
+      draws.length = 0;
+      assert.equal(drawHeroRig(ctx, { jobClass: 'swordsman', hasWeapon: true, ...opts }), true);
+      return draws.map(({ src }) => src);
+    };
+    const back = heroRigSrc('back');
+    const preview = render({});
+    assert.ok(preview.indexOf(back) > preview.indexOf(heroRigSrc('body')), 'the buckler sits in front of the coat');
+    assert.ok(draws.find(({ src }) => src === heroRigSrc('sword')).angle > 2.2, 'the sword points down past the cheek');
+    assert.ok(render({ hasShield: true }).includes(back));
+    const shieldless = render({ hasShield: false });
+    assert.ok(!shieldless.includes(back) && shieldless.some((src) => src.endsWith('swordsman_hand.webp')));
+  } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
+});
+
+test('Corsair rests its scimitars on separate shoulders and follows through with the second cut', () => {
+  const previous = globalThis.Image;
+  globalThis.Image = class { constructor() { this.complete = true; this.naturalWidth = 100; this.naturalHeight = 100; } };
+  try {
+    const guards = [], stack = [];
+    let mirror = 1, x = 0;
+    const ctx = {
+      globalAlpha: 1,
+      save() { stack.push([this.globalAlpha, mirror, x]); },
+      restore() { [this.globalAlpha, mirror, x] = stack.pop(); },
+      translate(dx) { x += dx; }, rotate() {}, scale(sx) { mirror *= Math.sign(sx); },
+      drawImage(img) {
+        if (this.globalAlpha > 0.01 && img.src === heroRigSrc('strike', 'corsair')) guards.push({ x, mirror });
+      },
+    };
+    assert.equal(drawHeroRig(ctx, { jobClass: 'corsair', hasWeapon: true, dualWield: true }), true);
+    assert.equal(guards.length, 2);
+    assert.ok(guards[0].x < 0 && guards[1].x > 0);
+    assert.deepEqual(guards.map((guard) => guard.mirror), [-1, 1], 'the far sword faces outwards in guard');
+    guards.length = 0;
+    drawHeroRig(ctx, { jobClass: 'corsair', hasWeapon: true, dualWield: false });
+    assert.equal(guards.length, 1);
+    assert.ok(heroRigPose('corsair', {}, 0, 0.68, true).strike2 > 0.9);
+    assert.equal(heroRigPose('corsair', {}, 0, 0.68, false).strike2, 0);
   } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
 });
