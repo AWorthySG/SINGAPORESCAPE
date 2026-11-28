@@ -1,4 +1,4 @@
-import { LANDINGS, LOOMS, PATTERNS, PHOTO_ASSIGNMENTS, STAGES, TUNES, VOYAGES } from '../data/islandlife.js';
+import { ISLAND_LIFE, LANDINGS, LOOMS, PATTERNS, PHOTO_ASSIGNMENTS, STAGES, TUNES, VOYAGES } from '../data/islandlife.js';
 import { getItem } from '../data/items.js';
 import { OBJECTS } from '../data/objects.js';
 import { teleportPlayer, unlockFx } from './skillunlocks.js';
@@ -39,6 +39,15 @@ const dailyKeys = new Set([
   ...TUNES.map((t) => 'encore:' + t.id),
 ]);
 const validDay = (day) => typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day);
+const PRACTICE_LIMIT = 128;
+const validPractice = (key) => typeof key === 'string' && /^[a-z0-9][a-z0-9:_-]{0,63}$/.test(key);
+
+function restorePractice(raw) {
+  return Object.fromEntries(ISLAND_LIFE.map(({ id }) => {
+    const saved = Array.isArray(raw?.[id]) ? raw[id] : [];
+    return [id, [...new Set(saved.filter(validPractice))].slice(0, PRACTICE_LIMIT)];
+  }));
+}
 
 export function restoreIslandLife(raw) {
   const book = {
@@ -47,6 +56,7 @@ export function restoreIslandLife(raw) {
     patterns: ids(raw?.patterns, PATTERNS),
     tunes: ids(raw?.tunes, TUNES),
     performed: ids(raw?.performed, TUNES),
+    practice: restorePractice(raw?.practice),
     daily: validDay(raw?.daily?.day) ? {
       day: raw.daily.day,
       claims: [...dailyKeys].filter((key) => Array.isArray(raw.daily.claims) && raw.daily.claims.includes(key)),
@@ -79,9 +89,27 @@ function pay(game, coins) {
 }
 
 function finish(game, skill, xp, message) {
-  game.skills.addXp(skill, xp * (1 + (unlockFx(game, skill).activityXp || 0)));
+  const earned = game.skills.addXp(skill, xp * (1 + (unlockFx(game, skill).activityXp || 0)));
   game.saveSoon = true;
   game.msg(message, 'system');
+  return earned;
+}
+
+export function islandPractised(game, skill, key) {
+  return islandBook(game).practice[skill]?.includes(key) === true;
+}
+
+/** A completed practice brief can always award XP, independent of that day's paid contract. */
+export function earnIslandPractice(game, skill, key, baseXp, { quality = 0, message = 'Practice complete.' } = {}) {
+  const practice = islandBook(game).practice;
+  if (!Object.hasOwn(practice, skill) || !validPractice(key) || !Number.isFinite(baseXp) || baseXp <= 0) return { xp: 0, first: false };
+  const results = practice[skill];
+  const first = !results.includes(key) && results.length < PRACTICE_LIMIT;
+  if (first) results.push(key);
+  const optional = Number.isFinite(quality) ? 0.25 * Math.max(0, Math.min(1, quality)) : 0;
+  const xp = finish(game, skill, baseXp * (1 + (first ? 0.5 : 0) + optional),
+    first ? `${message} First clear bonus earned.` : message);
+  return { xp, first };
 }
 
 export function islandReady(game) {
