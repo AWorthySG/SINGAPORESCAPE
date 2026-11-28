@@ -23,6 +23,7 @@
 // its rim light (herolight.js).
 
 import { clamp, lerp } from '../core/utils.js';
+import { classAccent } from '../data/classColours.js';
 import { heroLit } from './herolight.js';
 import { heroWalk } from './motionkit.js';
 
@@ -317,6 +318,7 @@ export function drawSwingArm(ctx, classId, anim, hand, kind, sx, sy, alpha = 1, 
   const tipDirection = g.dir[i] + turn, tipLength = g.len[i] * scale;
   if (alpha < 1) { ctx.save(); ctx.globalAlpha *= alpha; }
   const low = !!anim.low;
+  const accent = classAccent(classId);
   // The smear: a fading crescent the tip has just swept, a few strokes.
   const sm = (off ? ch.smear2 : ch.smear) || 0;
   if (!low && sm > 0.03 && arc >= 1) {
@@ -330,12 +332,12 @@ export function drawSwingArm(ctx, classId, anim, hand, kind, sx, sy, alpha = 1, 
       ctx.strokeStyle = SMEAR_INK; ctx.lineWidth = 6.5;
       ctx.beginPath(); ctx.arc(sx, sy, R - 2.5, lo, hi); ctx.stroke();
       ctx.globalAlpha = prev * sm * 0.9;
-      ctx.strokeStyle = SMEAR_TINT[anim.weapon] || SMEAR_STEEL; ctx.lineWidth = 4.5;
+      ctx.strokeStyle = accent?.colour || SMEAR_TINT[anim.weapon] || SMEAR_STEEL; ctx.lineWidth = 4.5;
       ctx.beginPath(); ctx.arc(sx, sy, R - 2.5, lo, hi); ctx.stroke();
-      // A thin white streak at the leading edge: the fastest part of the swing.
+      // A thin highlight at the leading edge: the fastest part of the swing.
       const n0 = g.sense > 0 ? Math.max(lo, hi - 0.6) : lo, n1 = g.sense > 0 ? hi : Math.min(hi, lo + 0.6);
       ctx.globalAlpha = prev * sm;
-      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+      ctx.strokeStyle = accent?.light || '#ffffff'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(sx, sy, R, n0, n1); ctx.stroke();
       ctx.globalAlpha = prev;
       anim[off ? 'smeared2' : 'smeared'] = true;
@@ -351,21 +353,25 @@ export function drawSwingArm(ctx, classId, anim, hand, kind, sx, sy, alpha = 1, 
   const fl = ch.flash || 0, k = Math.max(phase === 'follow' ? ch.impact || 0 : 0, fl);
   if (!low && k > 0.05 && phase !== 'wind') {
     const d = tipDirection, r = tipLength * 0.92;
-    tipStar(ctx, sx + Math.cos(d) * r, sy + Math.sin(d) * r, 2 + k * (fl > 0.05 ? 6 : 5), k, fl > 0.05);
+    drawHeroStrikeSpark(ctx, sx + Math.cos(d) * r, sy + Math.sin(d) * r, 2 + k * (fl > 0.05 ? 6 : 5), k, fl > 0.05, accent);
     anim.sparked = true;
   }
   if (alpha < 1) ctx.restore();
   return true;
 }
-/** A four-point spark (or a gold muzzle flash), ink-edged so it reads on any ground. */
-function tipStar(ctx, x, y, r, k, fire) {
-  const prev = ctx.globalAlpha;
-  ctx.globalAlpha = prev * Math.min(1, k);
-  ctx.fillStyle = fire ? '#ffd24a' : '#fff0b4'; ctx.strokeStyle = SMEAR_INK; ctx.lineWidth = 0.9;
+/** Four-point impact spark with a bright centre. A muzzle flash keeps its gold centre. */
+export function drawHeroStrikeSpark(ctx, x, y, r, k, fire, accent) {
+  ctx.save();
+  ctx.globalAlpha *= Math.min(1, k);
+  ctx.fillStyle = fire ? '#ffd24a' : '#fff0b4'; ctx.strokeStyle = SMEAR_INK; ctx.lineWidth = accent ? 2.1 : 0.9;
   ctx.beginPath();
   for (let j = 0; j < 8; j++) { const t = j * Math.PI / 4, rr = j % 2 ? r * 0.35 : r; ctx.lineTo(x + Math.cos(t) * rr, y + Math.sin(t) * rr); }
   ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.globalAlpha = prev;
+  if (accent) {
+    ctx.strokeStyle = accent.colour; ctx.lineWidth = 1.25;
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 /** The painted off arm is behind the body (its blade clear of the face) except
  *  through its follow-through, when it has come round in front (and goes back

@@ -9,6 +9,7 @@ import { Renderer } from '../src/render/renderer.js';
 import { drawCreature, drawPlayer, drawObjectSprite, drawGroundItem, drawShadow } from '../src/render/sprites.js';
 import { NPCS } from '../src/data/npcs.js';
 import { OBJECTS } from '../src/data/objects.js';
+import { classAccent } from '../src/data/classColours.js';
 
 function makeCtx() {
   const grad = { addColorStop() {} };
@@ -104,6 +105,46 @@ test('ranged arrows and magic bolts render as distinct projectiles', () => {
   game.effects.push({ type: 'projectile', kind: 'shuriken', x: game.player.x * 32, y: game.player.y * 32 - 8, ex: npc.x * 32, ey: npc.y * 32 - 8, color: '#cfd8e6', life: 120, maxLife: 240 });
   game.effects.push({ type: 'projectile', kind: 'bolt', x: game.player.x * 32, y: game.player.y * 32 - 8, ex: npc.x * 32, ey: npc.y * 32 - 8, color: '#7fe0ee', life: 120, maxLife: 240 });
   assert.doesNotThrow(() => { renderer.render(200); renderer.render(600); });
+});
+
+test('player combat accents preserve ammo, element, and crit paint', () => {
+  const paints = [];
+  const ctx = makeCtx();
+  ctx.fill = () => paints.push(ctx.fillStyle);
+  ctx.stroke = () => paints.push(ctx.strokeStyle);
+  const renderer = Object.create(Renderer.prototype);
+  const game = { jobClass: 'archer', effects: [] };
+  Object.assign(renderer, { ctx, game });
+  const timing = { life: 120, maxLife: 240 };
+  const shot = { ...timing, type: 'projectile', x: 0, y: 0, ex: 100, ey: 10 };
+  const sample = (effect, options = {}) => {
+    paints.length = 0;
+    Object.assign(game, { lowFx: false, fxTrim: false, effects: [effect] }, options);
+    renderer._drawProjectiles(0, 0);
+    return paints;
+  };
+  for (const [effect, semantic] of [
+    [{ ...shot, kind: 'arrow', ammo: 'rune_arrow', jobClass: 'archer' }, '#4ec3e0'],
+    [{ ...shot, kind: 'bullet', gun: 'rifle', crit: true, jobClass: 'sniper' }, '#ffd24a'],
+    [{ ...shot, kind: 'bolt', el: 'water', color: '#7fe0ee', jobClass: 'wizard' }, '#7fe0ee'],
+    [{ ...shot, kind: 'bolt', el: 'bloodprice', color: '#c8142e', jobClass: 'zealot' }, '#c8142e'],
+    [{ ...timing, type: 'slash', x: 40, y: 26, ang: 0, dir: 1, color: '#ffd24a', jobClass: 'swordsman' }, '#ffd24a'],
+    [{ ...shot, type: 'lash', color: '#ffb4de', jobClass: 'dancer' }, '#ffb4de'],
+  ]) {
+    const accent = classAccent(effect.jobClass).colour;
+    const normal = sample(effect);
+    assert.ok(normal.includes(accent) && normal.includes(semantic), effect.jobClass);
+    const low = sample(effect, { lowFx: true });
+    assert.ok(!low.includes(accent) && low.includes(semantic), `${effect.jobClass} on low graphics`);
+    const trimmed = sample(effect, { fxTrim: true });
+    assert.ok(!trimmed.includes(accent) && trimmed.includes(semantic), `${effect.jobClass} on trimmed graphics`);
+  }
+  const enemy = sample({ ...timing, type: 'slash', x: 20, y: 10, ang: 0, dir: 1, color: '#ff6a5a' });
+  assert.deepEqual(enemy, ['#ff6a5a', '#ff6a5a']);
+  paints.length = 0;
+  renderer._castRing(20, 10, 0.45);
+  assert.ok(paints.includes(classAccent(game.jobClass).colour));
+  assert.ok(paints.includes('#B98AE8'), 'the cast ring keeps its rune colour');
 });
 
 test('renderer builds and uses a cached terrain canvas when a DOM exists', () => {

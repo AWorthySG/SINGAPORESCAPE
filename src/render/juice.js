@@ -1,5 +1,6 @@
 import { blowAt, impactKind, lowOf, juicePop, columnImage } from './combatfx.js';
 import { fxImage, fxTinted } from './fxart.js';
+import { classAccent } from '../data/classColours.js';
 
 // "Juice": the small touches that make a hit, a kill or a level feel good.
 //  - a screen shake on big hits and crits, scaled by the hit and capped, with
@@ -305,30 +306,30 @@ export function juiceHit(game, entity, dmg, opts = {}) {
   }
 }
 
-/** An ability's swoosh (sticker crescents and a ring in gold), or an
- *  ultimate's flourish (rings, rays, stars and its name). */
+/** An ability's swoosh, or an ultimate's flourish with its name and gold stars. */
 function abilityFlourish(game, b, ab) {
   const fx = game.cfx;
   if (!fx) return;
+  const accent = classAccent(game.jobClass);
   fx.low = lowOf(game);
   fx._begin();
   if (ab.tier === 'ultimate') {
-    const col = '#ff7ad9';
+    const col = accent?.colour ?? '#ff7ad9';
     if (!fx.low) fx.glow(b.x, b.y, 40, 520, col);
     // The painted impact burst (rays, ring and sparks in one picture) stands in
     // for most of the drawn rays once it has loaded.
     const art = fx.sticker('fx-ultimate-burst', b.x, b.y, 74, 600, { grow: 0.3 });
     fx.ring(b.x, b.y, 6, 46, 520, '#ffffff', 5);
     fx.ring(b.x, b.y, 6, 34, 460, col, 3).delay = 90;
-    fx.burstOf('ray', b.x, b.y, art ? 4 : 10, { life: 560, col: '#ffe3f6', size: 50 });
+    fx.burstOf('ray', b.x, b.y, art ? 4 : 10, { life: 560, col: accent?.light ?? '#ffe3f6', size: 50 });
     fx.burstOf('star', b.x, b.y, 7, { speed: 0.14, life: 640, col: '#ffd24a', up: -0.05, g: 0.0002, spin: 0.02, size: 7 });
     fx.burstOf('arc', b.x, b.y, 2, { life: 320, col, size: 22 });
     if (ab.name) fx.label(b.x, b.y - 38, `${ab.name}!`, '#C2185B', 1200, 1.1);
   } else {
-    fx.burstOf('arc', b.x, b.y, 2, { life: 260, col: '#ffd24a', size: 19 });
+    fx.burstOf('arc', b.x, b.y, 2, { life: 260, col: accent?.colour ?? '#ffd24a', size: 19 });
     // A small, quick flash of the painted burst in place of the plain ring.
     if (!fx.sticker('fx-ultimate-burst', b.x, b.y, 34, 280, { grow: 0.4, alpha: 0.85 })) fx.ring(b.x, b.y, 4, 26, 260, '#fff3b0', 3);
-    fx.burstOf('spark', b.x, b.y, 6, { speed: 0.2, life: 220, col: '#ffe89a', add: true, size: 1.6 });
+    fx.burstOf('spark', b.x, b.y, 6, { speed: 0.2, life: 220, col: accent?.light ?? '#ffe89a', add: true, size: 1.6 });
   }
   fx._end(b.melee ? 0 : b.delay, b.melee);
   if (ab.tier === 'ultimate') game.addShake(3.5, 260);

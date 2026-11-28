@@ -8,6 +8,7 @@ import { drawGateShrine } from './gateshrine.js';
 import { TURN_MS } from '../game/character.js';
 import { TERRAIN } from '../data/world.js';
 import { getItem } from '../data/items.js';
+import { classAccent } from '../data/classColours.js';
 
 // How each kind of arrow looks in flight: its metal head, fletching, the trail
 // it leaves and, for the better arrows, a glow (and a larger, barbed head at the top).
@@ -107,6 +108,14 @@ function path2(ctx, pts) {
   ctx.moveTo(pts[0][0], pts[0][1]);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
   ctx.closePath();
+}
+
+// Use the current path so the accent hugs the movement that is already drawn.
+function strokeAccent(ctx, accent, width, alpha) {
+  ctx.strokeStyle = accent.colour;
+  ctx.lineWidth = width;
+  ctx.globalAlpha = alpha;
+  ctx.stroke();
 }
 
 // Terrain is baked in square chunks of this many tiles (1024px at 32px tiles);
@@ -880,10 +889,15 @@ export class Renderer {
 
   // A glowing rune circle under the caster's feet while a spell goes off.
   _castRing(cx, cy, k) {
-    const { ctx } = this;
+    const { ctx, game } = this;
     const a = Math.sin(k * Math.PI);
     const rr = 8 + k * 10;
+    const accent = !game.lowFx && !game.fxTrim && classAccent(game.jobClass);
     ctx.save();
+    if (accent) {
+      ctx.beginPath(); ctx.ellipse(cx, cy, rr + 2.4, rr * 0.42 + 1.3, 0, 0, Math.PI * 2);
+      strokeAccent(ctx, accent, 1.35, 0.63 * a);
+    }
     ctx.globalAlpha = 0.7 * a;
     ctx.strokeStyle = '#B98AE8'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.ellipse(cx, cy, rr, rr * 0.42, 0, 0, Math.PI * 2); ctx.stroke();
@@ -971,7 +985,7 @@ export class Renderer {
   }
 
   /** A melee cleave, drawn the way its weapon moves (see CLEAVE_STYLE in game.js). */
-  _drawCleave(e, ox, oy) {
+  _drawCleave(e, ox, oy, accent) {
     const { ctx } = this;
     const t = 1 - e.life / e.maxLife, fade = 1 - t;
     const x0 = e.x - ox, y0 = e.y - oy, tx = e.tx - ox, ty = e.ty - oy;
@@ -986,8 +1000,10 @@ export class Renderer {
       const head = Math.min(1, t * 3.2), tail = Math.max(0, t * 1.6 - 0.25);
       const hx = x0 + dx * head + ux * 10, hy = y0 + dy * head + uy * 10;
       const sx = x0 + dx * tail, sy = y0 + dy * tail;
-      ctx.globalAlpha = fade * 0.45; ctx.strokeStyle = e.color; ctx.lineWidth = 9;
+      if (accent) ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = fade * 0.45; ctx.strokeStyle = accent?.colour || e.color; ctx.lineWidth = 9;
       ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(hx, hy); ctx.stroke();
+      ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = fade; ctx.strokeStyle = '#fff6d8'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(hx, hy); ctx.stroke();
       if (head < 1 || t < 0.5) {   // the spear point
@@ -1007,8 +1023,10 @@ export class Renderer {
       const mid = Math.atan2(ty - y0, tx - x0), spread = 1.25;
       const a0 = mid - spread, a1 = mid - spread + 2 * spread * Math.min(1, t * 2.2);
       const r = e.r * 0.9 + 6;
-      ctx.globalAlpha = fade * 0.35; ctx.strokeStyle = e.color; ctx.lineWidth = 14 * fade + 4;
+      if (accent) ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = fade * 0.35; ctx.strokeStyle = accent?.colour || e.color; ctx.lineWidth = 14 * fade + 4;
       ctx.beginPath(); ctx.arc(x0, y0, r, a0, a1); ctx.stroke();
+      ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = fade; ctx.strokeStyle = '#fff1c4'; ctx.lineWidth = 3.5;
       ctx.beginPath(); ctx.arc(x0, y0, r, Math.max(a0, a1 - 0.6), a1); ctx.stroke();
       ctx.globalAlpha = fade * 0.6; ctx.lineWidth = 2;
@@ -1019,8 +1037,10 @@ export class Renderer {
       const R = Math.max(28, e.foes.reduce((m, f) => Math.max(m, Math.hypot(f.x - e.tx, f.y - e.ty)), 0) + 12);
       ctx.globalAlpha = fade * 0.9; ctx.strokeStyle = e.color; ctx.lineWidth = 6 * fade + 1;
       ctx.beginPath(); ctx.ellipse(tx, ty + 8, R * (0.25 + t), R * (0.25 + t) * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
-      ctx.globalAlpha = fade * 0.25; ctx.fillStyle = '#ffd9a0';
+      if (accent) ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = fade * 0.25; ctx.fillStyle = accent?.light || '#ffd9a0';
       ctx.beginPath(); ctx.ellipse(tx, ty + 8, R * (0.2 + t * 0.8), R * (0.2 + t * 0.8) * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = fade; ctx.strokeStyle = '#fff1c4'; ctx.lineWidth = 2;
       for (let i = 0; i < 6; i++) {
         const a = i * Math.PI / 3 + 0.4, l = R * Math.min(1, t * 2.5) * 0.8;
@@ -1036,10 +1056,17 @@ export class Renderer {
           if (d <= 0) continue;
           const a = (i % 2 ? 0.7 : -0.7) + k, len = 20;
           const cx = Math.cos(a) * len / 2, cy = Math.sin(a) * len / 2;
+          ctx.beginPath(); ctx.moveTo(fx - cx, fy - cy); ctx.lineTo(fx - cx + 2 * cx * d, fy - cy + 2 * cy * d);
+          if (accent) {
+            ctx.globalCompositeOperation = 'source-over';
+            strokeAccent(ctx, accent, 6, fade * 0.4);
+            ctx.globalCompositeOperation = 'lighter';
+          }
           ctx.globalAlpha = fade; ctx.strokeStyle = '#fff6d8'; ctx.lineWidth = 2.5;
-          ctx.beginPath(); ctx.moveTo(fx - cx, fy - cy); ctx.lineTo(fx - cx + 2 * cx * d, fy - cy + 2 * cy * d); ctx.stroke();
-          ctx.globalAlpha = fade * 0.4; ctx.strokeStyle = e.color; ctx.lineWidth = 6;
-          ctx.beginPath(); ctx.moveTo(fx - cx, fy - cy); ctx.lineTo(fx - cx + 2 * cx * d, fy - cy + 2 * cy * d); ctx.stroke();
+          ctx.stroke();
+          if (!accent) {
+            ctx.globalAlpha = fade * 0.4; ctx.strokeStyle = e.color; ctx.lineWidth = 6; ctx.stroke();
+          }
         }
       }
     } else {
@@ -1048,10 +1075,18 @@ export class Renderer {
         ctx.save();
         ctx.translate(f.x - ox, f.y - oy);
         ctx.rotate(-0.6 + k * 0.9 + (t - 0.5) * 2.1);
+        if (accent) {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.beginPath(); ctx.arc(0, 0, 14, -0.55, 0.55);
+          strokeAccent(ctx, accent, 7 - t * 4, fade * 0.35);
+          ctx.globalCompositeOperation = 'lighter';
+        }
         ctx.globalAlpha = fade * 0.9; ctx.strokeStyle = e.color; ctx.lineWidth = 3.2 - t * 1.8;
         ctx.beginPath(); ctx.arc(0, 0, 14, -0.8, 0.8); ctx.stroke();
-        ctx.globalAlpha = fade * 0.35; ctx.lineWidth = 7 - t * 4;
-        ctx.beginPath(); ctx.arc(0, 0, 14, -0.55, 0.55); ctx.stroke();
+        if (!accent) {
+          ctx.globalAlpha = fade * 0.35; ctx.lineWidth = 7 - t * 4;
+          ctx.beginPath(); ctx.arc(0, 0, 14, -0.55, 0.55); ctx.stroke();
+        }
         ctx.restore();
       }
     }
@@ -1116,9 +1151,11 @@ export class Renderer {
   _drawProjectiles(ox, oy) {
     const { ctx, game } = this;
     const pj = this._pj;
+    const accents = !game.lowFx && !game.fxTrim;
     for (const e of game.effects) {
       if (e._showAt > this._now) continue;   // waiting for the weapon to land
       if (pj) applyRow(ctx, pj, this._fxRow(e, oy, pj));   // tilted: at the row it is over
+      const accent = accents && e.jobClass ? classAccent(e.jobClass) : null;
       if (e.type === 'classfx') { drawClassEffect(ctx, e, ox, oy); continue; }   // brands bursting, cinders, a ward forming
       if (e.type === 'slash' && e.thrust) {
         // A spear's thrust: a bright straight streak driving through the target
@@ -1131,10 +1168,20 @@ export class Renderer {
         ctx.lineCap = 'round';
         ctx.strokeStyle = e.color;
         const head = -10 + t * 26, tail = head - 22 * (1 - t * 0.6);
+        if (accent) {
+          // Daylit ground stays visible through the class paint, while the
+          // additive core on top still reads as the hit or critical glow.
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.beginPath(); ctx.moveTo(tail + 6, 0); ctx.lineTo(head, 0);
+          strokeAccent(ctx, accent, 7 - t * 4, (1 - t) * 0.35);
+          ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = e.color;
+        }
         ctx.globalAlpha = (1 - t) * 0.9; ctx.lineWidth = 3 - t * 1.6;
         ctx.beginPath(); ctx.moveTo(tail, 0); ctx.lineTo(head, 0); ctx.stroke();
-        ctx.globalAlpha = (1 - t) * 0.35; ctx.lineWidth = 7 - t * 4;
-        ctx.beginPath(); ctx.moveTo(tail + 6, 0); ctx.lineTo(head, 0); ctx.stroke();
+        if (!accent) {
+          ctx.globalAlpha = (1 - t) * 0.35; ctx.lineWidth = 7 - t * 4;
+          ctx.beginPath(); ctx.moveTo(tail + 6, 0); ctx.lineTo(head, 0); ctx.stroke();
+        }
         ctx.restore();
         ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
         continue;
@@ -1147,18 +1194,25 @@ export class Renderer {
         ctx.rotate(e.ang + e.dir * (t - 0.5) * 2.1);
         ctx.globalCompositeOperation = 'lighter';
         ctx.lineCap = 'round';
+        if (accent) {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.beginPath(); ctx.arc(0, 0, 13, -0.55, 0.55);
+          strokeAccent(ctx, accent, 7 - t * 4, (1 - t) * 0.35);
+          ctx.globalCompositeOperation = 'lighter';
+        }
         ctx.strokeStyle = e.color;
         ctx.globalAlpha = (1 - t) * 0.9;
         ctx.lineWidth = 3.2 - t * 1.8;
         ctx.beginPath(); ctx.arc(0, 0, 13, -0.8, 0.8); ctx.stroke();
-        ctx.globalAlpha = (1 - t) * 0.35;
-        ctx.lineWidth = 7 - t * 4;
-        ctx.beginPath(); ctx.arc(0, 0, 13, -0.55, 0.55); ctx.stroke();
+        if (!accent) {
+          ctx.globalAlpha = (1 - t) * 0.35; ctx.lineWidth = 7 - t * 4;
+          ctx.beginPath(); ctx.arc(0, 0, 13, -0.55, 0.55); ctx.stroke();
+        }
         ctx.restore();
         ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
         continue;
       }
-      if (e.type === 'cleave') { this._drawCleave(e, ox, oy); continue; }
+      if (e.type === 'cleave') { this._drawCleave(e, ox, oy, accent); continue; }
       if (e.type === 'swipe') {
         // Brawler crit: three claw-like swipe marks raked across the monster,
         // drawn in quickly one after another, then fading.
@@ -1176,11 +1230,12 @@ export class Renderer {
           const fade = t < 0.55 ? 1 : 1 - (t - 0.55) / 0.45;
           const y = (i - 1) * 7, len = 30 - Math.abs(i - 1) * 6;
           const x0 = -len / 2, x1 = x0 + len * draw;
+          ctx.beginPath(); ctx.moveTo(x0, y - 2); ctx.quadraticCurveTo((x0 + x1) / 2, y + 3, x1, y + 2);
+          if (accent) strokeAccent(ctx, accent, 8.4, fade * 0.52);
           ctx.globalAlpha = fade;
           ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 6.5;
-          ctx.beginPath(); ctx.moveTo(x0, y - 2); ctx.quadraticCurveTo((x0 + x1) / 2, y + 3, x1, y + 2); ctx.stroke();
-          ctx.strokeStyle = e.mega ? '#ff1010' : '#c8161b'; ctx.lineWidth = 3.5;
-          ctx.beginPath(); ctx.moveTo(x0, y - 2); ctx.quadraticCurveTo((x0 + x1) / 2, y + 3, x1, y + 2); ctx.stroke();
+          ctx.stroke();
+          ctx.strokeStyle = e.mega ? '#ff1010' : '#c8161b'; ctx.lineWidth = 3.5; ctx.stroke();
           ctx.strokeStyle = '#5a0505'; ctx.lineWidth = 1.2;
           ctx.beginPath(); ctx.moveTo(x0 + 2, y - 1); ctx.quadraticCurveTo((x0 + x1) / 2, y + 3.5, x1 - 1, y + 2.5); ctx.stroke();
         }
@@ -1210,16 +1265,15 @@ export class Renderer {
         ctx.save();
         ctx.globalAlpha = 1 - t * t;
         ctx.lineCap = 'round';
-        const wave = (w, col) => {
-          ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath();
-          for (let i = 0; i <= 12; i++) {
-            const f = i / 12, amp = Math.sin(f * Math.PI) * 6 * (1 - t);
-            const px = x0 + dx * f + nx * Math.sin(f * 9 - t * 20) * amp, py = y0 + dy * f + ny * Math.sin(f * 9 - t * 20) * amp;
-            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-          }
-          ctx.stroke();
-        };
-        wave(4, '#22304A'); wave(2, e.color);
+        ctx.beginPath(); ctx.moveTo(x0, y0);
+        for (let i = 1; i <= 12; i++) {
+          const f = i / 12, amp = Math.sin(f * Math.PI) * 6 * (1 - t) * Math.sin(f * 9 - t * 20);
+          ctx.lineTo(x0 + dx * f + nx * amp, y0 + dy * f + ny * amp);
+        }
+        if (accent) strokeAccent(ctx, accent, 6.5, (1 - t * t) * 0.58);
+        ctx.globalAlpha = 1 - t * t;
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 4; ctx.stroke();
+        ctx.strokeStyle = e.color; ctx.lineWidth = 2; ctx.stroke();
         if (reach >= 1 && t < 0.6) {   // the crack at the tip
           ctx.fillStyle = '#FFE89A';
           ctx.beginPath();
@@ -1291,9 +1345,10 @@ export class Renderer {
         ctx.lineCap = 'round';
         for (let i = 1; i <= 4; i++) {
           const a = at(Math.max(0, t - i * 0.05)), b = at(Math.max(0, t - (i - 1) * 0.05));
-          ctx.globalAlpha = Math.max(0, 0.55 - i * 0.12) / 0.55;
-          ctx.strokeStyle = look.trail; ctx.lineWidth = (3.2 - i * 0.55) * (look.glow ? 1.5 : 1);
-          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          const fade = Math.max(0, 0.55 - i * 0.12) / 0.55, w = (3.2 - i * 0.55) * (look.glow ? 1.5 : 1);
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+          if (accent) strokeAccent(ctx, accent, w + 1.7, fade * 0.48);
+          ctx.globalAlpha = fade; ctx.strokeStyle = look.trail; ctx.lineWidth = w; ctx.stroke();
         }
         ctx.globalAlpha = 1;
         ctx.translate(pt.x, pt.y); ctx.rotate(ang); ctx.scale(1.5 * look.size, 1.5 * look.size);
@@ -1326,8 +1381,10 @@ export class Renderer {
           // behind it, and a copper slug at its head.
           const tt = Math.max(0, t - 0.6);   // a long streak: the round is quick, the trail stays in sight
           const tx = e.x + (e.ex - e.x) * tt - ox, ty = e.y + (e.ey - e.y) * tt - oy;
+          ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y);
+          if (accent) strokeAccent(ctx, accent, 6.1, 0.44);
           ctx.globalAlpha = 0.35; ctx.strokeStyle = '#e8eef5'; ctx.lineWidth = 4.5;
-          ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
+          ctx.stroke();
           ctx.globalAlpha = 1; ctx.strokeStyle = e.crit ? '#ffd24a' : '#ffe28a'; ctx.lineWidth = 1.6;
           ctx.beginPath(); ctx.moveTo(tx + (x - tx) * 0.35, ty + (y - ty) * 0.35); ctx.lineTo(x, y); ctx.stroke();
           ctx.translate(x, y); ctx.rotate(ang);
@@ -1340,8 +1397,10 @@ export class Renderer {
           // (pistols fire four shots a beat, so each one stays small).
           const tt = Math.max(0, t - 0.22);   // fast, so the faint streak trails a little further behind
           const tx = e.x + (e.ex - e.x) * tt - ox, ty = e.y + (e.ey - e.y) * tt - oy;
+          ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y);
+          if (accent) strokeAccent(ctx, accent, 2.8, 0.55);
           ctx.globalAlpha = 0.55; ctx.strokeStyle = e.crit ? '#ffd24a' : '#fff0c0'; ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
+          ctx.stroke();
           ctx.globalAlpha = 1; ctx.fillStyle = e.crit ? '#ffd24a' : '#e2b04a'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 0.6;
           ctx.beginPath(); ctx.arc(x, y, 1.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         }
@@ -1352,8 +1411,11 @@ export class Renderer {
         // A Merchant's thrown coin: a gold disc flipping end over end.
         const flip = Math.abs(Math.cos(t * 30));
         ctx.save(); ctx.translate(x, y);
+        ctx.beginPath(); ctx.ellipse(0, 0, 4.5 * Math.max(0.25, flip), 4.5, 0, 0, Math.PI * 2);
+        if (accent) strokeAccent(ctx, accent, 3.6, 0.46);
+        ctx.globalAlpha = 1;
         ctx.fillStyle = '#f5b82e'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.ellipse(0, 0, 4.5 * Math.max(0.25, flip), 4.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fill(); ctx.stroke();
         if (flip > 0.5) { ctx.fillStyle = '#ffe9a6'; ctx.beginPath(); ctx.arc(-1, -1, 1.4, 0, Math.PI * 2); ctx.fill(); }
         ctx.restore();
         continue;
@@ -1364,6 +1426,8 @@ export class Renderer {
         ctx.beginPath();
         for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, r = i % 2 ? 1.8 : 6; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
         ctx.closePath();
+        if (accent) strokeAccent(ctx, accent, 3.2, 0.52);
+        ctx.globalAlpha = 1;
         ctx.fillStyle = e.color; ctx.fill();
         ctx.strokeStyle = '#22304A'; ctx.lineWidth = 1; ctx.stroke();
         ctx.fillStyle = '#22304A'; ctx.beginPath(); ctx.arc(0, 0, 1.1, 0, Math.PI * 2); ctx.fill();
@@ -1374,7 +1438,7 @@ export class Renderer {
       const cz = censerBolt(e, t, game, this._now, ox, oy);
       if (cz && cz.t < 0) continue;
       // A Priest's or Zealot's own element: a beam, a falling blade, a ground circle... (classfx.js).
-      if (drawClassShot(ctx, cz ? cz.e : e, cz ? cz.t : t, ox, oy, game)) continue;
+      if (drawClassShot(ctx, cz ? cz.e : e, cz ? cz.t : t, ox, oy, game, accent)) continue;
       // Magic bolt: a glowing orb in its element's colour with a fading trail of
       // embers behind it; a crit's is half as big again (and brighter, game.js).
       const k = e.crit ? 1.5 : 1;
@@ -1390,6 +1454,12 @@ export class Renderer {
       ctx.beginPath(); ctx.arc(x, y, 3.6 * k, 0, Math.PI * 2); ctx.fill();
       ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(x, y, 6 * k, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
+      if (accent) {
+        ctx.save();
+        ctx.beginPath(); ctx.arc(x, y, 6.8 * k, 0, Math.PI * 2);
+        strokeAccent(ctx, accent, 1.4, 0.56);
+        ctx.restore();
+      }
     }
   }
 

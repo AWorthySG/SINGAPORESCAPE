@@ -24,8 +24,9 @@ const TAU = Math.PI * 2;
 const SHOTS = new Set(['radiance', 'grace', 'judgement', 'sanctuary', 'holyfire', 'wrath', 'ash', 'bloodprice']);
 
 /** Draw a spell bolt of one of the eight elements (`e` a projectile effect,
- *  `t` 0..1 through its flight). False for any other bolt (drawn as before). */
-export function drawClassShot(ctx, e, t, ox, oy, game) {
+ *  `t` 0..1 through its flight). A class accent colours the glow or motes
+ *  around the bolt. False for any other bolt (drawn as before). */
+export function drawClassShot(ctx, e, t, ox, oy, game, accent = null) {
   if (!e.el || !SHOTS.has(e.el)) return false;
   const low = !!game?.lowFx, calm = !!game?.reduceMotion;
   const sx = e.x - ox, sy = e.y - oy, tx = e.ex - ox, ty = e.ey - oy;
@@ -39,7 +40,7 @@ export function drawClassShot(ctx, e, t, ox, oy, game) {
       const reach = Math.min(1, t / 0.3), a = t < 0.3 ? 1 : 1 - (t - 0.3) / 0.7;
       const hx = sx + (tx - sx) * reach, hy = sy + (ty - sy) * reach;
       ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.35 * a; ctx.strokeStyle = '#ffd860'; ctx.lineWidth = 8 * k;
+      ctx.globalAlpha = 0.35 * a; ctx.strokeStyle = accent?.colour || '#ffd860'; ctx.lineWidth = 8 * k;
       ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(hx, hy); ctx.stroke();
       ctx.globalAlpha = 0.9 * a; ctx.strokeStyle = e.color; ctx.lineWidth = 3.2 * k;
       ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(hx, hy); ctx.stroke();
@@ -52,7 +53,7 @@ export function drawClassShot(ctx, e, t, ox, oy, game) {
     case 'grace': {
       // A soft golden orb, feather-like motes drifting off behind it.
       if (!low) {
-        ctx.fillStyle = '#fffaf0'; ctx.strokeStyle = INK; ctx.lineWidth = 0.5;
+        ctx.fillStyle = accent?.light || '#fffaf0'; ctx.strokeStyle = INK; ctx.lineWidth = 0.5;
         for (let i = 1; i <= 3; i++) {
           const tt = Math.max(0, t - i * 0.09), mx = sx + (tx - sx) * tt, my = sy + (ty - sy) * tt + i * 2.5;
           const wob = calm ? 0 : Math.sin(t * 12 + i * 2) * 3;
@@ -80,7 +81,7 @@ export function drawClassShot(ctx, e, t, ox, oy, game) {
         ctx.globalAlpha = (1 - g) * 0.9; ctx.strokeStyle = '#cfe0ff'; ctx.lineWidth = 2.4;
         ctx.beginPath(); ctx.ellipse(tx, ty + 9, 6 + 20 * g * k, (6 + 20 * g * k) * 0.38, 0, 0, TAU); ctx.stroke();
       }
-      ctx.globalAlpha = 0.3 * a; ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = '#d8e8ff';
+      ctx.globalAlpha = 0.3 * a; ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = accent?.light || '#d8e8ff';
       ctx.beginPath(); ctx.ellipse(bx, by - 12 * k, 6 * k, 20 * k, 0, 0, TAU); ctx.fill();
       ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = a;
       ctx.fillStyle = '#eef4ff'; ctx.strokeStyle = INK; ctx.lineWidth = 1;
@@ -96,7 +97,7 @@ export function drawClassShot(ctx, e, t, ox, oy, game) {
     case 'sanctuary': {
       // A glowing circle spreading on the ground round the foe, motes rising off it.
       const r = (8 + 52 * Math.min(1, t / 0.7)) * k, a = t < 0.6 ? 1 : 1 - (t - 0.6) / 0.4, gy = ty + 9;
-      ctx.globalAlpha = 0.22 * a; ctx.fillStyle = '#fff3c0';
+      ctx.globalAlpha = 0.22 * a; ctx.fillStyle = accent?.light || '#fff3c0';
       ctx.beginPath(); ctx.ellipse(tx, gy, r, r * 0.4, 0, 0, TAU); ctx.fill();
       ctx.globalAlpha = 0.85 * a; ctx.strokeStyle = '#f0d070'; ctx.lineWidth = 2.6;
       ctx.beginPath(); ctx.ellipse(tx, gy, r, r * 0.4, 0, 0, TAU); ctx.stroke();
@@ -119,7 +120,7 @@ export function drawClassShot(ctx, e, t, ox, oy, game) {
       // A white-gold flame flying point first, trailing embers.
       const ang = Math.atan2(ty - sy, tx - sx), fl = calm ? 1 : 0.85 + 0.15 * Math.sin(t * 40);
       if (!low) {
-        ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = '#ffc860';
+        ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = accent?.colour || '#ffc860';
         for (let i = 1; i <= 3; i++) {
           const tt = Math.max(0, t - i * 0.08);
           ctx.globalAlpha = 0.5 - i * 0.12;
@@ -137,7 +138,7 @@ export function drawClassShot(ctx, e, t, ox, oy, game) {
       // A red-gold shock, bigger and brighter the more wrath it carries.
       const p = Math.max(0, Math.min(1, (e.power || 0) / (ELEMENTS.wrath.retribution.cap || 0.5))), s = k * (1 + p * 0.9);
       ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.3 + p * 0.3; ctx.fillStyle = '#ff6a3a';
+      ctx.globalAlpha = 0.3 + p * 0.3; ctx.fillStyle = accent?.colour || '#ff6a3a';
       ctx.beginPath(); ctx.arc(x, y, 8 * s, 0, TAU); ctx.fill();
       ctx.globalAlpha = 0.9; ctx.strokeStyle = '#ffb060'; ctx.lineWidth = 1.6;
       const ph = calm ? 0.5 : (t * 3) % 1;
@@ -153,7 +154,7 @@ export function drawClassShot(ctx, e, t, ox, oy, game) {
       for (let i = 0; i < n; i++) {
         const a = spin + i * TAU / n, r = 5.5 * k;
         ctx.globalAlpha = 0.9;
-        ctx.fillStyle = i % 2 ? '#ff9a40' : '#b8aca6';
+        ctx.fillStyle = i % 2 ? (accent?.colour || '#ff9a40') : '#b8aca6';
         ctx.beginPath(); ctx.arc(x + Math.cos(a) * r, y + Math.sin(a) * r * 0.8, (i % 2 ? 1.5 : 2.2) * k, 0, TAU); ctx.fill();
       }
       ctx.fillStyle = '#8a7a72'; ctx.strokeStyle = INK; ctx.lineWidth = 0.7;
@@ -165,8 +166,12 @@ export function drawClassShot(ctx, e, t, ox, oy, game) {
       // A deep-red drop flying round end first, a dark-red trail behind it, and
       // (early in the flight) red droplets drawn out of you into it.
       const ang = Math.atan2(ty - sy, tx - sx), back = Math.max(0, t - (low ? 0.12 : 0.28));
+      ctx.beginPath(); ctx.moveTo(sx + (tx - sx) * back, sy + (ty - sy) * back); ctx.lineTo(x, y);
+      if (accent) {
+        ctx.globalAlpha = 0.25; ctx.strokeStyle = accent.colour; ctx.lineWidth = 4.8 * k; ctx.stroke();
+      }
       ctx.globalAlpha = 0.55; ctx.strokeStyle = '#5a0612'; ctx.lineWidth = 3.2 * k;
-      ctx.beginPath(); ctx.moveTo(sx + (tx - sx) * back, sy + (ty - sy) * back); ctx.lineTo(x, y); ctx.stroke();
+      ctx.stroke();
       ctx.globalAlpha = 0.8; ctx.strokeStyle = '#8a0f22'; ctx.lineWidth = 1.4 * k;
       ctx.beginPath(); ctx.moveTo(sx + (tx - sx) * (back + t) / 2, sy + (ty - sy) * (back + t) / 2); ctx.lineTo(x, y); ctx.stroke();
       if (!low && t < 0.45) {

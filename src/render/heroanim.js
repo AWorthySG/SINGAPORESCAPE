@@ -36,9 +36,10 @@
 // has a clip and that every clip draws.
 import { TICK_MS, TILE, COMBAT_BEAT_MS } from '../config.js';
 import { ITEMS } from '../data/items.js';
+import { classAccent } from '../data/classColours.js';
 import { itemIconImage } from './icons.js';
 import { bestTool } from '../game/tools.js';
-import { drawEmptyArm, hasEmptyArm } from './heroAnimArt.js';
+import { drawEmptyArm, drawHeroStrikeSpark, hasEmptyArm } from './heroAnimArt.js';
 
 const EASE = {
   lin: (x) => x,
@@ -1380,28 +1381,22 @@ export function drawPictureTool(c, anim) {
 /** A weapon's swoosh on a fast swing: an ink-edged white crescent (or streak)
  *  that sweeps with the blow and fades, the off hand's too when dual wielding,
  *  and a small spark where the blow lands. A few strokes at most; none in low graphics. */
-export function drawWeaponTrail(c, anim) {
+export function drawWeaponTrail(c, anim, accent = classAccent(anim?.jobClass)) {
   if (!anim || anim.low) return;
   const ch = anim.ch || {};
   // A painted arm draws its own smear along the tip's path (heroAnimArt.js);
   // these fixed swooshes stand in for the turning rig arms (and keep the dust).
-  const hit = trail(c, anim.trail, ch.trail, anim.dust, anim.smeared);
-  trail(c, anim.trail2, ch.trail2, false, anim.smeared2);
+  const hit = trail(c, anim.trail, ch.trail, anim.dust, anim.smeared, accent);
+  trail(c, anim.trail2, ch.trail2, false, anim.smeared2, accent);
   // The impact spark: a little four-point star at the end of the main swoosh
   // (a painted arm puts its own at the weapon's tip).
   const k = ch.impact;
   if (hit && k > 0.05 && !anim.sparked) {
-    const r = 2 + k * 5;
-    c.save();
-    c.fillStyle = `rgba(255,240,180,${Math.min(1, k).toFixed(3)})`; c.strokeStyle = `rgba(34,48,74,${(0.85 * Math.min(1, k)).toFixed(3)})`; c.lineWidth = 1;
-    c.beginPath();
-    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr = i % 2 ? r * 0.35 : r; c.lineTo(hit[0] + Math.cos(a) * rr, hit[1] + Math.sin(a) * rr); }
-    c.closePath(); c.fill(); c.stroke();
-    c.restore();
+    drawHeroStrikeSpark(c, hit[0], hit[1], 2 + k * 5, k, false, accent);
   }
 }
 /** One swoosh at t (0..1 through it). Returns where its blow lands, for the spark. */
-function trail(c, tr, t, dust, smeared = false) {
+function trail(c, tr, t, dust, smeared, accent) {
   if (!tr) return null;
   // An arc's blow lands three-quarters of the way round (its tail is the follow-through).
   const ha = tr.a0 + (tr.a1 - tr.a0) * 0.75;
@@ -1413,16 +1408,22 @@ function trail(c, tr, t, dust, smeared = false) {
   c.save(); c.lineCap = 'round';
   const stroke = (col, w) => { c.strokeStyle = col; c.lineWidth = w; c.stroke(); };
   const ink = `rgba(34,48,74,${(0.8 * fade).toFixed(3)})`, white = `rgba(255,255,255,${fade.toFixed(3)})`;
+  const edge = accent && `rgba(${accent.rgb},${(fade * 0.94).toFixed(3)})`;
+  const ribbon = (width, core) => {
+    stroke(ink, width);
+    if (edge) stroke(edge, width - 0.7);
+    stroke(white, edge ? core * 0.68 : core);
+  };
   if (tr.kind === 'arc') {
     // Either way round: the head runs from a0 to a1 and the tail follows it.
     const dir = tr.a1 >= tr.a0 ? 1 : -1;
     const head = tr.a0 + (tr.a1 - tr.a0) * t, tail = head - dir * Math.min(1.3, Math.abs(head - tr.a0));
     const lo = Math.min(head, tail), hi = Math.max(head, tail);
-    if (!smeared) { c.beginPath(); c.arc(tr.cx, tr.cy, tr.r, lo, hi); stroke(ink, 7); stroke(white, 4.5); }
+    if (!smeared) { c.beginPath(); c.arc(tr.cx, tr.cy, tr.r, lo, hi); ribbon(7, 4.5); }
     // (Only once the swoosh is long enough: a reversed arc would draw the whole circle.)
     if (!smeared && hi - lo > 0.35) {
       c.beginPath(); c.arc(tr.cx, tr.cy, tr.r + 4, dir > 0 ? lo + 0.3 : lo, dir > 0 ? hi : hi - 0.3);
-      stroke(`rgba(245,184,46,${fade.toFixed(3)})`, 2);
+      stroke(edge || `rgba(245,184,46,${fade.toFixed(3)})`, 2);
     }
     if (dust && t > 0.5) {   // heavy blows kick up dust where they land
       const d = (t - 0.5) * 2;
@@ -1432,18 +1433,18 @@ function trail(c, tr, t, dust, smeared = false) {
   } else if (tr.kind === 'line') {
     const x1 = tr.x0 + (tr.x1 - tr.x0) * t, x0 = Math.max(tr.x0, x1 - 22);
     c.beginPath(); c.moveTo(x0, tr.y); c.lineTo(x1, tr.y);
-    stroke(ink, 5); stroke(white, 2.6);
+    ribbon(5, 2.6);
   } else if (tr.kind === 'seg') {
     // A straight diagonal cut (two of them cross in an X).
     const k1 = t, k0 = Math.max(0, t - 0.6);
     c.beginPath();
     c.moveTo(tr.x0 + (tr.x1 - tr.x0) * k0, tr.y0 + (tr.y1 - tr.y0) * k0);
     c.lineTo(tr.x0 + (tr.x1 - tr.x0) * k1, tr.y0 + (tr.y1 - tr.y0) * k1);
-    stroke(ink, 6); stroke(white, 3.4);
+    ribbon(6, 3.4);
   } else if (tr.kind === 'claw') {
     c.beginPath();
     for (let i = 0; i < 3; i++) { const o = (i - 1) * 5; c.moveTo(tr.x - 8 + o, tr.y - 9 + o * 0.3); c.lineTo(tr.x + 6 + o, tr.y + 8 + o * 0.3); }
-    stroke(ink, 3.6); stroke(white, 1.8);
+    ribbon(3.6, 1.8);
   }
   c.restore();
   return end;

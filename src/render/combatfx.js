@@ -1,4 +1,5 @@
 import { SPELLS } from '../data/magic.js';
+import { classAccent } from '../data/classColours.js';
 import { RARITY } from '../game/loot.js';
 import { spawnElement } from './elementfx.js';
 import { fxImage } from './fxart.js';
@@ -266,36 +267,36 @@ export class CombatFx {
 
   /** The hit of one blow. `kind` from impactKind; opts: from {x,y} (the
    *  attacker, for the line of a shot), delay (ms until it lands), element
-   *  (magic), crit, melee (wait for the hero's weapon to land, see armFresh). */
+   *  (magic), crit, jobClass, melee (wait for the hero's weapon to land). */
   impact(kind, x, y, opts = {}) {
     this._begin();
-    const crit = !!opts.crit;
+    const crit = !!opts.crit, accent = classAccent(opts.jobClass)?.colour;
     const dx = opts.from ? x - opts.from.x : 1, dy = opts.from ? y - opts.from.y : 0;
     const ang = Math.atan2(dy, dx);
     switch (kind) {
       case 'blade': {
         // A bold sticker crescent (white with a coloured edge) cutting across.
-        const a = this._take(ARC, x, y, 230, crit ? GOLD : '#ffffff');
+        const a = this._take(ARC, x, y, 230, accent ?? (crit ? GOLD : '#ffffff'));
         a.rot = rnd() * 6.283; a.spin = (rnd() < 0.5 ? -1 : 1) * 0.009; a.size = crit ? 19 : 15;
         this._burst(SPARK, x, y, this._n(4), 0.16, 220, crit ? GOLD : '#fff6cf', { add: true, size: 1.6 });
         break;
       }
       case 'blunt': {
         this.ring(x, y, 4, crit ? 26 : 20, 260, '#ffffff', 3.5);
-        this.ring(x, y + 12, 3, 22, 340, '#e9d7ad', 2.5, 0.42);   // a shock ring on the ground
+        this.ring(x, y + 12, 3, 22, 340, accent ?? '#e9d7ad', 2.5, 0.42);   // a shock ring on the ground
         this._burst(CLOUD, x, y + 10, this._n(5), 0.035, 520, '#efe4cc', { size: 4, up: -0.02, drag: 0.985 });
         break;
       }
       case 'pierce': {
         // Puncture: a tight spray of sparks out the far side of the hit.
         this._burst(SPARK, x, y, this._n(6), 0.2, 200, crit ? GOLD : '#fff2b0', { ang, spread: 1.1, add: true, size: 1.5 });
-        this.ring(x, y, 2, 9, 160, '#ffffff', 2);
+        this.ring(x, y, 2, 9, 160, accent ?? '#ffffff', 2);
         break;
       }
       case 'bullet': {
         if (opts.gun === 'pistol') {
           // A pistol round is small (four a beat): a tiny pop and a spark or two, no tracer.
-          this.ring(x, y, 1.5, 6, 140, '#ffffff', 1.5);
+          this.ring(x, y, 1.5, 6, 140, accent ?? '#ffffff', 1.5);
           this._burst(SPARK, x, y, this._n(2), 0.16, 120, crit ? GOLD : '#ffe28a', { ang, spread: 2, add: true, size: 1 });
           break;
         }
@@ -305,7 +306,7 @@ export class CombatFx {
           const t = this._take(TRACER, opts.from.x, opts.from.y - 4, 150, '#ffe28a');
           t.ex = x; t.ey = y;
         }
-        this.ring(x, y, 3, 18, 200, '#ffffff', 3.5);
+        this.ring(x, y, 3, 18, 200, accent ?? '#ffffff', 3.5);
         this._burst(SPARK, x, y, this._n(7), 0.26, 180, crit ? GOLD : '#ffe28a', { ang, spread: 1.2, add: true, size: 1.6 });
         this._burst(CLOUD, x, y, this._n(3), 0.02, 420, '#d8d8d8', { size: 3.5 });
         break;
@@ -313,7 +314,7 @@ export class CombatFx {
       case 'magic': this._spell(x, y, opts.element, crit); break;
       case 'whip': {
         // The crack: two quick thin rings, one just after the other, and a snap of sparks.
-        this.ring(x, y, 2, 18, 200, '#ff8ac0', 2);
+        this.ring(x, y, 2, 18, 200, accent ?? '#ff8ac0', 2);
         this.ring(x, y, 2, 12, 200, '#ffffff', 1.5).delay = 50;
         this._burst(SPARK, x, y, this._n(3), 0.18, 160, '#ffd0e6', { add: true, size: 1.4 });
         break;
@@ -326,6 +327,9 @@ export class CombatFx {
     }
     // An elemental blow that isn't a spell (an enchanted weapon) adds its element's look.
     if (kind !== 'magic' && opts.element) spawnElement(this, opts.element, x, y, crit);
+    // Spell elements and gold coins keep their own colours. A small rim
+    // next to that impact identifies the class without tinting the effect.
+    if (accent && (kind === 'magic' || kind === 'coin')) this.ring(x, y, 5, 15, 200, accent, 1.7);
     // The pieces of this hit land together, after the shot's flight.
     this._end(opts.delay || 0, !!opts.melee);
   }
@@ -809,7 +813,7 @@ export function blowAt(game, npc, kind) {
 
 /** The impact for a blow the player (or their side) landed on `npc`.
  *  `color`: the sparks' colour, which tells a spell's element and a crit. */
-export function hitImpact(game, npc, color) {
+export function hitImpact(game, npc, color, jobClass = game.jobClass) {
   const fx = game.cfx;
   if (!fx || !npc?.renderCenter) return;
   fx.low = lowOf(game);
@@ -818,7 +822,20 @@ export function hitImpact(game, npc, color) {
   // A spear's thrust has no flight time; its puncture lands with the swing.
   if (b.melee) b.delay = 0;
   fx.impact(kind, b.x, b.y, { from: b.from, delay: b.delay, melee: b.melee, crit: color === GOLD, element: attackElement(game, color, kind),
-    gun: kind === 'bullet' ? game.weaponType?.() : null });
+    gun: kind === 'bullet' ? game.weaponType?.() : null, jobClass });
+}
+
+/** A class-coloured rim on a combat ability's activation. Guard, buff and
+ *  heal particles keep their own colours. */
+export function abilityAccent(game) {
+  const fx = game.cfx, accent = classAccent(game.jobClass);
+  if (!fx || !accent) return;
+  const p = game.player.renderCenter();
+  fx.low = lowOf(game);
+  fx._begin();
+  const calm = game.reduceMotion;
+  fx.ring(p.x, p.y + 10, calm ? 17 : 6, calm ? 17 : 23, 360, accent.colour, 2.4, 0.46);
+  fx._end();
 }
 
 // A hit this share of the foe's life (or of yours) counts as a big one.
