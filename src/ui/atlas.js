@@ -42,8 +42,8 @@ export function renderSingaporeAtlas(parent, currentZone, onTerrain, resolveDest
     <div class="atlas-destination">
       <label>Destination <select></select></label>
       <button class="wm-go" type="button">Show on terrain</button>
+      <p class="atlas-access" aria-live="polite"></p>
     </div>
-    <p class="atlas-access" aria-live="polite"></p>
     <p class="atlas-credit">Coastline adapted from URA’s
       <a href="https://data.gov.sg/datasets/d_4765db0e87b9c86336792efe8a1f7a66/view" target="_blank" rel="noopener">Master Plan 2019 Planning Area Boundary (No Sea)</a>,
       accessed 28 November 2026 under the

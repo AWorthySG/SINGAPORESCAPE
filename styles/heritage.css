@@ -541,7 +541,7 @@
   box-shadow: 0 2px 0 #1c443f;
 }
 .atlas-destination :is(select, button):focus-visible { outline: 3px solid var(--aw-sun-deep); outline-offset: 2px; }
-.atlas-access { margin: 0; font-size: var(--fs-sm); color: #24413f; }
+.atlas-access { grid-column: 1 / -1; margin: 0; font-size: var(--fs-sm); color: #24413f; }
 .atlas-credit { margin: 0; font-size: var(--fs-xs); color: #514b3f; }
 .atlas-credit a { color: #1e5e53; }
 @media (min-width: 900px) and (min-height: 700px) {
@@ -559,7 +559,7 @@
     justify-content: center; align-items: center;
   }
   .atlas-destination { grid-template-columns: minmax(0, 1fr); }
-  .atlas-access, .atlas-credit { grid-column: 1 / -1; }
+  .atlas-credit { grid-column: 1 / -1; }
 }
 @media (max-height: 560px) and (orientation: landscape) {
   #modal-body:has(.worldmap-canvas) { grid-template-rows: auto 1fr auto; }
