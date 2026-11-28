@@ -78,16 +78,16 @@ export function drawDiveBed(ctx, obj, cx, cy, art = null) {
 
 /** A diver-down flag with the pole fixed to the centre of the float. */
 export function drawDiveFlag(ctx, x, y) {
-  const top = y - 16;
+  const top = y - 15, width = 7.6, height = 6.2;
   ctx.save();
   ctx.strokeStyle = INK; ctx.lineWidth = 1.3;
   ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, top - 0.7); ctx.stroke();
   ctx.fillStyle = RED;
-  ctx.fillRect(x - 10, top, 10, 7);
+  ctx.fillRect(x, top, width, height);
   ctx.fillStyle = CREAM;
-  ctx.beginPath(); ctx.moveTo(x - 3.2, top); ctx.lineTo(x - .8, top);
-  ctx.lineTo(x - 7, top + 7); ctx.lineTo(x - 9.4, top + 7); ctx.closePath(); ctx.fill();
-  ctx.lineWidth = 0.8; ctx.strokeRect(x - 10, top, 10, 7);
+  ctx.beginPath(); ctx.moveTo(x + 0.45, top); ctx.lineTo(x + 2.35, top);
+  ctx.lineTo(x + 7.15, top + height); ctx.lineTo(x + 5.25, top + height); ctx.closePath(); ctx.fill();
+  ctx.lineWidth = 0.8; ctx.strokeRect(x, top, width, height);
   ctx.restore();
 }
 
