@@ -8,6 +8,7 @@
 // Only this site's own GET requests are handled; saves live in localStorage
 // and are never touched here.
 const CACHE = 'awa-v1';
+const ART_CACHE = 'awa-artwork-2';
 const CORE = ['./', 'index.html', 'styles/main.css', 'styles/title.css', 'styles/story.css', 'styles/heritage.css',
   'src/main.js', 'manifest.webmanifest', 'assets/logo.svg', 'assets/logo-mark.svg',
   'assets/title/transit-road-evening.webp', 'assets/education-gold-nib.webp',
@@ -19,7 +20,7 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys()
-    .then((keys) => Promise.all(keys.filter((k) => k.startsWith('awa-') && k !== CACHE).map((k) => caches.delete(k))))
+    .then((keys) => Promise.all(keys.filter((k) => k.startsWith('awa-') && k !== CACHE && k !== ART_CACHE).map((k) => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
@@ -30,14 +31,22 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== self.location.origin) return;
   const path = url.pathname.slice(new URL(self.registration.scope).pathname.length);
   if (path.startsWith('api/')) return;   // accounts and cloud saves: always live, never cached
-  const put = (res) => { if (res && res.ok && res.type === 'basic') { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); } return res; };
+  const put = (res, name = CACHE) => { if (res && res.ok && res.type === 'basic') { const copy = res.clone(); caches.open(name).then((c) => c.put(req, copy)); } return res; };
   if (path.startsWith('assets/')) {
     // Cache first; refresh in the background.
+    // Use fresh artwork at the existing URLs after the outline removal. The
+    // earlier cache still supplies a picture if the first fetch is offline.
+    const revisedArt = /^assets\/(?:icons\/|creatures\/|cursor\/|fx\/|world\/|title\/mascot-sit\.webp$)/.test(path);
+    const cached = revisedArt ? caches.match(req, { cacheName: ART_CACHE }) : caches.match(req);
     const monsterRevision = url.searchParams.has('v')
       && /^assets\/creatures\/(?:species\/.+\.webp|bosses\/.+\.webp|(?:crab|fowl|serpent|spider)\.png)$/.test(path);
-    e.respondWith(caches.match(req).then((hit) => {
+    e.respondWith(cached.then((hit) => {
       // A player may go offline before the updated picture has been fetched.
-      const net = fetch(req).then(put).catch(() => hit || (monsterRevision ? caches.match(req, { ignoreSearch: true }) : undefined));
+      const net = fetch(req, revisedArt && !hit ? { cache: 'reload' } : undefined)
+        .then((res) => put(res, revisedArt ? ART_CACHE : CACHE))
+        .catch(async () => hit
+          || (monsterRevision && await caches.match(req, { cacheName: ART_CACHE, ignoreSearch: true }))
+          || (revisedArt ? caches.match(req, { cacheName: CACHE, ignoreSearch: monsterRevision }) : undefined));
       return hit || net;
     }));
     return;

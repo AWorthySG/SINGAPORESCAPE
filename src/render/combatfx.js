@@ -509,8 +509,8 @@ export class CombatFx {
           const pop = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) * 0.6;
           ctx.globalAlpha = Math.min(1, fade * 2.2);
           ctx.save(); ctx.translate(x, y); ctx.rotate(s.rot);
-          // At full strength it is stamped from its picture (starPic); fading,
-          // its three strokes go down see-through one over another, as drawn.
+          // Stamp the cached picture at full opacity. Draw the fading star's
+          // outline and fill directly so both keep their original overlap.
           if (!(ctx.globalAlpha >= 0.999 && !s.add && stampStar(ctx, s.size * pop, s.col))) drawStar(ctx, s.size * pop, s.col);
           ctx.restore();
           break;
@@ -772,7 +772,7 @@ function stampStar(ctx, r, col) {
   return true;
 }
 
-/** A chunky five-pointed sticker star: white border, gold fill, navy ink. */
+/** A chunky five-pointed star with a navy outline. */
 function drawStar(ctx, r, col) {
   if (r <= 0.3) return;
   ctx.beginPath();
@@ -782,8 +782,7 @@ function drawStar(ctx, r, col) {
   }
   ctx.closePath();
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = INK; ctx.lineWidth = 3.4; ctx.stroke();
-  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.stroke();
   ctx.fillStyle = col; ctx.fill();
 }
 

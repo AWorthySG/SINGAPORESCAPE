@@ -780,9 +780,7 @@ function drawCreaturePng(c, img) {
 const ST_X0 = -40, ST_Y0 = -50, ST_W = 80, ST_H = 76;   // local box monster art fits in
 const ST_RES = 2;                                       // offscreen pixels per local unit
 const ST_INK = '#22304A';
-// Only item stickers use the white die-cut border.
-const MONSTER_BOX = { x0: ST_X0, y0: ST_Y0, w: ST_W, h: ST_H, ink: RIG_INK, cut: 0 };   // (rigs draw the same line, rigink.js)
-const ITEM_BOX = { x0: -14, y0: -14, w: 28, h: 28, ink: 0.8, cut: 1.9 };
+const MONSTER_BOX = { x0: ST_X0, y0: ST_Y0, w: ST_W, h: ST_H, ink: RIG_INK };   // (rigs draw the same line, rigink.js)
 const _stickers = new Map();
 const _stScratch = {};
 function stCanvas(box) {
@@ -797,8 +795,8 @@ function stRing(dst, src, r) {
     dst.drawImage(src, Math.cos(a) * r * ST_RES, Math.sin(a) * r * ST_RES);
   }
 }
-// Bake `drawBody` (drawn in local units inside `box`) into a sticker: navy ink
-// line inside a white die-cut border. Returns an ImageBitmap/canvas to draw at
+// Bake `drawBody` (drawn in local units inside `box`) with a navy ink line.
+// Returns an ImageBitmap/canvas to draw at
 // (box.x0, box.y0, box.w, box.h), or null without a DOM.
 function bakeSticker(key, box, drawBody, budget = null) {
   if (typeof document === 'undefined' || !document.createElement) return null;
@@ -810,8 +808,8 @@ function bakeSticker(key, box, drawBody, budget = null) {
 }
 function makeSticker(key, box, drawBody) {
   const sk = `${box.w}x${box.h}`;
-  if (!_stScratch[sk]) _stScratch[sk] = { art: stCanvas(box), ink: stCanvas(box), white: box.cut > 0 ? stCanvas(box) : null };
-  const { art, ink, white } = _stScratch[sk];
+  if (!_stScratch[sk]) _stScratch[sk] = { art: stCanvas(box), ink: stCanvas(box) };
+  const { art, ink } = _stScratch[sk];
   const a = art.getContext('2d');
   if (!a) return null;
   a.setTransform(1, 0, 0, 1, 0, 0); a.clearRect(0, 0, art.width, art.height);
@@ -819,17 +817,13 @@ function makeSticker(key, box, drawBody) {
   drawBody(a);
   if (box === MONSTER_BOX) shadeCreatureBody(a, box.x0, box.y0, box.w, box.h, -20.5, 13.5);
   a.setTransform(1, 0, 0, 1, 0, 0);
-  for (const [cv, colr] of [[ink, ST_INK], [white, '#FFFFFF']]) {
-    if (!cv) continue;
-    const g = cv.getContext('2d');
-    g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, cv.width, cv.height);
-    g.drawImage(art, 0, 0);
-    g.globalCompositeOperation = 'source-in'; g.fillStyle = colr; g.fillRect(0, 0, cv.width, cv.height);
-    g.globalCompositeOperation = 'source-over';
-  }
+  const g = ink.getContext('2d');
+  g.clearRect(0, 0, ink.width, ink.height);
+  g.drawImage(art, 0, 0);
+  g.globalCompositeOperation = 'source-in'; g.fillStyle = ST_INK; g.fillRect(0, 0, ink.width, ink.height);
+  g.globalCompositeOperation = 'source-over';
   const out = stCanvas(box);
   const o = out.getContext('2d');
-  if (box.cut > 0) stRing(o, white, box.cut);   // white die-cut border (items keep theirs)
   stRing(o, ink, box.ink);     // navy ink line
   o.drawImage(art, 0, 0);
   // Canvas-to-canvas draws are slow on many GPUs/phones; an ImageBitmap is
@@ -2121,9 +2115,9 @@ function guard(ctx) {
 }
 
 // ================= A-WORTHY MASCOT =================
-// Every person in the world is drawn as the A-Worthy mascot sticker: a tall
+// The procedural A-Worthy mascot is a tall
 // cream capsule with a small cross on its forehead, happy-arc eyes, pink
-// blush and an open smile, outlined in navy ink inside a white die-cut border.
+// blush and an open smile, outlined in navy ink.
 // Body shape is the brand; a shirt colour, hat or prop tells characters apart.
 const M_INK = '#22304A';
 const M_CREAM = '#FBF5E6';
@@ -2149,8 +2143,6 @@ function mascot(c, o = {}) {
   for (const [fx, lift] of [[-3.3, Math.max(0, st)], [3.3, Math.max(0, -st)]]) {
     ellipse(c, fx, 12.6 - lift, 2.6, 1.6); fill(c, '#ffffff'); line(c, M_INK, 1.2);
   }
-  // white die-cut border, then the cream body
-  capsulePath(c); line(c, '#ffffff', 4.4);
   capsulePath(c); fill(c, M_CREAM);
   c.save();
   capsulePath(c); c.clip();
@@ -3744,7 +3736,7 @@ function groundIcon(id, img, s) {
 }
 const GROUND_GLOW_BOX = { x0: -12, y0: -12, w: 24, h: 24 };
 export function drawGroundItem(ctx, id, cx, cy) {
-  // soft pickup disc + hand-drawn vector icon (matches the inventory art).
+  // Soft pickup disc and the same icon used in the inventory.
   // The disc is one soft glow drawn once and blitted, like the shadows: a pile
   // of drops was building a fresh gradient for each of them every frame.
   const disc = cachedBitmap('ground-glow', GROUND_GLOW_BOX, (g) => glow(g, 0, 0, 12, 'rgba(255,225,140,0.22)'));
@@ -3754,22 +3746,13 @@ export function drawGroundItem(ctx, id, cx, cy) {
   const img = itemIconImage(id);
   if (img && img.complete && img.naturalWidth) {
     const s = 22;
-    // Vector icons arrive pre-stickered (SVG filter); painted PNGs get the
-    // same navy-line + die-cut border baked once on canvas.
-    // (Mascot-sticker artwork already carries its own die-cut border.)
-    const isSvg = img.src && (img.src.startsWith('data:image/svg') || img.src.includes('assets/icons/'));
-    const st = isSvg ? null : bakeSticker(`item|${id}`, ITEM_BOX, (g) => g.drawImage(img, -11, -11, 22, 22));
-    if (st) ctx.drawImage(st, cx + ITEM_BOX.x0, cy + ITEM_BOX.y0 - 1, ITEM_BOX.w, ITEM_BOX.h);
+    // Cache the scaled, tinted image so piles of drops stay cheap to draw.
+    const small = groundIcon(id, img, s);
+    if (small) ctx.drawImage(small, cx - s / 2, cy - s / 2 - 1, s, s);
     else {
-      // Shrink the 160px art (and apply any tint) once into a small bitmap, so a
-      // pile of drops (a boss scatters 20+) doesn't rescale and filter every frame.
-      const small = groundIcon(id, img, s);
-      if (small) ctx.drawImage(small, cx - s / 2, cy - s / 2 - 1, s, s);
-      else {
-        if (img.tint) ctx.filter = img.tint;
-        ctx.drawImage(img, cx - s / 2, cy - s / 2 - 1, s, s);
-        if (img.tint) ctx.filter = 'none';
-      }
+      if (img.tint) ctx.filter = img.tint;
+      ctx.drawImage(img, cx - s / 2, cy - s / 2 - 1, s, s);
+      if (img.tint) ctx.filter = 'none';
     }
   } else {
     ctx.fillStyle = 'rgba(255,235,170,0.6)'; circle(ctx, cx, cy, 5); ctx.fill();

@@ -710,24 +710,21 @@ import { BOSS_REWARDS } from '../data/bossRewards.js';
   /** A boss mechanic's icon by its type. */
   export const mechIcon = (type) => ({ circle: 'mech-safe_circle', adds: 'mech-healers', cast: 'mech-interrupt' })[type] || null;
 
-  // A-Worthy sticker treatment for every icon: the art is traced with a navy
-  // ink line inside a white die-cut border (two dilated copies of its
-  // silhouette), shrunk slightly so the border fits inside the 24x24 box.
-  const STICKER_FILTER = `<filter id="aw-sticker" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB">
-    <feMorphology in="SourceAlpha" operator="dilate" radius="1.7" result="cut"/>
-    <feFlood flood-color="#FFFFFF"/><feComposite in2="cut" operator="in" result="white"/>
+  // Trace only the navy silhouette and keep the original padding so thin
+  // strokes at the edge of the 24x24 box stay visible.
+  const INK_FILTER = `<filter id="aw-icon-ink" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB">
     <feMorphology in="SourceAlpha" operator="dilate" radius="1" result="ink"/>
-    <feFlood flood-color="#22304A"/><feComposite in2="ink" operator="in" result="navy"/>
-    <feMerge><feMergeNode in="white"/><feMergeNode in="navy"/><feMergeNode in="SourceGraphic"/></feMerge>
+    <feFlood flood-color="${OL}"/><feComposite in2="ink" operator="in" result="navy"/>
+    <feMerge><feMergeNode in="navy"/><feMergeNode in="SourceGraphic"/></feMerge>
   </filter>`;
-  const stickerize = (inner) => `<defs>${STICKER_FILTER}</defs><g filter="url(#aw-sticker)"><g transform="translate(2.2 2.2) scale(0.817)">${inner}</g></g>`;
+  const inkIcon = (inner) => `<defs>${INK_FILTER}</defs><g filter="url(#aw-icon-ink)"><g transform="translate(2.2 2.2) scale(0.817)">${inner}</g></g>`;
 
   function svg(inner, size, cls) {
-    return `<svg class="${cls || ''}" width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display:block">${stickerize(inner)}</svg>`;
+    return `<svg class="${cls || ''}" width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display:block">${inkIcon(inner)}</svg>`;
   }
 
   function svgString(inner) {
-    return '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24">' + stickerize(inner) + '</svg>';
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24">' + inkIcon(inner) + '</svg>';
   }
 
   // SVG markup helpers (DOM use: inventory, equipment, skills, shops, tabs).

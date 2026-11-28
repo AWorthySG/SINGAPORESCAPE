@@ -846,9 +846,8 @@ export class Renderer {
         ctx.globalAlpha = a;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
         if (this.postcards.draw(ctx, tc, vw, vh, a, room) || this._titlePlaque(tc, room, y, size)) { ctx.restore(); return; }   // a postcard (postcard.js), else the plaque
-        // Sticker lettering: a white border round navy ink round the colour.
+        // Gold location lettering edged in navy.
         ctx.font = `900 ${(size * 1.25).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
-        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = size * 0.5; ctx.strokeText(tc.name, cx, y);
         ctx.strokeStyle = '#22304A'; ctx.lineWidth = size * 0.22; ctx.strokeText(tc.name, cx, y);
         ctx.fillStyle = '#F5B82E'; ctx.fillText(tc.name, cx, y);
         if (tc.sub) {
@@ -1237,8 +1236,6 @@ export class Renderer {
           ctx.beginPath(); ctx.moveTo(x0, y - 2); ctx.quadraticCurveTo((x0 + x1) / 2, y + 3, x1, y + 2);
           if (accent) strokeAccent(ctx, accent, 8.4, fade * 0.52);
           ctx.globalAlpha = fade;
-          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 6.5;
-          ctx.stroke();
           ctx.strokeStyle = e.mega ? '#ff1010' : '#c8161b'; ctx.lineWidth = 3.5; ctx.stroke();
           ctx.strokeStyle = '#5a0505'; ctx.lineWidth = 1.2;
           ctx.beginPath(); ctx.moveTo(x0 + 2, y - 1); ctx.quadraticCurveTo((x0 + x1) / 2, y + 3.5, x1 - 1, y + 2.5); ctx.stroke();

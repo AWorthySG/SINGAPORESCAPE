@@ -5055,13 +5055,13 @@ export class UI {
       const dx = o.x - px, dy = o.y - py;
       if (inView(dx, dy)) badge(kind, W / 2 + dx * scale, H / 2 + dy * scale);
     }
-    // Ground items: a small pink sparkle on a white edge.
+    // Ground items use a smaller pink marker than the red enemy dots.
     for (const g of game.world.groundItems) {
       const dx = g.x - px, dy = g.y - py;
       if (!inView(dx, dy)) continue;
       const x = W / 2 + dx * scale, y = H / 2 + dy * scale;
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, 2.4, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#E5484D'; ctx.beginPath(); ctx.arc(x, y, 1.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = MINIMAP_DOT.ink; ctx.beginPath(); ctx.arc(x, y, 2.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#F28CB1'; ctx.beginPath(); ctx.arc(x, y, 1.4, 0, Math.PI * 2); ctx.fill();
     }
     // NPCs (only nearby ones can be on the minimap): two kinds of dot, red
     // for anything you can fight and cream for everyone else, each on a navy

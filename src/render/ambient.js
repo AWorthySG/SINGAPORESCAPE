@@ -632,7 +632,7 @@ const CAT_COATS = {
   grey: ['#a9b0c2', '#848ba2', '#eef0f6'],
 };
 
-// A chibi cat in the sticker style (navy ink, white border) sitting or curled
+// A chibi cat outlined in navy ink, sitting or curled
 // asleep, its feet at (x, y). `name` is 'cat-<coat>-<s|z>'.
 function drawCat(g, x, y, name) {
   const [, coat, pose] = name.split('-');
@@ -641,7 +641,6 @@ function drawCat(g, x, y, name) {
   g.lineJoin = 'round';
   const shape = (fn, fill) => {
     g.beginPath(); fn();
-    g.strokeStyle = '#ffffff'; g.lineWidth = 4.4; g.stroke();
     g.fillStyle = fill; g.fill();
     g.strokeStyle = ink; g.lineWidth = 1.5; g.stroke();
   };
