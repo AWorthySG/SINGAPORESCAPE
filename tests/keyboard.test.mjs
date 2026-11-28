@@ -10,6 +10,7 @@ function fixture() {
     attackNearest: record('attack'), nextTarget: record('target'),
     interact: record('interact'), activateAbilityKey: record('ability'),
     goToNearest: record('go'), toggleAutoBattle: record('auto battle'),
+    equipBest: record('equip best'),
     prayerBurst: record('burst'), questTravel: record('quest'),
     quests: { rq_kampong_glam: { state: 'active' } },
     questGuide: (id) => ({ kind: id === 'rq_kampong_glam' ? 'talk' : 'none' }),
@@ -53,6 +54,16 @@ test('quick actions, combat and Shift slots route to the same actions as the HUD
     ['go', ['bank_booth']], ['quest', 'rq_kampong_glam'], ['life'], ['burst'], ['target'], ['interact'], ['ability', 'z'], ['slot', 5],
   ]);
   assert.equal(game.play.handsOnTick, 10);
+});
+
+test('Shift+B equips the best gear once per press and plain B still uses the fifth ability', () => {
+  const { calls, press } = fixture();
+  assert.equal(press('B', { shiftKey: true }), true);
+  assert.equal(press('B', { shiftKey: true, repeat: true }), false);
+  assert.equal(press('B', { shiftKey: true, target: { tagName: 'INPUT' } }), false);
+  assert.equal(press('B', { shiftKey: true, ctrlKey: true }), false);
+  assert.equal(press('b'), true);
+  assert.deepEqual(calls, [['equip best'], ['ability', 'b']]);
 });
 
 test('browser modifiers, held keys, text fields and native focus keep their own behaviour', () => {
@@ -116,6 +127,7 @@ test('the keyboard reference shows the actual panel and action shortcuts', () =>
   const ui = { openModal(title, render) { assert.equal(title, 'Keyboard controls'); render(body); } };
   openKeyboardControls(ui);
   assert.match(body.innerHTML, /Worn Equipment<\/dt><dd><kbd>6<\/kbd>/);
+  assert.match(body.innerHTML, /Equip best in slot<\/dt><dd><kbd>Shift\+B<\/kbd>/);
   assert.match(body.innerHTML, /Open Life skills<\/dt><dd><kbd>Shift\+G<\/kbd>/);
   assert.match(body.innerHTML, /Custom quick bar slots<\/dt><dd><kbd>Shift\+1–6<\/kbd>/);
 });

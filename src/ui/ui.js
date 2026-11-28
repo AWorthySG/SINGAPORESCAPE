@@ -110,7 +110,7 @@ import { QuickSlot, interactCaption, trackerHTML, TRACKER_ROWS, TRACKER_ROWS_PHO
 import { QuickBar, typing } from './quickbar.js';
 import { openKeyboardControls } from './keyboard.js';
 import { districtVisual } from '../data/districtVisuals.js';
-import { PANEL_SHORTCUTS } from '../data/keyboard.js';
+import { EQUIP_BEST_SHORTCUT, PANEL_SHORTCUTS } from '../data/keyboard.js';
 import { makeQtyRow, makePill, maxMakes, makeQtyOf } from './makeqty.js';
 import { CmdSearch } from './cmdsearch.js';
 import { addCollectionButton } from './collectionui.js';
@@ -1616,6 +1616,8 @@ export class UI {
       bar.className = 'eq-bestbar';
       // Beside it, every safe upgrade on what you wear in one go (smartgearui.js).
       bar.innerHTML = '<button type="button" class="bestiary-open gear-guide-open eq-best"></button><button type="button" class="bestiary-open gear-guide-open eq-improve"></button>';
+      bar.firstChild.title = `Equip best in slot (${EQUIP_BEST_SHORTCUT})`;
+      bar.firstChild.setAttribute('aria-keyshortcuts', EQUIP_BEST_SHORTCUT);
       bar.firstChild.addEventListener('click', () => this.game.equipBest());
       bar.lastChild.addEventListener('click', () => openImprove(this));
       layout.parentNode?.insertBefore(bar, layout);

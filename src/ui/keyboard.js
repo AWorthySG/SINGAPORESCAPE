@@ -5,7 +5,7 @@ import { runQuickAction } from '../game/quickbar.js';
 import { slotOfKey, typing } from './quickbar.js';
 import { closeTopWindow, keepTabInDialog } from './windowease.js';
 
-import { ABILITY_KEYS, KEYBOARD_GROUPS, PANEL_SHORTCUTS } from '../data/keyboard.js';
+import { ABILITY_KEYS, EQUIP_BEST_SHORTCUT, KEYBOARD_GROUPS, PANEL_SHORTCUTS } from '../data/keyboard.js';
 
 const panelKeys = Object.fromEntries(Object.entries(PANEL_SHORTCUTS).map(([view, key]) => [key, view]));
 const bank = (g, ui) => runQuickAction(g, 'bank', ui);
@@ -25,6 +25,7 @@ const actions = {
   'shift+g': (_g, ui) => ui.openLifeSkills(),
   'shift+q': quest, j: quest,
   'shift+e': bank, n: bank,
+  [EQUIP_BEST_SHORTCUT.toLowerCase()]: (g) => g.equipBest(),
   k: (g) => g.teleports?.start('town'),
   r: (g) => g.teleports?.start('grave'),
   m: (_g, ui) => ui.openWorldMap(),
