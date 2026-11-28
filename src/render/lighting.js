@@ -3,6 +3,8 @@ import { blendMood, composeWashes, buildVignette } from './ambience.js';
 import { timeGrade, moonDark } from './atmosphere.js';
 import { projectFlat } from './projection.js';
 import { motionOK } from './juice.js';
+import { censerBolt } from './censerSwing.js';
+import { fxFade, fxProgress, isSpellShot, spellPose } from './fxdepth.js';
 
 // The light pass: after dark the scene is covered by a darkness layer with
 // soft pools of light cut out of it around lamps, fires, furnaces, glowing
@@ -84,7 +86,6 @@ const PLAYER_LIGHT = { r: 78, rgb: [255, 210, 160], y: -10 };
 const SPELL_LIGHT_R = 46, BLAST_LIGHT_R = 110, BOSS_LIGHT_R = 130;
 // Arrows, bullets, coins and shurikens are dull metal; anything else in
 // flight is a spell and glows.
-const DULL_SHOTS = new Set(['arrow', 'bullet', 'coin', 'shuriken']);
 export const MAX_LIGHTS = 64;
 export const LAYER_SCALE = 0.25;    // the layer is drawn at a quarter size
 // How much of each light's colour the light map takes: lifted toward white so
@@ -177,6 +178,7 @@ export class LightPass {
     this._tint = new Map();                      // ...and any whose colour the district changes
     this._fixtures = new Map();                  // regional lights with their own reach and falloff
     this._lights = [];                           // this frame's lights, reused
+    this._shot = {};
     this._sky = skyWashes(0.5);
     this._dark = moonDark(0, [0, 0, 0, 0]);   // indigo at dusk, moonlit blue at midnight (atmosphere.js)
     this._sunset = [...DEFAULT_DUSK]; this._nightCast = [...DEFAULT_NIGHT]; this._paletteAt = null;
@@ -211,12 +213,12 @@ export class LightPass {
     return this._index;
   }
 
-  /** Collect this frame's lights in view (screen px). Pure apart from the scan.
+  /** Collect this frame's lights in view (screen px).
    *  With the depth view's projection `pj`, ox..vh are its flat rectangle and
    *  each light is moved to where it lands on the tilted screen. */
   gather(game, ox, oy, vw, vh, t, pj = null) {
     const out = this._lights; out.length = 0;
-    const add = (x, y, r, rgb, k) => { if (out.length < MAX_LIGHTS) out.push({ x, y, r, rgb, k }); };
+    const add = (x, y, r, rgb, k, sq = 1) => { if (out.length < MAX_LIGHTS) out.push({ x, y, r, rgb, k, sq }); };
     const inView = (x, y, r) => x > -r && y > -r && x < vw + r && y < vh + r;
     const movingLight = motionOK(game);
     for (const o of this._scan(game.world, t)) {
@@ -238,25 +240,32 @@ export class LightPass {
     // Spells in flight and blasts light up the ground under them.
     for (const e of game.effects || []) {
       if (e._showAt > t) continue;
-      if (e.type === 'projectile' && !DULL_SHOTS.has(e.kind)) {
-        // A Zealot's bolt is lit from the censer that flings it, not before (censerSwing.js).
-        if (e._cz && e._czT === undefined) continue;
-        const fl = e._cz ? e._czT : 0, sx = e._cz ? e._czX : e.x, sy = e._cz ? e._czY : e.y;
-        const f = Math.max(0, (1 - e.life / e.maxLife - fl) / (1 - fl));
-        const x = sx + (e.ex - sx) * f - ox, y = sy + (e.ey - sy) * f - oy;
-        if (inView(x, y, SPELL_LIGHT_R)) add(x, y, SPELL_LIGHT_R, hexRgb(e.color, [190, 200, 255]), 1);
-      } else if (e.type === 'blast') {
+      if (e.type === 'projectile' && isSpellShot(e)) {
+        const phase = fxProgress(e), censer = censerBolt(e, phase, game, t, ox, oy);
+        if (censer && censer.t < 0) continue;
+        const at = spellPose(censer?.e ?? e, censer?.t ?? phase, this._shot);
+        const x = at.x - ox, y = at.row - oy, r = SPELL_LIGHT_R * (e.crit ? 1.18 : 1);
+        if (inView(x, y, r)) add(x, y, r, hexRgb(e.color, [190, 200, 255]), 0.62 + 0.3 * fxFade((phase - 0.68) / 0.32), 0.75);
+      } else if (e.type === 'blast' && e.primary !== false) {
         const x = e.x - ox, y = e.y - oy;
-        if (inView(x, y, BLAST_LIGHT_R)) add(x, y, BLAST_LIGHT_R, [255, 160, 90], e.life / e.maxLife);
+        const r = Math.min(BLAST_LIGHT_R, 35 + (e.r ?? 48) * 0.82);
+        if (inView(x, y, r)) add(x, y, r, hexRgb(e.color, [255, 160, 90]), fxFade(fxProgress(e)), 0.74);
       }
     }
+    if (!game.fxTrim && !game.lowFx) game.cfx?.lights?.((wx, wy, r, col, k) => {
+      const x = wx - ox, y = wy - oy;
+      if (out.length >= MAX_LIGHTS || !inView(x, y, r)) return false;
+      add(x, y, r, hexRgb(col, [255, 235, 180]), movingLight ? k : k * 0.65, 0.72);
+      return true;
+    });
     // Bosses carry their own glow, in their colour.
     const npcs = game.nearbyNpcs ? game.nearbyNpcs() : [];
     for (const n of npcs) {
       if (!n.alive || !n.def.boss) continue;
       const c = n.renderCenter(), r = BOSS_LIGHT_R * Math.min(1.6, n.def.scale || 1);
       const x = c.x - ox, y = c.y - 10 - oy;
-      if (inView(x, y, r)) add(x, y, r, hexRgb(n.def.color, [230, 90, 120]), 0.85 + Math.sin(t * 0.004) * 0.1);
+      if (inView(x, y, r)) add(x, y, r, hexRgb(n.castT > 0 ? n.castCol : n.def.color, [230, 90, 120]),
+        n.castT > 0 ? 0.88 + 0.12 * (n.castT / 700) : 0.85 + (movingLight ? Math.sin(t * 0.004) * 0.1 : 0));
     }
     if (pj) for (const L of out) { const p = projectFlat(pj, L.x, L.y, this._pp || (this._pp = {})); L.x = p.x; L.y = p.y; L.r *= p.s; }
     return out;
@@ -378,8 +387,9 @@ export class LightPass {
     // lamps and fires, cool under crystals, full brightness at its heart.
     for (const L of lights) {
       const r = L.r * L.k * POOL_REACH;
+      const ry = r * (L.sq ?? 1);
       g.globalAlpha = Math.min(1, POOL_K * strength * L.k);
-      g.drawImage(this._sprite(this._litColour(L.rgb)), (L.x - r) * sx, (L.y - r) * sy, 2 * r * sx, 2 * r * sy);
+      g.drawImage(this._sprite(this._litColour(L.rgb)), (L.x - r) * sx, (L.y - ry) * sy, 2 * r * sx, 2 * ry * sy);
     }
     // The edge vignette goes into the map too, so the night costs one
     // full-screen layer rather than two (the renderer then skips its own).

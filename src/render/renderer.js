@@ -4,7 +4,7 @@ import { drawDistrictScenery, visibleDistrictScenery } from './districtscenery.j
 import { buildingSun, isDepthShop } from './streetdepth.js';
 import { damageNumber as splatNum } from '../core/utils.js';   // hitsplats: 54000 -> "54K"
 import { TILE, TICK_MS } from '../config.js';
-import { drawBossMech, drawDangerMark, drawSafeZone } from './bossmechfx.js';
+import { drawBossBlastSparks, drawBossMech, drawBossShockwave, drawBossTelegraph, drawDangerMark } from './bossmechfx.js';
 import { drawGateShrine } from './gateshrine.js';
 import { TURN_MS } from '../game/character.js';
 import { TERRAIN } from '../data/world.js';
@@ -62,13 +62,14 @@ import { sunShadow, drawSunShadow, drawCreatureContact, footfall } from './shado
 import { actorLight } from './actorlight.js';
 import { dropArc, dropFx, spawnFx, pickupFx } from './combatfx.js';
 import { applySquash, splatMotion, drawCritBurst, drawMissPuff, drawLootGlow, drawCoinGlint, motionOK } from './juice.js';
-import { spawnPose, deathPose, windupAge, hazardPulse, hazardIn } from './creatureanim.js';
+import { spawnPose, deathPose, windupAge } from './creatureanim.js';
 import { smooth, seg, arc as arcUp, turnFacing } from './motionkit.js';
 import { drawGrave } from './grave.js';
 import { drawFishSchool } from './fishschoolfx.js';
 import { playerBarVisible, drawPlayerHp } from './playerhp.js';
 import { drawBreathBar } from './diveart.js';   // Diving's breath meter
 import { drawClassShot, drawClassEffect, drawClassAuras } from './classfx.js';   // the Priest's and the Zealot's own elements
+import { drawSpellBolt, fxFade, fxGlow, fxProgress, fxRing, fxWave, isSpellShot, spellPose } from './fxdepth.js';
 import { censerBolt } from './censerSwing.js';   // a Zealot's bolt leaves the swinging censer
 import { namePill, drawPill, pillRes, PILL_ROW } from './namepill.js';
 import { foeThreat } from '../ui/bossbar.js';
@@ -346,10 +347,10 @@ export class Renderer {
     const service = game.player.alive && heritageService(game.world, game.player);
     if (service && game.hover?.obj !== service) drawHeritageServiceCue(ctx, service, ox, oy);
     this._drawGroundDecals(ox, oy);
-    this._drawHazards(ox, oy, timeMs);
     // Weather (weather.js): the sky for this region and moment, then puddles and
     // ripples on the ground, under everyone. Looks only; never gameplay.
     this.weather.drawGround(ctx, game, ox, oy, vw, vh, timeMs, fdt, trim);
+    this._drawHazards(ox, oy, timeMs, vw, vh, !trim, calm);
     // Critters move on and objects near you react (bushes sway, tall things fade).
     this.react.update(game, fdt);
     {
@@ -601,7 +602,7 @@ export class Renderer {
         });
         if (sq) ctx.restore();
         if (sp) ctx.restore();
-        if (n.mech || n.mechHealer) drawBossMech(ctx, n, cx, cy, sc, timeMs, ox, oy);   // boss mechanics (bossmech.js)
+        if (n.mech || n.mechHealer) drawBossMech(ctx, n, cx + off.x, cy + off.y, sc, timeMs, ox, oy, pj, !trim, calm);
       } });
     }
     if (game.player.alive) {
@@ -629,7 +630,7 @@ export class Renderer {
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
         if (al?.aura) this._auraBack(cx + off.x, cy + off.y, al, timeMs);
         const sk = game.player.swingProgress();
-        if (sk >= 0 && style === 'magic') this._castRing(cx, cy + 12, sk);
+        if (sk >= 0 && style === 'magic') this._castRing(cx + off.x, cy + 12 + off.y, sk, !trim, calm);
         const offhand = game.equipment.get('shield'), dualWield = game.equipment.isDualWielding();
         const offhandWeapon = !!offhand && !!getItem(offhand).equip?.weaponType;
         drawPlayer(ctx, cx + off.x, cy - 2 + off.y, {
@@ -677,6 +678,8 @@ export class Renderer {
     this.amb.drawAir(ctx, ox, oy, timeMs);   // leaves, petals and birds, under the grade
     this.motes.drawLow(ctx, ox, oy);          // blown sand and sea spray, under it too
     if (pj) applyScreen(ctx, pj);
+    // Age the impacts once before sampling their lights and drawing them.
+    game.cfx.update(game.hitStop > 0 ? fdt * 0.12 : fdt);
     // The light pass (lighting.js) paints the grade and the night's darkness
     // with lamps, fires and spells cut out of it, then the weather in the air;
     // low graphics (and headless runs) keep the old flat fill.
@@ -692,12 +695,11 @@ export class Renderer {
     this.motes.drawGlow(ctx, ox, oy, timeMs);   // sunlit motes and glow-flies, over the night
     if (pj) applyScreen(ctx, pj);
     this._drawParticles(ox, oy);
-    this._drawProjectiles(ox, oy);
+    this._drawProjectiles(ox, oy, calm);
     drawClassAuras(ctx, game, ox, oy, timeMs, pj);   // a Grace ward, stored Wrath, Holy Fire's brands
     if (pj) applyScreen(ctx, pj);
     // Impacts, crit stars, death poofs, coin sparkles, level-up light (combatfx.js).
-    game.cfx.update(game.hitStop > 0 ? fdt * 0.12 : fdt);
-    game.cfx.draw(ctx, ox, oy, pj);
+    game.cfx.draw(ctx, ox, oy, pj, !trim, calm);
     if (pj) applyScreen(ctx, pj);
     this._drawOverheads(ox, oy, visObjs);
     if (pj) applyScreen(ctx, pj);
@@ -911,23 +913,23 @@ export class Renderer {
   }
 
   // A glowing rune circle under the caster's feet while a spell goes off.
-  _castRing(cx, cy, k) {
+  _castRing(cx, cy, k, detail = !this.game.lowFx && !this.game.fxTrim, calm = !motionOK(this.game)) {
     const { ctx, game } = this;
     const a = Math.sin(k * Math.PI);
-    const rr = 8 + k * 10;
-    const accent = !game.lowFx && !game.fxTrim && classAccent(game.jobClass);
+    const rr = 8 + (1 - (1 - k) ** 2) * 10;
+    const accent = detail && classAccent(game.jobClass), col = '#B98AE8';
     ctx.save();
-    if (accent) {
-      ctx.beginPath(); ctx.ellipse(cx, cy, rr + 2.4, rr * 0.42 + 1.3, 0, 0, Math.PI * 2);
-      strokeAccent(ctx, accent, 1.35, 0.63 * a);
-    }
-    ctx.globalAlpha = 0.7 * a;
-    ctx.strokeStyle = '#B98AE8'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.ellipse(cx, cy, rr, rr * 0.42, 0, 0, Math.PI * 2); ctx.stroke();
-    ctx.globalAlpha = 0.35 * a; ctx.lineWidth = 1;
+    if (detail) fxGlow(ctx, cx, cy, rr * 1.48, rr * 0.64, accent?.colour || col, a * 0.55);
+    if (accent) fxRing(ctx, cx, cy, rr + 2.4, rr * 0.42 + 1.3, accent.colour, 1.35, a * 0.63, false);
+    fxRing(ctx, cx, cy, rr, rr * 0.42, col, 2, 0.86 * a, detail);
+    ctx.globalAlpha = 0.47 * a; ctx.lineWidth = 1; ctx.strokeStyle = accent?.light || '#E8D6FF';
     ctx.beginPath(); ctx.ellipse(cx, cy, rr * 0.65, rr * 0.27, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = '#E8D6FF';
-    for (let i = 0; i < 6; i++) { const t = i / 6 * Math.PI * 2 + k * 3; ctx.beginPath(); ctx.arc(cx + Math.cos(t) * rr, cy + Math.sin(t) * rr * 0.42, 1.3, 0, 6.3); ctx.fill(); }
+    const n = detail ? 6 : 3;
+    for (let i = 0; i < n; i++) {
+      const t = i / n * Math.PI * 2 + (calm ? 0 : k * 2.4);
+      ctx.beginPath(); ctx.arc(cx + Math.cos(t) * rr, cy + Math.sin(t) * rr * 0.42, 1.25, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.restore();
   }
 
@@ -1009,7 +1011,7 @@ export class Renderer {
   }
 
   /** A melee cleave, drawn the way its weapon moves (see CLEAVE_STYLE in game.js). */
-  _drawCleave(e, ox, oy, accent) {
+  _drawCleave(e, ox, oy, accent, detail) {
     const { ctx } = this;
     const t = 1 - e.life / e.maxLife, fade = 1 - t;
     const x0 = e.x - ox, y0 = e.y - oy, tx = e.tx - ox, ty = e.ty - oy;
@@ -1059,11 +1061,7 @@ export class Renderer {
       // A blunt weapon: a shockwave ring bursting out from the target, with
       // cracks shooting outwards, catching the foes around it.
       const R = Math.max(28, e.foes.reduce((m, f) => Math.max(m, Math.hypot(f.x - e.tx, f.y - e.ty)), 0) + 12);
-      ctx.globalAlpha = fade * 0.9; ctx.strokeStyle = e.color; ctx.lineWidth = 6 * fade + 1;
-      ctx.beginPath(); ctx.ellipse(tx, ty + 8, R * (0.25 + t), R * (0.25 + t) * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
-      if (accent) ctx.globalCompositeOperation = 'source-over';
-      ctx.globalAlpha = fade * 0.25; ctx.fillStyle = accent?.light || '#ffd9a0';
-      ctx.beginPath(); ctx.ellipse(tx, ty + 8, R * (0.2 + t * 0.8), R * (0.2 + t * 0.8) * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+      fxWave(ctx, tx, ty + 8, R, 0.55, accent?.colour || e.color, t, detail);
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = fade; ctx.strokeStyle = '#fff1c4'; ctx.lineWidth = 2;
       for (let i = 0; i < 6; i++) {
@@ -1172,38 +1170,39 @@ export class Renderer {
     return now < t ? 0 : Math.min(200, n.hurt + (t - clock.blowAt));
   }
 
-  _drawProjectiles(ox, oy) {
+  _drawProjectiles(ox, oy, calm = !motionOK(this.game)) {
     const { ctx, game } = this;
     const pj = this._pj;
     const accents = !game.lowFx && !game.fxTrim;
     for (const e of game.effects) {
       if (e._showAt > this._now) continue;   // waiting for the weapon to land
-      if (pj) applyRow(ctx, pj, this._fxRow(e, oy, pj));   // tilted: at the row it is over
+      const spell = e.type === 'projectile' && isSpellShot(e);
+      if (pj && !spell) applyRow(ctx, pj, this._fxRow(e, oy, pj));   // tilted: at the row it is over
       const accent = accents && e.jobClass ? classAccent(e.jobClass) : null;
-      if (e.type === 'classfx') { drawClassEffect(ctx, e, ox, oy); continue; }   // brands bursting, cinders, a ward forming
+      if (e.type === 'classfx') { drawClassEffect(ctx, e, ox, oy, accents); continue; }
       if (e.type === 'slash' && e.thrust) {
         // A spear's thrust: a bright straight streak driving through the target
         // along the line of the attack, shooting forward as it fades.
-        const t = 1 - e.life / e.maxLife;
+        const t = fxProgress(e), a = fxFade(t);
         ctx.save();
         ctx.translate(e.x - ox, e.y - oy);
         ctx.rotate(e.ang);
         ctx.globalCompositeOperation = 'lighter';
         ctx.lineCap = 'round';
         ctx.strokeStyle = e.color;
-        const head = -10 + t * 26, tail = head - 22 * (1 - t * 0.6);
+        const head = -10 + (1 - (1 - t) ** 2) * 26, tail = head - 22 * (1 - t * 0.6);
         if (accent) {
           // Daylit ground stays visible through the class paint, while the
           // additive core on top still reads as the hit or critical glow.
           ctx.globalCompositeOperation = 'source-over';
           ctx.beginPath(); ctx.moveTo(tail + 6, 0); ctx.lineTo(head, 0);
-          strokeAccent(ctx, accent, 7 - t * 4, (1 - t) * 0.35);
+          strokeAccent(ctx, accent, 7 - t * 4, a * 0.35);
           ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = e.color;
         }
-        ctx.globalAlpha = (1 - t) * 0.9; ctx.lineWidth = 3 - t * 1.6;
+        ctx.globalAlpha = a * 0.9; ctx.lineWidth = 3 - t * 1.6;
         ctx.beginPath(); ctx.moveTo(tail, 0); ctx.lineTo(head, 0); ctx.stroke();
         if (!accent) {
-          ctx.globalAlpha = (1 - t) * 0.35; ctx.lineWidth = 7 - t * 4;
+          ctx.globalAlpha = a * 0.35; ctx.lineWidth = 7 - t * 4;
           ctx.beginPath(); ctx.moveTo(tail + 6, 0); ctx.lineTo(head, 0); ctx.stroke();
         }
         ctx.restore();
@@ -1236,7 +1235,7 @@ export class Renderer {
         ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
         continue;
       }
-      if (e.type === 'cleave') { this._drawCleave(e, ox, oy, accent); continue; }
+      if (e.type === 'cleave') { this._drawCleave(e, ox, oy, accent, accents); continue; }
       if (e.type === 'swipe') {
         // Brawler crit: three claw-like swipe marks raked across the monster,
         // drawn in quickly one after another, then fading.
@@ -1266,16 +1265,7 @@ export class Renderer {
         continue;
       }
       if (e.type === 'blast') {
-        // A boss area attack landing: an expanding shock ring.
-        const t = 1 - e.life / e.maxLife;
-        ctx.save();
-        ctx.globalAlpha = (1 - t) * 0.85;
-        ctx.strokeStyle = '#ff7a3a'; ctx.lineWidth = 6 * (1 - t) + 1;
-        ctx.beginPath(); ctx.arc(e.x - ox, e.y - oy, e.r * (0.4 + t * 0.8), 0, Math.PI * 2); ctx.stroke();
-        ctx.globalAlpha = (1 - t) * 0.3;
-        ctx.fillStyle = '#ffb27a';
-        ctx.beginPath(); ctx.arc(e.x - ox, e.y - oy, e.r * (0.3 + t * 0.6), 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
+        if (accents && e.primary !== false) drawBossBlastSparks(ctx, e, ox, oy, pj, calm);
         continue;
       }
       if (e.type === 'lash') {
@@ -1350,7 +1340,7 @@ export class Renderer {
         continue;
       }
       if (e.type !== 'projectile') continue;
-      const t = 1 - e.life / e.maxLife;
+      const t = fxProgress(e);
       const x = e.x + (e.ex - e.x) * t - ox;
       const y = e.y + (e.ey - e.y) * t - oy;
       if (e.kind === 'arrow') {
@@ -1360,8 +1350,8 @@ export class Renderer {
         // white streak behind it.
         const arc = e.arc || 0;
         const at = (tt) => ({ x: e.x + (e.ex - e.x) * tt - ox, y: e.y + (e.ey - e.y) * tt - oy - Math.sin(tt * Math.PI) * arc });
-        const pt = at(t), nx = at(Math.min(1, t + 0.04));
-        const ang = Math.atan2(nx.y - pt.y, nx.x - pt.x);
+        const pt = at(t);
+        const ang = Math.atan2(e.ey - e.y - Math.PI * Math.cos(t * Math.PI) * arc, e.ex - e.x);
         // streak
         ctx.save();
         ctx.lineCap = 'round';
@@ -1459,28 +1449,15 @@ export class Renderer {
       // A Zealot's bolt waits in the censer until it's flung, then flies from it (censerSwing.js).
       const cz = censerBolt(e, t, game, this._now, ox, oy);
       if (cz && cz.t < 0) continue;
+      const shot = cz?.e ?? e, phase = cz?.t ?? t;
+      const pose = spellPose(shot, phase, this._spellPose || (this._spellPose = {}));
+      if (pj) applyRow(ctx, pj, pose.row - oy);
       // A Priest's or Zealot's own element: a beam, a falling blade, a ground circle... (classfx.js).
-      if (drawClassShot(ctx, cz ? cz.e : e, cz ? cz.t : t, ox, oy, game, accent)) continue;
-      // Magic bolt: a glowing orb in its element's colour with a fading trail of
-      // embers behind it; a crit's is half as big again (and brighter, game.js).
-      const k = e.crit ? 1.5 : 1;
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.3;
-      for (let i = 1; i <= 3; i++) {
-        const tt = Math.max(0, t - i * 0.1);
-        const tx = e.x + (e.ex - e.x) * tt - ox, ty = e.y + (e.ey - e.y) * tt - oy;
-        ctx.fillStyle = e.color; ctx.beginPath(); ctx.arc(tx, ty, (2.6 - i * 0.6) * k, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = e.color;
-      ctx.beginPath(); ctx.arc(x, y, 3.6 * k, 0, Math.PI * 2); ctx.fill();
-      ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(x, y, 6 * k, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = 'source-over';
+      if (drawClassShot(ctx, shot, phase, ox, oy, game, accent, pose)) continue;
+      drawSpellBolt(ctx, shot, pose, phase, ox, oy, accents);
       if (accent) {
-        ctx.save();
-        ctx.beginPath(); ctx.arc(x, y, 6.8 * k, 0, Math.PI * 2);
-        strokeAccent(ctx, accent, 1.4, 0.56);
-        ctx.restore();
+        const r = shot.crit ? 9.3 : 6.2;
+        fxRing(ctx, pose.x - ox, pose.y - oy, r, r * 0.9, accent.colour, 1.35, 0.56, false);
       }
     }
   }
@@ -1888,38 +1865,16 @@ export class Renderer {
     if (bank(x + 1, y)) ctx.fillRect(sx + TILE - 1, sy, 2, TILE + 1);
   }
 
-  /** Boss area attacks: red tiles with a fill that grows toward the moment it lands. */
-  _drawHazards(ox, oy, timeMs) {
+  /** Boss warnings and the part of each explosion that travels along the floor. */
+  _drawHazards(ox, oy, timeMs, vw, vh, detail, calm) {
     const { ctx, game } = this;
-    if (!game.hazards || !game.hazards.length) return;
-    const now = performance.now();
-    for (const h of game.hazards) {
-      const k = Math.max(0, Math.min(1, (now - h.start) / h.dur));
-      const x = (h.cx - h.r) * TILE - ox, y = (h.cy - h.r) * TILE - oy, w = (h.r * 2 + 1) * TILE;
-      // A smooth throb that quickens as the blow nears, fading in as it's marked (creatureanim.js).
-      const pulse = hazardPulse(now - h.start, h.dur);
-      ctx.save();
-      ctx.globalAlpha = hazardIn(now - h.start);
-      ctx.fillStyle = `rgba(239,71,111,${(0.16 + pulse * 0.1).toFixed(3)})`;
-      ctx.fillRect(x, y, w, w);
-      // The inner square fills outward from the centre: when it reaches the edge, it hits.
-      const iw = w * k;
-      ctx.fillStyle = `rgba(192,57,43,${(0.22 + k * 0.25).toFixed(3)})`;
-      ctx.fillRect(x + (w - iw) / 2, y + (w - iw) / 2, iw, iw);
-      // A light solid edge and dark dashes stay visible even without the red.
-      ctx.strokeStyle = '#FFF8E9'; ctx.lineWidth = 3.5;
-      ctx.strokeRect(x + 2, y + 2, w - 4, w - 4);
-      ctx.setLineDash([6, 4]);
-      ctx.lineDashOffset = -timeMs * 0.03;
-      ctx.strokeStyle = '#22304A'; ctx.lineWidth = 2;
-      ctx.strokeRect(x + 2, y + 2, w - 4, w - 4);
-      ctx.setLineDash([]);
-      if (h.safe) drawSafeZone(ctx, h, ox, oy, timeMs, TILE);
-      // Don't stamp danger over the safe area's label.
-      const centreSafe = h.safe && Math.hypot(h.cx - h.safe.cx, h.cy - h.safe.cy) <= h.safe.r + 0.5;
-      if (h.sign !== false && !centreSafe) drawDangerMark(ctx, x + w / 2, y + w / 2, 8 + pulse * 1.5);
-      ctx.restore();
+    for (const e of game.effects) {
+      if (e.type !== 'blast' || e._showAt > timeMs) continue;
+      const r = e.r * 1.2 + 6, x = e.x - ox, y = e.y - oy;
+      if (x < -r || x > vw + r || y < -r || y > vh + r) continue;
+      drawBossShockwave(ctx, e, ox, oy, detail && e.primary !== false);
     }
+    for (const h of game.hazards || []) drawBossTelegraph(ctx, h, ox, oy, timeMs, detail, calm);
   }
 
   /** The locked-on ring on the ground under the foe you're fighting. */

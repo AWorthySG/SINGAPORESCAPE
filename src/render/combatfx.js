@@ -5,6 +5,7 @@ import { spawnElement } from './elementfx.js';
 import { fxImage } from './fxart.js';
 import { applyRow } from './projection.js';
 import { drawScreenPic } from './ambience.js';
+import { fxFade, fxGlow, fxRing } from './fxdepth.js';
 
 // Combat "feel" effects: an impact for each kind of weapon (slash arcs, blunt
 // rings and dust, arrow punctures, bullet tracers, elemental spell bursts, a
@@ -145,7 +146,6 @@ export class CombatFx {
     this.pulseK = 0;
     this.pulseCol = 'big';
     this._vig = {};         // baked edge-glow pictures, one per colour
-    this._glow = {};        // baked soft glows, one per colour
     this._sp = [];          // the slots the current spawner has handed out
   }
 
@@ -224,7 +224,7 @@ export class CombatFx {
       return;
     }
     if (name === 'bolt') {
-      // Little zig-zag bolts flicking out from the hit (the shape is re-rolled as they flicker).
+      // Little zig-zag bolts flicking out from the hit, each on its own phase.
       for (let i = 0; i < n; i++) {
         const s = this._take(BOLT, x, y, (p.life || 170) * (0.7 + rnd() * 0.6), p.col);
         s.rot = (i / n) * Math.PI * 2 + rnd() * 0.8; s.size = (p.size || 14) * (0.7 + rnd() * 0.5); s.a = rnd() * 1000;
@@ -273,6 +273,9 @@ export class CombatFx {
     const crit = !!opts.crit, accent = classAccent(opts.jobClass)?.colour;
     const dx = opts.from ? x - opts.from.x : 1, dy = opts.from ? y - opts.from.y : 0;
     const ang = Math.atan2(dy, dx);
+    if (!this.low && (kind === 'blade' || kind === 'blunt' || kind === 'whip')) {
+      this.glow(x, y, crit ? 24 : 17, 180, accent ?? (crit ? GOLD : '#ffe3a5'));
+    }
     switch (kind) {
       case 'blade': {
         // A bold sticker crescent (white with a coloured edge) cutting across.
@@ -445,44 +448,66 @@ export class CombatFx {
     let i = 0;
     while (i < this.live) {
       const s = this.slots[i];
-      if (s.delay > 0) { s.delay -= dt; if (s.delay > 0) { i++; continue; } }
-      s.life -= dt;
+      let step = dt;
+      if (s.delay > 0) {
+        s.delay -= dt;
+        if (s.delay > 0) { i++; continue; }
+        step = -s.delay;
+        s.delay = 0;
+      }
+      s.life -= step;
       if (s.life <= 0) {
         // Swap the last live slot into this place.
         const last = this.slots[--this.live];
         this.slots[this.live] = s; this.slots[i] = last;
         continue;
       }
-      if (s.drag !== 1) { const d = s.drag ** (dt / 16); s.vx *= d; s.vy *= d; }
-      s.vy += s.g * dt;
-      s.x += s.vx * dt; s.y += s.vy * dt;
-      s.rot += s.spin * dt;
+      if (s.drag !== 1) { const d = s.drag ** (step / 16); s.vx *= d; s.vy *= d; }
+      s.vy += s.g * step;
+      s.x += s.vx * step; s.y += s.vy * step;
+      s.rot += s.spin * step;
       i++;
     }
   }
 
   clear() { this.live = 0; this.pulseT = 0; }
 
+  // The same pool that draws the impact lights the floor at night. Delayed
+  // or held impacts give off no light until the blow is visible.
+  lights(visit) {
+    let drawn = 0;
+    for (let i = 0; i < this.live && drawn < 6; i++) {
+      const s = this.slots[i];
+      if (s.k !== GLOW || s.fresh || s.delay > 0 || s.life <= 0) continue;
+      const age = 1 - s.life / s.max;
+      if (visit(s.x, s.y + 12, s.size * (1.1 + age * 0.65), s.col, fxFade(age) * 0.76)) drawn++;
+    }
+  }
+
   // ---------------- Drawing ----------------
-  draw(ctx, ox, oy, pj = null) {
+  draw(ctx, ox, oy, pj = null, detail = !this.low, calm = false) {
     if (!this.live) return;
     for (let i = 0; i < this.live; i++) {
       const s = this.slots[i];
-      if (s.delay > 0) continue;
+      if (s.delay > 0 || s.fresh) continue;
       if (pj) applyRow(ctx, pj, s.y - oy);   // the depth view: at its row (the caller puts it back)
       const t = 1 - s.life / s.max, fade = 1 - t;
       const x = s.x - ox, y = s.y - oy;
       ctx.globalCompositeOperation = s.add ? 'lighter' : 'source-over';
       switch (s.k) {
         case RING: {
-          const r = s.a + (s.b - s.a) * (1 - (1 - t) * (1 - t));
-          ctx.globalAlpha = fade; ctx.strokeStyle = s.col; ctx.lineWidth = Math.max(0.5, s.size * fade);
-          ctx.beginPath(); ctx.ellipse(x, y, r, r * s.sq, 0, 0, 6.2832); ctx.stroke();
+          const r = s.a + (s.b - s.a) * (1 - fade * fade);
+          ctx.globalAlpha = 1;
+          fxRing(ctx, x, y, r, r * s.sq, s.col, Math.max(0.5, s.size * fade), fxFade(t), detail);
           break;
         }
         case SPARK: {
           ctx.globalAlpha = fade; ctx.strokeStyle = s.col; ctx.lineWidth = s.size; ctx.lineCap = 'round';
           ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - s.vx * 28, y - s.vy * 28); ctx.stroke();
+          if (detail && s.size > 1.35) {
+            ctx.globalAlpha = fade * 0.65; ctx.strokeStyle = '#fff7db'; ctx.lineWidth = s.size * 0.45;
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - s.vx * 11, y - s.vy * 11); ctx.stroke();
+          }
           break;
         }
         case DOT: {
@@ -495,7 +520,12 @@ export class CombatFx {
           ctx.save(); ctx.translate(x, y); ctx.rotate(s.rot);
           ctx.fillStyle = s.col; ctx.strokeStyle = INK; ctx.lineWidth = 1;
           ctx.beginPath(); ctx.moveTo(-s.size, -s.size * 0.6); ctx.lineTo(s.size, -s.size); ctx.lineTo(s.size * 0.7, s.size * 0.8); ctx.lineTo(-s.size * 0.8, s.size * 0.6); ctx.closePath();
-          ctx.fill(); ctx.stroke(); ctx.restore();
+          ctx.fill(); ctx.stroke();
+          if (detail) {
+            ctx.globalAlpha *= 0.6; ctx.strokeStyle = '#fff8e9'; ctx.lineWidth = 0.8;
+            ctx.beginPath(); ctx.moveTo(-s.size * 0.7, -s.size * 0.5); ctx.lineTo(s.size * 0.63, -s.size * 0.78); ctx.stroke();
+          }
+          ctx.restore();
           break;
         }
         case SWIRL: {
@@ -517,13 +547,17 @@ export class CombatFx {
         }
         case ARC: {
           // A sticker crescent: white body, coloured edge, navy outline, sweeping round.
-          ctx.save(); ctx.translate(x, y); ctx.rotate(s.rot + s.spin * s.max * (t - 0.5));
+          ctx.save(); ctx.translate(x, y); ctx.rotate(s.rot);
           const r = s.size * (0.8 + t * 0.35);
-          ctx.globalAlpha = fade;
+          ctx.globalAlpha = fxFade(t);
           ctx.lineCap = 'round';
           ctx.strokeStyle = INK; ctx.lineWidth = 7 * fade + 1.5; ctx.beginPath(); ctx.arc(0, 0, r, -0.9, 0.9); ctx.stroke();
           ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 5 * fade + 0.8; ctx.beginPath(); ctx.arc(0, 0, r, -0.9, 0.9); ctx.stroke();
           ctx.strokeStyle = s.col; ctx.lineWidth = 2 * fade + 0.4; ctx.beginPath(); ctx.arc(0, 0, r + 1.5, -0.6, 0.6); ctx.stroke();
+          if (detail) {
+            ctx.strokeStyle = '#fff3c9'; ctx.lineWidth = 0.8 + 1.4 * fade;
+            ctx.beginPath(); ctx.arc(0, 0, r - 1.4, -0.6, 0.32); ctx.stroke();
+          }
           ctx.restore();
           break;
         }
@@ -557,12 +591,11 @@ export class CombatFx {
           break;
         }
         case GLOW: {
-          const img = this._glowImg(s.col);
-          if (!img) break;
-          const r = s.size * (0.7 + t * 0.5);
-          ctx.globalCompositeOperation = 'lighter';
-          ctx.globalAlpha = fade * 0.8;
-          ctx.drawImage(img, x - r, y - r, r * 2, r * 2);
+          if (detail) {
+            const r = s.size * (0.72 + t * 0.5);
+            ctx.globalAlpha = 1;
+            fxGlow(ctx, x, y, r, r * 0.8, s.col, fxFade(t) * (calm ? 0.45 : 0.74));
+          }
           break;
         }
         case RAY: {
@@ -587,13 +620,14 @@ export class CombatFx {
           break;
         }
         case BOLT: {
-          // A zig-zag crackle out from the hit, its kinks re-rolled every frame it flickers.
+          // The bends travel through the bolt and settle instead of jumping each frame.
           const len = s.size * (0.6 + t * 0.6), c = Math.cos(s.rot), sn = Math.sin(s.rot);
           // Sticker-drawn: a navy edge, the bolt's colour, a white-hot core.
           ctx.globalAlpha = Math.min(1, fade * 1.6); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
           ctx.beginPath(); ctx.moveTo(x, y);
           for (let j = 1; j <= 3; j++) {
-            const d = len * j / 3, k = j < 3 ? (rnd() - 0.5) * len * 0.5 : 0;
+            const d = len * j / 3;
+            const k = j < 3 ? Math.sin(s.a + j * 3.8 + (calm ? 0 : t * 5)) * len * 0.24 : 0;
             ctx.lineTo(x + c * d - sn * k, y + sn * d + c * k);
           }
           ctx.strokeStyle = INK; ctx.lineWidth = 4.2; ctx.stroke();
@@ -675,16 +709,6 @@ export class CombatFx {
     if (typeof document === 'undefined') return null;
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     return c;
-  }
-  _glowImg(col) {
-    if (this._glow[col] !== undefined) return this._glow[col];
-    const c = this._canvas(64, 64);
-    if (c) {
-      const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-      gr.addColorStop(0, col + 'cc'); gr.addColorStop(0.45, col + '55'); gr.addColorStop(1, col + '00');
-      g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
-    }
-    return (this._glow[col] = c);
   }
   _vigImg(kind) {
     if (this._vig[kind] !== undefined) return this._vig[kind];

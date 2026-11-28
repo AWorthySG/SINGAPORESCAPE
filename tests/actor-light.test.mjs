@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { actorLight, beginHeroLight, finishHeroLight, litActor } from '../src/render/actorlight.js';
+import { actorLight, beginHeroLight, finishHeroLight, heroCanvasPoint, litActor } from '../src/render/actorlight.js';
 import { bakeBudget } from '../src/render/governor.js';
 
 test('character light follows the hour and softens under clouds', () => {
@@ -21,7 +21,8 @@ test('character lighting preserves the sprite footprint and reuses bakes', () =>
       const g = {
         calls: [],
         drawImage(...args) { this.calls.push(['picture', args]); },
-        setTransform() {},
+        setTransform(a, b, c, d, e, f) { this.matrix = { a, b, c, d, e, f }; },
+        getTransform() { return this.matrix; },
         clearRect(...args) { this.calls.push(['clear', args]); },
         createLinearGradient(...args) {
           this.calls.push(['gradient', args]);
@@ -51,10 +52,13 @@ test('character lighting preserves the sprite footprint and reuses bakes', () =>
     assert.ok(left.getContext().calls[1][1][0] > ray[1][0], 'the mirrored picture has the key light on the opposite side');
 
     const blits = [];
-    const screen = { drawImage: (...args) => blits.push(args) };
+    const screenMatrix = { a: -1.6, b: 0, c: 0, d: 1.6, e: 475, f: 210 };
+    const screen = { drawImage: (...args) => blits.push(args), getTransform: () => screenMatrix };
     assert.equal(beginHeroLight(null, screen), null);
     const layer = beginHeroLight('dawn', screen);
     layer.drawImage(art, 8, -22);
+    const release = heroCanvasPoint(layer, 12, -6, {});
+    assert.deepEqual(release, heroCanvasPoint(screen, 12, -6, {}), 'the Zealot casts from the same point through the light layer');
     finishHeroLight(screen, 'dawn', 1);
     const [clear, , , heroMask] = layer.calls;
     assert.deepEqual(heroMask, ['source-atop', clear[1]], 'the light reaches equipment outside the body');
@@ -62,6 +66,7 @@ test('character lighting preserves the sprite footprint and reuses bakes', () =>
     assert.deepEqual(blits[0].slice(1), clear[1]);
     assert.equal(layer.globalCompositeOperation, 'source-over');
     assert.equal(beginHeroLight('day', screen), layer, 'the player layer is reused every frame');
+    finishHeroLight(screen, 'day', 1);
   } finally {
     bakeBudget.clock = clock;
     bakeBudget.frame();

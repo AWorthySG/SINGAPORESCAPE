@@ -18,27 +18,32 @@
 // No religious symbols anywhere: beams, blades, circles, flames and sparks.
 import { ELEMENTS } from '../data/magic.js';
 import { applyRow } from './projection.js';
+import { motionOK } from './juice.js';
+import { fxFade, fxGlow, fxOrb, fxRing, fxWave, spellPose } from './fxdepth.js';
+import { easeOut, smooth } from './motionkit.js';
 
 const INK = '#22304A';
 const TAU = Math.PI * 2;
 const SHOTS = new Set(['radiance', 'grace', 'judgement', 'sanctuary', 'holyfire', 'wrath', 'ash', 'bloodprice']);
+const _pose = {};
 
 /** Draw a spell bolt of one of the eight elements (`e` a projectile effect,
  *  `t` 0..1 through its flight). A class accent colours the glow or motes
  *  around the bolt. False for any other bolt (drawn as before). */
-export function drawClassShot(ctx, e, t, ox, oy, game, accent = null) {
+export function drawClassShot(ctx, e, t, ox, oy, game, accent = null, pose = null) {
   if (!e.el || !SHOTS.has(e.el)) return false;
-  const low = !!game?.lowFx, calm = !!game?.reduceMotion;
+  const low = !!(game?.lowFx || game?.fxTrim), calm = game && !motionOK(game);
   const sx = e.x - ox, sy = e.y - oy, tx = e.ex - ox, ty = e.ey - oy;
-  const x = sx + (tx - sx) * t, y = sy + (ty - sy) * t;
+  const at = pose || spellPose(e, t, _pose);
+  const x = at.x - ox, y = at.y - oy;
   const k = e.crit ? 1.4 : 1;
   ctx.save();
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   switch (e.el) {
     case 'radiance': {
       // A straight beam: it reaches the foe in the first third of the flight, then fades.
-      const reach = Math.min(1, t / 0.3), a = t < 0.3 ? 1 : 1 - (t - 0.3) / 0.7;
-      const hx = sx + (tx - sx) * reach, hy = sy + (ty - sy) * reach;
+      const a = fxFade((t - 0.3) / 0.7), hx = x, hy = y;
+      if (!low) fxGlow(ctx, hx, hy, 17 * k, 12 * k, e.color || '#ffd860', 0.55 * a);
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.35 * a; ctx.strokeStyle = accent?.colour || '#ffd860'; ctx.lineWidth = 8 * k;
       ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(hx, hy); ctx.stroke();
@@ -63,24 +68,19 @@ export function drawClassShot(ctx, e, t, ox, oy, game, accent = null) {
           ctx.restore();
         }
       }
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.35; ctx.fillStyle = '#ffd98a';
-      ctx.beginPath(); ctx.arc(x, y, 8 * k, 0, TAU); ctx.fill();
-      ctx.globalAlpha = 1; ctx.fillStyle = e.color;
-      ctx.beginPath(); ctx.arc(x, y, 4.2 * k, 0, TAU); ctx.fill();
-      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x - 1.2, y - 1.2, 1.4 * k, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 1;
+      fxOrb(ctx, x, y, 4.6 * k, e.color || '#ffd98a', !low);
       break;
     }
     case 'judgement': {
       // A plain blade of light (no guard) drops point first onto the foe; a ring
       // of light spreads on the ground as it strikes.
-      const fall = Math.min(1, t / 0.65), bx = tx, by = ty - 78 * (1 - fall * fall);
-      const a = t < 0.75 ? 1 : 1 - (t - 0.75) / 0.25;
+      const bx = x, by = y, a = fxFade((t - 0.75) / 0.25);
       if (t > 0.55) {
         const g = (t - 0.55) / 0.45;
-        ctx.globalAlpha = (1 - g) * 0.9; ctx.strokeStyle = '#cfe0ff'; ctx.lineWidth = 2.4;
-        ctx.beginPath(); ctx.ellipse(tx, ty + 9, 6 + 20 * g * k, (6 + 20 * g * k) * 0.38, 0, 0, TAU); ctx.stroke();
+        fxWave(ctx, tx, ty + 9, 24 * k, 0.38, '#cfe0ff', g, !low);
       }
+      if (!low) fxGlow(ctx, bx, by - 12 * k, 10 * k, 31 * k, '#a5c9ff', 0.55 * a);
       ctx.globalAlpha = 0.3 * a; ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = accent?.light || '#d8e8ff';
       ctx.beginPath(); ctx.ellipse(bx, by - 12 * k, 6 * k, 20 * k, 0, 0, TAU); ctx.fill();
       ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = a;
@@ -96,18 +96,20 @@ export function drawClassShot(ctx, e, t, ox, oy, game, accent = null) {
     }
     case 'sanctuary': {
       // A glowing circle spreading on the ground round the foe, motes rising off it.
-      const r = (8 + 52 * Math.min(1, t / 0.7)) * k, a = t < 0.6 ? 1 : 1 - (t - 0.6) / 0.4, gy = ty + 9;
+      const r = (8 + 52 * easeOut(Math.min(1, t / 0.7))) * k, a = fxFade((t - 0.6) / 0.4), gy = y;
+      if (!low) fxGlow(ctx, tx, gy, r, r * 0.55, '#ffda74', a * 0.6);
       ctx.globalAlpha = 0.22 * a; ctx.fillStyle = accent?.light || '#fff3c0';
       ctx.beginPath(); ctx.ellipse(tx, gy, r, r * 0.4, 0, 0, TAU); ctx.fill();
-      ctx.globalAlpha = 0.85 * a; ctx.strokeStyle = '#f0d070'; ctx.lineWidth = 2.6;
-      ctx.beginPath(); ctx.ellipse(tx, gy, r, r * 0.4, 0, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = 1;
+      fxRing(ctx, tx, gy, r, r * 0.4, '#f0d070', 2.6, a * 0.85, !low);
+      ctx.globalAlpha = a;
       ctx.strokeStyle = '#fffbe6'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.ellipse(tx, gy, r * 0.62, r * 0.25, 0, 0, TAU); ctx.stroke();
       if (!low) {
         ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = '#fff6c8';
         for (let i = 0; i < 7; i++) {
           const ang = i * 0.9, rise = (calm ? 0.5 : (t * 1.6 + i * 0.37) % 1);
-          ctx.globalAlpha = a * (1 - rise);
+          ctx.globalAlpha = a * Math.sin(Math.PI * rise) * (1 - rise);
           ctx.beginPath(); ctx.arc(tx + Math.cos(ang) * r * 0.8, gy + Math.sin(ang) * r * 0.32 - rise * 26, 1.6, 0, TAU); ctx.fill();
         }
       }
@@ -118,8 +120,9 @@ export function drawClassShot(ctx, e, t, ox, oy, game, accent = null) {
     }
     case 'holyfire': {
       // A white-gold flame flying point first, trailing embers.
-      const ang = Math.atan2(ty - sy, tx - sx), fl = calm ? 1 : 0.85 + 0.15 * Math.sin(t * 40);
+      const ang = Math.atan2(ty - sy, tx - sx), fl = calm ? 1 : 0.92 + 0.08 * Math.sin(t * 22);
       if (!low) {
+        fxGlow(ctx, x, y, 15 * k, 12 * k, '#ffbd51', 0.57);
         ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = accent?.colour || '#ffc860';
         for (let i = 1; i <= 3; i++) {
           const tt = Math.max(0, t - i * 0.08);
@@ -141,8 +144,9 @@ export function drawClassShot(ctx, e, t, ox, oy, game, accent = null) {
       ctx.globalAlpha = 0.3 + p * 0.3; ctx.fillStyle = accent?.colour || '#ff6a3a';
       ctx.beginPath(); ctx.arc(x, y, 8 * s, 0, TAU); ctx.fill();
       ctx.globalAlpha = 0.9; ctx.strokeStyle = '#ffb060'; ctx.lineWidth = 1.6;
-      const ph = calm ? 0.5 : (t * 3) % 1;
-      ctx.beginPath(); ctx.arc(x, y, (5 + 7 * ph) * s, 0, TAU); ctx.stroke();
+      const ph = calm ? 0.5 : (t * 2) % 1;
+      ctx.globalAlpha *= Math.sin(Math.PI * ph);
+      ctx.beginPath(); ctx.arc(x, y, (5 + 7 * easeOut(ph)) * s, 0, TAU); ctx.stroke();
       ctx.globalAlpha = 1; ctx.fillStyle = e.color;
       ctx.beginPath(); ctx.arc(x, y, 3.8 * s, 0, TAU); ctx.fill();
       ctx.fillStyle = '#ffe0a0'; ctx.beginPath(); ctx.arc(x, y, 1.8 * s, 0, TAU); ctx.fill();
@@ -201,18 +205,19 @@ export function drawClassShot(ctx, e, t, ox, oy, game, accent = null) {
 }
 
 /** A one-off effect from the Light or Flame path (a game.effects entry of type 'classfx'). */
-export function drawClassEffect(ctx, e, ox, oy) {
-  const t = 1 - e.life / e.maxLife, x = e.x - ox, y = e.y - oy, a = Math.max(0, 1 - t);
+export function drawClassEffect(ctx, e, ox, oy, detail = !e.low) {
+  const t = 1 - e.life / e.maxLife, x = e.x - ox, y = e.y - oy, a = fxFade(t);
   ctx.save();
   ctx.lineCap = 'round';
   if (e.kind === 'flare') {
     // The brands bursting: a white-gold flare, rays and a ring.
+    if (detail) fxGlow(ctx, x, y, 21 + 21 * easeOut(t), 16 + 17 * easeOut(t), '#ffba56', a * 0.75);
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.6 * a; ctx.fillStyle = '#ffe9a0';
     ctx.beginPath(); ctx.arc(x, y, 10 + 18 * t, 0, TAU); ctx.fill();
     ctx.globalAlpha = a; ctx.strokeStyle = '#fff6d0'; ctx.lineWidth = 2;
     for (let i = 0; i < 10; i++) {
-      const ang = i * TAU / 10, r0 = 8 + 10 * t, r1 = r0 + 12 * (1 - t * 0.5);
+      const ang = i * TAU / 10, r0 = 8 + 10 * easeOut(t), r1 = r0 + 12 * (1 - t * 0.5);
       ctx.beginPath(); ctx.moveTo(x + Math.cos(ang) * r0, y + Math.sin(ang) * r0); ctx.lineTo(x + Math.cos(ang) * r1, y + Math.sin(ang) * r1); ctx.stroke();
     }
     ctx.strokeStyle = '#ffb040'; ctx.lineWidth = 2.6;
@@ -234,7 +239,7 @@ export function drawClassEffect(ctx, e, ox, oy) {
     // up out of you to your hand (low graphics: the ring alone).
     ctx.globalAlpha = 0.75 * a; ctx.strokeStyle = '#c8142e'; ctx.lineWidth = 2.2;
     ctx.beginPath(); ctx.ellipse(x, y + 4, 22 - 10 * t, 9 - 4 * t, 0, 0, TAU); ctx.stroke();
-    if (!e.low) {
+    if (detail && !e.low) {
       ctx.fillStyle = '#b0102a'; ctx.strokeStyle = INK; ctx.lineWidth = 0.5;
       for (let i = 0; i < 6; i++) {
         const ang = i * 1.05 + 0.4, r = 16 * (1 - t), rise = 18 * t + (e.calm ? 0 : Math.sin(i * 1.7) * 2);
@@ -244,8 +249,8 @@ export function drawClassEffect(ctx, e, ox, oy) {
     }
   } else if (e.kind === 'ward') {
     // A ward forming: a soft golden ring closing in on you, with a glint.
-    ctx.globalAlpha = 0.8 * a; ctx.strokeStyle = '#ffd98a'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.ellipse(x, y + 2, 30 - 10 * t, 34 - 12 * t, 0, 0, TAU); ctx.stroke();
+    fxRing(ctx, x, y + 2, 30 - 10 * smooth(t), 34 - 12 * smooth(t), '#ffd98a', 2, a * 0.8, detail);
+    ctx.globalAlpha = a;
     ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = '#fffbe0';
     ctx.beginPath(); ctx.arc(x + 10, y - 16 + 4 * t, 2.4 * a, 0, TAU); ctx.fill();
   }
@@ -256,7 +261,7 @@ export function drawClassEffect(ctx, e, ox, oy) {
 export function drawClassAuras(ctx, game, ox, oy, timeMs = 0, pj = null) {
   const p = game.player;
   if (!p?.alive) return;
-  const calm = !!game.reduceMotion;
+  const calm = !motionOK(game);
   const c = p.renderCenter(), x = c.x - ox, y = c.y - oy;
   if (pj) applyRow(ctx, pj, y + 12);   // the depth view: at your row (the caller puts it back)
   // Grace's ward: a soft golden bubble, fuller the more it holds.
