@@ -72,6 +72,7 @@ export class Teleports {
       ? `You begin to teleport to ${g.world.townName || 'Kampong Glam'}. Stand still for ${Teleports.secs(CAST_TICKS)}s.`
       : `You begin to teleport to your gravestone. Stand still for ${Teleports.secs(CAST_TICKS)}s.`, 'system');
     g.spawnSparkle?.(p, kind === 'town' ? '#8fd6ff' : '#c9b6ff', 8);
+    g.bus.emit('sfx', 'travel:cast');
     g.bus.emit('teleport');
     return true;
   }
@@ -80,6 +81,7 @@ export class Teleports {
     if (!this.cast) return;
     this.cast = null;
     if (text) this.game.msg(text, 'system');
+    this.game.bus.emit('sfx', 'travel:fizzle');
     this.game.bus.emit('teleport');
   }
 
@@ -101,7 +103,7 @@ export class Teleports {
       return;
     }
     this.cast = null;
-    this.finish(c.kind);
+    if (!this.finish(c.kind)) g.bus.emit('sfx', 'travel:fizzle');
     g.bus.emit('teleport');
   }
 

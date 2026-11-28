@@ -11,3 +11,10 @@ export function impactProfile(def, id) {
   if (race === 'construct' && (METAL_CONSTRUCTS.has(def.family) || METAL_CONSTRUCTS.has(id))) return 'metal';
   return race;
 }
+
+/** Landed critical hits retain the same body underneath their accent. */
+export function impactCue(def, id, critical = false) {
+  const kind = critical ? 'crit' : 'hit';
+  const profile = impactProfile(def, id);
+  return profile ? `${kind}:${profile}` : kind;
+}

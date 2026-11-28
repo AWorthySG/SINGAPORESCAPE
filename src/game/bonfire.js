@@ -75,6 +75,7 @@ export function burnAll(game, kinds, limit = Infinity) {
   } finally { if (held) game.inventory.release(); }
   if (!burned) return 0;
   game.skills.addXp('firemaking', xp);
+  game.bus.emit('sfx', 'make:firemaking');
   const size = fireLogs(here);
   game.msg(burned > 1
     ? `You pile ${burned} logs onto the fire${roars ? ` (it roars up ${roars} time${roars > 1 ? 's' : ''})` : ''}: a ${size}-log bonfire, warming everyone within ${warmthRadius(here)} tiles (+${warmthPct(here)}% damage).`

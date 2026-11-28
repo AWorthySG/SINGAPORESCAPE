@@ -101,7 +101,7 @@ export function teleportPlayer(game, x, y, text) {
   p.x = p.tx = tile.x; p.y = p.ty = tile.y; p.progress = 0; p.moving = false; p.path = [];
   game.spawnSparkle?.(p, '#8fd6ff', 14);
   if (text) game.msg(text, 'system');
-  game.bus.emit('sfx', 'travel');
+  game.bus.emit('sfx', 'travel:teleport');
   game.updateRegion?.();
   game.ui?.closeModal?.();
   return true;

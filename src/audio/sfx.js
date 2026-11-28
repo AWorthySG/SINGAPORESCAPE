@@ -3,6 +3,8 @@
 // headless/no-Web-Audio environments. Listens on the EventBus for 'sfx' names
 // plus 'levelup'/'achievement'.
 import { AmbienceBed, ambienceMix } from './ambience.js';
+import { ACTION_SOUNDS } from './actionSounds.js';
+import { ABILITY_SOUNDS, ELEMENT_SOUNDS, HURT_SOUNDS, IMPACT_SOUNDS, impactCrit } from './combatSounds.js';
 
 const MUTE_KEY = 'singaporescape:muted';
 const MUSIC_KEY = 'singaporescape:music';
@@ -24,13 +26,16 @@ const SCALE = [220, 261.63, 293.66, 329.63, 392, 440, 523.25];
 // between two starts of the same sound. Anything sooner would only pile on to
 // the one already ringing, so it is skipped.
 const GAP = { atk: 0.09, hit: 0.075, crit: 0.5, die: 0.07, hurt: 0.14, spec: 0.3, pickup: 0.15,
-  droprare: 0.3, dropepic: 0.4, swish: 0.09, gather: 0.06, clang: 0.06, eat: 0.1, click: 0.03 };
+  droprare: 0.3, dropepic: 0.4, swish: 0.09, gather: 0.06, clang: 0.06, eat: 0.1, click: 0.03,
+  make: 0.1, footstep: 0.09, interact: 0.09, journey: 0.2, ui: 0.045,
+  avoid: 0.14, ultimate: 0.4, boss: 0.35, windup: 0.3, faith: 0.4, interrupt: 0.2, ready: 0.3, bless: 0.25 };
 // Roughly how long each sound rings (default 0.15s), to count the voices sounding at once.
 const RING = { die: 0.25, spec: 0.3, hurt: 0.18, droprare: 0.4, dropepic: 0.6, bossdie: 0.8, roar: 0.6,
-  level: 0.45, achievement: 0.5, travel: 0.3 };
+  level: 0.45, achievement: 0.5, travel: 0.3, journey: 0.35, make: 0.23, interact: 0.22,
+  windup: 0.3, faith: 0.39, boss: 0.36, ultimate: 0.34 };
 // The everyday sounds of a fight: the first dropped when the mix is full, and a
 // touch quieter while auto battle runs things. Kills, crits and drops never are.
-const ROUTINE = new Set(['atk', 'hit', 'swish', 'pickup', 'gather', 'clang']);
+const ROUTINE = new Set(['atk', 'hit', 'swish', 'pickup', 'gather', 'clang', 'make', 'footstep', 'avoid']);
 const MAX_VOICES = 6;
 const AUTO_LEVEL = 0.8;
 const PITCH_JITTER = 0.045;   // ±4.5%: no two repeats alike, none out of tune
@@ -42,8 +47,13 @@ const COMBO_STEPS = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2, 9 / 4, 5 / 2];
 const COMBO_WINDOW = 2.5;
 // Rounder stand-ins for the buzzy waves the weapon sounds were written with.
 const SOFT_WAVE = { square: 'triangle', sawtooth: 'triangle' };
+const ABILITY_GROUP = {
+  dodge: 'avoid', block: 'avoid', ultimate: 'ultimate', boss: 'boss', windup: 'windup',
+  faith: 'faith', interrupt: 'interrupt', ready: 'ready', bless: 'bless',
+};
 
 const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+const recipeFor = (table, key) => Object.hasOwn(table, key) ? table[key] : undefined;
 
 export const LEVEL_GAP_AUTO = 4;   // seconds between level-up chimes on auto battle
 
@@ -65,6 +75,7 @@ export class Sfx {
     this.ambienceSource = null;    // set by main: () => ({ zone, night })
     this.autoSource = null;        // set by main: () => is auto battle on?
     this.combo = 0;                // kills in quick succession (see 'die')
+    this._randomState = (Date.now() >>> 0) || 1;
     bus.on('sfx', (n) => this.play(n));
     // Many levels at once (a big batch, a boss) chime once, not once per level;
     // and on auto battle, where a new hero levels up almost every second, the
@@ -77,6 +88,17 @@ export class Sfx {
       this.play('level');
     });
     bus.on('achievement', () => this.play('achievement'));
+  }
+
+  // All audio variation uses its own stream so sound and mute cannot change
+  // gameplay rolls. An instance keeps its stream across unlocks and toggles.
+  _random() {
+    let state = this._randomState;
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    this._randomState = state;
+    return (state >>> 0) / 0x100000000;
   }
 
   /** Create / resume the AudioContext — must be called from a user gesture. */
@@ -103,7 +125,7 @@ export class Sfx {
   // ---------------- Region ambience (see ambience.js) ----------------
   _startAmbience() {
     if (!this.ctx || this.amb) return;
-    try { this.amb = new AmbienceBed(this.ctx, this.master); } catch { this.amb = null; return; }
+    try { this.amb = new AmbienceBed(this.ctx, this.master, () => this._random()); } catch { this.amb = null; return; }
     // Once a second is plenty: the beds glide between levels on their own.
     this._ambTick();
     setInterval(() => this._ambTick(), 1000);
@@ -144,11 +166,11 @@ export class Sfx {
     this.musicTimer = setInterval(() => {
       if (!this.ctx || this.muted || !this.musicOn) return;
       step++;
-      if (Math.random() < 0.42) return; // rest
-      const n = SCALE[Math.floor(Math.random() * SCALE.length)];
+      if (this._random() < 0.42) return; // rest
+      const n = SCALE[Math.floor(this._random() * SCALE.length)];
       this._mtone(n, 1.4, 0.16);
       this._mtone(n, 1.2, 0.06, 0.34);              // echo
-      if (step % 4 === 0 && Math.random() < 0.5) this._mtone(n * 1.5, 1.2, 0.07, 0.12); // fifth
+      if (step % 4 === 0 && this._random() < 0.5) this._mtone(n * 1.5, 1.2, 0.07, 0.12); // fifth
     }, 2100);
   }
 
@@ -226,8 +248,8 @@ export class Sfx {
     o.start(t); o.stop(t + dur + 0.03);
   }
 
-  /** A burst of noise; with `cutoff`, lowpassed there so it thuds rather than hisses. */
-  _noise(dur, vol = 0.4, t0 = 0, cutoff = 0) {
+  /** A burst of noise, optionally shaped around a cutoff or centre frequency. */
+  _noise(dur, vol = 0.4, t0 = 0, cutoff = 0, filter = 'lowpass') {
     if (!this.ctx) return;
     const sr = this.ctx.sampleRate;
     const n = Math.max(1, Math.floor(sr * dur));
@@ -237,7 +259,7 @@ export class Sfx {
     if (!this._noiseBuf || this._noiseBuf.length < n) {
       const buf = this.ctx.createBuffer(1, Math.max(sr, n), sr);
       const d = buf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      for (let i = 0; i < d.length; i++) d[i] = this._random() * 2 - 1;
       this._noiseBuf = buf;
     }
     const len = this._noiseBuf.length;
@@ -248,16 +270,18 @@ export class Sfx {
     // envelope the old per-burst buffers had baked in.
     g.gain.setValueAtTime(vol * (this._vf ?? 1), t);
     g.gain.linearRampToValueAtTime(0, t + n / sr);
-    const out = this.sfxGain || this.master, f = cutoff ? this._lowpass(cutoff) : null;
+    const out = this.sfxGain || this.master, f = cutoff ? this._noiseFilter(cutoff, filter) : null;
     s.connect(g);
     if (f) { g.connect(f); f.connect(out); } else g.connect(out);
-    s.start(t, Math.floor(Math.random() * Math.max(1, len - n)) / sr, n / sr);
+    s.start(t, Math.floor(this._random() * Math.max(1, len - n)) / sr, n / sr);
   }
 
-  _lowpass(freq) {
+  _noiseFilter(freq, type) {
     if (typeof this.ctx.createBiquadFilter !== 'function') return null;
     const f = this.ctx.createBiquadFilter();
-    f.type = 'lowpass'; f.frequency.value = freq; f.Q.value = 0.5;
+    f.type = type;
+    f.frequency.value = freq;
+    f.Q.value = type === 'bandpass' ? 1.2 : 0.5;
     return f;
   }
 
@@ -306,18 +330,47 @@ export class Sfx {
   }
 
   play(name) {
-    if (!this.ctx || this.muted) return;
+    if (!this.ctx || this.muted || typeof name !== 'string') return;
     const now = this.ctx.currentTime;
-    // An Archer's volley crits on most beats: the crunch at most every half
-    // second, so it stays special, and a plain hit in between.
-    if (name === 'crit' && now - (this._last?.crit ?? -Infinity) < GAP.crit) name = 'hit';
-    const kind = name.startsWith('atk:') ? 'atk' : name;
+    const [family, detail, element] = name.split(':');
+    let kind = family;
+    let recipe;
+    if (family === 'hit' || family === 'crit') {
+      recipe = recipeFor(IMPACT_SOUNDS, detail);
+      // Crit-heavy volleys get a crunch at most every half-second. The same
+      // monster material still sounds on the blows in between.
+      if (family === 'crit' && now - (this._last?.crit ?? -Infinity) < GAP.crit) kind = 'hit';
+    } else if (family === 'hurt') {
+      recipe = recipeFor(HURT_SOUNDS, detail);
+    } else if (family === 'ability') {
+      recipe = recipeFor(ABILITY_SOUNDS, detail);
+      if (!recipe) return;
+      kind = recipeFor(ABILITY_GROUP, detail) || 'spec';
+    } else if (family !== 'atk' && detail !== undefined) {
+      recipe = recipeFor(ACTION_SOUNDS, name);
+      if (!recipe) return;
+      if (family === 'travel') kind = 'journey';
+    }
+    if (kind === 'hit' && now - (this._last?.crit ?? -Infinity) < 0.03) return;
     if (!this._admit(kind, now)) return;
-    this._pf = JITTERED.has(kind) ? 1 + (Math.random() * 2 - 1) * PITCH_JITTER : 1;
+    this._pf = JITTERED.has(kind) ? 1 + (this._random() * 2 - 1) * PITCH_JITTER : 1;
     this._vf = ROUTINE.has(kind) && this.autoSource?.() ? AUTO_LEVEL : 1;
     try {
-      if (kind === 'atk') this._weapon(name.slice(4));
-      else this._sound(name, now);
+      if (kind === 'atk') {
+        const accent = recipeFor(ELEMENT_SOUNDS, element);
+        if (accent) this._vf *= 0.77;
+        this._weapon(detail);
+        if (accent) {
+          // The short wand release needs less accent to stay at its usual level.
+          if (detail === 'wand') this._vf *= 0.58;
+          accent(this);
+        }
+      } else if (recipe) {
+        recipe(this);
+        if (kind === 'crit') impactCrit(this);
+      } else {
+        this._sound(kind, now);
+      }
     } finally { this._pf = 1; this._vf = 1; }
   }
 
@@ -349,7 +402,6 @@ export class Sfx {
         this._tone([262, 330, 392][Number(name.at(-1))], 0.22, 'triangle', 0, 0.12);
         break;
       case 'hit': {
-        if (sameBeat('crit')) break;   // the crit already said it, louder
         // Three takes in turn, so a run of blows doesn't machine-gun. A swing on
         // this same beat already gave the whoosh, so the hit is just its thump.
         const v = this._rr('hit', 3), body = [170, 150, 190][v];

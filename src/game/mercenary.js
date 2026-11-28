@@ -11,6 +11,7 @@
 // swings has a 25% chance to split off a smaller A-Worthling (up to MAX_FOLLOWERS). Every A-Worthling, big or small, never misses and rolls
 // its hit like the Merchant does, between a quarter of and its full 25% share of the Merchant's max hit.
 import { chebyshev, randInt } from '../core/utils.js';
+import { impactCue } from '../audio/impactProfile.js';
 import { TICK_MS, COMBAT_BEAT_MS } from '../config.js';
 import { combatXpRanged, playerAttackVsNpc, playerRangedVsNpc, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE, WEAPON_DMG_MULT, weaponDmgMult, CLASS_POWER } from './combat.js';
 import { getItem } from '../data/items.js';
@@ -252,6 +253,7 @@ export function mercTick(game, m) {
         allySplat(game, target, dmg, m.follower ? '#f5b82e' : '#3fbf9f', critX);
         allyCoin(game, m, target);
         if (dmg > 0) {
+          game.bus.emit('sfx', impactCue(target.def, target.npcId, critX > 0));
           allyCleave(game, target, dmg);   // the coins scatter into foes beside the target
           // Every hit by the Merchant's allies earns the Merchant the full combat XP.
           allyXp(game, dmg);
