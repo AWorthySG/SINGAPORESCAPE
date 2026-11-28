@@ -196,7 +196,9 @@ export class ObjectReactions {
         }
       }
     }
-    if (p.alive && c.x > 41 * TILE && c.x < 79 * TILE && c.y > 52 * TILE && c.y < 87 * TILE) {
+    const tile = { x: c.x / TILE, y: c.y / TILE };
+    const local = w.legacyTile?.(tile) || tile;
+    if (p.alive && local.x > 41 && local.x < 79 && local.y > 52 && local.y < 87) {
       for (const o of w.landmarks || []) {
         if (!isDepthShop(o) || !hidesPoint(o, c.x, c.y)) continue;
         near.add(o);

@@ -1535,7 +1535,7 @@ export function buildWorld({ groves: withGroves = true } = {}) {
   // keeps the same roads, resources and landmarks.
   {
     const station = TRANSIT_ROAD_STATION, { name } = station;
-    const transit = { name, x0: 431, y0: 149, x1: 458, y1: 168, lo: 8, hi: 20 };
+    const transit = { name, x0: 431, y0: 149, x1: 458, y1: 168, lo: 8, hi: 20, settlement: true };
     const plaza = [434, 149, 454, 157];
     const kranji = zoneByName('Kranji Farmlands');
     const inside = (x, y, z) => x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1;

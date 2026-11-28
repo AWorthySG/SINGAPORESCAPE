@@ -98,6 +98,15 @@ export function titleCameraAt(ms, shots = TITLE_SHOTS, still = false) {
   return { shot: i, name: s.name, x: x * TILE, y: y * TILE, zoom, fade };
 }
 
+// The fallback tour is authored in the original layout. Keep its sub-tile
+// movement when presenting the same shots in the relocated districts.
+function setTourCenter(game, x, y) {
+  const authored = { x: x / TILE, y: y / TILE };
+  const center = game.world?.authoredTile?.(authored) ?? authored;
+  game.camera.cx = center.x * TILE;
+  game.camera.cy = center.y * TILE;
+}
+
 // ---------------- Loading ----------------
 // Gameplay tips shown under the loading bar, a new one every few seconds.
 export const LOADING_TIPS = [
@@ -707,7 +716,7 @@ export class TitleScreen {
       if (this._preload < 2) {
         if (!keyArt) {
           const s = TITLE_SHOTS[0];
-          cam.cx = s.from[0] * TILE; cam.cy = s.from[1] * TILE;
+          setTourCenter(this.game, s.from[0] * TILE, s.from[1] * TILE);
           cam.setZoomMul?.(titleCameraAt(0, TITLE_SHOTS, this.still).zoom);
         }
         // Start with the final tilt so the first draw requests all of its art.
@@ -719,7 +728,7 @@ export class TitleScreen {
       // shot one untracked frame to start loading its images.
       if (this._rest != null) {
         const s = keyArt || this._skyIn() ? null : TITLE_SHOTS[1 + this._rest];
-        if (s) { cam.cx = s.from[0] * TILE; cam.cy = s.from[1] * TILE; this._rest++; return; }
+        if (s) { setTourCenter(this.game, s.from[0] * TILE, s.from[1] * TILE); this._rest++; return; }
         this._becomeReady();
       } else {
         this._updateBar(dt);
@@ -733,7 +742,7 @@ export class TitleScreen {
     this.t += this.ready && !this.still ? dt : 0;
     if (this.ready) this._parallax(dt);
     const v = titleCameraAt(this.t, TITLE_SHOTS, this.still);
-    cam.cx = v.x; cam.cy = v.y;
+    setTourCenter(this.game, v.x, v.y);
     cam.setZoomMul?.(v.zoom);
     if (this.el.fade) this.el.fade.style.opacity = this.ready ? v.fade.toFixed(3) : '0';
     if (v.shot !== this._shot && this.el.place) {

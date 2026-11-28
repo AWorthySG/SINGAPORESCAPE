@@ -68,8 +68,8 @@ export class NPC extends Character {
 
     this.target = null;           // current foe (the player)
     this.attackCooldown = 0;      // ticks until next attack
-    // A townsperson added to the world later (`noDice`, e.g. Archaeology's curator) rolls
-    // no dice here, so every spawn after it, and the seeded tests' rolls, stay as they were.
+    // Authored arrivals (`noDice`, e.g. Archaeology's curator and Transit
+    // Road's cast) start predictably and leave the seeded world rolls alone.
     this.wanderCooldown = this.def.noDice ? 5 : randInt(2, 8);
     this.repathCooldown = 0;
     this.lastTargetTile = null;
@@ -79,7 +79,7 @@ export class NPC extends Character {
     this.temporary = false;       // summoned adds are removed on death
     // Telegraphed heavy attacks: regular monsters of level >= 12 wind up a strong
     // hit every few swings, giving the player a moment to Brace or back off.
-    this.heavyEvery = (!this.def.boss && (this.def.level || 0) >= 12) ? randInt(3, 6) : 0;
+    this.heavyEvery = (!this.def.boss && (this.def.level || 0) >= 12) ? (this.def.noDice ? 4 : randInt(3, 6)) : 0;
     this.heavyCount = 0;
     this.windup = 0;              // 1 while a heavy blow is charging
     this.telegraph = 0;          // ticks the "!" warning is shown
@@ -114,7 +114,7 @@ export class NPC extends Character {
     this.mech = undefined; this.mechHealer = undefined; this._mechCd = undefined; this._mechN = undefined;
     this.ally = undefined; this.wave = undefined; this.worldEvent = undefined; this.life = undefined; this.artId = undefined;
     this._greetedAt = undefined; this._remarkAt = undefined; this._holdUntil = undefined; this._heldWander = undefined;
-    this.maybeChampion(false);
+    if (!this.def.noDice) this.maybeChampion(false);
   }
 
   /** Roll whether this spawn is a champion (x150 life, harder hits, bigger, better loot). */

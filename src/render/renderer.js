@@ -1,5 +1,5 @@
 import { drawHomeAlbum, drawIslandScarf } from './islandlife.js';
-import { drawHeritageBank, drawHeritageServiceCue, drawMarketValance, heritageService } from './heritagewalk.js';
+import { drawHeritageBank, drawHeritageServiceCue, drawMarketValance, heritageLocations, heritageService } from './heritagewalk.js';
 import { isDepthShop } from './streetdepth.js';
 import { damageNumber as splatNum } from '../core/utils.js';   // hitsplats: 54000 -> "54K"
 import { TILE, TICK_MS } from '../config.js';
@@ -353,6 +353,7 @@ export class Renderer {
     // this frame (the world holds thousands: its spatial index finds the few in view).
     const visObjs = this._visObjs || (this._visObjs = []);
     const W = game.world;
+    const { bank, market } = heritageLocations(W);
     if (W.objectsIn) W.objectsIn(x0 - 1, y0 - 1, x1 + 1, y1 + 1, visObjs);
     else { visObjs.length = 0; for (const o of W.objects) if (!(o.x < x0 - 1 || o.x > x1 + 1 || o.y < y0 - 1 || o.y > y1 + 1)) visObjs.push(o); }
     // Tilted: trees, buildings and landmarks cast their outlines across the ground with the sun.
@@ -384,8 +385,8 @@ export class Renderer {
           drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx || calm, still, upper ? fade : 1);
           ctx.restore();
         } else drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx || calm, still);
-        if (o.objId === 'bank_booth' && o.x === 51 && o.y === 48) drawHeritageBank(ctx, cx, cy);
-        if (o.objId === 'stall_food' && o.x === 64 && o.y === 62) drawMarketValance(ctx, cx, cy, timeMs, trim || calm);
+        if (o.objId === 'bank_booth' && o.x === bank.x && o.y === bank.y) drawHeritageBank(ctx, cx, cy);
+        if (o.objId === 'stall_food' && o.x === market.x && o.y === market.y) drawMarketValance(ctx, cx, cy, timeMs, trim || calm);
       } });
     }
     // Landmarks stand on their front-left tile, but their picture spreads across

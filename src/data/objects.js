@@ -415,6 +415,10 @@ export const OBJECTS = {
     name: 'MRT Station', label: 'MRT', type: 'transport', verb: 'Travel', emoji: '🚇', blocking: false,
     examine: 'A Mass Rapid Transit station. Tap in to travel across the island.',
   },
+  ferry_landing: {
+    name: 'Ferry landing', label: 'Ferry', type: 'ferry', verb: 'Board', emoji: '⛴️', blocking: false,
+    examine: 'A landing for passenger boats that connect the islands.',
+  },
 
   // ---------------- Agility course ----------------
   agility_course: {

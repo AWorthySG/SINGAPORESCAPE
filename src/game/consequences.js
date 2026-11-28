@@ -77,11 +77,13 @@ export function spawnResident(game, id) {
   const r = RESIDENTS[id];
   if (!r || game.npcs.some((n) => n.npcId === id)) return null;
   const w = game.world, taken = new Set(game.npcs.map((n) => n.x * 4096 + n.y));
+  const authored = { x: r.at[0], y: r.at[1] };
+  const center = w.authoredTile?.(authored) ?? authored;
   let spot = null;
   for (let rad = 0; rad <= 8 && !spot; rad++) {
     for (let dy = -rad; dy <= rad && !spot; dy++) for (let dx = -rad; dx <= rad && !spot; dx++) {
       if (Math.max(Math.abs(dx), Math.abs(dy)) !== rad) continue;
-      const x = r.at[0] + dx, y = r.at[1] + dy;
+      const x = center.x + dx, y = center.y + dy;
       if (!w.inBounds(x, y) || w.isBlocked(x, y) || w.objectAt(x, y) || taken.has(x * 4096 + y)) continue;
       if (w.zoneAt(x, y)?.name !== r.region) continue;
       spot = { x, y };

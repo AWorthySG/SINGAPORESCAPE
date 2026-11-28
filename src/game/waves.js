@@ -5,7 +5,7 @@
 // Falling yourself only costs you a few seconds: you rise again beside it.
 // You come out where you went in, keeping everything.
 //
-// The arena is not a separate map: rows are added below the 540x380 world
+// The arena is not a separate map: rows are added below the overworld
 // (`addArena`), ringed by walls and open sea, so nothing can walk in or out.
 // Appending rows keeps every existing tile index where it was, and the seeded
 // world is built first and left untouched, so no tree, rock or monster moves.
@@ -22,6 +22,7 @@ export const GATE_NAME = 'The Endless Gate';
 // Rows of open sea added below the map; the arena floats in them, far enough
 // down (14+ tiles of water) that no camera on the mainland ever shows it.
 export const ARENA_ROWS = 40;
+const ARENA_GAP = 14;
 // The arena floor (inclusive), a walled 25 x 17 hall: wide enough to dodge a
 // boss's markers, small enough to fit a phone screen or two.
 export const ARENA = { x0: 240, y0: 394, x1: 264, y1: 410 };
@@ -39,6 +40,16 @@ export const SPAWN_POINTS = [
   { x: ARENA.x0, y: ARENA.y0 + 3 }, { x: ARENA.x0, y: ARENA.y1 - 3 }, { x: Math.round(MID.x), y: ARENA.y1 },
   { x: ARENA.x1, y: ARENA.y1 - 3 }, { x: ARENA.x1, y: ARENA.y0 + 3 },
 ];
+
+function arenaLayout(mapHeight = ARENA.y0 - ARENA_GAP) {
+  const offsetY = mapHeight + ARENA_GAP - ARENA.y0;
+  const shift = ({ x, y }) => ({ x, y: y + offsetY });
+  return {
+    bounds: { ...ARENA, y0: ARENA.y0 + offsetY, y1: ARENA.y1 + offsetY },
+    exit: shift(EXIT), start: shift(START), shrine: shift(SHRINE),
+    spawnPoints: SPAWN_POINTS.map(shift),
+  };
+}
 
 // Pacing and limits.
 // The owner asked for no long waits: the first wave comes on the tick after you
@@ -203,34 +214,36 @@ export const GATE_LOOT = [...new Set([...waveBonus(30, 100), ...bossChest(30, 10
   .concat(GATE_CACHE.map((e) => e.id)).filter((id) => id !== 'coins'))];
 
 /** Grow the built world by ARENA_ROWS rows of sea and raise the walled arena in
- *  them, then put the gate in Kampong Glam. Called on buildWorld()'s result
- *  before the World is made from it; everything already placed stays put. */
-export function addArena(data) {
+ *  them. Put the gate on its authored tile in Kampong Glam, translated if the
+ *  overworld moved. The rest of the built world stays where it is. */
+export function addArena(data, authoredTile) {
   const W = data.width, H0 = data.height, H = H0 + ARENA_ROWS;
+  const { bounds, exit, shrine } = arenaLayout(H0);
+  const gate = authoredTile?.(GATE.x, GATE.y) || GATE;
   const terrain = new Uint8Array(W * H).fill(TERRAIN.WATER);
   terrain.set(data.terrain);   // the old rows, at the same indices
-  for (let y = ARENA.y0; y <= ARENA.y1; y++) for (let x = ARENA.x0; x <= ARENA.x1; x++) terrain[y * W + x] = TERRAIN.STONE;
+  for (let y = bounds.y0; y <= bounds.y1; y++) for (let x = bounds.x0; x <= bounds.x1; x++) terrain[y * W + x] = TERRAIN.STONE;
   const objects = [...data.objects];
   // A wall all round the floor, on stone so the sea doesn't lap at its foot.
-  for (let x = ARENA.x0 - 1; x <= ARENA.x1 + 1; x++) for (const y of [ARENA.y0 - 1, ARENA.y1 + 1]) {
+  for (let x = bounds.x0 - 1; x <= bounds.x1 + 1; x++) for (const y of [bounds.y0 - 1, bounds.y1 + 1]) {
     terrain[y * W + x] = TERRAIN.STONE; objects.push({ objId: 'wall', x, y });
   }
-  for (let y = ARENA.y0; y <= ARENA.y1; y++) for (const x of [ARENA.x0 - 1, ARENA.x1 + 1]) {
+  for (let y = bounds.y0; y <= bounds.y1; y++) for (const x of [bounds.x0 - 1, bounds.x1 + 1]) {
     terrain[y * W + x] = TERRAIN.STONE; objects.push({ objId: 'wall', x, y });
   }
-  objects.push({ objId: 'wave_exit', x: EXIT.x, y: EXIT.y });
+  objects.push({ objId: 'wave_exit', ...exit });
   // Torches (lamp posts) in the four corners light the hall.
-  for (const [x, y] of [[ARENA.x0, ARENA.y0], [ARENA.x1, ARENA.y0], [ARENA.x0, ARENA.y1], [ARENA.x1, ARENA.y1]]) objects.push({ objId: 'lamp', x, y });
-  objects.push({ objId: 'wave_gate', x: GATE.x, y: GATE.y });
+  for (const [x, y] of [[bounds.x0, bounds.y0], [bounds.x1, bounds.y0], [bounds.x0, bounds.y1], [bounds.x1, bounds.y1]]) objects.push({ objId: 'lamp', x, y });
+  objects.push({ objId: 'wave_gate', ...gate });
   // The A-Worthy Shrine in the middle of the hall, pushed last so every other
   // object keeps its place in the list.
-  objects.push({ objId: 'gate_shrine', x: SHRINE.x, y: SHRINE.y });
-  const zones = [...data.zones, { name: GATE_NAME, x0: ARENA.x0 - 1, y0: ARENA.y0 - 1, x1: ARENA.x1 + 1, y1: ARENA.y1 + 1, instance: true }];
+  objects.push({ objId: 'gate_shrine', ...shrine });
+  const zones = [...data.zones, { name: GATE_NAME, x0: bounds.x0 - 1, y0: bounds.y0 - 1, x1: bounds.x1 + 1, y1: bounds.y1 + 1, instance: true }];
   // mapHeight: the world map shows the country, not the sea the arena sits in.
   return { ...data, height: H, mapHeight: H0, terrain, objects, zones };
 }
 
-export const inArena = (x, y) => x >= ARENA.x0 - 1 && x <= ARENA.x1 + 1 && y >= ARENA.y0 - 1 && y <= ARENA.y1 + 1;
+export const inArena = (x, y, bounds = ARENA) => x >= bounds.x0 - 1 && x <= bounds.x1 + 1 && y >= bounds.y0 - 1 && y <= bounds.y1 + 1;
 
 const fightable = (id) => { try { const d = getNpc(id); return d.attackable && d.level > 0; } catch { return false; } };
 // Nearest first by level ratio, so level 10 and 20 are as far apart as 100 and 200.
@@ -316,15 +329,16 @@ export function waveLeader(plan) {
 
 /** The A-Worthy Shrine for a fresh run. A plain object standing in for an
  *  entity, so hitsplats and the hit flash can be drawn on it. */
-function newShrine() {
-  return { x: SHRINE.x, y: SHRINE.y, hp: SHRINE_LIFE, maxHp: SHRINE_LIFE, hurt: 0, hitAt: -99, shrine: true,
-    renderCenter: () => ({ x: SHRINE.x * TILE + TILE / 2, y: SHRINE.y * TILE + TILE / 2 - 14 }) };
+function newShrine({ x, y }) {
+  return { x, y, hp: SHRINE_LIFE, maxHp: SHRINE_LIFE, hurt: 0, hitAt: -99, shrine: true,
+    renderCenter: () => ({ x: x * TILE + TILE / 2, y: y * TILE + TILE / 2 - 14 }) };
 }
 
 /** One run in the Endless Gate, and your best wave (saved). */
 export class Waves {
   constructor(game) {
     this.game = game;
+    this.arena = arenaLayout(game.world.mapHeight);
     this.best = 0;          // the deepest wave you have reached (saved)
     this.bestByClass = {};  // ...and with each job class (saved)
     this.mods = new Set();  // modifiers picked for the next run (saved, so the choice sticks)
@@ -381,16 +395,17 @@ export class Waves {
     this.nextAt = 0;        // tick the next wave starts (0: a wave is being fought)
     this.leader = '';       // the name of the wave's boss or (first) champion
     this.ret = null;        // where you came in from
-    this.shrine = newShrine();   // the A-Worthy Shrine's life this run
+    this.shrine = newShrine(this.arena.shrine);   // the A-Worthy Shrine's life this run
     this.run = { kills: 0, deaths: 0, got: new Map() };   // for the summary when the shrine falls
   }
 
   /** The shrine's life left, as a whole percentage (rounded up: 0 only when fallen). */
   shrinePct() { const s = this.shrine; return s.hp <= 0 ? 0 : Math.max(1, Math.ceil((s.hp / s.maxHp) * 100)); }
+  inArena(x, y) { return inArena(x, y, this.arena.bounds); }
   /** How far a monster is from the shrine (in tiles). */
-  shrineDist(n) { return chebyshev(n.x, n.y, SHRINE.x, SHRINE.y); }
+  shrineDist(n) { return chebyshev(n.x, n.y, this.shrine.x, this.shrine.y); }
   /** Is this monster hitting the shrine (beside it and not after you)? */
-  besieging(n) { return !!(this.active && n?.wave && n.alive && !n.target && chebyshev(n.x, n.y, SHRINE.x, SHRINE.y) <= 1); }
+  besieging(n) { return !!(this.active && n?.wave && n.alive && !n.target && this.shrineDist(n) <= 1); }
 
   /** Monsters of this wave still to beat, out or waiting. */
   left() { return this.mobs.filter((n) => n.alive).length + this.queue.length; }
@@ -408,7 +423,7 @@ export class Waves {
     for (const n of g.npcs) if (n.target === p && !n.ally) n.target = null;
     p.target = null;
     p.clearAction();
-    g._placePlayer(START.x, START.y);
+    g._placePlayer(this.arena.start.x, this.arena.start.y);
     this.active = true;
     this.runMods = GATE_MOD_IDS.filter((id) => this.mods.has(id));
     this.fx = modEffects(this.runMods);
@@ -450,7 +465,7 @@ export class Waves {
     this.run.deaths++;
     g.player.respawnTimer = GATE_RESPAWN_TICKS;
     g.msg(`You fall in ${GATE_NAME}! You'll rise beside the shrine in ${Math.round(GATE_RESPAWN_TICKS * 0.6)}s: the monsters won't wait.`, 'system');
-    return g._nearestFree(SHRINE.x, SHRINE.y + 1) || { x: START.x, y: START.y };
+    return g._nearestFree(this.shrine.x, this.shrine.y + 1) || { ...this.arena.start };
   }
 
   /** A monster with nobody to fight goes for the shrine (from NPC._combatAI):
@@ -458,7 +473,7 @@ export class Waves {
   siegeStep(n) {
     if (!this.active || !n.wave || this.shrine.hp <= 0) return false;
     const g = this.game;
-    if (chebyshev(n.x, n.y, SHRINE.x, SHRINE.y) <= 1) {
+    if (this.shrineDist(n) <= 1) {
       n.stop();
       if (n.attackCooldown <= 0 && !n.isMoving) {
         this.hitShrine(n);
@@ -469,7 +484,7 @@ export class Waves {
     }
     // On its way: a fresh route when it stands still (a chase it gave up ends in place).
     if (!n.isMoving && n.repathCooldown <= 0) {
-      const path = findPath(g.pathCfg(), n.stepTile(), SHRINE, { reachAdjacent: true, maxNodes: 2000 });
+      const path = findPath(g.pathCfg(), n.stepTile(), this.shrine, { reachAdjacent: true, maxNodes: 2000 });
       if (path.length) n.setPath(path);
       n.repathCooldown = 2;
     }
@@ -483,7 +498,7 @@ export class Waves {
     const kind = n.def.boss ? 'boss' : n.champion ? 'champion' : 'mob';
     const dmg = Math.max(1, Math.round(shrineChip(this.wave, kind) * this.fx.hit));   // Elite waves hit it harder too
     const before = this.shrinePct();
-    g._swingToward?.(n, SHRINE.x, SHRINE.y);
+    g._swingToward?.(n, s.x, s.y);
     s.hp = Math.max(0, s.hp - dmg);
     s.hitAt = g.tickCount;
     g.addHitsplat(s, dmg, { tint: '#c2185b' });   // raspberry, apart from the hits on you
@@ -522,12 +537,12 @@ export class Waves {
     const g = this.game, p = g.player;
     const reached = this.wave;
     // Its monsters, and anything a boss summoned, go with it (never mercenaries).
-    g.npcs = g.npcs.filter((n) => !(n.wave || (n.temporary && !n.ally && inArena(n.x, n.y))));
-    g.hazards = g.hazards.filter((h) => !inArena(h.cx, h.cy));
+    g.npcs = g.npcs.filter((n) => !(n.wave || (n.temporary && !n.ally && this.inArena(n.x, n.y))));
+    g.hazards = g.hazards.filter((h) => !this.inArena(h.cx, h.cy));
     if (g._ks && !g.npcs.includes(g._ks.npc)) { g.ui?.hideKnowledgeStrike?.(null, g._ks.q); g._ks = null; }
     // Any loot still on the floor comes with you.
     for (const gi of [...g.world.groundItems]) {
-      if (!inArena(gi.x, gi.y)) continue;
+      if (!this.inArena(gi.x, gi.y)) continue;
       g.inventory.add(gi.id, gi.qty, gi.q);
       g.world.removeGroundItem(gi);
     }
@@ -548,7 +563,7 @@ export class Waves {
     if (!this.active) return;
     const g = this.game, p = g.player;
     // Carried off by other means (the MRT from the world map, say): the run is over.
-    if (!inArena(p.x, p.y)) { this._end(); this.wave = 0; return; }
+    if (!this.inArena(p.x, p.y)) { this._end(); this.wave = 0; return; }
     const before = this.mobs.length;
     this.mobs = this.mobs.filter((n) => n.alive && g.npcs.includes(n));
     this.run.kills += before - this.mobs.length;
@@ -595,20 +610,21 @@ export class Waves {
    *  the hall's edge (in turn, so they come from every side), else anywhere. */
   _spawnSpot() {
     const g = this.game, p = g.player, taken = new Set(g.npcs.filter((n) => n.alive).map((n) => n.x * 4096 + n.y));
+    const { bounds, spawnPoints, shrine } = this.arena;
     const free = (x, y) => !g.world.isBlocked(x, y) && !taken.has(x * 4096 + y) && (x !== p.x || y !== p.y)
-      && x >= ARENA.x0 && x <= ARENA.x1 && y >= ARENA.y0 && y <= ARENA.y1;
-    this._spawnN = ((this._spawnN || 0) + 1) % SPAWN_POINTS.length;
-    const sp = SPAWN_POINTS[this._spawnN];
+      && x >= bounds.x0 && x <= bounds.x1 && y >= bounds.y0 && y <= bounds.y1;
+    this._spawnN = ((this._spawnN || 0) + 1) % spawnPoints.length;
+    const sp = spawnPoints[this._spawnN];
     for (let r = 0; r <= 2; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       if (Math.max(Math.abs(dx), Math.abs(dy)) === r && free(sp.x + dx, sp.y + dy)) return { x: sp.x + dx, y: sp.y + dy };
     }
     for (let tries = 0; tries < 60; tries++) {
-      const x = ARENA.x0 + Math.floor(Math.random() * (ARENA.x1 - ARENA.x0 + 1));
-      const y = ARENA.y0 + Math.floor(Math.random() * (ARENA.y1 - ARENA.y0 + 1));
+      const x = bounds.x0 + Math.floor(Math.random() * (bounds.x1 - bounds.x0 + 1));
+      const y = bounds.y0 + Math.floor(Math.random() * (bounds.y1 - bounds.y0 + 1));
       if (free(x, y) && chebyshev(x, y, p.x, p.y) >= 6) return { x, y };
     }
-    for (let y = ARENA.y1; y >= ARENA.y0; y--) for (let x = ARENA.x0; x <= ARENA.x1; x++) if (free(x, y)) return { x, y };
-    return { x: Math.round(MID.x), y: Math.round(MID.y) };
+    for (let y = bounds.y1; y >= bounds.y0; y--) for (let x = bounds.x0; x <= bounds.x1; x++) if (free(x, y)) return { x, y };
+    return { ...shrine };
   }
 
   _spawn(entry) {
@@ -642,7 +658,7 @@ export class Waves {
   _cleared() {
     const g = this.game, n = this.wave, L = this.level;
     // A boss's summons don't outlive the wave.
-    g.npcs = g.npcs.filter((m) => !(m.temporary && !m.ally && m.alive && inArena(m.x, m.y)));
+    g.npcs = g.npcs.filter((m) => !(m.temporary && !m.ally && m.alive && this.inArena(m.x, m.y)));
     const got = waveBonus(n, L);
     if (n % BOSS_EVERY === 0) got.push(...bossChest(n, L));
     // Modifiers: Swift foes doubles the bonus, each extra reward roll adds a cache prize.

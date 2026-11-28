@@ -275,9 +275,8 @@ const TOWN_ART = new Set([
 ]);
 // Newer townsfolk borrow another's picture, recoloured, until their own art
 // arrives (remove the line when the file is added).
-const TOWN_ALIAS = { transit_mapmaker: 'rq_nadia', transit_hawker: 'rq_rajoo', transit_caretaker: 'rq_priya' };
+const TOWN_ALIAS = { transit_hawker: 'rq_rajoo', transit_caretaker: 'rq_priya' };
 const TOWN_TINT = {
-  transit_mapmaker: 'hue-rotate(18deg) saturate(0.85)',
   transit_hawker: 'hue-rotate(-16deg) saturate(1.08)',
   transit_caretaker: 'hue-rotate(14deg) saturate(0.9)',
 };

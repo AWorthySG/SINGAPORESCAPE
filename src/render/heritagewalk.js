@@ -13,24 +13,38 @@ const STOPS = [
   { x: 64, y: 63, kind: 'market' },
   { x: 62, y: 82, kind: 'dome' },
 ];
+const BANK = { x: 51, y: 48 };
+const MARKET = { x: 64, y: 62 };
 const COLOURS = {
   bank: ['#356c68', '#f4cb81'],
   market: ['#ac6651', '#ffe1a0'],
   dome: ['#84684a', '#f8d487'],
 };
 
-export function heritageTiles(world, x0, y0, x1, y1) {
-  const tiles = [];
+const locationsByWorld = new WeakMap();
+
+/** Resolve the authored details once per world, as individual tiles so the
+ *  inlay can cross the edge of a district. */
+export function heritageLocations(world) {
+  const cached = locationsByWorld.get(world);
+  if (cached && cached.terrain === world.terrain) return cached;
+  const resolve = (point) => world.authoredTile?.(point) || point;
+  const inlays = [];
   for (const [left, top, right, bottom] of SPANS) {
-    for (let y = Math.max(y0, top); y < Math.min(y1, bottom + 1); y++) {
-      for (let x = Math.max(x0, left); x < Math.min(x1, right + 1); x++) {
-        if (world.isBlocked?.(x, y) || world.terrainAt(x, y) === TERRAIN.WATER) continue;
-        const stop = STOPS.find((s) => s.x === x && s.y === y);
-        tiles.push({ x, y, horizontal: top === bottom, kind: stop?.kind });
-      }
+    for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++) {
+      const stop = STOPS.find((s) => s.x === x && s.y === y);
+      inlays.push(resolve({ x, y, horizontal: top === bottom, kind: stop?.kind }));
     }
   }
-  return tiles;
+  const locations = { terrain: world.terrain, bank: resolve(BANK), market: resolve(MARKET), inlays,
+    photos: PHOTO_ASSIGNMENTS.filter((p) => p.subject).map(resolve) };
+  locationsByWorld.set(world, locations);
+  return locations;
+}
+
+export function heritageTiles(world, x0, y0, x1, y1) {
+  return heritageLocations(world).inlays.filter(({ x, y }) => x >= x0 && x < x1 && y >= y0 && y < y1
+    && !world.isBlocked?.(x, y) && world.terrainAt(x, y) !== TERRAIN.WATER);
 }
 
 function diamond(g, x, y, radius, colour) {
@@ -45,7 +59,7 @@ function diamond(g, x, y, radius, colour) {
 }
 
 export function landmarkPhotoTiles(world, x0, y0, x1, y1) {
-  return PHOTO_ASSIGNMENTS.filter(({ subject, x, y }) => subject && x >= x0 && x < x1 && y >= y0 && y < y1
+  return heritageLocations(world).photos.filter(({ x, y }) => x >= x0 && x < x1 && y >= y0 && y < y1
     && !world.isBlocked(x, y) && world.terrainAt(x, y) !== TERRAIN.WATER);
 }
 
@@ -131,13 +145,14 @@ export function drawMarketValance(g, x, y, time, still) {
 // A quiet ground cue works with touch as well as a mouse and shares the gold
 // already used for hovered objects. Only the closest local service gets one.
 export function heritageService(world, player) {
-  const bankX = Math.max(50, Math.min(52, player.x));
-  if (Math.max(Math.abs(player.x - bankX), Math.abs(player.y - 48)) <= 2) {
-    const bank = world.objectAt?.(bankX, 48);
+  const { bank: bankAt, market } = heritageLocations(world);
+  const bankX = Math.max(bankAt.x - 1, Math.min(bankAt.x + 1, player.x));
+  if (Math.max(Math.abs(player.x - bankX), Math.abs(player.y - bankAt.y)) <= 2) {
+    const bank = world.objectAt?.(bankX, bankAt.y);
     if (bank?.objId === 'bank_booth') return bank;
   }
-  if (Math.max(Math.abs(player.x - 64), Math.abs(player.y - 62)) <= 2) {
-    const food = world.objectAt?.(64, 62);
+  if (Math.max(Math.abs(player.x - market.x), Math.abs(player.y - market.y)) <= 2) {
+    const food = world.objectAt?.(market.x, market.y);
     if (food?.objId === 'stall_food') return food;
   }
   return null;

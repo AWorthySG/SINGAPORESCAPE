@@ -5,6 +5,7 @@ import { EventBus } from '../core/events.js';
 import { impactCue } from '../audio/impactProfile.js';
 import { goldenMult, goldenSkills, GOLDEN_HOUR_XP, SKILL_HOURS } from '../data/skillhours.js';
 import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
+import { geographicWorld, geographicTile, legacyTile } from '../data/worldlayout.js';
 import { compareGear, deltaText, gearRating, effectiveRating, offenceFirstScore, weaponStyle, reqLevel, swingBeats } from './gear.js';
 import { planCarry, applyCarry, carryMessages, scoreAfterCarry } from './carry.js';
 import { pickGain, wornSnapshot, wornChanges } from './bestpick.js';   // Equip best's rule, shared with every "upgrade" signal
@@ -79,7 +80,7 @@ import { rollBossReward } from '../data/bossRewards.js';
 import { nextJob, jobKey, makeBatch, batched } from './autoprocess.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS, SLAYER_TASKS, SLAYER_HELM_DMG, slayerBuffs, slayerBuffText } from '../data/slayer.js';
-import { STATIONS, STATION_BY_ID, MRT_FARE } from '../data/transport.js';
+import { MRT_FARE } from '../data/transport.js';
 import { SKILLS, SKILL_BY_ID } from '../data/skills.js';
 import { Learning } from './learning.js';
 import { Waves, addArena } from './waves.js';
@@ -444,7 +445,7 @@ export const BONE_PRAYER_XP = getItem('bones').prayerXp;   // plain bones; every
 const ALCHEMY = { level: 21, xp: 65, runes: { nature_rune: 1, fire_rune: 5 } };
 
 // Actions that can fire the instant you press (no random roll to exploit by spamming).
-const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'fletchmenu', 'herbmenu', 'farm', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk', 'shrinemenu', 'homemenu', 'islandmenu']);
+const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'fletchmenu', 'herbmenu', 'farm', 'pray', 'rest', 'transport', 'ferry', 'openbank', 'openshop', 'talk', 'shrinemenu', 'homemenu', 'islandmenu']);
 const GATHER_ACTIONS = new Set(['woodcut', 'mine', 'fish', 'stall']);
 // Gathering (woodcutting, mining, fishing, Hunter) goes this much faster: every
 // 1/(GATHER_SPEED-1) ticks an extra roll, so each action takes about 20% less
@@ -467,11 +468,13 @@ export const STALL_STUN_TICKS = 3;   // caught at a stall: stunned this long
 const KS_TICKS = 12;
 
 export class Game {
-  constructor() {
+  constructor({ layout = 'legacy' } = {}) {
     this.bus = new EventBus();
-    const data = addArena(buildWorld());   // the Endless Gate's arena, below the map (waves.js)
+    const authored = buildWorld();
+    const isGeographic = layout === 'singapore';
+    const data = isGeographic ? addArena(geographicWorld(authored), geographicTile) : addArena(authored);
     this.world = new World(this.bus);
-    this.world.build(data);
+    this.world.build(data, isGeographic ? { forward: geographicTile, reverse: legacyTile } : undefined);
 
     this.skills = new Skills(this.bus);
     Play.initPlay(this);   // Focus, Rested XP and the gravestone (playbalance.js)
@@ -1589,6 +1592,9 @@ export class Game {
       case 'agility': return this._tickContinuous(a, a.obj, () => this.resolveAgility(a.obj));
       case 'stall': return this._tickContinuous(a, a.obj, () => this.stealFromStall(a.obj, a));
       case 'transport': return this._tickArrival(a, a.target, true, () => this.ui?.openTransport(a.obj));
+      case 'ferry': return this._tickArrival(a, a.target, true, () => {
+        if (this.boardFerry(a.obj)) a.onLand?.();
+      });
       // The Endless Gate asks first (its panel shows your best wave); its exit portal just takes you out.
       case 'gate': return this._tickArrival(a, a.target, true, () => {
         if (a.obj.objId === 'wave_exit') return this.waves.leave();
@@ -1952,6 +1958,7 @@ export class Game {
    *  if it planned to, and walks the safe way. */
   goToObject(obj, start = null, trip = null) {
     if (!this.player.alive) return false;
+    if (!trip && this._ferryToward(obj, () => this.goToObject(obj, start))) return true;
     if (!trip) this._mrtHopToward(obj);
     else if (trip.st) this.travelTo(trip.st.id, true);
     this._pathBudget = 150000;       // like quest trips, these can cross the whole map
@@ -1969,6 +1976,7 @@ export class Game {
    *  them does) when you arrive: the life skill shortcut to the Slayer master. */
   goToNpc(npc) {
     if (!this.player.alive || !npc?.alive) return false;
+    if (this._ferryToward(npc, () => this.goToNpc(npc))) return true;
     this._mrtHopToward(npc);
     this._pathBudget = 150000;
     try { this.defaultNpcAction(npc); } finally { this._pathBudget = 0; }
@@ -2018,14 +2026,26 @@ export class Game {
     const here = this.playerTile(), walk = chebyshev(here.x, here.y, tile.x, tile.y);
     if (!ok && walk < MRT_HOP_MIN) return null;
     let best = null, bd = Infinity;
-    for (const st of STATIONS) { const d = chebyshev(st.x, st.y, tile.x, tile.y); if (d < bd && (!ok || (d < walk && ok(st)))) { bd = d; best = st; } }
+    for (const st of this.world.stations) { const d = chebyshev(st.x, st.y, tile.x, tile.y); if (d < bd && (!ok || (d < walk && ok(st)))) { bd = d; best = st; } }
     if (!best || (ok ? bd >= walk : walk - bd < MRT_HOP_MIN / 2 || bd > walk * 0.6)) return null;
     return best;
+  }
+
+  _ferryToward(tile, onLand) {
+    const landing = this.world.ferryToward(this.playerTile(), tile);
+    if (!landing) return false;
+    this._mrtHopToward(landing);
+    const previousBudget = this._pathBudget;
+    this._pathBudget = 150000;
+    try {
+      return this.beginAction({ type: 'ferry', obj: landing, target: landing, onLand }, landing, true);
+    } finally { this._pathBudget = previousBudget; }
   }
 
   /** World map: get to any tile, by MRT and on foot. */
   travelToTile(tile) {
     if (!this.player.alive) return false;
+    if (this._ferryToward(tile, () => this.travelToTile(tile))) return true;
     this._mrtHopToward(tile);
     this._pathBudget = 150000;
     try { this.walkToFar(tile); } finally { this._pathBudget = 0; }
@@ -3819,11 +3839,12 @@ export class Game {
   _placeMoralNpcs() {
     const taken = new Set(this.npcs.map((n) => n.x * 4096 + n.y));
     for (const ev of MORAL_EVENTS) {
+      const at = this.world.authoredTile(ev);
       let spot = null;
       for (let r = 0; r <= 6 && !spot; r++) {
         for (let dy = -r; dy <= r && !spot; dy++) for (let dx = -r; dx <= r && !spot; dx++) {
           if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-          const x = ev.x + dx, y = ev.y + dy;
+          const x = at.x + dx, y = at.y + dy;
           if (this.world.inBounds(x, y) && !this.world.isBlocked(x, y) && !taken.has(x * 4096 + y)) spot = { x, y };
         }
       }
@@ -4196,7 +4217,8 @@ export class Game {
   wildernessLevel() {
     const p = this.player;
     if (!this.world.zoneAt(p.x, p.y)?.wilderness) return 0;
-    return Math.max(1, Math.min(10, 1 + Math.floor((p.x - WILD_EDGE_X) / 5)));
+    const authored = this.world.legacyTile({ x: p.x, y: p.y });
+    return Math.max(1, Math.min(10, 1 + Math.floor((authored.x - WILD_EDGE_X) / 5)));
   }
 
   /** Announce dusk and dawn, since night changes what's out there. */
@@ -4751,7 +4773,7 @@ export class Game {
     // Build a fresh trail of distinct dig spots.
     const pool = [...CLUE_SPOTS];
     const spots = [];
-    for (let i = 0; i < tier.steps && pool.length; i++) spots.push(pool.splice(randInt(0, pool.length - 1), 1)[0]);
+    for (let i = 0; i < tier.steps && pool.length; i++) spots.push(this.world.authoredTile(pool.splice(randInt(0, pool.length - 1), 1)[0]));
     this.clue = { tier: tierKey, item: tier.item, casket: tier.casket, step: 0, spots };
     this.msg(`You read the ${getItem(s.id).name}. ${spots.length} dig spots to find.`, 'level');
     this.msg(`Clue: ${spots[0].hint}`, 'system');
@@ -6334,6 +6356,7 @@ export class Game {
   /** Long-range walk used by the world map; snaps to the nearest walkable tile. */
   walkToFar(tile) {
     this._autoLife = null; this.autoGatherBest = null;
+    if (this._ferryToward(tile, () => this.walkToFar(tile))) return;
     const t = this._nearestFree(tile.x, tile.y);
     if (!t) { this.msg("I can't reach there."); return; }
     if (this.playerTile().x === t.x && this.playerTile().y === t.y) return;
@@ -6397,6 +6420,7 @@ export class Game {
       case 'agility': return this.beginAction({ type: 'agility', obj }, tgt, true);
       case 'stall': return this.beginAction({ type: 'stall', obj }, tgt, true);
       case 'transport': return this.beginAction({ type: 'transport', obj, target: tgt }, tgt, true);
+      case 'ferry': return this.beginAction({ type: 'ferry', obj, target: tgt }, tgt, true);
       case 'gate': return this.beginAction({ type: 'gate', obj, target: tgt }, tgt, true);
       case 'home': return this.beginAction({ type: 'homemenu', obj, target: tgt }, tgt, true);
       case 'storyobj': return this.beginAction({ type: 'storyobj', obj, target: tgt }, tgt, true);   // lore notes, story events (story.js)
@@ -7513,10 +7537,16 @@ export class Game {
     try {
       if (g.kind === 'npc') {
         const n = nearest(this.npcs.filter((x) => x.npcId === g.npcId));
-        if (n) { this._mrtHopToward(n); ok = this.defaultNpcAction(n) !== false; }   // talk, or open the shop
+        if (n) {
+          ok = this._ferryToward(n, () => this.questTravel(id));
+          if (!ok) { this._mrtHopToward(n); ok = this.defaultNpcAction(n) !== false; }
+        }
       } else if (g.kind === 'obj') {
         const o = nearest(this.world.objects.filter((x) => x.objId === g.objId && !x.depleted));
-        if (o) { this._mrtHopToward(o); this.defaultObjectAction(o); ok = !!p.action || p.isMoving; }
+        if (o) {
+          ok = this._ferryToward(o, () => this.questTravel(id));
+          if (!ok) { this._mrtHopToward(o); this.defaultObjectAction(o); ok = !!p.action || p.isMoving; }
+        }
       } else if (g.kind === 'light') {
         if (this.burnableLogs().length) ok = this.startFiremaking() !== false;
       } else if (g.kind === 'hunt' || g.kind === 'boss') {
@@ -7533,6 +7563,7 @@ export class Game {
           this._questFamily = g.family || null;
           // Bosses are taken on for this quest trip only, not switched on for good.
           this._questBoss = g.kind === 'boss';
+          if (this._ferryToward(mob, () => this.questTravel(id))) { ok = true; return ok; }
           if (this._mrtHopToward(mob)) this.walkToFar({ x: mob.x, y: mob.y });
           else if (chebyshev(here.x, here.y, mob.x, mob.y) > 12) this.walkToFar({ x: mob.x, y: mob.y });
           else this.attackNpc(mob);
@@ -7689,6 +7720,7 @@ export class Game {
       if (g.kind === 'npc') {
         const n = nearest(this.npcs.filter((x) => x.npcId === g.npcId));
         if (!n) { this.toggleAutoQuest(false, `I can't find ${getNpc(g.npcId).name}.`); return; }
+        if (this._ferryToward(n)) return;
         this._mrtHopToward(n);
         const tgt = { x: n.x, y: n.y };
         this.beginAction({ type: 'questtalk', npc: n, quest: id, target: tgt }, tgt, true);
@@ -7698,6 +7730,7 @@ export class Game {
         const o = nearest(this.world.objects.filter((x) => x.objId === g.objId && !x.depleted
           && (x.def.type !== 'farm' || (x.crop ? !(x.growLeft > 0) : seed))));
         if (!o) { this.toggleAutoQuest(false, `I can't find anywhere to "${g.text}".`); return; }
+        if (this._ferryToward(o)) return;
         const make = AUTO_QUEST_STATION[o.def.type];
         this._mrtHopToward(o);
         if (make) {
@@ -8005,8 +8038,9 @@ export class Game {
   }
 
   travelTo(stationId, hop = false) {
-    const st = STATION_BY_ID[stationId];
+    const st = this.world.station(stationId);
     if (!st) return false;
+    if (st.access) return this.travelToTile(st);
     if (this.inventory.count('coins') < MRT_FARE) { this.msg(`You need ${MRT_FARE} coins for the MRT fare.`); return false; }
     const tile = this._nearestFree(st.x, st.y);
     if (!tile) { this.msg('That station is unreachable.'); return false; }
@@ -8024,6 +8058,19 @@ export class Game {
     this.bus.emit('sfx', 'travel:mrt');
     this.updateRegion();
     if (!this._autoTrip) this.ui?.closeModal();   // a ride you chose closes the map; an auto trip doesn't (_autoRun)
+    return true;
+  }
+
+  boardFerry(landing) {
+    if (!this.player.alive || !landing?.destination || chebyshev(this.player.x, this.player.y, landing.x, landing.y) > 1) return false;
+    const tile = this._nearestFree(landing.destination.x, landing.destination.y);
+    if (!tile) { this.msg('This ferry landing is closed.'); return false; }
+    const p = this.player;
+    p.stopNow(); p.clearAction();
+    p.x = p.tx = tile.x; p.y = p.ty = tile.y; p.progress = 0; p.moving = false; p.path = [];
+    this.msg(`You take the ferry to ${landing.destination.name}.`, 'system');
+    this.bus.emit('sfx', 'travel');
+    this.updateRegion();
     return true;
   }
 

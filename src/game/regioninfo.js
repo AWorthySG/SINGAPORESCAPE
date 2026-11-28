@@ -10,7 +10,7 @@ import { codexHabitats } from './codex.js';
 import { zoneSummary } from './resourcezones.js';
 import { repPoints, rankFor, repProgress, REP_REGIONS } from './reputation.js';
 
-const GROUP = (z) => (z.far ? 'Far regions' : z.lo ? 'Open world' : 'The old island');
+const GROUP = (z) => (z.settlement ? 'Towns' : z.far ? 'Far regions' : z.lo ? 'Open world' : 'The old island');
 
 /** Every region in the world's order: [{ name, zone, band, group, visited, lo, hi }].
  *  The band is the middle 80% of its monsters' levels (a few strays wander far
@@ -49,7 +49,10 @@ export function regionInfo(game, name) {
     .map((rz) => ({ id: rz.id, name: rz.name, skill: rz.skill, summary: zoneSummary(w, rz), x: rz.cx, y: rz.cy }));
   const givers = REGION_LINES.filter((l) => l.region === name && REGION_GIVERS[l.giver]).map((l) => {
     const g = REGION_GIVERS[l.giver];
-    return { id: l.giver, name: g.name, quest: l.name, questId: l.id, level: l.level, done: game.quests?.[l.id]?.state === 'done', x: g.at[0], y: g.at[1] };
+    const npc = game._rqGivers?.[l.giver];
+    const authored = { x: g.at[0], y: g.at[1] };
+    const tile = npc ? { x: npc.spawnX ?? npc.x, y: npc.spawnY ?? npc.y } : (w?.authoredTile?.(authored) ?? authored);
+    return { id: l.giver, name: g.name, quest: l.name, questId: l.id, level: l.level, done: game.quests?.[l.id]?.state === 'done', ...tile };
   });
   const shops = [], seenShop = new Set();
   for (const n of game.npcs || []) {
@@ -59,7 +62,7 @@ export function regionInfo(game, name) {
     seenShop.add(n.npcId);
     shops.push({ npcId: n.npcId, name: n.def.name, x, y });
   }
-  const stations = STATIONS.filter((s) => here(s.x, s.y)).map((s) => ({ id: s.id, name: s.name, x: s.x, y: s.y }));
+  const stations = (w?.stations ?? STATIONS).filter((s) => here(s.x, s.y)).map((s) => ({ id: s.id, name: s.name, x: s.x, y: s.y }));
   let rep = null;
   if (REP_REGIONS.includes(name)) {
     const pts = repPoints(game, name);

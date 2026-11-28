@@ -109,7 +109,8 @@ export function teleportPlayer(game, x, y, text, { sparkle = true } = {}) {
 
 /** Teleport to a skill's training area (an unlock at level 50 for most skills). */
 export function skillTeleport(game, skill) {
-  const st = STATION_BY_ID[skillTeleportOf(game, skill)];
+  const id = skillTeleportOf(game, skill);
+  const st = game.world?.station ? game.world.station(id) : STATION_BY_ID[id];
   if (!st) { game.msg(`You haven't unlocked ${aOrAn(skillName(skill))} teleport yet.`); return false; }
   if (!game.player.alive || game.waves?.active) { game.msg("You can't teleport right now."); return false; }
   const wait = skillTeleportWait(game);

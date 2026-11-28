@@ -225,7 +225,7 @@ export const DIALOGUES = {
     },
     station: {
       speaker: 'Nur Aisyah',
-      text: 'The MRT platform is at the east end of the plaza, near the bank booths. If you’re walking to Kranji Village, follow the road north.',
+      text: 'The MRT platform is at the east end of the plaza, near the bank booths. If you’re walking to Kranji Village, take the road toward Mandai first.',
       options: [{ label: 'Back.', next: 'start' }],
     },
     trail: {

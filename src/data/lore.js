@@ -20,6 +20,7 @@ const R = {
   punggol: 'Punggol Waterway', gardens: 'Gardens by the Bay', tekong: 'Tekong Badlands', pulau_hantu: 'Pulau Hantu',
   coney: 'Coney Island', mandai: 'Mandai Rainforest', southern_islands: 'Southern Islands', shadow_rift: 'The Shadow Rift',
   tuas: 'Tuas Docklands', temasek: 'Temasek Ruins', celestial_peaks: 'The Celestial Peaks',
+  transit_road: 'Transit Road, Nee Soon Camp',
 };
 
 // [prefix, drop page [title, text], spot page [title, text]]
@@ -93,6 +94,9 @@ const REGION_PAGES = [
   ['celestial_peaks',
     ['Stargazer Lin’s Star Chart', 'Count tonight: 4,212 stars over the Peaks. Last month: 4,301. Something is eating them, and it is getting hungrier.'],
     ['A Fallen Star’s Song', 'Hold a fallen star to your ear and it hums the tune every kampong grandmother sings at bedtime. Nobody knows who taught it to whom.']],
+  ['transit_road',
+    ['Mei Lin’s Rain Notes', 'The first wisp appeared in the smallest puddle. By sunset there were three. I think they like the reflection of the lamps.'],
+    ['Aisyah’s Margin Sketch', 'Turn south at the rain trees and follow the pavement to the reeds. If you smell curry, you have walked in a circle and found Ravi again.']],
 ];
 
 // One page for each chapter of the story, given when the chapter is done.

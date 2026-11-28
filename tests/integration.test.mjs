@@ -3727,7 +3727,7 @@ test('every open-world and far region is well stocked and refills quickly', asyn
   const game = new Game();
   game.start();
   const w = game.world;
-  for (const z of w.zones.filter((zz) => zz.lo)) {
+  for (const z of w.zones.filter((zz) => zz.lo && !zz.settlement)) {
     let walk = 0;
     for (let y = z.y0; y <= z.y1; y++) for (let x = z.x0; x <= z.x1; x++) if (w.inBounds(x, y) && !w.isBlocked(x, y)) walk++;
     const mobs = game.npcs.filter((n) => n.attackable && !n.def.boss && n.x >= z.x0 && n.x <= z.x1 && n.y >= z.y0 && n.y <= z.y1).length;

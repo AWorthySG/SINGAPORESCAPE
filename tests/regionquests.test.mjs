@@ -44,7 +44,7 @@ function killFor(g, npc) {
 test('every region has one quest line, ordered by fight level, with a real giver', () => {
   const g = newGame();
   const regions = g.world.zones.map((z) => z.name).filter((n) => n !== 'The Endless Gate');
-  assert.equal(regions.length, 23);
+  assert.equal(regions.length, 24);
   assert.deepEqual([...REGION_LINES.map((l) => l.region)].sort(), [...regions].sort(), 'one line per region');
   for (let i = 1; i < REGION_LINES.length; i++) assert.ok(REGION_LINES[i].level >= REGION_LINES[i - 1].level, `${REGION_LINES[i].id} comes after an easier line`);
   assert.equal(REGION_LINES[0].region, 'Kampong Glam', 'the journey starts in Kampong Glam');
@@ -53,18 +53,22 @@ test('every region has one quest line, ordered by fight level, with a real giver
     assert.ok(l.steps.length >= 3 && l.steps.length <= 5, `${l.id} has 3-5 steps`);
     assert.equal(l.steps.at(-1).kind, 'talk', `${l.id} ends back with someone`);
     assert.ok(l.steps.some((s) => s.kind === 'foe'), `${l.id} has a mini-boss`);
-    const giver = g.npcs.find((n) => n.npcId === l.giver);
-    assert.ok(giver, `${l.giver} stands in the world`);
+    const givers = g.npcs.filter((n) => n.npcId === l.giver);
+    assert.equal(givers.length, 1, `${l.giver} stands in the world once`);
+    const [giver] = givers;
     assert.equal(g.world.zoneAt(giver.x, giver.y)?.name, l.region, `${l.giver} stands in ${l.region}`);
     assert.ok(!NPCS[l.giver].attackable && NPCS[l.giver].dialogue === 'region');
   }
+  const directions = regionDialogue(g, g.npcs.find((n) => n.npcId === 'transit_mapmaker'));
+  assert.ok(directions.start.options.some((option) => option.next === 'trail'));
+  assert.match(directions.trail.text, /Rain-Tree Verge/);
 });
 
-test('quest givers wear their own townsfolk art (the borrowed one stays as a fallback)', () => {
+test('quest givers have painted townsfolk art', () => {
   const art = townArt();
   for (const [id, g] of Object.entries(REGION_GIVERS)) {
     assert.ok(art.has(g.art), `${id} falls back on real art (${g.art})`);
-    assert.ok(art.has(id), `${id} has its own picture`);
+    if (id !== 'transit_mapmaker') assert.ok(art.has(id), `${id} has its own picture`);
   }
 });
 

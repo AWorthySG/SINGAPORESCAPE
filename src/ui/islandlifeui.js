@@ -1,6 +1,6 @@
 import { islandPhotoArt, ISLAND_BY_ID, LANDINGS, LOOMS, PATTERNS, PHOTO_ASSIGNMENTS, STAGES, TUNES, VOYAGES } from '../data/islandlife.js';
 import { getItem } from '../data/items.js';
-import { COVE_FIND, encoreNotes, exploreCove, finishIslandTune, finishVoyage, islandBook, islandClaimed, islandPayout, islandReady, learnIslandTune, makeIslandPattern, musicStage, nearIslandSite, textileWorkshop, voyageAvailable } from '../game/islandlife.js';
+import { atIslandSite, COVE_FIND, encoreNotes, exploreCove, finishIslandTune, finishVoyage, islandBook, islandClaimed, islandPayout, islandReady, islandSiteTile, learnIslandTune, makeIslandPattern, musicStage, textileWorkshop, voyageAvailable } from '../game/islandlife.js';
 import { nextUnlock, skillTeleport, skillTeleportOf } from '../game/skillunlocks.js';
 import { lifePerkNext, lifePerkText } from '../game/lifeperks.js';
 import { skillIconSVG } from '../render/icons.js';
@@ -43,7 +43,7 @@ export function openIslandSkill(ui, skill) {
   const sites = new Map();
   const go = (site) => {
     const key = `go:${site.x},${site.y}`;
-    sites.set(key, site);
+    sites.set(key, islandSiteTile(game.world, site));
     return button('Go', key);
   };
   const page = () => {
@@ -56,12 +56,12 @@ export function openIslandSkill(ui, skill) {
           ? 'Chart ' + LANDINGS[prereq.to].name + ' first' : 'Uncharted';
         const freight = v.freight && known ? ` · ${claimed ? 'Freight delivered today' : islandPayout(game, skill, v.freight) + ' coins for freight'}` : '';
         const disabled = !voyageAvailable(game, v);
-        const actions = nearIslandSite(game.player, LANDINGS[v.from])
+        const actions = atIslandSite(game, LANDINGS[v.from])
           ? button('Set sail', 'voyage:' + v.id, disabled) + (v.freight && known ? button('Carry freight', 'freight:' + v.id, disabled || claimed) : '')
           : go(LANDINGS[v.from]);
         return row(LANDINGS[v.from].name + ' → ' + LANDINGS[v.to].name, `Level ${v.level} · ${hint}${freight}`, actions);
       }).join('')
-        + (book.voyages.includes('cove') && nearIslandSite(game.player, LANDINGS.cove) ? COVE_FIND.map((f) =>
+        + (book.voyages.includes('cove') && atIslandSite(game, LANDINGS.cove) ? COVE_FIND.map((f) =>
           row(f.name, book.cove.includes(f.id) ? 'Recorded' : getItem(f.item).name, button('Explore', 'cove:' + f.id, !ready || book.cove.includes(f.id)))).join('') : '');
     }
     if (skill === 'photography') {
@@ -70,14 +70,14 @@ export function openIslandSkill(ui, skill) {
           const collected = book.photos.includes(p.id), done = islandClaimed(game, 'photo:' + p.id);
           const hint = collected ? (done ? 'Print collected · Submitted today' : 'Print collected · ' + islandPayout(game, skill, Math.round(p.xp * 1.5)) + ' coins for a new postcard') : 'Level ' + p.level;
           return row(`<img class="island-assignment-art" src="${islandPhotoArt(p)}" alt="">` + p.name, hint + ' · ' + p.detail,
-            done ? '' : nearIslandSite(game.player, p, p.range)
+            done ? '' : atIslandSite(game, p, p.range)
               ? button('Open camera', 'camera:', lvl < p.level || !game.photoCamera) : go(p));
         }).join('');
     }
     if (skill === 'textile_arts') {
       const workshop = textileWorkshop(game);
       return LOOMS.map((site) => row(site.name, site.level === 1 ? 'Bring a farmed dye and 8 coins for cotton.' : 'Level 8 · Fill paid orders for patterns you know.',
-        nearIslandSite(game.player, site) ? '' : go(site))).join('') +
+        atIslandSite(game, site) ? '' : go(site))).join('') +
         PATTERNS.map((p) => {
           const known = book.patterns.includes(p.id), made = islandClaimed(game, 'order:' + p.id);
           const dye = game.inventory.count(p.dye), coins = game.inventory.count('coins');
@@ -90,7 +90,7 @@ export function openIslandSkill(ui, skill) {
         }).join('');
     }
     const stage = musicStage(game);
-    return STAGES.map((s) => row(s.name, `Stage access at Music level ${s.level}`, nearIslandSite(game.player, s) ? '' : go(s))).join('')
+    return STAGES.map((s) => row(s.name, `Stage access at Music level ${s.level}`, atIslandSite(game, s) ? '' : go(s))).join('')
       + TUNES.map((t) => {
         const known = book.tunes.includes(t.id), done = islandClaimed(game, 'encore:' + t.id);
         const teacher = STAGES.find((s) => s.id === t.stage);

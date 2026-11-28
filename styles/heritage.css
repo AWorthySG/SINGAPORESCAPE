@@ -429,7 +429,7 @@
   box-shadow: 0 0 0 1px #719588, 0 0 0 3px #f5ecd7, 0 3px 8px #536c5540;
 }
 .atlas-map > img { display: block; width: 100%; height: auto; border-radius: inherit; }
-.atlas-north, .atlas-strait, .atlas-tekong {
+.atlas-north, .atlas-strait {
   position: absolute;
   color: #254c48;
   pointer-events: none;
@@ -444,7 +444,6 @@
   clip-path: polygon(50% 0, 100% 100%, 50% 72%, 0 100%);
 }
 .atlas-strait { bottom: 12%; right: 13%; font-size: var(--fs-sm); letter-spacing: .09em; opacity: .85; }
-.atlas-tekong { top: 24%; right: 6%; font-size: var(--fs-xs); }
 
 #modal-body .atlas-pin {
   position: absolute;
@@ -490,7 +489,8 @@
 .atlas-pin[data-side="bottom"] span { left: 50%; transform: translateX(-50%); }
 .atlas-pin[data-side="top"] span { bottom: calc(100% - 3px); }
 .atlas-pin[data-side="bottom"] span { top: calc(100% - 3px); }
-#modal-body .atlas-pin:is([aria-pressed="true"], :focus-visible, :hover) { z-index: 2; }
+#modal-body .atlas-pin[aria-pressed="true"] { z-index: 2; }
+#modal-body .atlas-pin:is(:focus-visible, :hover) { z-index: 3; }
 .atlas-pin[aria-pressed="true"]::before {
   width: 13px;
   height: 13px;
@@ -541,10 +541,11 @@
   box-shadow: 0 2px 0 #1c443f;
 }
 .atlas-destination :is(select, button):focus-visible { outline: 3px solid var(--aw-sun-deep); outline-offset: 2px; }
+.atlas-access { margin: 0; font-size: var(--fs-sm); color: #24413f; }
 .atlas-credit { margin: 0; font-size: var(--fs-xs); color: #514b3f; }
 .atlas-credit a { color: #1e5e53; }
 @media (min-width: 900px) and (min-height: 700px) {
-  #modal-window:has(.atlas) { width: min(814px, 90vw); }
+  #modal-window:has(.atlas) { width: min(814px, 90vw); max-height: 86dvh; }
 }
 @media (max-width: 620px), (max-height: 560px) and (orientation: landscape) {
   .atlas-pin:not([aria-pressed="true"]):not(:focus-visible):not(:hover) span { display: none; }
@@ -558,7 +559,7 @@
     justify-content: center; align-items: center;
   }
   .atlas-destination { grid-template-columns: minmax(0, 1fr); }
-  .atlas-credit { grid-column: 1 / -1; }
+  .atlas-access, .atlas-credit { grid-column: 1 / -1; }
 }
 @media (max-height: 560px) and (orientation: landscape) {
   #modal-body:has(.worldmap-canvas) { grid-template-rows: auto 1fr auto; }

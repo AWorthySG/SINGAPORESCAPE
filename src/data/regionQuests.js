@@ -5,7 +5,7 @@
 //
 // A line: { id, region, name, giver, level (fight level to start), desc,
 //   intro (the giver's greeting), offer (the job), thanks (said once it's done),
-//   steps, unlock }.
+//   steps, unlock, sideStory?, localDialogue? }.
 // Steps, done in order (the last is always a talk back to the giver):
 //   { kind: 'kill', npc, qty, text }      defeat that many of a monster
 //   { kind: 'give', item, qty, to?, via, text, say }  bring items to the giver (or `to`);
@@ -73,6 +73,23 @@ export const REGION_LINES = [
         say: 'No more snatched bags. Here, keep your eyes as sharp as they are today.' },
     ],
     unlock: { type: 'perk', bonus: { crit: 1 }, text: 'Ranger’s eye: +1% crit chance' },
+  },
+  {
+    id: 'rq_transit_road', region: 'Transit Road, Nee Soon Camp', name: 'Lights along the Verge', giver: 'transit_mapmaker', level: 8,
+    sideStory: true, localDialogue: 'transit_mapmaker',
+    desc: 'Help Nur Aisyah put the Rain-Tree Verge back on the map.',
+    intro: 'I’m Aisyah. I draw the paths around here, though the rain keeps adding new puddles to my maps.',
+    offer: 'The rain washed the trail marks away. The puddle wisps are getting underfoot and a great moth has taken over the trail lamp. Will you help me clear the way?',
+    thanks: 'The trail marks are up, the lamp is shining, and Ravi’s kettle is on. Drop by any time.',
+    steps: [
+      { kind: 'kill', npc: 'transit_puddle_wisp', qty: 2, text: 'Chase off two puddle wisps at Rain-Tree Verge' },
+      { kind: 'give', item: 'teh_tarik', qty: 2, via: [{ shop: 'transit_hawker' }], text: 'Bring Aisyah two cups of teh tarik from Uncle Ravi’s stall',
+        say: 'One for me, one for Mei Lin. We’ll finish painting the trail marks while there’s still light.' },
+      { kind: 'foe', npc: 'transit_lantern_moth', name: 'The Lamplighter', text: 'Challenge the Lamplighter at Rain-Tree Verge' },
+      { kind: 'talk', text: 'Return to Nur Aisyah in the plaza', reply: 'The lamp is clear again.',
+        say: 'Now no one will miss the turn. Take this little map charm so you can always find your way back.' },
+    ],
+    unlock: { type: 'teleport', text: 'Teleport to Transit Road from the quest journal' },
   },
   {
     id: 'rq_pulau_ubin', region: 'Pulau Ubin', name: 'The Last Kampong', giver: 'rq_uncle_seng', level: 10,
@@ -426,11 +443,12 @@ export const REGION_GIVERS = {
   rq_goh: { name: 'Harbourmaster Goh', examine: 'He counts every container in Tuas.', art: 'banker', tint: 'hue-rotate(160deg)', at: [103, 324] },
   rq_nadia: { name: 'Dr Nadia', examine: 'An archaeologist digging up old Temasek.', art: 'mage', tint: 'hue-rotate(250deg)', at: [269, 322] },
   rq_lin: { name: 'Stargazer Lin', examine: 'She watches the sky from the Celestial Peaks.', art: 'light_priestess', tint: 'hue-rotate(220deg)', at: [478, 324] },
+  transit_mapmaker: { name: 'Nur Aisyah', examine: 'A mapmaker whose sketches show every trail past the rain trees.', art: 'rq_nadia', tint: 'hue-rotate(18deg) saturate(0.85)', at: [446, 153], noDice: true },
 };
 
 // Townsfolk defs for the givers (merged into NPCS by npcs.js).
 export const REGION_GIVER_DEFS = Object.fromEntries(Object.entries(REGION_GIVERS).map(([id, g]) => [id,
-  { name: g.name, level: 0, attackable: false, role: 'dialogue', wander: 0, examine: g.examine, dialogue: 'region' }]));
+  { name: g.name, level: 0, attackable: false, role: 'dialogue', wander: 0, examine: g.examine, dialogue: 'region', ...(g.noDice ? { noDice: true } : {}) }]));
 
 // The shops a finished line opens (merged into SHOPS by shops.js).
 export const REGION_SHOPS = {

@@ -8,6 +8,7 @@ import { TRANSIT_ROAD_STATION } from '../src/data/transport.js';
 import { MRT_CLEAR } from '../src/data/world.js';
 import { Game } from '../src/game/game.js';
 import { regionInfo } from '../src/game/regioninfo.js';
+import { regionDialogue } from '../src/game/regionquests.js';
 import { saveGame } from '../src/game/save.js';
 import { ATLAS_PLACES, atlasDestination } from '../src/ui/atlas.js';
 
@@ -50,6 +51,7 @@ test('Transit Road is a safe MRT stop with a town square, its own encounters and
     assert.ok(resident && !resident.attackable, `${id} is a friendly resident`);
     assert.ok(!game.world.isBlocked(resident.x, resident.y));
     if (resident.def.role === 'shop') assert.ok(getShop(resident.def.shop).stock.length > 0);
+    else if (resident.def.dialogue === 'region') assert.ok(regionDialogue(game, resident).start.text);
     else assert.ok(getDialogue(resident.def.dialogue).start.text);
   }
   for (const id of monsters) {

@@ -683,7 +683,7 @@ test('gameplay art pack: items, world objects, quest givers, pets and gameplay i
   const { readdirSync, readFileSync } = await import('node:fs');
   const { fileURLToPath } = await import('node:url');
   const { itemIconSVG, PLAY_ICONS, playIconHTML, EVENT_ICON, mechIcon } = await import('../src/render/icons.js');
-  const { worldArt, townArt } = await import('../src/render/sprites.js');
+  const { worldArt, townArt, townPortrait } = await import('../src/render/sprites.js');
   const { PET_ART, PET_ART_PENDING, petArtSrc } = await import('../src/render/petsprite.js');
   const { SKILL_PETS } = await import('../src/game/pets.js');
   const { REGION_GIVERS } = await import('../src/data/regionQuests.js');
@@ -715,8 +715,10 @@ test('gameplay art pack: items, world objects, quest givers, pets and gameplay i
       assert.ok(drawn.some((im) => im.src === `assets/world/${key}.webp`), `${objId} as a world event draws ${key}`);
     }
   } finally { delete globalThis.Image; }
-  // Quest givers and the lost merchant have townsfolk pictures of their own.
-  for (const id of [...Object.keys(REGION_GIVERS), 'event_merchant']) assert.ok(townArt().has(id), `${id} has its own picture`);
+  // The earlier quest givers and the lost merchant have their own pictures.
+  for (const id of [...Object.keys(REGION_GIVERS), 'event_merchant']) if (id !== 'transit_mapmaker') assert.ok(townArt().has(id), `${id} has its own picture`);
+  const mapmaker = REGION_GIVERS.transit_mapmaker;
+  assert.deepEqual(townPortrait('transit_mapmaker'), { src: `assets/creatures/townsfolk/${mapmaker.art}.webp`, filter: mapmaker.tint });
   assert.match(readFileSync(fileURLToPath(new URL('../src/game/worldevents.js', import.meta.url)), 'utf8'), /artId = 'event_merchant'/);
   // Pets: every life-skill pet has its own picture, in lock-step with assets/creatures/pets/.
   const pets = new Set(readdirSync(dir('creatures/pets')).filter((f) => f.endsWith('.webp')).map((f) => f.slice(0, -5)));

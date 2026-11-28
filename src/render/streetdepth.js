@@ -2,7 +2,7 @@
 // shophouse rows at Kampong Glam's south gate.
 const SHOPS = new Set(['shophouse_row_mint', 'shophouse_row_peach']);
 
-export const isDepthShop = (obj) => SHOPS.has(obj.objId) && obj.y >= 64 && obj.y <= 86 && obj.x >= 42 && obj.x <= 74;
+export const isDepthShop = (obj) => SHOPS.has(obj.objId);
 
 // Source slices keep the trunk or front wall opaque as you walk behind it.
 export function drawLayeredObject(ctx, img, x, y, w, h, alpha, solidPart) {

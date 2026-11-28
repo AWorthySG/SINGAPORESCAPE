@@ -22,10 +22,11 @@ const PIECES = ['normal', 'dark'].flatMap((t) => ['left', 'middle', 'right'].map
 export const REGION_BADGES = ['Kampong Glam', 'Chinatown', 'Marina Bay', 'Bukit Timah', 'Jurong Forest', 'Mandai Rainforest',
   'MacRitchie Reservoir', 'Punggol Waterway', 'Sungei Buloh Wetlands', 'Sentosa Beach', 'Changi Coast', 'Southern Islands',
   'Pulau Ubin', 'Coney Island', 'Gardens by the Bay', 'Kranji Farmlands', 'Tuas Docklands', 'Temasek Ruins',
-  'The Celestial Peaks', 'The Wilderness', 'Pulau Hantu', 'Tekong Badlands', 'The Shadow Rift'];
+  'The Celestial Peaks', 'The Wilderness', 'Pulau Hantu', 'Tekong Badlands', 'The Shadow Rift', 'Transit Road, Nee Soon Camp'];
 // The grim lands get the dark plaque and banner.
 export const DARK_REGIONS = new Set(['The Wilderness', 'Pulau Hantu', 'Tekong Badlands', 'The Shadow Rift']);
-export const badgeKey = (region) => `badge-${region.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+const BADGE_ALIASES = { 'Transit Road, Nee Soon Camp': 'Kranji Farmlands' };
+export const badgeKey = (region) => `badge-${(BADGE_ALIASES[region] || region).toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
 // Painted combat effects (assets/fx/fx-<name>.webp): the crit star-burst, the
 // miss puff, confetti, the level-up ribbon, six element hits, the loot beam
 // (tinted by rarity) and the ultimate burst. Each caller keeps its canvas

@@ -38,6 +38,8 @@ export function spotTile(game, region) {
   const w = game.world, l = LINE_BY_REGION[region], g = l && REGION_GIVERS[l.giver];
   cache[region] = null;
   if (!g) return null;
+  const authored = { x: g.at[0], y: g.at[1] };
+  const center = w.authoredTile?.(authored) ?? authored;
   const h = hash(region);
   const clear = (x, y) => w.inBounds(x, y) && !w.isBlocked(x, y) && !w.objectAt(x, y);
   for (let r = 6 + (h % 3); r <= 18; r++) {
@@ -47,7 +49,7 @@ export function spotTile(game, region) {
     const start = (h >>> 3) % ring.length;
     for (let k = 0; k < ring.length; k++) {
       const [dx, dy] = ring[(start + k) % ring.length];
-      const x = g.at[0] + dx, y = g.at[1] + dy;
+      const x = center.x + dx, y = center.y + dy;
       if (w.zoneAt(x, y)?.name !== region) continue;
       let ok = true;
       for (let j = -1; j <= 1 && ok; j++) for (let i = -1; i <= 1 && ok; i++) ok = clear(x + i, y + j);

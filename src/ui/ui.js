@@ -44,8 +44,8 @@ import { buildBlessingsPanel, renderBlessingsPanel, renderFaithOrb } from './ble
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { QUESTS } from '../data/quests.js';
 import { SLAYER_REWARDS, SLAYER_FULL_LEVEL, SLAYER_HELM_DMG, slayerBuffs, nextSlayerUnlock } from '../data/slayer.js';
-import { STATIONS, MRT_FARE } from '../data/transport.js';
-import { renderSingaporeAtlas } from './atlas.js';
+import { MRT_FARE } from '../data/transport.js';
+import { atlasDestination, renderSingaporeAtlas } from './atlas.js';
 import { EQUIP_SLOTS, canDualPair, isTwoHanded, offhandBlocked, takesQuiver } from '../game/equipment.js';
 import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
@@ -155,6 +155,7 @@ const tooHigh = (rec, you) => rec > 0 && rec > you * 1.25 + 5;
 // World map marker filters: id, chip label, marker colour.
 const MAP_FILTERS = [
   { id: 'mrt', name: 'MRT', col: '#ffffff' },
+  { id: 'ferry', name: 'Ferries', col: '#8ee4e5' },
   { id: 'boss', name: 'Bosses', col: '#ff4a5a' },
   { id: 'bank', name: 'Banks', col: '#ffd24a' },
   { id: 'tree', name: 'Trees', col: '#b6f55a' },
@@ -4612,7 +4613,7 @@ export class UI {
       body.innerHTML = `<div class="modal-hint">Tap your EZ-link card. Fare: ${MRT_FARE} coins &middot; Coins: ${formatNumber(this.game.inventory.count('coins'))}</div>`;
       const list = document.createElement('div');
       list.className = 'mrt-list';
-      for (const st of STATIONS) {
+      for (const st of this.game.world.stations) {
         const row = document.createElement('div');
         row.className = 'dialogue-option mrt-row' + (st.id === here ? ' current' : '');
         row.innerHTML = `<span class="mrt-dot"></span><b>${escapeHtml(st.name)}</b>${st.id === here ? ' <span class="mrt-here">(you are here)</span>' : ''}`;
@@ -4627,7 +4628,7 @@ export class UI {
 
   _nearestStation(obj) {
     let best = null, bd = Infinity;
-    for (const st of STATIONS) {
+    for (const st of this.game.world.stations) {
       const d = Math.abs(st.x - obj.x) + Math.abs(st.y - obj.y);
       if (d < bd) { bd = d; best = st.id; }
     }
@@ -4719,7 +4720,11 @@ export class UI {
     const game = this.game;
     const W = game.world.width, H = game.world.mapHeight || game.world.height;   // not the Endless Gate's sea
     // Which markers show; remembered between openings.
-    const on = this._mapFilters || (this._mapFilters = new Set(['mrt', 'boss', 'bank']));
+    const on = this._mapFilters || (this._mapFilters = new Set(['mrt', 'ferry', 'boss', 'bank']));
+    const ferries = game.world.ferryLinks || [];
+    const ferryMarker = (point, crossing) => ({
+      f: 'ferry', x: point.x, y: point.y, big: true, label: point.name, crossing,
+    });
     // `focus` ({ x, y, label }) opens with that spot picked (the Monster Codex's Show on map).
     let sel = focus && Number.isFinite(focus.x) ? focus : null;
     let mode = sel ? 'terrain' : this._mapMode || 'atlas';
@@ -4747,8 +4752,11 @@ export class UI {
     for (const k of Object.keys(objTypes)) for (const t of objTypes[k]) filterOf[t] ??= k;
     const markers = () => {
       const out = [];
-      if (on.has('mrt')) for (const st of STATIONS) {
+      if (on.has('mrt')) for (const st of game.world.stations) {
         out.push({ f: 'mrt', x: st.x, y: st.y, big: true, station: st, label: `${st.name} MRT` });
+      }
+      if (on.has('ferry')) for (const { from, to } of ferries) {
+        out.push(ferryMarker(from, to), ferryMarker(to, from));
       }
       if (on.has('boss')) for (const n of game.npcs) {
         if (!n.alive || !n.def.boss || n.temporary) continue;
@@ -4791,7 +4799,7 @@ export class UI {
           mode = 'terrain';
           render(body);
           body.querySelector('.wm-info .wm-go')?.focus({ preventScroll: true });
-        });
+        }, (place) => atlasDestination(place, game.world));
         return;
       }
       const chips = document.createElement('div');
@@ -4814,17 +4822,31 @@ export class UI {
       const list = markers();
       // The canvas is shrunk to fit the panel, so size markers in on-screen pixels.
       const k = cnv.width / Math.min(cnv.width, window.innerWidth * 0.9, 620);
+      if (on.has('ferry') && ferries.length) {
+        c.save();
+        c.setLineDash([4 * k, 3 * k]);
+        c.strokeStyle = '#e9fbec';
+        c.lineWidth = 1.5 * k;
+        c.beginPath();
+        for (const { from, to } of ferries) {
+          c.moveTo((from.x + 0.5) * scale, (from.y + 0.5) * scale);
+          c.lineTo((to.x + 0.5) * scale, (to.y + 0.5) * scale);
+        }
+        c.stroke();
+        c.restore();
+      }
       for (const m of list) {
         const col = MAP_FILTERS.find((f) => f.id === m.f).col;
         const cx = m.x * scale + scale / 2, cy = m.y * scale + scale / 2;
         if (m.big) {
           // Big markers are sticker dots: navy ink ring, colour fill (hollow when locked).
-          const r = (m.f === 'mrt' ? 5 : 3.5) * k;
+          const symbol = m.station ? 'M' : m.crossing ? 'F' : '';
+          const r = (symbol ? 5 : 3.5) * k;
           c.fillStyle = '#22304A'; c.beginPath(); c.arc(cx, cy, r + 1.2 * k, 0, Math.PI * 2); c.fill();
           c.fillStyle = m.locked ? '#6b7383' : col; c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.fill();
-          if (m.f === 'mrt' && !m.locked) {
+          if (symbol) {
             c.fillStyle = '#22304A'; c.font = `900 ${Math.round(r * 1.3)}px Nunito,sans-serif`;
-            c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('M', cx, cy + 0.5);
+            c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(symbol, cx, cy + 0.5);
           }
         } else {
           c.globalAlpha = m.locked ? 0.35 : 1;
@@ -4903,10 +4925,10 @@ export class UI {
       const info = document.createElement('div');
       info.className = 'wm-info';
       if (!sel) {
-        info.innerHTML = '<span>Tap the map or a marker to pick where to go. Tap an <b>M</b> station to ride the MRT there; long trips ride part of the way by themselves.</span>';
+        info.innerHTML = `<span>Tap the map to choose a destination. <b>M</b> marks an MRT station${ferries.length ? ' and <b>F</b> marks a ferry landing' : ''}.</span>`;
       } else {
         const dist = Math.max(Math.abs(sel.x - game.player.x), Math.abs(sel.y - game.player.y));
-        info.innerHTML = `<span><b>${sel.label}</b> · ${dist} tiles away</span>`;
+        info.innerHTML = `<span><b>${escapeHtml(sel.label)}</b> · ${dist} tiles away</span>`;
         const btn = (text, fn, cls = '') => {
           const b = document.createElement('button'); b.className = 'wm-go ' + cls; b.textContent = text;
           b.addEventListener('click', fn); info.appendChild(b);
@@ -4921,8 +4943,18 @@ export class UI {
             btn(`Ride MRT anyway (${MRT_FARE} coins)`, () => game.mrtFromMap(sel.station.id), 'ride danger');
           } else btn(`Ride MRT (${MRT_FARE} coins)`, () => game.mrtFromMap(sel.station.id), 'ride');
         }
+        if (sel.ferry) {
+          btn(`Show ${sel.ferry.from.name}`, () => {
+            sel = ferryMarker(sel.ferry.from, sel.ferry.to);
+            render(body);
+            body.querySelector('.wm-info .wm-go')?.focus({ preventScroll: true });
+          });
+        }
+        if (sel.crossing) {
+          info.insertAdjacentHTML('beforeend', `<span>Boards for ${escapeHtml(sel.crossing.name)}</span>`);
+        }
         if (sel.obj) btn('Go', () => game.goToObject(sel.obj));
-        else btn('Travel here', () => { game.travelToTile({ x: sel.x, y: sel.y }); this.closeModal(); });
+        else btn(sel.crossing ? 'Go to landing' : 'Travel here', () => { game.travelToTile({ x: sel.x, y: sel.y }); this.closeModal(); });
       }
       body.appendChild(info);
       // On a short laptop screen the buttons can sit below the fold: bring them up.

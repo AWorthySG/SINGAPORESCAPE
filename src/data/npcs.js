@@ -625,10 +625,9 @@ const TOWNSFOLK = {
   mercenary_spear_guard: { name: 'Spear guard', level: 0, attackable: false, wander: 0, examine: 'Keeps trouble a spear\u2019s length away.' },
   mercenary_duellist: { name: 'Duellist', level: 0, attackable: false, wander: 0, examine: 'Quick, sharp and expensive.' },
   aworthling: { name: 'A-Worthling', level: 0, attackable: false, wander: 0, examine: 'A shimmering mirror image of the Merchant.' },
-  transit_mapmaker: { name: 'Nur Aisyah', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'A mapmaker whose sketches show every trail past the rain trees.', dialogue: 'transit_mapmaker' },
-  transit_hawker: { name: 'Uncle Ravi', level: 0, attackable: false, role: 'shop', wander: 0, examine: 'Ravi is pulling another cup of tea at his Rain or Shine Stall.', shop: 'transit_hawker',
+  transit_hawker: { name: 'Uncle Ravi', level: 0, attackable: false, role: 'shop', wander: 0, noDice: true, examine: 'Ravi is pulling another cup of tea at his Rain or Shine Stall.', shop: 'transit_hawker',
     chatter: ['Teh tarik, still hot!', 'Prata for the road?'] },
-  transit_caretaker: { name: 'Mei Lin', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'The caretaker keeps the path clear and an eye on the creatures in the reeds.', dialogue: 'transit_caretaker' },
+  transit_caretaker: { name: 'Mei Lin', level: 0, attackable: false, role: 'dialogue', wander: 0, noDice: true, examine: 'The caretaker keeps the path clear and an eye on the creatures in the reeds.', dialogue: 'transit_caretaker' },
 };
 
 // The town places these handpicked encounters by the verge.
@@ -646,6 +645,7 @@ for (const id of [...MONSTER_IDS, ...EXTRA_MONSTER_IDS, ...MORE_MONSTER_IDS, ...
 for (const [id, name, sprite, color, level, family, examine, drop] of TRANSIT_MONSTERS) {
   const def = makeMob(id, name, sprite, color, level, 'Transit Road, Nee Soon Camp', false, family);
   def.wander = 2;
+  def.noDice = true;
   def.examine = `${examine} (level ${level})`;
   def.dropTable.push(drop);
   NPCS[id] = def;

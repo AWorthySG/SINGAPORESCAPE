@@ -29,7 +29,6 @@ import { getItem, ITEMS } from '../data/items.js';
 import { ALL_BOSS_IDS, getNpc } from '../data/npcs.js';
 import { teleportPlayer } from './skillunlocks.js';
 import { makeXp } from './skilling.js';
-import { STATIONS } from '../data/transport.js';
 import { TICK_MS } from '../config.js';
 import { FOCUS_ACTIVE_REFILL, FOCUS_MAX_MS } from './playbalance.js';
 
@@ -193,7 +192,7 @@ export class Home {
     this.chest = [];        // [{ id, qty }], its own store
     this.tpReady = 0;       // game tick the home teleport is ready again
     this.portalReady = 0;   // game tick the portal arch is ready again
-    this.origin = findPlot(game.world);
+    this.origin = findPlot(game.world, game.world.authoredTile(HOME_ANCHOR));
     game.bus?.on?.('tick', () => this.tick());
     // The plot's board stands there from the start: it's where you buy it.
     if (this.origin) this._put('home_plot', ...BOARD);
@@ -388,7 +387,7 @@ export class Home {
   /** The MRT stations the portal arch can take you to: those in regions you've visited. */
   portalTargets() {
     const g = this.game;
-    return STATIONS.filter((st) => {
+    return g.world.stations.filter((st) => {
       const z = g.world.zoneAt?.(st.x, st.y);
       return z && g.zonesVisited?.has(z.name);
     });

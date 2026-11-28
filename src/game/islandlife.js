@@ -4,6 +4,8 @@ import { OBJECTS } from '../data/objects.js';
 import { teleportPlayer, unlockFx } from './skillunlocks.js';
 
 export const nearIslandSite = (p, site, range = 2) => Math.max(Math.abs(p.x - site.x), Math.abs(p.y - site.y)) <= range;
+export const islandSiteTile = (world, site) => world?.authoredTile?.(site) ?? site;
+export const atIslandSite = (game, site, range) => nearIslandSite(game.player, islandSiteTile(game.world, site), range);
 const WAYFINDING = [
   [260, 52, 'Sailing landing →'], [276, 46, 'Sailing landing →'],
   [55, 93, 'Shell shallows ↙'], [49, 96, 'Shell shallows ←'],
@@ -12,15 +14,19 @@ const WAYFINDING = [
 // Share the exact sites with the skill panels, so Interact and Go lead to the same places.
 export function placeIslandSites(world) {
   for (const site of LOOMS) {
-    world.addObject('batik_loom', site.x, site.y, { def: { ...OBJECTS.batik_loom, level: site.level } });
+    const { x, y } = islandSiteTile(world, site);
+    world.addObject('batik_loom', x, y, { def: { ...OBJECTS.batik_loom, level: site.level } });
   }
   for (const site of STAGES) {
-    world.addObject('busker_stage', site.x, site.y, { def: { ...OBJECTS.busker_stage, level: site.level } });
+    const { x, y } = islandSiteTile(world, site);
+    world.addObject('busker_stage', x, y, { def: { ...OBJECTS.busker_stage, level: site.level } });
   }
   for (const site of Object.values(LANDINGS)) {
-    world.addObject('sailing_landing', site.x, site.y, { def: { ...OBJECTS.sailing_landing, name: site.name } });
+    const { x, y } = islandSiteTile(world, site);
+    world.addObject('sailing_landing', x, y, { def: { ...OBJECTS.sailing_landing, name: site.name } });
   }
-  for (const [x, y, sign] of WAYFINDING) {
+  for (const [sx, sy, sign] of WAYFINDING) {
+    const { x, y } = islandSiteTile(world, { x: sx, y: sy });
     if (!world.isBlocked(x, y) && !world.objectAt(x, y)) world.addObject('sign', x, y, { sign });
   }
 }
@@ -83,7 +89,7 @@ export function islandReady(game) {
 }
 
 export function voyageAvailable(game, voyage) {
-  return islandReady(game) && nearIslandSite(game.player, LANDINGS[voyage.from])
+  return islandReady(game) && atIslandSite(game, LANDINGS[voyage.from])
     && game.skills.level('sailing') >= voyage.level
     && (!voyage.requires || islandBook(game).voyages.includes(voyage.requires))
     && (voyage.to !== 'cove' || islandBook(game).voyages.includes('ubin'));
@@ -99,7 +105,8 @@ export function finishVoyage(game, id, choices, { freight = false } = {}) {
   game._autoLife = null;
   game.autoGatherBest = null;
   const dest = LANDINGS[voyage.to];
-  if (!teleportPlayer(game, dest.x, dest.y, `You tie up at ${dest.name}.`, { sparkle: false })) return false;
+  const { x, y } = islandSiteTile(game.world, dest);
+  if (!teleportPlayer(game, x, y, `You tie up at ${dest.name}.`, { sparkle: false })) return false;
   const book = islandBook(game), first = !book.voyages.includes(id);
   if (first) book.voyages.push(id);
   if (freight) {
@@ -120,7 +127,7 @@ export const COVE_FIND = [
 export function exploreCove(game, id) {
   const pick = COVE_FIND.find((row) => row.id === id);
   const book = islandBook(game);
-  if (!pick || !islandReady(game) || !nearIslandSite(game.player, LANDINGS.cove) || !book.voyages.includes('cove') || book.cove.includes(id)) return false;
+  if (!pick || !islandReady(game) || !atIslandSite(game, LANDINGS.cove) || !book.voyages.includes('cove') || book.cove.includes(id)) return false;
   if (!game.inventory.add(pick.item, 1)) return false;
   book.cove.push(id);
   finish(game, pick.skill, 12, 'You record a new find from the cove.');
@@ -131,7 +138,7 @@ export function recordIslandPhoto(game) {
   if (!game.player.alive || game.waves?.active) return null;
   const book = islandBook(game), phase = game.dayPhase();
   const candidates = PHOTO_ASSIGNMENTS.filter((row) => game.skills.level('photography') >= row.level
-    && nearIslandSite(game.player, row, row.range) && (!row.dusk || (phase >= 17 / 24 && phase < 20 / 24)));
+    && atIslandSite(game, row, row.range) && (!row.dusk || (phase >= 17 / 24 && phase < 20 / 24)));
   const fresh = candidates.find((row) => !book.photos.includes(row.id));
   if (fresh) {
     book.photos.push(fresh.id);
@@ -149,7 +156,7 @@ export function recordIslandPhoto(game) {
 }
 
 export function textileWorkshop(game) {
-  return LOOMS.find((site) => nearIslandSite(game.player, site) && game.skills.level('textile_arts') >= site.level);
+  return LOOMS.find((site) => atIslandSite(game, site) && game.skills.level('textile_arts') >= site.level);
 }
 
 export function makeIslandPattern(game, id, { order = false } = {}) {
@@ -178,7 +185,7 @@ export function makeIslandPattern(game, id, { order = false } = {}) {
 }
 
 export function musicStage(game) {
-  return STAGES.find((stage) => nearIslandSite(game.player, stage) && game.skills.level('music') >= stage.level);
+  return STAGES.find((stage) => atIslandSite(game, stage) && game.skills.level('music') >= stage.level);
 }
 
 export function learnIslandTune(game, id) {
