@@ -6,7 +6,7 @@
 // `piv` is each part's joint as a fraction of that canvas. The tables below
 // are measured from the sheets; the motions are shared by body plan.
 import { TICK_MS } from '../config.js';
-import { swingBeats } from './motionkit.js';
+import { HOLD_END, STRIKE_AT, WIND_END, swingBeats, travelPhase } from './motionkit.js';
 
 const ease = (x) => 1 - (1 - x) * (1 - x);
 // Wind-up, strike, hold and recovery of an attack swing (attackK runs 0..1),
@@ -23,21 +23,41 @@ const fierce = (o) => { const a = atkPhase(o.attackK ?? -1); return (a && (a.hit
 // still it holds, and the eased walk weight brings the legs back to rest.
 // Without a walk phase (a preview), the clock stands in.
 export const gaitPhase = (t, o, spd) => (typeof o.walk === 'number' ? o.walk * spd * TICK_MS : t * spd);
-// How much the legs swing: the eased walk weight, but once it has stopped the
-// legs come down more gently than the body settles (the square root halves
-// the ease's pace), so a stride lands over a third of a second, not snapping shut.
-const legWeight = (o) => { const m = walking(o); return o.moving || o.move === undefined ? m : Math.sqrt(m); };
 // A limb swinging with the walk (opposite pairs on opposite beats), barely stirring at rest.
 export const stride = (pair, amp, spd = 0.022) => (t, o) => {
-  const m = legWeight(o);
+  const m = walking(o);
   return Math.sin(gaitPhase(t, o, spd) + (pair ? Math.PI : 0)) * amp * m + Math.sin(t * 0.003 + pair) * 0.03 * (1 - m);
 };
-const sway = (amp, spd, ph = 0) => (t, o) => Math.sin(t * spd * (walking(o) > 0.3 ? 1.8 : 1) + ph) * amp;
+const sway = (amp, spd, ph = 0) => (t, o) => Math.sin(travelPhase(t, o.walk, spd, spd * 1.8) + ph) * amp;
 // The striking limb: drawn back on the wind-up, thrown forward on the blow.
 const strike = (back, fwd, idle = 0.04, ph = 0) => (t, o) => {
   const a = atkPhase(o.attackK ?? -1);
   return a ? -back * a.wind + fwd * a.hit : Math.sin(t * 0.0032 + ph) * idle;
 };
+const wingBeat = (t, speed, phase = 0) => Math.sin(t * (speed || 0.02) + phase);
+
+const BOSS_STRIKE_RECOVERY = 0.9;
+const joinedStrike = (attackK) => attackK >= WIND_END && attackK < BOSS_STRIKE_RECOVERY;
+function bossStrikeLimb(o, t, strikeJoin = 0) {
+  const attackK = o.attackK ?? -1;
+  return strikeJoin ? joinedStrike(attackK) : (atkPhase(attackK)?.hit ?? 0) > 0.3;
+}
+
+function bossLimbSwing(t, o, strikeJoin = 0) {
+  const attackK = o.attackK ?? -1;
+  const a = atkPhase(attackK);
+  const angle = a ? -0.32 * a.wind + 0.3 * a.hit : Math.sin(t * 0.0032) * 0.05;
+  // A few alternate limbs are already drawn well into the strike. Line them
+  // up at the swaps, then ease out the correction by the time the blow lands.
+  let join = 0;
+  if (strikeJoin && joinedStrike(attackK)) {
+    const k = attackK < STRIKE_AT
+      ? (STRIKE_AT - attackK) / (STRIKE_AT - WIND_END)
+      : Math.max(0, (attackK - HOLD_END) / (BOSS_STRIKE_RECOVERY - HOLD_END));
+    join = strikeJoin * k * k * (3 - 2 * k);
+  }
+  return angle + join - cast(o) * 0.3;
+}
 
 // Motions by body plan: part name -> { swing, swap (alternate picture), grow }.
 const PLANS = {
@@ -52,7 +72,7 @@ const PLANS = {
   crawl: {
     legs_far: { swing: stride(1, 0.1, 0.045) }, legs_near: { swing: stride(0, 0.1, 0.045) },
     claw_far: { swing: strike(0.12, 0.1, 0.05, 2) },
-    claw: { swing: strike(0.35, 0.22, 0.05), swap: ['claw_open', (o) => { const a = atkPhase(o.attackK ?? -1); return !!a && a.hit < 0.4; }] },
+    claw: { swing: strike(0.35, 0.22, 0.05), swap: ['claw_open', (o) => { const a = atkPhase(o.attackK ?? -1); return !!a && a.wind > 0 && a.hit < 0.4; }] },
     tail: { swing: strike(0.22, 0.32, 0.06, 1) },
   },
   // Upright fighters: legs march, arms swing against them, the weapon arm winds back and cuts.
@@ -74,15 +94,17 @@ const PLANS = {
   // Fliers: the wings beat about the shoulder (fast for insects and bats); the
   // dangling feet swing with the distance flown, and drift on the clock while it hovers.
   flier: {
-    wing_far: { swing: (t, o) => Math.sin(t * (o.flap || 0.02) + 0.4) * 0.38 },
-    wing_near: { swing: (t, o) => Math.sin(t * (o.flap || 0.02)) * 0.45 },
-    feet: { swing: (t, o) => { const m = legWeight(o); return Math.sin(gaitPhase(t, o, 0.0072)) * 0.08 * m + Math.sin(t * 0.004) * 0.08 * (1 - m); } },
+    // The folded far wings keep their shoulder joins. The near-wing drafts
+    // either separate from the body or jump too far when the pose changes.
+    wing_far: { swing: (t, o, speed) => wingBeat(t, speed, 0.4) * 0.38, swap: ['wing_far_down', (o, t, speed) => wingBeat(t, speed, 0.4) < -0.8] },
+    wing_near: { swing: (t, o, speed) => wingBeat(t, speed) * 0.45 },
+    feet: { swing: (t, o) => { const m = walking(o); return Math.sin(gaitPhase(t, o, 0.0072)) * 0.08 * m + Math.sin(t * 0.004) * 0.08 * (1 - m); } },
   },
   // Bosses: idle sway, a lunge with the main limb, and a roar with the crown or gem flaring on a signature move.
   boss: {
     tail: { swing: sway(0.12, 0.0045) },
     limb2: { swing: (t, o) => Math.sin(t * 0.003 + 2) * 0.05 - cast(o) * 0.22 },
-    limb: { swing: (t, o) => strike(0.32, 0.3, 0.05)(t, o) - cast(o) * 0.3, swap: ['limb_strike', (o) => { const a = atkPhase(o.attackK ?? -1); return !!a && a.hit > 0.3; }] },
+    limb: { swing: bossLimbSwing, swap: ['limb_strike', bossStrikeLimb] },
     head: { swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return (a ? -0.06 * a.wind + 0.08 * a.hit : Math.sin(t * 0.0021) * 0.035) - cast(o) * 0.08; }, swap: ['head_roar', fierce] },
     gem: { grow: (t, o) => 1 + Math.sin(t * 0.004) * 0.04 + cast(o) * 0.3 },
   },
@@ -90,14 +112,14 @@ const PLANS = {
   // Snakes: the head sways, rears back on the wind-up and strikes with its fangs out; the tail tip flicks
   // (and rattles as it coils to strike). The coils themselves move with the whole body (BODY below).
   slither: {
-    tail: { swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return Math.sin(t * (walking(o) > 0.3 ? 0.012 : 0.005) + 1.2) * 0.16 + (a ? Math.sin(t * 0.05) * 0.1 * a.wind : 0); } },
+    tail: { swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return Math.sin(travelPhase(t, o.walk, 0.005, 0.012) + 1.2) * 0.16 + (a ? Math.sin(t * 0.05) * 0.1 * a.wind : 0); } },
     head: { swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return a ? -0.28 * a.wind + 0.3 * a.hit : Math.sin(t * 0.0032) * 0.05 + Math.sin(t * 0.0011) * 0.03; }, swap: ['head_attack', fierce] },
   },
   // Sharks and dolphins: the tail fin sweeps (faster when swimming), the fins paddle, the head nods and opens its jaws to bite.
   swim: {
-    tail: { swing: (t, o) => Math.sin(t * (walking(o) > 0.3 ? 0.016 : 0.006)) * 0.2 },
-    arm_far: { swing: (t, o) => Math.sin(t * (walking(o) > 0.3 ? 0.012 : 0.005) + 2.2) * 0.16 },
-    arm_near: { swing: (t, o) => Math.sin(t * (walking(o) > 0.3 ? 0.012 : 0.005) + 0.6) * 0.2 },
+    tail: { swing: (t, o) => Math.sin(travelPhase(t, o.walk, 0.006, 0.016)) * 0.2 },
+    arm_far: { swing: (t, o) => Math.sin(travelPhase(t, o.walk, 0.005, 0.012) + 2.2) * 0.16 },
+    arm_near: { swing: (t, o) => Math.sin(travelPhase(t, o.walk, 0.005, 0.012) + 0.6) * 0.2 },
     head: { swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return a ? 0.08 * a.wind - 0.14 * a.hit : Math.sin(t * 0.003) * 0.035; }, swap: ['head_attack', fierce] },
   },
   // The pitcher plant: the leaves wave, the trap head bobs, rears back on the wind-up, then snaps forward wide open.
@@ -117,7 +139,7 @@ const BODY = {
   // The coils sway side to side and breathe in and out; on the wind-up the snake draws back and gathers, then throws itself forward.
   slither: (t, o) => {
     const a = atkPhase(o.attackK ?? -1), m = walking(o), w = a ? a.wind : 0, h = a ? a.hit : 0;
-    const coil = Math.sin(t * (m > 0.3 ? 0.009 : 0.0035));
+    const coil = Math.sin(travelPhase(t, o.walk, 0.0035, 0.009));
     return { lean: coil * (0.035 + 0.03 * m) - 0.08 * w + 0.1 * h, dy: 0, sx: 1 + coil * 0.02 + 0.03 * w, sy: 1 - coil * 0.02 - 0.05 * w + 0.03 * h };
   },
   // Swimmers bob up and down and pitch gently; they pull back before a bite.
@@ -190,7 +212,9 @@ const RIG_DATA = {
   forest_drake: { plan: 'flier', kind: 'species', fit: 0.804,
     order: ['wing_far', 'feet', 'body', 'wing_near'],
     piv: { body: [0.5883, 0.5464], wing_near: [0.4809, 0.4341], feet: [0.561, 0.7266], wing_far: [0.5485, 0.5459], wing_near_down: [0.4809, 0.4341], wing_far_down: [0.5485, 0.5459] } },
-  fruit_bat: { plan: 'flier', kind: 'species', fit: 0.643,
+  // On these fliers the wings extend to opposite sides of their joints, so
+  // matching vertical strokes need opposite directions of rotation.
+  fruit_bat: { plan: 'flier', kind: 'species', fit: 0.643, amp: { wing_far: -1 },
     order: ['wing_far', 'body', 'wing_near'],
     piv: { body: [0.5363, 0.5953], wing_near: [0.4649, 0.557], wing_far: [0.6935, 0.3986], wing_near_down: [0.4649, 0.557], wing_far_down: [0.6935, 0.3986] } },
   // Species rigs E1 (RS01–RS10)
@@ -234,7 +258,7 @@ const RIG_DATA = {
   pink_dolphin: { plan: 'swim', kind: 'species', fit: 1.016,
     order: ['arm_far', 'tail', 'body', 'head', 'arm_near'],
     piv: { body: [0.497, 0.6308], head: [0.5576, 0.4554], tail: [0.2636, 0.7446], arm_near: [0.5576, 0.5662], arm_far: [0.4758, 0.28], head_attack: [0.5576, 0.4554] } },
-  hornbill: { plan: 'flier', kind: 'species', fit: 1.016,
+  hornbill: { plan: 'flier', kind: 'species', fit: 1.016, amp: { wing_far: -1 },
     order: ['wing_far', 'feet', 'body', 'wing_near'],
     piv: { body: [0.5182, 0.7877], wing_near: [0.3909, 0.6769], wing_far: [0.5091, 0.7415], feet: [0.5424, 0.7108], wing_near_down: [0.3909, 0.6769], wing_far_down: [0.5091, 0.7415] } },
   dock_rat: { plan: 'quad', kind: 'species', fit: 1.016,
@@ -246,7 +270,7 @@ const RIG_DATA = {
   drowned_sailor: { plan: 'biped', kind: 'species', fit: 1.016,
     order: ['arm_far', 'leg_far', 'leg_near', 'body', 'head', 'arm_near'],
     piv: { body: [0.4848, 0.8862], head: [0.4485, 0.4185], arm_near: [0.3667, 0.5754], arm_far: [0.5273, 0.5692], leg_near: [0.3939, 0.7569], leg_far: [0.5, 0.7631], head_attack: [0.4485, 0.4185] } },
-  flying_fox: { plan: 'flier', kind: 'species', fit: 1.016,
+  flying_fox: { plan: 'flier', kind: 'species', fit: 1.016, amp: { wing_far: -1 },
     order: ['wing_far', 'feet', 'body', 'wing_near'],
     piv: { body: [0.5576, 0.8123], wing_near: [0.4273, 0.6369], wing_far: [0.6667, 0.6554], feet: [0.4212, 0.8092], wing_near_down: [0.4273, 0.6369], wing_far_down: [0.6667, 0.6554] } },
   king_cobra: { plan: 'slither', kind: 'species', fit: 1.016,
@@ -283,7 +307,7 @@ const RIG_DATA = {
     order: ['tail', 'limb2', 'base', 'limb', 'head'],
     piv: { base: [0.5677, 0.7304], head: [0.5726, 0.5554], tail: [0.2763, 0.8098], limb2: [0.5102, 0.4989], limb: [0.534, 0.6616], head_roar: [0.5726, 0.5554], limb_strike: [0.534, 0.6616] } },
   // Boss rigs D1 (RB01–RB10), cut from the Part D parts sheets and registered to each sheet's assembled picture.
-  goblin_warchief: { plan: 'boss', fit: 0.936,
+  goblin_warchief: { plan: 'boss', fit: 0.936, strikeJoin: -0.75,
     order: ['limb2', 'base', 'limb', 'head', 'gem'],
     piv: { base: [0.4739, 0.7226], head: [0.5365, 0.5056], limb: [0.4974, 0.6635], limb2: [0.3872, 0.7871], gem: [0.5867, 0.2542], head_roar: [0.5365, 0.5056], limb_strike: [0.4974, 0.6635] } },
   toman_tyrant: { plan: 'boss', fit: 0.791,
@@ -301,9 +325,10 @@ const RIG_DATA = {
   bakau_mud_lobster: { plan: 'boss', fit: 0.786,
     order: ['tail', 'limb2', 'base', 'limb', 'head'],
     piv: { base: [0.5001, 0.6584], head: [0.5177, 0.4543], limb: [0.6347, 0.5889], limb2: [0.65, 0.5987], tail: [0.3756, 0.3961], head_roar: [0.5177, 0.4543], limb_strike: [0.6347, 0.5889] } },
+  // The far vine is fitted behind the right shoulder, with its joint inside the trunk.
   strangler_fig_mother: { plan: 'boss', fit: 0.802,
     order: ['limb2', 'base', 'limb', 'head', 'gem'],
-    piv: { base: [0.5071, 0.7322], head: [0.4953, 0.5214], limb: [0.314, 0.587], limb2: [0.5399, 0.4068], gem: [0.5928, 0.5517], head_roar: [0.4953, 0.5214], limb_strike: [0.314, 0.587] } },
+    piv: { base: [0.5071, 0.7322], head: [0.4953, 0.5214], limb: [0.314, 0.587], limb2: [0.6745, 0.5525], gem: [0.5928, 0.5517], head_roar: [0.4953, 0.5214], limb_strike: [0.314, 0.587] } },
   kranji_bullfrog_emperor: { plan: 'boss', fit: 0.758,
     order: ['limb2', 'base', 'limb', 'head', 'gem'],
     piv: { base: [0.4694, 0.5943], head: [0.5627, 0.6267], limb: [0.4005, 0.6641], limb2: [0.5227, 0.49], gem: [0.643, 0.1589], head_roar: [0.5627, 0.6267], limb_strike: [0.4005, 0.6641] } },
@@ -346,7 +371,7 @@ const RIG_DATA = {
     order: ['tail', 'limb2', 'base', 'limb', 'head', 'gem'],
     piv: { base: [0.4786, 0.6281], head: [0.379, 0.5497], limb: [0.4703, 0.6445], limb2: [0.4791, 0.4116], tail: [0.2566, 0.6999], gem: [0.608, 0.2293], head_roar: [0.379, 0.5497], limb_strike: [0.4703, 0.6445] } },
   // Boss rigs D3 (RB21–RB30), cut from the Part D parts sheets and registered to each sheet's assembled picture.
-  bone_colossus: { plan: 'boss', fit: 0.897,
+  bone_colossus: { plan: 'boss', fit: 0.897, strikeJoin: 0.375,
     order: ['limb2', 'base', 'limb', 'head', 'gem'],
     piv: { base: [0.5458, 0.6481], head: [0.5996, 0.2597], limb: [0.3491, 0.7037], limb2: [0.6998, 0.5132], gem: [0.6676, 0.0939], head_roar: [0.5996, 0.2597], limb_strike: [0.3491, 0.7037] } },
   mangrove_hydra: { plan: 'boss', fit: 0.825,
@@ -380,7 +405,7 @@ const RIG_DATA = {
   sea_turtle: { plan: 'quad', kind: 'species', fit: 0.726,
     order: ['front_far', 'back_near', 'body', 'front_near', 'head'],
     piv: { front_far: [0.7243, 0.5011], back_near: [0.2173, 0.5829], front_near: [0.4859, 0.6056], body: [0.4299, 0.4447], head: [0.6443, 0.413], head_open: [0.6443, 0.413] } },
-  vampire_bat: { plan: 'flier', kind: 'species', fit: 0.496,
+  vampire_bat: { plan: 'flier', kind: 'species', fit: 0.496, amp: { wing_near: -1 },
     order: ['wing_far', 'feet', 'body', 'wing_near'],
     piv: { wing_far: [0.412, 0.6111], feet: [0.4419, 0.7116], body: [0.5342, 0.5364], wing_near: [0.6314, 0.538] } },
   kingfisher: { plan: 'flier', kind: 'species', fit: 0.907,
@@ -440,18 +465,19 @@ function build(id, d) {
   const plan = PLANS[d.plan];
   const files = Object.keys(d.piv);
   const parts = {};
+  const flap = FLAP[id];
   for (const n of d.order) {
     const p = plan[n] || {};
-    const flap = FLAP[id];
-    const amp = d.amp?.[n] ?? 1;   // a heavy part (a boulder, a mortar on the ground) moves less than the plan's limb
-    const sw = p.swing ? (flap ? (t, o) => p.swing(t, { ...o, flap }) : p.swing) : null;
+    const amp = d.amp?.[n] ?? 1;   // adapt a part's swing to its weight or orientation
+    const motion = flap || (n === 'limb' ? d.strikeJoin : undefined);
+    const sw = p.swing ? (motion ? (t, o) => p.swing(t, o, motion) : p.swing) : null;
     parts[n] = {
       piv: d.piv[n],
       swing: sw && amp !== 1 ? (t, o) => sw(t, o) * amp : sw,
       grow: p.grow || null,
-      // An alternate picture (open mouth, open claw, striking arm) shown while the test holds.
+      // An alternate picture (open mouth, folded wing, striking arm) shown while the test holds.
       alt: p.swap && files.includes(p.swap[0]) ? p.swap[0] : null,
-      swap: p.swap ? p.swap[1] : null,
+      swap: p.swap ? (motion ? (o, t) => p.swap[1](o, t, motion) : p.swap[1]) : null,
     };
   }
   return { kind: d.kind, fit: d.fit, order: d.order, files, parts, body: BODY[d.plan] || null };

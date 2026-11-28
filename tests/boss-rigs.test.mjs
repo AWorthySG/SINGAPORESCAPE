@@ -60,3 +60,23 @@ test('Part D boss rig joints lie on their parts and on the body', async () => {
     }
   }
 });
+
+test('reposed strike limbs line up at both swaps and keep the original impact', async () => {
+  const { bossRig, CREATURE_RIGS } = await import('../src/render/creatureRigs.js');
+  for (const [id, expectedJoin] of [['goblin_warchief', -0.75], ['bone_colossus', 0.375]]) {
+    const limb = CREATURE_RIGS[id].parts.limb;
+    const normal = bossRig(id, {
+      order: ['limb'], piv: { limb: limb.piv, limb_strike: limb.piv },
+    }).parts.limb;
+    for (const attackK of [0.344, 0.894]) {
+      const pose = { attackK };
+      assert.ok(limb.swap(pose), `${id} uses the painted strike limb at ${attackK}`);
+      assert.ok(Math.abs(limb.swing(450, pose) - normal.swing(450, pose) - expectedJoin) < 0.01,
+        `${id} lines up the two painted poses at ${attackK}`);
+    }
+    for (const attackK of [-1, 0.3, 0.48, 0.9]) {
+      const pose = { attackK };
+      assert.equal(limb.swing(450, pose), normal.swing(450, pose), `${id} keeps the silhouette at ${attackK}`);
+    }
+  }
+});

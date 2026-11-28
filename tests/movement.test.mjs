@@ -5,6 +5,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { Character } from '../src/game/character.js';
+import { Game } from '../src/game/game.js';
+import { NPC } from '../src/game/npc.js';
 import { Camera } from '../src/engine/camera.js';
 import { TILE, TICK_MS } from '../src/config.js';
 
@@ -41,6 +43,48 @@ test('overshoot carries real time across mixed-length steps (no corner jitter)',
   c.update(TICK_MS + TICK_MS * Math.SQRT2 * 0.25);
   assert.equal(c.x, 1, 'finished the straight step');
   assert.ok(Math.abs(c.progress - 0.25) < 1e-6, 'exactly a quarter into the diagonal');
+  assert.ok(Math.abs(c.walkPhase - 1.25) < 1e-6, 'feet are a quarter into the second step too');
+  c.update(TICK_MS * 2);
+  assert.equal(c.walkPhase, 2, 'standing still after arriving adds no extra stride');
+});
+
+test('a killed NPC falls from its interpolated position and respawns at home', () => {
+  const n = new NPC('rat', 5, 5);
+  n.setPath([{ x: 6, y: 5 }]);
+  n.update(n.moveDuration * 0.6);
+  const before = n.renderCenter();
+  n.die();
+  assert.deepEqual(n.tile(), { x: 5, y: 5 }, 'the simulation still uses the occupied tile');
+  assert.deepEqual(n.renderCenter(), before, 'the fall starts mid-step');
+  n.update(200);
+  assert.deepEqual(n.renderCenter(), before, 'the fall keeps its ground anchor');
+  n.respawn();
+  assert.deepEqual(n.renderCenter(), { x: 5.5 * TILE, y: 5.5 * TILE });
+});
+
+test('the walking blend rises and settles equally at different frame rates', () => {
+  const animate = (frames) => {
+    const c = new Character(0, 0);
+    c.setPath([{ x: 1, y: 0 }]);
+    for (const dt of frames) c.update(dt);
+    const starting = c.animMove;
+    c.stopNow();
+    for (const dt of frames) c.update(dt);
+    return [starting, c.animMove];
+  };
+  const slow = animate([72]), smooth = animate([18, 18, 18, 18]);
+  assert.ok(slow.every((weight, i) => Math.abs(weight - smooth[i]) < 1e-9));
+});
+
+test('an attack is aimed at the visible target between tile centres', () => {
+  const attacker = new Character(0, 0);
+  const target = new Character(0, 1);
+  target.setPath([{ x: -1, y: 1 }]);
+  target.update(TICK_MS * 0.75);
+  Game.prototype._swingToward.call({}, attacker, target);
+  assert.ok(Math.abs(attacker.lungeDX + 0.6) < 1e-9);
+  assert.ok(Math.abs(attacker.lungeDY - 0.8) < 1e-9);
+  assert.equal(attacker.faceX, -1, 'the sprite turns toward the visible target');
 });
 
 test('camera follow is frame-rate independent', () => {

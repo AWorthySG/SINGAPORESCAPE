@@ -59,7 +59,7 @@ import { sunShadow, drawSunShadow, drawCreatureContact, footfall } from './shado
 import { dropArc, dropFx, spawnFx, pickupFx } from './combatfx.js';
 import { applySquash, splatMotion, drawCritBurst, drawMissPuff, drawLootGlow, drawCoinGlint, motionOK } from './juice.js';
 import { spawnPose, deathPose, windupAge, hazardPulse, hazardIn } from './creatureanim.js';
-import { smooth, seg, arc as arcUp } from './motionkit.js';
+import { smooth, seg, arc as arcUp, turnFacing } from './motionkit.js';
 import { drawGrave } from './grave.js';
 import { drawFishSchool } from './fishschoolfx.js';
 import { playerBarVisible, drawPlayerHp } from './playerhp.js';
@@ -522,6 +522,7 @@ export class Renderer {
       if (spawn > 0 && !(timeMs - n._puffT < 400)) { n._puffT = timeMs; spawnFx(game, n); }
       const sp = spawn > 0 ? spawnPose(1 - spawn, n._spawnPose || (n._spawnPose = {})) : null;
       const windAge = windupAge(n, timeMs);
+      const turn = (n.turnT || 0) / TURN_MS;
       const land = spawn > 0 && spawn < 0.3 ? Math.sin(spawn / 0.3 * Math.PI) : 0;
       const squash = Math.max(footfall(n.walkPhase, n.isMoving) * 0.6, land);
       const monster = n.def.attackable;
@@ -530,7 +531,7 @@ export class Renderer {
         // follow attack lunges and knockback as well as regular movement.
         const sx = cx + off.x, sy = cy + 12 * sc + off.y;
         const face = (n.faceX || n.facing?.dx || 1) < 0 ? -1 : 1;
-        const cast = creatureSun?.on && this.depth.castCreatureShadow(ctx, n.artId || n.npcId, n.def, sx, sy, sc, face, creatureSun, sp?.a);
+        const cast = creatureSun?.on && this.depth.castCreatureShadow(ctx, n.artId || n.npcId, n.def, sx, sy, sc, turnFacing(face, turn), creatureSun, sp?.a);
         drawCreatureContact(ctx, sx, sy, sc, n.def, sun, squash, sp, trim || cast);
       }
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
@@ -564,7 +565,7 @@ export class Renderer {
         // Struck: squash, stretch and wobble about its feet as the blow lands (juice.js).
         const sq = applySquash(ctx, n, hurt, cx + off.x, cy + 12 * sc + off.y);
         drawCreature(ctx, n.artId || n.npcId, cx + off.x, cy - 2 + off.y, {
-          time: timeMs, facing: n.facing, fx: n.faceX, turn: (n.turnT || 0) / TURN_MS, entity: n,
+          time: timeMs, facing: n.facing, fx: n.faceX, turn, entity: n,
           moving: n.isMoving, walk: n.walkPhase, move: n.animMove,
           scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss, family: n.def.family,
           attackK: n.swingProgress ? n.swingProgress() : -1,

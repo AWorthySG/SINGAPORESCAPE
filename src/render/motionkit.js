@@ -1,3 +1,5 @@
+import { TICK_MS } from '../config.js';
+
 // World motion vocabulary: the easing curves and timing shares the game-world
 // animation shares (monsters' blows, townsfolk at rest, falls), so a lunge, a
 // flinch and a fall all move with one hand and land on the same beat. The
@@ -27,6 +29,9 @@ export function easeOutBack(x, s = 1.7) {
 export const springOut = (age, tau, w) => (age >= 0 ? Math.exp(-age / tau) * Math.cos(age * w) : 0);
 /** Up and back down over 0..1 (a hop, a bump). */
 export const arc = (x) => (x > 0 && x < 1 ? Math.sin(x * Math.PI) : 0);
+
+/** Add to the idle phase for distance covered, so starting or stopping never jumps the pose. */
+export const travelPhase = (t, walk, idleRate, travelRate) => t * idleRate + (walk ?? 0) * (travelRate - idleRate) * TICK_MS;
 
 // ---------------- A monster's blow ----------------
 // A monster's swing (attackK 0..1, about 240ms) in four beats: it gathers
@@ -64,6 +69,8 @@ export const strikeLead = (swingDur) => Math.round((swingDur > 0 ? swingDur : 24
 export const TURN_MIN_W = 0.12;
 /** The drawn width (0..1) part-way through a turn; full width before and after. */
 export const turnWidth = (u) => (u > 0 && u < 1 ? Math.max(TURN_MIN_W, Math.abs(Math.cos(Math.PI * u))) : 1);
+/** Signed horizontal scale for a body or shadow turning toward `face`. */
+export const turnFacing = (face, u) => (u > 0 ? face * turnWidth(u) * (u > 0.5 ? -1 : 1) : face);
 /** How high (px) it is lifted part-way through a turn. */
 export const turnHop = (u) => arc(u) * 1.6;
 

@@ -231,7 +231,7 @@ export function mercTick(game, m) {
       const rate = (TICK_MS / COMBAT_BEAT_MS) / Math.max(1e-9, game.equipment.weaponSpeed());
       const volley = Math.max(1, rate / 6);
       m.swingAcc = Math.min(6, (m.swingAcc || 0) + rate / volley);
-      game._swingToward(m, target.x, target.y);
+      game._swingToward(m, target);
       // Both scale with the Merchant as they are now: levels, gear and upgrades.
       const own = merchantMax(game, target.def);
       const max = Math.round(volley * (m.follower ? Math.max(1, Math.round(own * (m.share || FOLLOWER_SHARE))) : Math.max(m.mercPower, Math.round(own * MERC_SHARE))));

@@ -6,10 +6,15 @@ export const TURN_MS = 150;   // how long the turn-around takes on screen
 // Shared movement for the player and NPCs. Movement is time-based and decoupled
 // from the combat tick: walking = 1 tile / 600ms, running = 1 tile / 300ms.
 const easeInOut = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
-// The drawn offset's easing step for a frame of dt ms. Hundreds of monsters
-// share each frame's dt, so it is worked out once per dt, not once per monster.
-let _easeDt = NaN, _easeK = 0;
-const easeK = (dt) => (dt === _easeDt ? _easeK : (_easeDt = dt, _easeK = 1 - Math.exp(-dt / 35)));
+// Easing steps for the drawn offset and walking weight. Most monsters share
+// each frame's dt, so reuse the calculations across them.
+let _easeDt = NaN, _offsetEase = 0, _walkEase = 0;
+function animationEase(dt) {
+  if (dt === _easeDt) return;
+  _easeDt = dt;
+  _offsetEase = 1 - Math.exp(-dt / 35);
+  _walkEase = 1 - Math.exp(-dt / 82);
+}
 const _raw = { x: 0, y: 0 };   // scratch for _tickTimers (no new object per character per frame)
 // Below this (a millionth of a pixel, or of a stride) the eased offset and walk
 // weight are as good as settled, and are landed on exactly 0 (see _tickTimers).
@@ -125,7 +130,11 @@ export class Character {
   /** Start the quick turn-around animation when the facing flips left/right. */
   noteFacing() {
     const fx = this.facing.dx < 0 ? -1 : this.facing.dx > 0 ? 1 : this._fx;
-    if (fx !== this._fx) { this._fx = fx; this.turnT = TURN_MS; }
+    if (fx !== this._fx) {
+      this._fx = fx;
+      // Reverse an interrupted turn at the same width and facing on screen.
+      this.turnT = this.turnT > 0 ? TURN_MS - this.turnT : TURN_MS;
+    }
   }
 
   stopNow() {
@@ -161,12 +170,13 @@ export class Character {
     if (this.swing > 0) this.swing = Math.max(0, this.swing - dt);
     if (this.turnT > 0) this.turnT = Math.max(0, this.turnT - dt);
     // Ease the drawn lunge/knockback offset toward where it should be (~35ms lag).
-    const r = this._rawOffset(_raw), k = easeK(dt);
+    animationEase(dt);
+    const r = this._rawOffset(_raw);
     const ox = this._offOn ? this._offX : r.x, oy = this._offOn ? this._offY : r.y;
-    this._offX = ox + (r.x - ox) * k;
-    this._offY = oy + (r.y - oy) * k;
+    this._offX = ox + (r.x - ox) * _offsetEase;
+    this._offY = oy + (r.y - oy) * _offsetEase;
     this._offOn = true;
-    this.animMove += ((this.moving ? 1 : 0) - this.animMove) * Math.min(1, dt / 90);
+    this.animMove += ((this.moving ? 1 : 0) - this.animMove) * _walkEase;
     // All but settled: land on exactly 0, so a character at rest can skip its
     // frames (see update). Left alone the easing creeps on through ever tinier
     // numbers and never quite arrives.
@@ -185,7 +195,7 @@ export class Character {
       if (this.path.length) this._beginStep();
       if (!this.moving) return;
     }
-    this.walkPhase += dt / this.moveDuration;
+    let travelled = -this.progress;
     this.progress += dt / this.moveDuration;
     let guard = 0;
     while (this.progress >= 1 && guard++ < 8) {
@@ -195,6 +205,7 @@ export class Character {
       const leftover = (this.progress - 1) * this.moveDuration;
       this.x = this.tx;
       this.y = this.ty;
+      travelled += 1;
       if (this.path.length) {
         this._beginStep();
         this.progress = leftover / this.moveDuration;
@@ -204,6 +215,9 @@ export class Character {
         break;
       }
     }
+    // Feet count completed steps and the fraction of the current step. A
+    // frame spent standing at the end of a path adds no extra stride.
+    this.walkPhase += travelled + this.progress;
   }
 
   get isMoving() { return this.moving; }

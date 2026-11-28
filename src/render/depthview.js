@@ -223,7 +223,7 @@ export class DepthView {
     const sil = this._silhouette(img, def.boss ? 96 : 64);
     if (!sil) return false;
     const fit = creatureArtScale(img) * scale;
-    const floats = creatureFloats(def.sprite), lift = floats ? 4 * scale : 0;
+    const floats = creatureFloats(def.sprite, def.family), lift = floats ? 4 * scale : 0;
     g.save();
     g.globalAlpha *= sv.alpha * opacity * (floats ? 0.55 : 0.95);
     // Preserve the current canvas scale. The depth view warps this ground
