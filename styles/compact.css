@@ -1203,6 +1203,7 @@ body.reduce-motion :is(#modal-window, #sidepanel, .modal-ghost, .modal-ghost #mo
 .island-voyage { position: relative; height: 42px; border-radius: 10px; background: #dceef0; }
 .island-voyage::before { content: ''; position: absolute; inset: 50% 8% auto; border-top: 1px dashed #6196a0; }
 .island-voyage i { position: absolute; top: 50%; width: 7px; height: 7px; border-radius: 50%; background: #a74737; transform: translate(-50%, -50%); }
+.island-voyage .island-next-buoy { width: 10px; height: 10px; border: 1px solid #375767; box-shadow: 0 0 0 2px #ffffffa6; }
 .island-boat { position: absolute; inset: 0; pointer-events: none; transform: translate(var(--to), var(--to-side)); }
 .island-boat img { position: absolute; width: 36px; height: 28px; object-fit: contain; top: 50%; left: 0; transform: translate(-50%, -50%); }
 .island-voyage .steering { animation: islandSteer .28s ease-in-out; }
@@ -1216,6 +1217,15 @@ body.reduce-motion :is(.island-voyage .steering, .island-chart .island-note, .is
   :is(.island-voyage .steering, .island-chart .island-note, .island-swatch.just-printed) { animation: none; }
 }
 .island-status:not(:empty) { padding: .65rem 0; font-weight: 800; }
+.island-level-progress { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .5rem; margin: .65rem 0 .25rem; font-weight: 750; }
+.island-level-progress progress { width: clamp(5rem, 23vw, 10rem); height: .75rem; accent-color: var(--island-accent); }
+.island-market { margin: .65rem 0; padding: 0 .75rem; background: #fff4dc; border: 1px solid #c6ac88; border-radius: .6rem; }
+.island-market summary { min-height: 44px; padding: .65rem 0; cursor: var(--cur-pointer); font-weight: 800; }
+.island-market summary span { float: inline-end; margin-inline-start: .5rem; color: #4d5947; font-size: .85em; }
+.island-market p { margin: 0 0 .45rem; }
+.island-market ul { margin: 0 0 .55rem; padding: 0; list-style: none; }
+.island-market li { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .3rem 0; }
+.island-market .wm-go { min-height: 44px; }
 .island-swatch {
   display: inline-block;
   width: 2.3rem;

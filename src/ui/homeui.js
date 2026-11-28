@@ -10,10 +10,15 @@
 // needs, the XP it pays, the perk it adds, and each material as an icon with
 // how many you have (pack and bank) against how many it takes.
 import { displayIslandPrint, islandAlbumHTML } from './islandlifeui.js';
+import { previewIslandNotes } from './islandmusicui.js';
+import { islandMarketKeepsake } from './islandprogressui.js';
+import { TUNES } from '../data/islandlife.js';
+import { MUSIC_PROJECTS, musicBeatMs, musicChartNotes, musicProjectChart, musicTuneChart } from '../data/islandmusic.js';
 import { getItem, ITEMS } from '../data/items.js';
 import { formatNumber } from '../core/utils.js';
 import { itemIconSVG, playIconHTML, skillIconSVG } from '../render/icons.js';
 import { HOME_PRICE, HOME_UPGRADES, ROOMS } from '../game/home.js';
+import { islandBook, islandPractised } from '../game/islandlife.js';
 import { makeXp } from '../game/skilling.js';
 
 /** 1,234 / 12.3K / 4.5M / 1.2B: short enough for a pill. */
@@ -99,26 +104,50 @@ function trophyHTML(game) {
     + (t.rares.length ? `<div class="home-grid">${t.rares.map((r) => `<span class="home-cell" title="${esc(r.name)}">${itemIconSVG(r.id, 30)}</span>`).join('')}</div>` : '<div class="modal-hint">None yet.</div>');
 }
 
+function homeSongs(game) {
+  if (!game.home.owned) return [];
+  const book = islandBook(game);
+  return [
+    ...TUNES.filter(({ id }) => book.performed.includes(id)).map(({ id }) => musicTuneChart(id)),
+    ...MUSIC_PROJECTS.map(({ id }) => musicProjectChart(id)).filter(({ key }) => islandPractised(game, 'music', key)),
+  ];
+}
+
 /** Open the home window at a tab ('build', 'chest', 'portals' or 'trophy'; the
  *  plot board's old 'plot' is the Build tab). A tab of 'build:<room>' opens
  *  that room (each piece of furniture opens its own). */
 export function openHome(ui, tab = 'build') {
   const game = ui.game;
   let [cur, room] = String(tab || 'build').split(':');
+  let cancelSong = () => {};
   if (cur === 'plot') cur = 'build';
   if (!ROOMS.some((r) => r.id === room)) room = (ROOMS.find((r) => roomCanBuild(game, r)) || ROOMS[0]).id;
   const render = (body) => {
+    cancelSong();
+    const songs = homeSongs(game);
+    const tabs = songs.length ? [...TABS, { id: 'music', name: 'Music' }] : TABS;
     const album = () => game.home.owned
-      ? '<div class="island-album">' + (islandAlbumHTML(game) || '<p>Complete Photography assignments to add prints.</p>') + '</div>'
+      ? '<div class="island-album">' + ((islandAlbumHTML(game) + islandMarketKeepsake(game)) || '<p>Complete Photography assignments to add prints.</p>') + '</div>'
       : '<div class="home-intro">Buy the plot to display your prints.</div>';
-    const page = cur === 'album' ? album() : cur === 'chest' ? chestHTML(game) : cur === 'trophy' ? trophyHTML(game) : cur === 'portals' ? portalsHTML(game) : buildHTML(game, room);
-    body.innerHTML = `<div class="sgx-chips home-tabs">${TABS.map((t) => `<button type="button" class="sgx-chip${t.id === cur ? ' on' : ''}" data-tab="${t.id}">${t.name}</button>`).join('')}</div>`
+    const music = () => `<div data-home-songbook><div role="status" class="home-sub">Listen to tunes you’ve performed.</div>${songs.map(({ key, name }) =>
+      `<div class="home-row"><b>${esc(name)}</b><button type="button" class="wm-go" data-song="${esc(key)}" aria-label="Hear ${esc(name)}">Hear tune</button></div>`).join('')}</div>`;
+    const page = cur === 'album' ? album() : cur === 'music' && songs.length ? music() : cur === 'chest' ? chestHTML(game) : cur === 'trophy' ? trophyHTML(game) : cur === 'portals' ? portalsHTML(game) : buildHTML(game, room);
+    body.innerHTML = `<div class="sgx-chips home-tabs">${tabs.map((t) => `<button type="button" class="sgx-chip${t.id === cur ? ' on' : ''}" data-tab="${t.id}">${t.name}</button>`).join('')}</div>`
       + `<div class="home-body">${page}</div>`;
     body.onclick = (ev) => {
       const b = ev.target.closest?.('button');
       if (!b || ui.modal?.kind !== 'home') return;
       const d = b.dataset, h = game.home;
       if (d.tab) cur = d.tab;
+      else if (d.song) {
+        const chart = songs.find(({ key }) => key === d.song);
+        if (!chart) return;
+        cancelSong();
+        const sheet = body.querySelector('[data-home-songbook]');
+        sheet.querySelector('[role="status"]').textContent = `Last played ${chart.name}`;
+        cancelSong = previewIslandNotes(game, musicChartNotes(chart), { gap: musicBeatMs(chart), isActive: () => sheet.isConnected && ui.modal?.kind === 'home' });
+        return;
+      }
       else if (d.island?.startsWith('display:')) displayIslandPrint(game, d.island.slice(8));
       else if (d.room) room = d.room;
       else if (d.buy) h.buy();

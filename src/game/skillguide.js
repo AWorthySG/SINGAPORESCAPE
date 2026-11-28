@@ -15,6 +15,10 @@ import { CROPS, POTIONS, FLETCH, HUNT, HIDE_CRAFT, cropFor } from '../data/trade
 import { CONSTRUCT } from '../data/construction.js';
 import { HOME_UPGRADES } from './home.js';
 import { ISLAND_LIFE, LANDINGS, PATTERNS, PHOTO_ASSIGNMENTS, TUNES, VOYAGES } from '../data/islandlife.js';
+import { MUSIC_PROJECTS, musicTuneChart } from '../data/islandmusic.js';
+import { PHOTO_WALKS } from '../data/photowalks.js';
+import { SAILING_PRACTICE } from '../data/sailing.js';
+import { TEXTILE_PROJECTS } from '../data/textiles.js';
 import { SIGNATURE, ORDER_BY_ID, STALL_RENT } from '../data/hawkering.js';
 import { SHOPS } from '../data/shops.js';
 import { CLUE_TIERS } from '../data/clues.js';
@@ -203,10 +207,20 @@ export function canMake(game, r) {
 const givesText = (g) => g.filter((x) => !x.rare && x.id !== 'coins').map((x) => name(x.id)).slice(0, 4).join(', ');
 /** Every entry for a skill: { level, label, detail, objIds?, xp, source?, recipe? } sorted by level. */
 const ISLAND_ENTRIES = {
-  sailing: VOYAGES.map((r) => ({ ...r, name: LANDINGS[r.from].name + ' → ' + LANDINGS[r.to].name, detail: 'Follow the channel markers.' })),
-  photography: PHOTO_ASSIGNMENTS,
-  textile_arts: PATTERNS.map((p) => ({ ...p, detail: `Print a cotton scarf with ${name(p.dye)} and 8 coins.${p.reward ? ` Fill its Chinatown order for a ${name(p.reward).toLowerCase()}.` : ''}` })),
-  music: TUNES.map((t) => ({ ...t, detail: `Perform at a hawker stage for ${t.tip} coins.` })),
+  sailing: [
+    ...VOYAGES.map((r) => ({ ...r, name: LANDINGS[r.from].name + ' → ' + LANDINGS[r.to].name, detail: 'Read the conditions at each marker.' })),
+    ...SAILING_PRACTICE.map((p) => ({ ...p, detail: LANDINGS[p.from].name + ' · ' + p.detail })),
+  ],
+  photography: [...PHOTO_ASSIGNMENTS, ...PHOTO_WALKS.map((walk) => ({ ...walk, detail: `Visit ${walk.stops.length} subjects for repeatable practice XP.` }))],
+  textile_arts: [
+    ...PATTERNS.map((p) => ({ ...p, detail: `Print a cotton scarf with ${name(p.dye)} and 8 coins.${p.reward ? ` Fill its Chinatown order for a ${name(p.reward).toLowerCase()}.` : ''}` })),
+    ...TEXTILE_PROJECTS.map((p) => ({ ...p, detail: p.free ? 'Try wax resist at the Kampong Glam loom.' : 'Make a piece for your Kranji home at the Chinatown workshop.' })),
+  ],
+  music: [
+    ...TUNES.map((t) => ({ ...t, detail: `Play at your own pace at a hawker stage for XP and ${t.tip} coins.` })),
+    ...['variation', 'duet'].map((style) => ({ ...musicTuneChart('kopi', style), detail: 'Play a different version of a tune you have learned.' })),
+    ...MUSIC_PROJECTS.map((set) => ({ ...set, detail: 'Perform a set of tunes you have played before.' })),
+  ],
 };
 export function guideEntries(skill) {
   const activities = ISLAND_ENTRIES[skill];
