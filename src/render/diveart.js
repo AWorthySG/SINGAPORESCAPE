@@ -1,7 +1,5 @@
-// Diving's drawn pictures, while a reef's painted one loads (and headless): a reef in the water (a
-// floating dive buoy in the reef's colour over a patch of coral and rippling
-// rings) and the breath bar over the hero while they dive. Sticker style: navy
-// ink #22304A, pastel fills. A few paths a frame, no garbage.
+// The painted reefs sit below the water. The dive flag and its buoy float on
+// the surface, and the breath bar shows when a diver comes up for air.
 import { TILE, TICK_MS } from '../config.js';
 import { clamp } from '../core/utils.js';
 import { DIVE_SPOT_BY_ID, SURFACE_TICKS } from '../data/diving.js';
@@ -47,69 +45,86 @@ export function paintDiveShoreTiles(ctx, world, x0, y0, x1, y1) {
   }
 }
 
-/** A red-and-white dive flag. Its pole ends at the float at (x, y). */
-export function drawDiveFlag(ctx, x, y) {
+export const DIVE_BED_BOX = [37, 26, 11];
+export const DIVE_WATER_Y = 7;
+const BUOY_X = 12;
+const RED = '#c8594c';
+const CREAM = '#fff2d6';
+
+/** The seabed paint, kept stationary in the ground pass beneath the flag. */
+export function drawDiveBed(ctx, obj, cx, cy, art = null) {
+  const [maxW, maxH, foot] = DIVE_BED_BOX;
   ctx.save();
-  ctx.strokeStyle = INK; ctx.lineWidth = 1.4;
-  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 19); ctx.stroke();
-  ctx.fillStyle = '#e76b57';
-  ctx.fillRect(x, y - 19, 12, 8);
-  ctx.fillStyle = '#fff7dc';
-  ctx.beginPath(); ctx.moveTo(x + 1, y - 19); ctx.lineTo(x + 4, y - 19);
-  ctx.lineTo(x + 11, y - 11); ctx.lineTo(x + 8, y - 11); ctx.closePath(); ctx.fill();
-  ctx.strokeRect(x, y - 19, 12, 8);
+  if (art) {
+    const scale = Math.min(maxW / art.naturalWidth, maxH / art.naturalHeight);
+    const w = art.naturalWidth * scale, h = art.naturalHeight * scale;
+    // Let the actual water colour through the stone and coral. The bright
+    // buoy is drawn separately at full opacity on the surface.
+    ctx.globalAlpha *= 0.83;
+    ctx.drawImage(art, cx - w / 2, cy + foot - h, w, h);
+  } else {
+    // A muted patch of sand and the reef's own colour while its art loads.
+    ctx.globalAlpha *= 0.56;
+    ctx.fillStyle = '#387c85';
+    ctx.beginPath(); ctx.ellipse(cx, cy + 5, 13, 5, .08, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = obj.def.color || DIVE_SPOT_BY_ID[obj.objId]?.color || '#9ee0d0';
+    ctx.beginPath();
+    ctx.ellipse(cx - 4, cy + 1, 5, 3, -.38, 0, Math.PI * 2);
+    ctx.ellipse(cx + 4, cy + 3, 4, 2.8, .36, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 }
 
-/** Soft rings at the foot of the painted reef's own buoy. */
-export function drawDiveRipples(ctx, obj, cx, cy, time) {
-  const phase = time * 0.0016 + obj.x * 0.31 + obj.y * 0.17;
+/** A diver-down flag with the pole fixed to the centre of the float. */
+export function drawDiveFlag(ctx, x, y) {
+  const top = y - 16;
+  ctx.save();
+  ctx.strokeStyle = INK; ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, top - 0.7); ctx.stroke();
+  ctx.fillStyle = RED;
+  ctx.fillRect(x - 10, top, 10, 7);
+  ctx.fillStyle = CREAM;
+  ctx.beginPath(); ctx.moveTo(x - 3.2, top); ctx.lineTo(x - .8, top);
+  ctx.lineTo(x - 7, top + 7); ctx.lineTo(x - 9.4, top + 7); ctx.closePath(); ctx.fill();
+  ctx.lineWidth = 0.8; ctx.strokeRect(x - 10, top, 10, 7);
+  ctx.restore();
+}
+
+/** The waterline stays put as the buoy bobs. Reduced motion keeps one ring. */
+export function drawDiveRipples(ctx, obj, cx, cy, time, reduced = false) {
+  const phase = time * 0.0016 + (obj.x || 0) * 0.31 + (obj.y || 0) * 0.17;
   ctx.save();
   const alpha = ctx.globalAlpha;
-  ctx.strokeStyle = '#dff8fb'; ctx.lineWidth = 0.8;
-  for (let i = 0; i < 2; i++) {
-    const k = (phase + i * 0.5) % 1;
-    ctx.globalAlpha = alpha * k * (1 - k) * 1.5;
+  ctx.strokeStyle = '#e7f8f3'; ctx.lineWidth = 0.8;
+  for (let i = 0; i < (reduced ? 1 : 2); i++) {
+    const k = reduced ? 0.52 : (phase + i * 0.5) % 1;
+    ctx.globalAlpha = alpha * k * (1 - k) * 1.9;
     ctx.beginPath();
-    ctx.ellipse(cx + 12, cy + 7, 2.5 + k * 4, 0.9 + k * 1.8, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + BUOY_X, cy + DIVE_WATER_Y, 3.2 + k * 5.2, 1.2 + k * 1.8, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
   ctx.restore();
 }
 
-/** A reef at tile centre (cx, cy). The buoy bobs on its own beat (its tile). */
-export function drawDiveSpot(ctx, obj, cx, cy, time = 0) {
-  const col = obj.def.color || DIVE_SPOT_BY_ID[obj.objId]?.color || '#9ee0d0';
+/** Shared marker at the right of every reef, above the submerged artwork. */
+export function drawDiveMarker(ctx, obj, cx, cy, time = 0, reduced = false, selected = false) {
+  const x = cx + BUOY_X, waterY = cy + DIVE_WATER_Y;
   const beat = (obj.x || 0) * 1.7 + (obj.y || 0) * 0.9;
-  // The reef under the surface: a soft patch in its colour.
-  ctx.globalAlpha = 0.45;
-  ctx.fillStyle = col;
-  ctx.beginPath(); ctx.ellipse(cx, cy + 5, 11, 4.5, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.globalAlpha = 1;
-  // Rings spreading from where a diver went down.
-  ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1.3;
-  for (let i = 0; i < 2; i++) {
-    const k = ((time * 0.0025 + beat + i * 1.2) % 2.4);
-    ctx.globalAlpha = Math.max(0, 0.6 - k / 4);
-    ctx.beginPath(); ctx.ellipse(cx, cy + 4, 5 + k * 5, 2 + k * 2, 0, 0, Math.PI * 2); ctx.stroke();
+  const y = waterY - 1.6 + (reduced ? 0 : Math.sin(time * 0.003 + beat) * 0.9);
+  drawDiveRipples(ctx, obj, cx, cy, time, reduced);
+  ctx.save();
+  if (selected) {
+    ctx.strokeStyle = 'rgba(90,88,66,0.52)'; ctx.lineWidth = 2.6;
+    ctx.beginPath(); ctx.ellipse(x, waterY, 9.5, 3.8, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = '#ffdf94'; ctx.lineWidth = 1.15; ctx.stroke();
   }
-  ctx.globalAlpha = 1;
-  // Bubbles rising.
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  for (let i = 0; i < 3; i++) {
-    const u = ((time * 0.0008 + beat * 0.3 + i / 3) % 1);
-    ctx.globalAlpha = 1 - u;
-    ctx.beginPath(); ctx.arc(cx - 6 + i * 5 + Math.sin(u * 6 + i) * 1.2, cy + 4 - u * 9, 1 + (i % 2) * 0.5, 0, Math.PI * 2); ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-  // The buoy: a round float in the reef's colour with a white band, bobbing.
-  const bob = Math.sin(time * 0.003 + beat) * 1.2;
-  const by = cy - 2 + bob;
-  ctx.fillStyle = col; ctx.strokeStyle = INK; ctx.lineWidth = 1.3;
-  ctx.beginPath(); ctx.arc(cx + 5, by, 4.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(cx + 1.2, by - 0.9, 7.6, 1.8);
-  drawDiveFlag(ctx, cx + 5, by - 2);
+  ctx.fillStyle = RED; ctx.strokeStyle = INK; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.ellipse(x, y, 4.7, 3.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = CREAM;
+  ctx.fillRect(x - 3.95, y - 0.6, 7.9, 1.2);
+  drawDiveFlag(ctx, x, y - 1.4);
+  ctx.restore();
 }
 
 export const BREATH_BAR_W = 34;

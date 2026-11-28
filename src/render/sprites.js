@@ -26,8 +26,8 @@ import { RESIDENTS } from '../data/consequences.js';
 import { PORTRAIT_CROPS } from '../data/portraitcrops.js';
 import { BESTIARY_SPECIES, BESTIARY_BOSSES } from '../data/bestiary.js';
 import { GENERATION_ONLY_SCENERY, OBJECTS } from '../data/objects.js';
-import { drawDiveRipples, drawDiveSpot } from './diveart.js';
-import { drawDigSite, drawRestoreBench } from './digart.js';
+import { DIVE_BED_BOX, drawDiveBed, drawDiveMarker } from './diveart.js';
+import { DIG_SITE_BOX, drawDigSite, drawRestoreBench } from './digart.js';
 import { drawMiningRock, rockLayout } from './miningRock.js';
 
 const CROP_COLORS = Object.fromEntries(CROPS.map((c) => [c[0], c[9]]));
@@ -2786,7 +2786,7 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
 // ================= OBJECTS =================
 // Objects that never animate are cached as bitmaps; trees too, with their
 // sway applied as a gentle lean about the trunk base.
-const CACHED_OBJECTS = new Set(['tree', 'anvil', 'craft', 'bank', 'rest', 'agility', 'stall', 'transport', 'scenery', 'dig', 'restore']);
+const CACHED_OBJECTS = new Set(['tree', 'anvil', 'craft', 'bank', 'rest', 'agility', 'stall', 'transport', 'scenery', 'restore']);
 
 // Painted world art (assets/world/<key>.webp): trees and their stumps, ore
 // rocks, stations, stalls, agility obstacles, scenery, fishing spots and Hunter
@@ -2798,6 +2798,10 @@ const TREE_IDS = ['tree', 'oak', 'willow', 'rain_tree', 'yew_tree', 'magic_tree'
 const ORDINARY_ROCK_IDS = ['copper', 'tin', 'iron', 'coal', 'mithril', 'adamantite', 'runite', 'gold', 'clay', 'limestone', 'silver', 'sandstone', 'gem', 'granite'].map((o) => `${o}_rock`);
 const ROCK_IDS = [...ORDINARY_ROCK_IDS,
   'obsidian_vein', 'orichalcum_rock', 'jade_seam', 'fallen_star', 'skyglass_crystal', 'eternal_lode'];
+const DIVE_ART = ['shell_shallows', 'sea_glass_cove', 'oyster_bed', 'coral_garden', 'cowrie_reef', 'pearl_oyster_reef', 'sunken_junk',
+  'black_coral_reef', 'dragon_coral_reef', 'abyssal_pearl_bed', 'moonlit_lagoon', 'star_coral_trench', 'rift_reef', 'sunken_palace'];
+const DIG_ART = ['kampong_ruins', 'coastal_midden', 'river_godowns', 'ubin_dig', 'fort_canning_dig', 'kelong_dig', 'plantation_dig',
+  'hermit_camp', 'old_shipyard', 'stargazer_terrace', 'buried_courtyard', 'temasek_palace_dig', 'kampong_ruins-1'];
 const WORLD_ART = {
   ...Object.fromEntries(TREE_IDS.flatMap((t) => [[`tree-${t}`, [66, 74, 15]], [`stump-${t}`, [34, 28, 14]]])),
   ...Object.fromEntries(ROCK_IDS.map((r) => [`rock-${r}`, [38, 34, 14]])),
@@ -2841,13 +2845,10 @@ const WORLD_ART = {
   'obj-gravestone': [28, 34, 14],   // where you last fell (grave.js)
   // New-skills pack (WO-3 to WO-5): Diving's reefs, Archaeology's dig sites and
   // restoration bench, the lumber yards' stations, the home builds and your hawker stall.
-  ...Object.fromEntries(['shell_shallows', 'sea_glass_cove', 'oyster_bed', 'coral_garden', 'cowrie_reef', 'pearl_oyster_reef', 'sunken_junk',
-    'black_coral_reef', 'dragon_coral_reef', 'abyssal_pearl_bed', 'moonlit_lagoon', 'star_coral_trench', 'rift_reef', 'sunken_palace'].map((k) => [`obj-${k}`, [44, 34, 12]])),
-  ...Object.fromEntries(['kampong_ruins', 'coastal_midden', 'river_godowns', 'ubin_dig', 'fort_canning_dig', 'kelong_dig', 'plantation_dig',
-    'hermit_camp', 'old_shipyard', 'stargazer_terrace', 'buried_courtyard', 'temasek_palace_dig'].map((k) => [`obj-${k}`, [46, 38, 14]])),
+  ...Object.fromEntries(DIVE_ART.map((id) => [`obj-${id}`, DIVE_BED_BOX])),
+  ...Object.fromEntries(DIG_ART.map((id) => [`obj-${id}`, DIG_SITE_BOX])),
   'obj-restoration_bench': [52, 42, 16],
   'obj-sawmill': [52, 44, 16], 'obj-kiln': [50, 50, 16], 'obj-workbench': [52, 42, 16], 'obj-home_workbench': [52, 44, 16],
-  'obj-kampong_ruins-1': [46, 39, 15],
   'obj-batik_loom': [44, 49, 16], 'obj-busker_stage': [52, 50, 16], 'obj-sailing_landing': [49, 48, 16],
   'obj-home_parlour': [56, 46, 16], 'obj-home_bed': [56, 44, 16], 'obj-home_altar': [46, 50, 16], 'obj-home_bank': [46, 40, 15],
   'obj-home_portal': [52, 54, 16], 'obj-hawker_counter': [56, 56, 16],
@@ -2927,7 +2928,8 @@ const _worldImg = {};
 const _worldFrameSets = new Map();
 // Replaced art gets a new URL so the offline cache serves the current sprite.
 const revisedWorldArt = new Set(['obj-heritage_lamp', 'obj-lantern_post', 'obj-fishing_spot', 'obj-rod_spot', 'obj-harpoon_spot',
-  ...ROCK_IDS.map((id) => `rock-${id}`), 'rock-meteorite']);
+  ...ROCK_IDS.map((id) => `rock-${id}`), 'rock-meteorite',
+  ...[...DIVE_ART, ...DIG_ART, 'restoration_bench'].map((id) => `obj-${id}`)]);
 function worldImage(key) {
   if (!WORLD_ART[key]) return null;
   if (_worldImg[key] !== undefined) return _worldImg[key];
@@ -3077,17 +3079,27 @@ export function miningRockSpriteLayout(obj) {
   return rockLayout(obj, readyArt(art) ? art : null);
 }
 
+/** Reef paint goes on the ground plane, below the separate floating marker. */
+export function drawDiveWorldBed(ctx, obj, cx, cy) {
+  const art = worldImage(worldArtKey(obj));
+  drawDiveBed(ctx, obj, cx, cy, readyArt(art) ? art : null);
+}
+
 // `low` (low graphics) and `still` (a school swirling there) change how a
 // fishing spot's fish shows (drawCatchBadge).
 export function drawObjectSprite(ctx, obj, cx, cy, time = 0, low = false, still = false, upperAlpha = 1, light = null, bend = 0) {
   const t = obj.def.type;
   if (t === 'rock') return drawMiningRockSprite(ctx, obj, cx, cy, low);
+  if (t === 'dive') {
+    drawDiveWorldBed(ctx, obj, cx, cy);
+    return drawDiveMarker(ctx, obj, cx, cy, time, low);
+  }
   const key = readyWorldArtKey(obj, worldArtKey(obj, time));
   const art = key && worldImage(key);
+  if (t === 'dig') return drawDigSite(ctx, obj, cx, cy, readyArt(art) ? art : null);
   if (readyArt(art)) {
     drawWorldArt(ctx, obj, art, key, cx, cy, time, upperAlpha, light, bend);
     if (t === 'fishing') drawCatchBadge(ctx, obj, cx, cy, time, low, still);
-    if (t === 'dive' && !low) drawDiveRipples(ctx, obj, cx, cy, time);
     return;
   }
   if (obj.def.footprint) return;   // a landmark has no drawn stand-in: it appears once its picture loads
@@ -3288,8 +3300,6 @@ function drawObjectRaw(ctx, obj, cx, cy, time) {
     case 'herblore': return apothecaryTable(ctx, cx, cy, time);
     case 'fletch': return fletchingBench(ctx, cx, cy);
     case 'hunt': return huntTrap(ctx, obj, cx, cy);
-    case 'dive': return drawDiveSpot(ctx, obj, cx, cy, time);   // a reef (diveart.js)
-    case 'dig': return drawDigSite(ctx, obj, cx, cy);   // a dig site (digart.js)
     case 'restore': return drawRestoreBench(ctx, cx, cy);
     case 'bank': return bank(ctx, cx, cy);
     case 'shrine': case 'offering': case 'gate_shrine': return shrine(ctx, cx, cy, time);
