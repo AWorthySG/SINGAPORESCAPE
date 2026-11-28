@@ -8,10 +8,10 @@ import { pianoKeyboardHTML, pianoMidiForKey, pianoNoteName, pianoStaffHTML, pian
 const action = (name, id) => `<button type="button" class="wm-go" data-piano-action="${id}">${name}</button>`;
 
 const SCORE_GROUPS = [
-  { label: 'First tunes · Levels 1–9', min: 1, max: 9 },
-  { label: 'Developing · Levels 10–24', min: 10, max: 24 },
-  { label: 'Intermediate · Levels 25–49', min: 25, max: 49 },
-  { label: 'Advanced · Level 50+', min: 50, max: Infinity },
+  { label: 'First tunes · Levels 1–3', min: 1, max: 3 },
+  { label: 'Early practice · Levels 4–6', min: 4, max: 6 },
+  { label: 'Developing · Levels 7–24', min: 7, max: 24 },
+  { label: 'Advanced · Level 25+', min: 25, max: Infinity },
 ];
 
 function scoreOptions(selected) {
