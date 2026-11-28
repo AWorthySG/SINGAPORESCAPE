@@ -7,6 +7,7 @@ import { ACTION_SOUNDS } from './actionSounds.js';
 import { ABILITY_SOUNDS, ELEMENT_SOUNDS, HURT_SOUNDS, IMPACT_SOUNDS, impactCrit } from './combatSounds.js';
 import { RegionMusic } from './regionMusic.js';
 import { musicTheme } from './musicThemes.js';
+import { isPianoKey, Piano } from './piano.js';
 
 const MUTE_KEY = 'singaporescape:muted';
 const MUSIC_KEY = 'singaporescape:music';
@@ -202,6 +203,19 @@ export class Sfx {
     try { const v = parseFloat(localStorage.getItem(VOLUME_KEY)); return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1; } catch { return 1; }
   }
   toggle() { this.setMuted(!this.muted); return this.muted; }
+
+  /** Strike a key on the existing, gesture-unlocked audio context. */
+  playPiano(midi, durationSeconds) {
+    if (!isPianoKey(midi) || !this.ctx || !this.sfxGain || this.muted || this.volume <= 0 || this.sfxVolume <= 0) return false;
+    if (this.ctx.state !== 'running') {
+      if (this.ctx.state !== 'suspended' || typeof navigator === 'undefined' || !navigator.userActivation?.isActive) return false;
+      this.unlock(); // A real key or tap can resume the context and schedule its first note together.
+    }
+    try {
+      if (this._piano?.ctx !== this.ctx) this._piano = new Piano(this.ctx, this.sfxGain);
+      return this._piano.play(midi, durationSeconds);
+    } catch { return false; }
+  }
 
   // play() sets this._pf (a small random pitch nudge) and this._vf (a level) for
   // the sound it is making; every tone and burst of that sound shares them.
