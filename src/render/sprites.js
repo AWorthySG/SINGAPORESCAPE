@@ -14,7 +14,7 @@ import { poseBlender } from './poseBlend.js';
 import { swingBeats, turnWidth, turnHop, lookAround, breath } from './motionkit.js';
 import { animSeed, animTempo, stepLift, stepRock, fidget, hitFlash, flinch, telegraphGlow, telegraphShake, telegraphCrouch, fidgetLand } from './creatureanim.js';
 import { CREATURE_RIGS, TOWN_IDLE, bossRig, stride, gaitPhase } from './creatureRigs.js';
-import { RIG_INK, rigSize, inkPart, inkRig } from './rigink.js';
+import { RIG_INK, rigSize, inkPart, inkRig, shadeCreatureBody } from './rigink.js';
 import { bakeBudget } from './governor.js';
 import { REGION_GIVERS } from '../data/regionQuests.js';
 import { RESIDENTS } from '../data/consequences.js';
@@ -293,6 +293,7 @@ export const townArt = () => new Set(TOWN_ART);
 // The painted monsters and bosses are single pictures, so they are brought to
 // life by moving and stretching the whole sticker about its feet (y = 13).
 const FLOATERS = new Set(['ghost', 'wisp', 'bat', 'jellyfish', 'insect']);
+export const creatureFloats = (sprite) => FLOATERS.has(sprite);
 const FEET = 13;
 // The attack lunge eases across a swing that restarts part-way (poseBlend.js).
 const blendCreature = poseBlender();
@@ -302,7 +303,7 @@ function creaturePose(c, opts, t, seed) {
   const ph = seed * 0.37;                       // every creature on its own rhythm (and tempo)
   const ak = opts.attackK ?? -1;
   let dx = 0, dy = 0, rot = 0, sx = 1, sy = 1;
-  const floats = FLOATERS.has(opts.sprite);
+  const floats = creatureFloats(opts.sprite);
   if (floats) dy -= 2 + Math.sin(t * 0.0032 + ph) * 2.2;   // ghosts and fliers hover
   // A springy hop while walking (squash as the feet land, stretch at the top
   // of the stride) and breathing at rest, crossfaded by the eased walk weight
@@ -637,6 +638,7 @@ export function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null, re
     if (B) g.setTransform(M[o], M[o + 1], M[o + 2], M[o + 3], M[o + 4], M[o + 5]);
     else { g.save(); g.transform(M[o], M[o + 1], M[o + 2], M[o + 3], M[o + 4], M[o + 5]); }
     if (!pass) g.drawImage(k.cv, dx, dy, dw, dh);
+    else if (k?.art) g.drawImage(k.art, dx, dy, dw, dh);
     else if (k && k.sw > 0) g.drawImage(img, k.sx, k.sy, k.sw, k.sh, dx, dy, dw, dh);   // just the painted part of the layer
     else g.drawImage(img, dx, dy, dw, dh);
     if (!B) g.restore();
@@ -736,22 +738,21 @@ function drawRig(c, id, imgs, opts, t, flash, flashCol) {
 }
 
 // Draw a painted creature sprite centred horizontally with its feet on the tile.
+export const creatureArtScale = (img) => Math.min(34 / img.naturalHeight, 64 / img.naturalWidth);
 function drawCreaturePng(c, img) {
   // Fit within 34 units tall and 64 wide (long bodies like crocodiles stay in their sticker box).
-  const s = Math.min(34 / img.naturalHeight, 64 / img.naturalWidth);
+  const s = creatureArtScale(img);
   const w = img.naturalWidth * s, h = img.naturalHeight * s;
   c.drawImage(img, -w / 2, 13.5 - h, w, h);
 }
 
 // ---------------- Monster stickers ----------------
-// Monsters get the A-Worthy sticker treatment: the body is drawn once into an
-// offscreen canvas, then traced with a navy ink line inside a white die-cut
-// border (stamping its silhouette in a ring), and the finished sticker is
-// cached per sprite/colour/stride pose so a frame costs a single drawImage.
+// The lit monster body and its thin navy edge are baked once into a canvas,
+// cached per sprite/colour/stride pose so a still body costs one drawImage.
 const ST_X0 = -40, ST_Y0 = -50, ST_W = 80, ST_H = 76;   // local box monster art fits in
 const ST_RES = 2;                                       // offscreen pixels per local unit
 const ST_INK = '#22304A';
-// Monsters have no white die-cut border (the owner found it goofy in the world): just the navy ink line.
+// Only item stickers use the white die-cut border.
 const MONSTER_BOX = { x0: ST_X0, y0: ST_Y0, w: ST_W, h: ST_H, ink: RIG_INK, cut: 0 };   // (rigs draw the same line, rigink.js)
 const ITEM_BOX = { x0: -14, y0: -14, w: 28, h: 28, ink: 0.8, cut: 1.9 };
 const _stickers = new Map();
@@ -788,6 +789,7 @@ function makeSticker(key, box, drawBody) {
   a.setTransform(1, 0, 0, 1, 0, 0); a.clearRect(0, 0, art.width, art.height);
   a.setTransform(ST_RES, 0, 0, ST_RES, -box.x0 * ST_RES, -box.y0 * ST_RES);
   drawBody(a);
+  if (box === MONSTER_BOX) shadeCreatureBody(a, box.x0, box.y0, box.w, box.h, -20.5, 13.5);
   a.setTransform(1, 0, 0, 1, 0, 0);
   for (const [cv, colr] of [[ink, ST_INK], [white, '#FFFFFF']]) {
     if (!cv) continue;
@@ -843,6 +845,11 @@ const PUPPET_KIND = {
 const HEAD_TOP = new Set(['humanoid', 'greenman', 'undead', 'golem', 'demon', 'fowl', 'mantis', 'primate']);
 const TAILED = new Set(['beast', 'hound', 'rodent', 'reptile']);
 export const puppetKinds = () => ({ ...PUPPET_KIND });
+
+/** The sprite's rest silhouette for its ground shadow, shared with the drawing cache. */
+export function creatureCastImage(npcId, def) {
+  return (def.boss && bossImage(npcId)) || speciesImage(def.family) || creatureImage(def.sprite);
+}
 
 /** A boss or champion's portrait for the battle bar: its painted art and where
  *  in the picture its head is (as a CSS background-position), or null. */

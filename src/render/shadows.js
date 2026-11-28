@@ -1,4 +1,4 @@
-import { drawShadow } from './sprites.js';
+import { creatureFloats, drawShadow } from './sprites.js';
 
 // Shadows that follow the sun. game.dayPhase() runs 0..1 from midnight, with
 // sunrise near 0.25, noon at 0.5 and sunset near 0.75. Through the day each
@@ -58,5 +58,20 @@ export function drawSunShadow(ctx, cx, cy, rx, ry, sun, squash = 0, lift = 0) {
     ctx.globalAlpha = a0 * Math.min(1, sun.alpha * (0.7 + 0.35 * sun.day)) * (lift > 0 ? Math.max(0.4, 1 - lift / 20) : 1);
     drawShadow(ctx, cx + sun.dx * (srx - rx * 0.6), cy + sun.dy * ry * (1 + ext), srx, sry);
   }
+  ctx.globalAlpha = a0;
+}
+
+const WIDE_CREATURES = new Set(['crab', 'reptile', 'scorpion', 'serpent', 'spider', 'turtle']);
+
+// The contact patch stays under the footprint. A hovering creature throws a
+// softer, separated shadow, while a broad body needs a wider patch of shade.
+export function drawCreatureContact(ctx, cx, cy, sc, def, sun, squash, spawn, contactOnly) {
+  const floats = creatureFloats(def.sprite), wide = WIDE_CREATURES.has(def.sprite);
+  const rx = wide ? 13 : def.boss ? 12.5 : 10;
+  const ry = wide ? 3.8 : def.boss ? 5.5 : 4.5;
+  const a0 = ctx.globalAlpha;
+  const light = contactOnly ? 0.55 + 0.45 * sun.alpha : 1;
+  ctx.globalAlpha = a0 * light * (floats ? 0.6 : 1) * (spawn?.a ?? 1);
+  drawSunShadow(ctx, cx, cy, rx * sc * (spawn?.sx ?? 1), ry * sc, contactOnly ? null : sun, squash, floats ? 4 : 0);
   ctx.globalAlpha = a0;
 }

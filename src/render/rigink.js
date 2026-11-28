@@ -14,9 +14,23 @@
 // each part is drawn from just the box that holds its paint, so the extra
 // drawImage per part costs about what the unused canvas round the parts did.
 
-/** The ink line's width in local units: the same as the monster stickers' (sprites.js MONSTER_BOX.ink). */
-export const RIG_INK = 1.3;
+/** Keep the silhouette readable at play size without a thick sticker edge. */
+export const RIG_INK = 0.7;
 export const INK_RGB = '#22304A';
+
+/** Light the upper planes and shade the underside inside the painted alpha. */
+export function shadeCreatureBody(g, x, y, w, h, top, bottom) {
+  if (!g?.createLinearGradient) return;
+  const light = g.createLinearGradient(0, top, 0, bottom);
+  light.addColorStop(0, 'rgba(255,234,193,0.18)');
+  light.addColorStop(0.38, 'rgba(255,234,193,0)');
+  light.addColorStop(0.64, 'rgba(34,48,74,0.07)');
+  light.addColorStop(1, 'rgba(34,48,74,0.30)');
+  g.globalCompositeOperation = 'source-atop';
+  g.fillStyle = light;
+  g.fillRect(x, y, w, h);
+  g.globalCompositeOperation = 'source-over';
+}
 
 /**
  * How much bigger or smaller a rig is drawn than its `fit` gives, so it covers
@@ -154,6 +168,22 @@ function cropPart(img, cv, b, r, w, h, res, ink, make) {
     const sx1 = Math.min(NW, Math.ceil(ax1 / w * NW)), sy1 = Math.min(NH, Math.ceil(ay1 / h * NH));
     out.sx = sx; out.sy = sy; out.sw = sx1 - sx; out.sh = sy1 - sy;
     out.ax = sx / NW * w; out.ay = sy / NH * h; out.aw = out.sw / NW * w; out.ah = out.sh / NH * h;
+    // Keep only the painted crop at the rig's drawing density. Position the
+    // light in the original canvas so adjacent layers share the same grade.
+    if (cg.createLinearGradient) {
+      const W = Math.min(out.sw, Math.ceil(out.aw * res)), H = Math.min(out.sh, Math.ceil(out.ah * res));
+      const art = make(W, H), paint = art?.getContext('2d');
+      if (paint) {
+        paint.drawImage(img, sx, sy, out.sw, out.sh, 0, 0, W, H);
+        const unit = H / out.sh;
+        shadeCreatureBody(paint, 0, 0, W, H, -sy * unit, (NH - sy) * unit);
+        out.art = art;
+        // A fixed bitmap draws as cheaply as the unlit image each frame.
+        if (typeof createImageBitmap === 'function') {
+          createImageBitmap(art).then((bitmap) => { out.art = bitmap; }).catch(() => {});
+        }
+      }
+    }
   }
   return out;
 }

@@ -1,6 +1,6 @@
 import { TILE } from '../config.js';
 import { DEPTH_TILT, relV, rowScaleRel } from './projection.js';
-import { worldArtBox, worldArtMax, SHADOW_RGB } from './sprites.js';
+import { creatureArtScale, creatureCastImage, creatureFloats, worldArtBox, worldArtMax, SHADOW_RGB } from './sprites.js';
 import { clamp01, smooth } from './motionkit.js';
 import { bakeBudget } from './governor.js';
 
@@ -187,7 +187,7 @@ export class DepthView {
   }
 
   /** A navy outline of a picture, soft-edged, baked once per picture. */
-  _silhouette(img) {
+  _silhouette(img, maxH = SIL_MAX) {
     let s = this._sil.get(img);
     if (s !== undefined) return s;
     // A few a frame (governor.js BakeBudget): entering an area asked for every
@@ -197,7 +197,7 @@ export class DepthView {
     const t0 = this.budget.clock();
     s = null;
     try {
-      const r = Math.min(1, SIL_MAX / img.naturalHeight), w = Math.max(2, Math.round(img.naturalWidth * r)), h = Math.max(2, Math.round(img.naturalHeight * r));
+      const r = Math.min(1, maxH / img.naturalHeight), w = Math.max(2, Math.round(img.naturalWidth * r)), h = Math.max(2, Math.round(img.naturalHeight * r));
       const pad = SIL_PAD;
       const a = document.createElement('canvas'); a.width = w; a.height = h;
       const ga = a.getContext('2d');
@@ -213,6 +213,31 @@ export class DepthView {
     this.budget.spend(this.budget.clock() - t0);
     this._sil.set(img, s);
     return s;
+  }
+
+  /** Lay the creature's rest silhouette on the ground, following its facing and the sun. */
+  castCreatureShadow(g, npcId, def, x, y, scale, face, sv, opacity = 1) {
+    if (!this.ok || !sv?.on || opacity <= 0) return false;
+    const img = creatureCastImage(npcId, def);
+    if (!img?.complete || !img.naturalWidth) return false;
+    const sil = this._silhouette(img, def.boss ? 96 : 64);
+    if (!sil) return false;
+    const fit = creatureArtScale(img) * scale;
+    const floats = creatureFloats(def.sprite), lift = floats ? 4 * scale : 0;
+    g.save();
+    g.globalAlpha *= sv.alpha * opacity * (floats ? 0.55 : 0.95);
+    // Preserve the current canvas scale. The depth view warps this ground
+    // along with the terrain, so the shadow stays flat at any camera angle.
+    g.transform(face, 0, -sv.kx, -sv.ky, x + sv.kx * lift, y + sv.ky * lift);
+    this._drawSilhouette(g, sil, img.naturalWidth * fit, img.naturalHeight * fit);
+    g.restore();
+    return true;
+  }
+
+  _drawSilhouette(g, sil, w, h) {
+    // The baked outline carries a blur margin. Map the inner box to the picture's size.
+    const pw = sil.cv.width, ph = sil.cv.height, ix = w / (pw - 2 * SIL_PAD), iy = h / (ph - 2 * SIL_PAD);
+    g.drawImage(sil.cv, -w / 2 - SIL_PAD * ix, -h - SIL_PAD * iy, pw * ix, ph * iy);
   }
 
   /**
@@ -248,9 +273,7 @@ export class DepthView {
       // Picture space: x across from the base's middle, y up (negative) from the base.
       // On the ground: x' = x - kx y, y' = -ky y (ky < 0 lays it up the screen).
       g.setTransform(D, 0, -sv.kx * D, -sv.ky * D, bx * D, by * D);   // (D: the ground canvas's px per world px)
-      // The baked outline carries a blur margin: map its inner box onto the picture's.
-      const pw = sil.cv.width, ph = sil.cv.height, ix = b.w / (pw - 2 * SIL_PAD), iy = b.h / (ph - 2 * SIL_PAD);
-      g.drawImage(sil.cv, -b.w / 2 - SIL_PAD * ix, -b.h - SIL_PAD * iy, pw * ix, ph * iy);
+      this._drawSilhouette(g, sil, b.w, b.h);
       this.shadows++;
     };
     for (const o of objs) {
