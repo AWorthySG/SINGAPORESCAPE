@@ -489,7 +489,7 @@
 
     <!-- Modal interface (bank, shop, dialogue) -->
     <div id="modal-overlay" class="hidden">
-      <div id="modal-window">
+      <div id="modal-window" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
         <div class="sheet-handle" aria-hidden="true"></div>
         <div id="modal-title"></div>
         <button id="modal-close" class="close-x" title="Close" aria-label="Close"><img class="ui-ic gl-art x-art" src="assets/icons/ui-close.webp" width="40" height="40" alt="" draggable="false" onerror="this.remove()" /><span class="gl" aria-hidden="true">✕</span></button>

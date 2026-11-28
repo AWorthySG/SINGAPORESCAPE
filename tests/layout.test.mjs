@@ -31,7 +31,11 @@ test('phones get one Auto button and sheet handles; desktop keeps them hidden', 
   for (const id of ['auto-battle-btn', 'auto-gather-btn', 'auto-quest-btn', 'auto-battle-cfg']) assert.ok(bar.includes(`id="${id}"`), `${id} still reachable`);
   // Both sheets carry a drag handle.
   assert.match(html, /<div id="sidepanel">\s*(<!--[^]*?-->\s*)?<div class="sheet-handle"/);
-  assert.match(html, /<div id="modal-window">\s*<div class="sheet-handle"/);
+  const modal = html.match(/<div id="modal-window"[^>]*>(?=\s*<div class="sheet-handle")/)?.[0] ?? '';
+  assert.match(modal, /\brole="dialog"/);
+  assert.match(modal, /\baria-modal="true"/);
+  assert.match(modal, /\baria-labelledby="modal-title"/);
+  assert.match(modal, /\btabindex="-1"/);
   // Hidden by default (desktop), shown only inside touch-only media blocks.
   assert.match(css, /\.sheet-handle \{ display: none; \}/);
   assert.match(css, /#auto-menu-btn \{ display: none; \}/);

@@ -466,8 +466,13 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   background: rgba(28,27,25,0.72); color: var(--aw-white);
 }
 .ability-btn.disabled { cursor: var(--cur-default); opacity: 0.7; }
-.ability-btn.locked { cursor: not-allowed; opacity: 0.5; }
-.ability-btn.locked .ab-cd { font-size: var(--fs-cap); }
+.ability-btn.locked { cursor: not-allowed; }
+.ability-btn.locked .ab-icon { filter: grayscale(1); opacity: .5; }
+.ability-btn.locked .ab-cost { visibility: hidden; }
+.ability-btn.locked .ab-cd {
+  inset: auto 1px 2px; height: auto; border-radius: 999px; padding: 1px 0;
+  background: var(--aw-ink); color: var(--aw-white); font-size: var(--fs-xs); line-height: 1.1;
+}
 @media (max-width: 760px) {
   /* On touch/small screens the ability bar becomes its own full-width strip
      pinned to the very bottom, and the Chat & Inventory panels are lifted to
@@ -975,7 +980,6 @@ button:focus:not(:focus-visible) { outline: none; }
 .ability-btn.armed { border-color: var(--aw-ink); box-shadow: 0 0 0 3px var(--aw-sun), var(--shadow-sticker); }
 .ability-btn.ready { border-color: var(--aw-ink); background: var(--aw-sun-bg); }
 .ability-btn.disabled { filter: grayscale(0.6); }
-.ability-btn.locked { filter: grayscale(1); }
 
 /* Banner and boss bar: the one dark surface is charcoal */
 #banner {
@@ -1745,7 +1749,6 @@ body.boss-on #tip-toast { top: 132px; }
 .sg-auto .ab-switch { flex: none; }
 .sg-where { display: block; margin: 2px auto 8px; }
 .sg-row { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-bottom: 1px dashed rgba(34,48,74,.18); }
-.sg-row.locked { opacity: .6; }
 .sg-pick { display: flex; align-items: center; cursor: var(--cur-pointer); }
 .sg-pick input { width: 18px; height: 18px; margin: 0; accent-color: var(--aw-accent-dk); cursor: var(--cur-pointer); }
 .sg-picks { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0; font-size: var(--fs-sm); }
@@ -3869,7 +3872,6 @@ input[type="range"]:focus-visible { outline: 3px solid var(--aw-sun); outline-of
   display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; vertical-align: 1px;
   background: #e6f5dc; color: #2f6a1f; border: 1.5px solid var(--aw-ink); font-size: var(--fs-xs); font-weight: 800; white-space: nowrap;
 }
-.sgx-row.locked .sgx-xp { opacity: .75; }
 /* ...and beside it, about what an hour there pays at your level (xprate.js), in blue. */
 .sg-text .sgx-xph { background: #e3eefb; color: #24508a; }
 .sgx-xph-note { margin: 2px 0 6px; font-size: var(--fs-xs); }
