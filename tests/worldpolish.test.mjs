@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { buildWorld, TERRAIN } from '../src/data/world.js';
 import { World } from '../src/game/world.js';
 import { TILE } from '../src/config.js';
-import { RIG_INK, RIG_SIZE, rigSize, inkRect, inkPart } from '../src/render/rigink.js';
+import { RIG_INK, RIG_SIZE, rigSize, inkRect, inkPart, shadeCreatureBody } from '../src/render/rigink.js';
 import { bakeBudget } from '../src/render/governor.js';
 import { rigIds, rigInfo } from '../src/render/sprites.js';
 import { touchPlan, TOUCH_DETAILS, GroundTouch } from '../src/render/groundtouch.js';
@@ -54,7 +54,7 @@ function stubCanvas(log, paint = [0.25, 0.3, 0.75, 0.9]) {
 
 test('rigs draw the same ink line as the monster stickers, and every size fix names a real rig', () => {
   assert.match(read('src/render/sprites.js'), /const MONSTER_BOX = \{[^}]*ink: RIG_INK/, 'the stickers and the rigs share one ink width');
-  assert.ok(RIG_INK > 1 && RIG_INK < 2);
+  assert.ok(RIG_INK > 0 && RIG_INK <= 1, 'the in-world edge is thinner than a sticker rim');
   const ids = new Set(rigIds());
   for (const [id, k] of Object.entries(RIG_SIZE)) {
     assert.ok(ids.has(id), `${id} is a rig`);
@@ -68,7 +68,7 @@ test('rigs draw the same ink line as the monster stickers, and every size fix na
   assert.deepEqual([r.x, r.y, r.w, r.h], [-10 - r.pad, -20 - r.pad, 40 + 2 * r.pad, 30 + 2 * r.pad]);
 });
 
-test('a part\'s navy copy is baked once, cut to its paint, and the part is drawn from just its painted box', () => {
+test('a part\'s ink and lit paint are baked once and cut down to its painted box', () => {
   const log = [];
   const img = { naturalWidth: 300, naturalHeight: 300 };
   const part = inkPart(img, 34, 34, 3, RIG_INK, stubCanvas(log));
@@ -76,6 +76,7 @@ test('a part\'s navy copy is baked once, cut to its paint, and the part is drawn
   assert.ok(part.w < 34 + 2 * (RIG_INK + 0.5) && part.h < 34 + 2 * (RIG_INK + 0.5), 'cut down to the paint');
   // The painted box of the picture sits inside the copy, the ring's width in.
   assert.ok(part.sw > 0 && part.sw < 300 && part.sh < 300);
+  assert.ok(part.art.width <= Math.ceil(3 * part.aw) && part.art.height <= Math.ceil(3 * part.ah), 'the shaded crop stays at the rig density');
   assert.ok(part.ax >= part.x && part.ax + part.aw <= part.x + part.w + 1e-9 && part.ay >= part.y);
   assert.ok(part.ax >= 0 && part.ay >= 0 && part.ax + part.aw <= 34 + 1e-9 && part.ay + part.ah <= 34 + 1e-9);
   const n = log.length;
@@ -86,27 +87,45 @@ test('a part\'s navy copy is baked once, cut to its paint, and the part is drawn
   assert.equal(inkPart({ naturalWidth: 0 }, 34, 34, 3, RIG_INK, stubCanvas([])), null);
 });
 
-test('a rigged monster lays its navy copies down first, in the same pose, then its parts', async () => {
+test('the body light brightens the top and shades the bottom inside the painted alpha', () => {
+  const stops = [];
+  const g = {
+    globalCompositeOperation: 'source-over',
+    createLinearGradient(x0, y0, x1, y1) {
+      assert.deepEqual([x0, y0, x1, y1], [0, -15, 0, 35]);
+      return { addColorStop: (at, colour) => stops.push([at, colour]) };
+    },
+    fillRect(x, y, w, h) {
+      assert.deepEqual([x, y, w, h], [0, 0, 24, 20]);
+      assert.equal(this.globalCompositeOperation, 'source-atop');
+    },
+  };
+  shadeCreatureBody(g, 0, 0, 24, 20, -15, 35);
+  assert.match(stops[0][1], /255,234,193/);
+  assert.match(stops.at(-1)[1], /34,48,74/);
+  assert.equal(g.globalCompositeOperation, 'source-over');
+});
+
+test('a rigged monster draws the navy edges and shaded parts in one blit each', async () => {
   const log = [];
+  const screenLog = [];
   const make = stubCanvas(log);
   globalThis.document = { createElement: () => make(0, 0) };
   globalThis.Image = class { constructor() { this.complete = true; this.naturalWidth = 300; this.naturalHeight = 300; } };
   try {
     const S = await import('../src/render/sprites.js?rig-ink');
     const order = S.rigInfo('wild_boar').order;
-    const screen = make(800, 600).getContext('2d');
+    const screen = stubCanvas(screenLog)(800, 600).getContext('2d');
+    screen.globalAlpha = 1;
     const opts = { time: 1000, sprite: 'beast', color: '#7a5a3a', family: 'wild_boar', scale: 1, still: true };
     // Loads the layers; their ink outlines are baked a few a frame (governor.js BakeBudget).
     for (let i = 0; i < 30; i++) { bakeBudget.frame(); S.drawCreature(screen, 'wild_boar', 100, 100, opts); }
-    log.length = 0;
+    screenLog.length = 0;
     bakeBudget.frame();
     S.drawCreature(screen, 'wild_boar', 100, 100, opts);
-    const draws = log.filter((c) => c[0] === 'drawImage');
-    const art = draws.filter((c) => c[1] === 'object'), first = draws.indexOf(art[0]);
-    assert.equal(art.length, order.length, 'one draw per part');
-    const ink = draws.slice(first - order.length, first);
-    assert.ok(first >= order.length && ink.every((c) => typeof c[1] === 'string' && c[1].startsWith('cv')), 'a navy copy per part, all under the parts');
-    assert.ok(art.every((c) => c.length === 10), 'each part is drawn from its painted box (a source rectangle)');
+    const draws = screenLog.filter((c) => c[0] === 'drawImage');
+    assert.equal(draws.length, 2 * order.length, 'one ink blit and one paint blit per part');
+    assert.ok(draws.every((c) => c[1].startsWith('cv') && c.length === 6), 'both passes use their baked crops');
   } finally { delete globalThis.document; delete globalThis.Image; }
 });
 

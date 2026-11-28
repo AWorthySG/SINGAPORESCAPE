@@ -77,7 +77,7 @@ test('every new monster and boss has a look: its own painted art, or a real pict
     const file = NPCS[id].boss ? (ownBoss.has(id) ? id : null) : (own.has(NPCS[id].family) ? NPCS[id].family : null);
     if (file) {
       // Its own art has arrived: drawn as itself, with no borrowed tint.
-      assert.ok(p.src.endsWith(`/${file}.webp`), `${id} uses its own art (${p.src})`);
+      assert.ok(p.src.split('?')[0].endsWith(`/${file}.webp`), `${id} uses its own art (${p.src})`);
       assert.ok(!p.tint, `${id} is not recoloured`);
     } else assert.ok(typeof p.tint === 'string' && p.tint.length > 5, `${id} is recoloured`);
   }

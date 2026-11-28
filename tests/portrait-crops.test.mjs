@@ -32,7 +32,7 @@ test('a frame turns the measured square into CSS background size and position', 
 
 test('a monster portrait carries its frame', () => {
   const pr = portraitFor('rat', getNpc('rat'));
-  assert.ok(pr && /species\/.+\.webp$/.test(pr.src));
+  assert.ok(pr && /species\/.+\.webp$/.test(pr.src.split('?')[0]));
   assert.match(pr.size, /^\d+(\.\d)?% \d+(\.\d)?%$/);
   assert.match(pr.pos, /^\d+(\.\d)?% \d+(\.\d)?%$/);
 });

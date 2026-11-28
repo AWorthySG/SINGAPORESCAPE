@@ -55,7 +55,7 @@ import { Weather } from './weather.js';
 import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, DARK_REGIONS } from './fxart.js';
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
 import { TerrainFx, growBox, tileHash, recolourGround } from './terrainfx.js';
-import { sunShadow, drawSunShadow, footfall } from './shadows.js';
+import { sunShadow, drawSunShadow, drawCreatureContact, footfall } from './shadows.js';
 import { dropArc, dropFx, spawnFx, pickupFx } from './combatfx.js';
 import { applySquash, splatMotion, drawCritBurst, drawMissPuff, drawLootGlow, drawCoinGlint, motionOK } from './juice.js';
 import { spawnPose, deathPose, windupAge, hazardPulse, hazardIn } from './creatureanim.js';
@@ -69,7 +69,7 @@ import { censerBolt } from './censerSwing.js';   // a Zealot's bolt leaves the s
 import { namePill, drawPill, pillRes, PILL_ROW } from './namepill.js';
 import { foeThreat } from '../ui/bossbar.js';
 import { applyRow, applyScreen, rowBoxOff } from './projection.js';
-import { DepthView, depthTarget, easeTilt, slowGiveUp } from './depthview.js';
+import { DepthView, depthTarget, easeTilt, shadowVec, slowGiveUp } from './depthview.js';
 import { bakeBudget } from './governor.js';
 
 // Gathering actions that show a progress ring over the node, and its colour.
@@ -297,7 +297,8 @@ export class Renderer {
     slowGiveUp(game, this._giveUp || (this._giveUp = {}), !!pj, fdt);   // a device that can't keep up goes flat
     const night = 1 - game.daylightFactor(); // 0 (noon) .. 1 (midnight) — lights, fireflies
     // Shadows lean and stretch with the sun (shadows.js); low graphics keeps the plain ones.
-    const sun = sunShadow(game.dayPhase(), this._sun || (this._sun = {}));
+    const dayPhase = game.dayPhase();
+    const sun = sunShadow(dayPhase, this._sun || (this._sun = {}));
     sun.low = !!game.lowFx;
     // The decorative extras (reflections, critters, weather particles, the
     // second foam layer) also step down while frames run slow (governor.js).
@@ -364,7 +365,7 @@ export class Renderer {
     if (W.objectsIn) W.objectsIn(x0 - 1, y0 - 1, x1 + 1, y1 + 1, visObjs);
     else { visObjs.length = 0; for (const o of W.objects) if (!(o.x < x0 - 1 || o.x > x1 + 1 || o.y < y0 - 1 || o.y > y1 + 1)) visObjs.push(o); }
     // Tilted: trees, buildings and landmarks cast their outlines across the ground with the sun.
-    if (ground && !trim) this.depth.castShadows(ctx, visObjs, W.landmarks, ox, oy, vw, vh, game.dayPhase(), timeMs, this.depth.G);
+    if (ground && !trim) this.depth.castShadows(ctx, visObjs, W.landmarks, ox, oy, vw, vh, dayPhase, timeMs, this.depth.G);
     // Tilted, trees and landmarks stand a touch taller than flat (see the drawables loop).
     const riseTree = pj ? 0.05 * pj.tilt : 0, riseMark = pj ? 0.08 * pj.tilt : 0;
     for (const o of visObjs) {
@@ -465,6 +466,7 @@ export class Renderer {
     }
     // Reduce motion (the setting or the browser's): struck monsters don't shudder or fidget.
     const calm = !motionOK(game);
+    const creatureSun = !trim && this.depth.ok ? shadowVec(dayPhase, this._creatureSun || (this._creatureSun = {})) : null;
     for (const n of near) {
       if (!n.alive && !(n.deathT > 0)) continue;
       const c = n.renderCenter();
@@ -520,10 +522,19 @@ export class Renderer {
       if (spawn > 0 && !(timeMs - n._puffT < 400)) { n._puffT = timeMs; spawnFx(game, n); }
       const sp = spawn > 0 ? spawnPose(1 - spawn, n._spawnPose || (n._spawnPose = {})) : null;
       const windAge = windupAge(n, timeMs);
+      const land = spawn > 0 && spawn < 0.3 ? Math.sin(spawn / 0.3 * Math.PI) : 0;
+      const squash = Math.max(footfall(n.walkPhase, n.isMoving) * 0.6, land);
+      const monster = n.def.attackable;
+      if (monster) {
+        // Ground shadows go down before the depth-sorted bodies. Their feet
+        // follow attack lunges and knockback as well as regular movement.
+        const sx = cx + off.x, sy = cy + 12 * sc + off.y;
+        const face = (n.faceX || n.facing?.dx || 1) < 0 ? -1 : 1;
+        const cast = creatureSun?.on && this.depth.castCreatureShadow(ctx, n.artId || n.npcId, n.def, sx, sy, sc, face, creatureSun, sp?.a);
+        drawCreatureContact(ctx, sx, sy, sc, n.def, sun, squash, sp, trim || cast);
+      }
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
-        // A footfall or the end of a respawn's pop squashes the shadow a touch.
-        const land = spawn > 0 && spawn < 0.3 ? Math.sin(spawn / 0.3 * Math.PI) : 0;
-        drawSunShadow(ctx, cx, cy + 12 * sc, 10 * sc * (sp ? sp.sx : 1), 4.5 * sc * (sp ? sp.sx : 1), sun, Math.max(footfall(n.walkPhase, n.isMoving) * 0.6, land));
+        if (!monster) drawSunShadow(ctx, cx, cy + 12 * sc, 10 * sc * (sp ? sp.sx : 1), 4.5 * sc * (sp ? sp.sx : 1), sun, squash);
         if (sp) {
           const fy = cy + 12 * sc + off.y;
           ctx.save(); ctx.globalAlpha = sp.a;

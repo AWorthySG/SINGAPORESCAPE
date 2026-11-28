@@ -56,17 +56,16 @@ export class FxGovernor {
 
 /**
  * A time allowance a frame for one-off bakes that would otherwise all land in
- * one frame: when a rigged monster's pictures arrive, every part gets its ink
- * outline baked (rigink.js), and the depth view bakes a soft outline of each
- * tree and landmark for its cast shadow (depthview.js). Entering an area (or
- * starting the game) asked for all of them at once: most of a second in one
- * frame on a phone. The renderer starts each frame with frame(); bakers ask
- * ok() first and report what they spent. Once `ms` is used up nothing more is
+ * one frame. Monsters prepare ink outlines and measure their animation pieces
+ * when their pictures arrive (sprites.js and rigink.js). The depth view bakes
+ * soft outlines for tree and landmark shadows (depthview.js). Entering an area
+ * used to request all of that at once. The renderer calls frame() each frame.
+ * Bakers ask ok() first and report what they spent. Once `ms` is used up nothing more is
  * baked until the next frame (the first bake of a frame always may run, so
  * each frame makes progress). Without frames (nothing drawing the world) the
  * allowance comes back after `idle` ms. What isn't ready yet draws as it would
- * before its pictures came: the monster's single sticker, or no cast shadow
- * for that tree a moment longer.
+ * before its bake finished: the monster's painted picture or single sticker,
+ * or no cast shadow for that tree a moment longer.
  */
 export class BakeBudget {
   constructor(ms = 6, idle = 250, clock = () => performance.now()) {

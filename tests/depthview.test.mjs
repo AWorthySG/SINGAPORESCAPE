@@ -223,13 +223,23 @@ test('the renderer: tilted, the ground goes through the warp; low graphics and h
   try {
     const g = newGame();
     g.camera.resize(390, 844, 1.76, 2);
+    const player = g.player.renderCenter();
+    g.camera.follow(player.x, player.y, 1, g.world);
     const main = recordingCtx();
     // (The recording context has no getTransform, so the renderer draws at 1 canvas px per world px.)
     const r = new Renderer(g, { width: Math.ceil(g.camera.viewW), height: Math.ceil(g.camera.viewH) }, main);
+    g.spawnNpc('goblin', g.player.x + 1, g.player.y, { temporary: true, wander: 0 });
+    g.dayPhase = () => 0.3;
+    let creatureCastContext = null;
+    r.depth.castCreatureShadow = (ctx, id) => {
+      if (id === 'goblin') creatureCastContext = ctx;
+      return false;
+    };
     g.reduceMotion = true;   // snap the tilt on at once
     r.render(1000);
     assert.equal(g.camera.tilt, DEPTH_TILT, 'tilted at once with Reduce motion');
     assert.ok(r._pj, 'this frame drew through the projection');
+    assert.equal(creatureCastContext, r.depth.g, 'creature casts are painted on the ground before the warp');
     assert.ok(r.depth.strips > 20, `the ground went on in rows (${r.depth.strips})`);
     const draws = main.calls.filter(([k, a]) => k === 'drawImage' && a[0] === r.depth.buf).length;
     assert.equal(draws, r.depth.strips, 'each row is one copy of the ground canvas');
@@ -238,13 +248,17 @@ test('the renderer: tilted, the ground goes through the warp; low graphics and h
     for (let i = 0; i < 120; i++) r.render(1016 + i * 16);
     assert.equal(g.camera.tilt, 0);
     main.calls.length = 0;
+    creatureCastContext = null;
     r.render(4000);
     assert.equal(r._pj, null);
+    assert.equal(creatureCastContext, main, 'creature casts are painted before actors in flat view too');
     assert.equal(main.calls.filter(([k, a]) => k === 'drawImage' && a[0] === r.depth.buf).length, 0, 'flat: no warp');
     // Low graphics forces flat even with the setting on.
     g.depthView = true; g.lowFx = true;
+    creatureCastContext = null;
     for (let i = 0; i < 60; i++) r.render(5000 + i * 16);
     assert.equal(g.camera.tilt, 0, 'low graphics is flat');
+    assert.equal(creatureCastContext, null, 'low graphics uses the contact shadow alone');
   } finally { delete globalThis.document; }
   // No DOM at all: the renderer never tilts.
   const g = newGame();
