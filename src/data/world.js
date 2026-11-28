@@ -497,11 +497,9 @@ export function buildWorld({ groves: withGroves = true } = {}) {
   placeNpc('villager', 80, 56, 4); placeNpc('villager', 86, 54, 4);
   placeObj('lamp', 75, 47); placeObj('lamp', 92, 47); placeObj('lamp', 75, 64); placeObj('lamp', 92, 64);
   placeObj('sign', 83, 47, { sign: 'Chinatown' }); placeObj('flower', 80, 63); placeObj('flower', 88, 63);
-  // Chinatown bazaar: a row of Thieving stalls along the paved market.
+  // Chinatown bazaar: a row of Thieving stalls of rising value.
   placeObj('stall_food', 85, 62);
-  placeObj('stall_spice', 84, 53);
   placeObj('stall_market', 86, 50);
-  placeObj('stall_textile', 87, 50);
   placeObj('stall_gem', 90, 50);
 
   // ================= Sentosa Beach =================
@@ -594,7 +592,6 @@ export function buildWorld({ groves: withGroves = true } = {}) {
   placeNpc('hawker', 186, 143); placeObj('range', 188, 144);
   placeObj('furnace', 180, 138); placeObj('anvil', 181, 140); placeObj('crafting_table', 183, 140);
   placeObj('shrine', 192, 135);
-  placeObj('stall_goldsmith', 194, 143);
   placeObj('stall_market', 196, 143); placeObj('stall_gem', 200, 143); placeObj('stall_food', 204, 143);
   for (let lx = 178; lx <= 206; lx += 7) { placeObj('lamp', lx, 128); placeObj('lamp', lx, 147); }
   for (const [px2, py2] of [[179, 129], [205, 129], [179, 146], [205, 146]]) placeObj('palm', px2, py2);
@@ -675,7 +672,6 @@ export function buildWorld({ groves: withGroves = true } = {}) {
   placeObj('bank_booth', 434, 32); placeObj('bank_booth', 435, 32); placeNpc('banker', 434, 31);
   placeNpc('shopkeeper', 444, 33); placeNpc('hawker', 448, 38); placeNpc('fletcher', 446, 42); placeNpc('mage', 438, 42);
   placeObj('range', 450, 38); placeObj('furnace', 432, 40); placeObj('anvil', 433, 42); placeObj('crafting_table', 435, 44);
-  placeObj('stall_seafood', 434, 44);
   for (const [lx, ly] of [[430, 30], [452, 30], [430, 46], [452, 46]]) placeObj('lamp', lx, ly);
   placeNpc('villager', 440, 37, 4); placeNpc('villager', 444, 40, 4);
   placeObj('mrt_station', 441, 48);
@@ -691,7 +687,6 @@ export function buildWorld({ groves: withGroves = true } = {}) {
   placeObj('bank_booth', 442, 122); placeObj('bank_booth', 443, 122); placeNpc('banker', 442, 121);
   placeNpc('shopkeeper', 456, 123); placeNpc('hawker', 460, 128);
   placeObj('range', 459, 132); placeObj('crafting_table', 444, 134);
-  placeObj('stall_produce', 451, 134);
   for (const [lx, ly] of [[440, 120], [462, 120], [440, 138], [462, 138]]) placeObj('lamp', lx, ly);
   placeNpc('villager', 450, 128, 4); placeNpc('villager', 454, 132, 4);
   placeObj('mrt_station', 451, 140);
@@ -1609,6 +1604,13 @@ export function buildWorld({ groves: withGroves = true } = {}) {
     for (const [x, y] of [[446, 162], [448, 164]]) placeNpc('transit_lantern_moth', x, y, 2);
     for (const [x, y] of [[452, 166], [454, 167]]) placeNpc('transit_verge_boar', x, y, 1);
   }
+
+  // Set up on the existing paved plazas after the landmarks have found their spots.
+  placeObj('stall_spice', 84, 53);       // Chinatown
+  placeObj('stall_textile', 87, 50);     // Chinatown
+  placeObj('stall_produce', 451, 134);   // Kranji Village
+  placeObj('stall_seafood', 434, 44);    // Punggol Point
+  placeObj('stall_goldsmith', 194, 143); // Marina Bay
 
   return {
     width: W,
