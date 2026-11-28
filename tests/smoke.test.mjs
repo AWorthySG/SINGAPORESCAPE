@@ -13,7 +13,7 @@ import { hitChance, maxHit, attackRoll, combatXp } from '../src/game/combat.js';
 import { gatherChance } from '../src/game/skilling.js';
 import { XP_RATE } from '../src/config.js';
 import { NPCS, MONSTER_IDS, ALL_MONSTER_IDS, BOSS_IDS, getNpc, monsterHpScale } from '../src/data/npcs.js';
-import { itemIconSVG, hasIcon, skillIconSVG } from '../src/render/icons.js';
+import { itemArtSrc, itemIconSVG, hasIcon, skillIconSVG } from '../src/render/icons.js';
 import { readdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ITEMS } from '../src/data/items.js';
@@ -274,14 +274,15 @@ test('every equippable item has its own custom icon', () => {
   assert.ok(itemIconSVG('merlion_blade', 24).includes('assets/icons/item-merlion_blade.webp'));
 });
 
-test('every item has A-Worthy sticker artwork', () => {
-  // Sticker artwork (assets/icons/item-<id>.webp), or a recoloured borrow of one.
-  assert.ok(itemIconSVG('nasi_lemak', 32).includes('assets/icons/item-nasi_lemak.webp'), 'nasi lemak uses its sticker artwork');
-  assert.ok(itemIconSVG('logs', 32).includes('assets/icons/item-logs.webp'), 'logs use the sticker artwork');
-  assert.ok(itemIconSVG('raw_arowana', 24).includes('assets/icons/item-raw_arowana.webp'));
-  assert.ok(itemIconSVG('venison', 24).includes('assets/icons/item-venison.webp'));
-  for (const id of Object.keys(ITEMS)) assert.ok(itemIconSVG(id, 24).includes('assets/icons/item-'), `${id} has sticker artwork`);
-  // Painted items still retain a vector fallback (so hasIcon stays true).
+test('each item has its own sticker artwork and the item files match the registry', () => {
+  const dir = fileURLToPath(new URL('../assets/icons/', import.meta.url));
+  const files = readdirSync(dir).filter((file) => /^item-.+\.webp$/.test(file)).sort();
+  const expected = Object.keys(ITEMS).map((id) => `item-${id}.webp`).sort();
+  assert.deepEqual(files, expected);
+  for (const id of Object.keys(ITEMS)) {
+    assert.equal(itemArtSrc(id), `assets/icons/item-${id}.webp`, `${id} uses its own sticker`);
+  }
+  // Painted items still retain a vector fallback.
   assert.ok(hasIcon('logs') && hasIcon('raw_barramundi'));
 });
 
