@@ -4236,7 +4236,7 @@ test('November monsters and bosses: defined, placed in their regions, with abili
     const spawns = w.npcSpawns.filter((s) => s.npcId === id);
     assert.ok(spawns.length >= 1, `${id} is placed in the world`);
     for (const s of spawns) assert.equal(w.zones.find((z) => s.x >= z.x0 && s.x <= z.x1 && s.y >= z.y0 && s.y <= z.y1)?.name, d.zone, `${id} spawns in ${d.zone}`);
-    assert.ok(portraitFor(id, d)?.src.endsWith('.webp'), `${id} has art (its own or borrowed)`);
+    assert.ok(portraitFor(id, d)?.src.split('?')[0].endsWith('.webp'), `${id} has art (its own or borrowed)`);
   }
   for (const id of EXTRA_BOSS_IDS) assert.ok(NPCS[id].boss && NPCS[id].ability?.fx.length, `${id} has a signature move`);
   assert.ok(EXTRA_BOSS_IDS.every((id) => ALL_BOSS_IDS.includes(id)) && EXTRA_MONSTER_IDS.every((id) => ALL_MONSTER_IDS.includes(id)), 'the bestiary lists them');
@@ -4274,7 +4274,7 @@ test('second November batch: 16 species and 3 bosses, placed at home, with bones
     assert.ok(spawns.length >= 1, `${id} is placed in the world`);
     for (const s of spawns) assert.ok(s.x >= z.x0 && s.x <= z.x1 && s.y >= z.y0 && s.y <= z.y1, `${id} spawns inside ${d.zone}`);
     for (const s of spawns) assert.ok(s.x > 0 && s.y > 0 && s.x < w.width - 1 && s.y < w.height - 1, `${id} is not on the border fence`);
-    assert.ok(portraitFor(id, d)?.src.endsWith('.webp'), `${id} has art (its own or borrowed)`);
+    assert.ok(portraitFor(id, d)?.src.split('?')[0].endsWith('.webp'), `${id} has art (its own or borrowed)`);
   }
   const names = ALL_BOSS_IDS.map((id) => NPCS[id].ability?.name).filter(Boolean);
   assert.equal(new Set(names).size, names.length, 'every signature move has its own name');

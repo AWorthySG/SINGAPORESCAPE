@@ -125,6 +125,9 @@ export function drawShadow(ctx, cx, cy, rx = 11, ry = 5) {
 const SHADOW_BOX = { x0: -12, y0: -12, w: 24, h: 24 };
 
 // ================= CREATURES =================
+// Give the repainted monster art fresh URLs for players with the old art cached.
+const MONSTER_ART_REVISION = '?v=3';
+
 // Archetypes shipped as painted PNG art (assets/creatures/<sprite>.png). When the
 // image has loaded these replace the vector archetype for every monster of that
 // sprite; until then (and in headless tests) the vector drawing is used.
@@ -134,7 +137,7 @@ function creatureImage(sprite) {
   if (_creatureImg[sprite] !== undefined) return _creatureImg[sprite];
   if (typeof Image === 'undefined' || !CREATURE_PNGS.has(sprite)) { _creatureImg[sprite] = null; return null; }
   const img = new Image();
-  img.src = `assets/creatures/${sprite}.png`;
+  img.src = `assets/creatures/${sprite}.png${MONSTER_ART_REVISION}`;
   _creatureImg[sprite] = img;
   return img;
 }
@@ -195,7 +198,7 @@ function speciesImage(family) {
   if (_speciesImg[family] !== undefined) return _speciesImg[family];
   if (typeof Image === 'undefined') { _speciesImg[family] = null; return null; }
   const img = new Image();
-  img.src = `assets/creatures/species/${speciesFile(family)}.webp`;
+  img.src = `assets/creatures/species/${speciesFile(family)}.webp${MONSTER_ART_REVISION}`;
   _speciesImg[family] = img;
   return img;
 }
@@ -226,7 +229,6 @@ const BOSS_ALIAS = {};
 const BOSS_TINT = {};
 for (const b of BESTIARY_BOSSES) { BOSS_ALIAS[b.id] = b.borrow; BOSS_TINT[b.id] = b.tint; }
 const bossFile = (id) => (BOSS_ART.has(id) ? id : BOSS_ALIAS[id] || null);
-const lionArtRevision = (id) => id === 'lion_of_light' ? '?v=2' : '';
 /** The CSS filter a borrowed picture is drawn with (none once a creature has its own art). */
 const artTint = (npcId, def) => (def.boss && bossFile(npcId) ? (BOSS_ART.has(npcId) ? null : BOSS_TINT[npcId])
   : SPECIES_ART.has(def.family) ? null : SPECIES_TINT[def.family]) || null;
@@ -236,7 +238,7 @@ function bossImage(id) {
   if (_bossImg[id] !== undefined) return _bossImg[id];
   if (typeof Image === 'undefined') { _bossImg[id] = null; return null; }
   const img = new Image();
-  img.src = `assets/creatures/bosses/${bossFile(id)}.webp${lionArtRevision(bossFile(id))}`;
+  img.src = `assets/creatures/bosses/${bossFile(id)}.webp${MONSTER_ART_REVISION}`;
   _bossImg[id] = img;
   return img;
 }
@@ -353,7 +355,7 @@ function castBurst(c, k, col) {
   c.restore();
 }
 // A flat-colour copy of a sticker's silhouette, for hit and charge flashes.
-const _tints = new Map();
+const _tints = new WeakMap();   // let the tint go when its sticker leaves the cache
 function monsterTint(sticker, col) {
   const key = sticker;
   let m = _tints.get(key);
@@ -545,8 +547,10 @@ const rigFiles = (rig) => rig.files || rig.order;
 function rigLayers(id, rig = RIGS[id]) {
   if (!rig || typeof Image === 'undefined') return null;
   const imgs = _rigImg[id] || (_rigImg[id] = Object.fromEntries(rigFiles(rig).map((n) => {
-    const revision = rig.kind === 'town' ? townArtRevision(id) : lionArtRevision(id);
-    const img = new Image(); img.src = `assets/creatures/${rigDir(rig.kind)}/${id}_${n}.webp${revision}`; return [n, img];
+    const revision = rig.kind === 'town' ? townArtRevision(id) : MONSTER_ART_REVISION;
+    const img = new Image();
+    img.src = `assets/creatures/${rigDir(rig.kind)}/${id}_${n}.webp${revision}`;
+    return [n, img];
   })));
   return rigFiles(rig).every((n) => imgs[n].complete && imgs[n].naturalWidth) ? imgs : null;
 }
@@ -766,12 +770,17 @@ function stRing(dst, src, r) {
 // Bake `drawBody` (drawn in local units inside `box`) into a sticker: navy ink
 // line inside a white die-cut border. Returns an ImageBitmap/canvas to draw at
 // (box.x0, box.y0, box.w, box.h), or null without a DOM.
-function bakeSticker(key, box, drawBody) {
+function bakeSticker(key, box, drawBody, budget = null) {
   if (typeof document === 'undefined' || !document.createElement) return null;
   const hit = _stickers.get(key);
   if (hit) { _stickers.delete(key); _stickers.set(key, hit); return hit.img; }   // LRU touch
+  if (!budget) return makeSticker(key, box, drawBody);
+  if (!budget.ok()) return null;
+  return budget.run(() => makeSticker(key, box, drawBody));
+}
+function makeSticker(key, box, drawBody) {
   const sk = `${box.w}x${box.h}`;
-  if (!_stScratch[sk]) _stScratch[sk] = { art: stCanvas(box), ink: stCanvas(box), white: stCanvas(box) };
+  if (!_stScratch[sk]) _stScratch[sk] = { art: stCanvas(box), ink: stCanvas(box), white: box.cut > 0 ? stCanvas(box) : null };
   const { art, ink, white } = _stScratch[sk];
   const a = art.getContext('2d');
   if (!a) return null;
@@ -780,6 +789,7 @@ function bakeSticker(key, box, drawBody) {
   drawBody(a);
   a.setTransform(1, 0, 0, 1, 0, 0);
   for (const [cv, colr] of [[ink, ST_INK], [white, '#FFFFFF']]) {
+    if (!cv) continue;
     const g = cv.getContext('2d');
     g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, cv.width, cv.height);
     g.drawImage(art, 0, 0);
@@ -796,7 +806,10 @@ function bakeSticker(key, box, drawBody) {
   // the bitmap resolves.
   const entry = { img: out };
   if (typeof createImageBitmap === 'function') {
-    createImageBitmap(out).then((bm) => { entry.img = bm; }).catch(() => {});
+    createImageBitmap(out).then((bm) => {
+      if (_stickers.get(key) === entry) entry.img = bm;
+      else bm.close();
+    }).catch(() => {});
   }
   _stickers.set(key, entry);
   if (_stickers.size > 700) {
@@ -806,7 +819,7 @@ function bakeSticker(key, box, drawBody) {
   }
   return entry.img;
 }
-const monsterSticker = (key, drawBody) => bakeSticker(key, MONSTER_BOX, drawBody);
+const monsterSticker = (key, drawBody) => bakeSticker(key, MONSTER_BOX, drawBody, bakeBudget);
 
 // ---- Automatic animation for painted monsters ----
 // Species without a hand-made parts rig still move: their sticker is drawn in
@@ -836,7 +849,7 @@ export function portraitFor(npcId, def) {
   const key = def.boss && bossFile(npcId) ? `bosses/${bossFile(npcId)}`
     : speciesFile(def.family) ? `species/${speciesFile(def.family)}` : null;
   if (!key) return null;
-  const src = `assets/creatures/${key}.webp${lionArtRevision(key.split('/')[1])}`;
+  const src = `assets/creatures/${key}.webp${MONSTER_ART_REVISION}`;
   const tint = artTint(npcId, def);
   return { src, ...portraitFrame(key, def), tint };
 }
@@ -863,6 +876,12 @@ const _puppetInfo = new Map();
  *  divide front from back. Measured once per look. */
 function puppetInfo(key, sticker) {
   if (_puppetInfo.has(key)) return _puppetInfo.get(key);
+  if (!bakeBudget.ok()) return null;
+  const info = bakeBudget.run(() => measurePuppet(sticker));
+  _puppetInfo.set(key, info);
+  return info;
+}
+function measurePuppet(sticker) {
   let inf = null;
   try {
     const W = ST_W * ST_RES, H = ST_H * ST_RES;
@@ -895,7 +914,6 @@ function puppetInfo(key, sticker) {
       inf = { x0, y0, x1: x1 + 1, y1: y1 + 1, cut, split, legs: legs.length >= 2 && legs.length <= 6 ? legs : null };
     }
   } catch { inf = null; }
-  _puppetInfo.set(key, inf);
   return inf;
 }
 // Moving pieces (head, tail, claws) are copied once into their own small
@@ -1086,14 +1104,16 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       // A showpiece boss with moving parts, or a species whose parts sheet is in.
       // Low graphics keeps monster packs on the cheaper single-sticker path, and
       // so do slow frames (each pack member's parts are composed afresh every frame).
-      const rigId = opts.boss ? (RIGS[npcId] ? npcId : null) : (!opts.low && !opts.trim && RIGS[opts.family]?.kind === 'species' ? opts.family : null);
+      const fullParts = !opts.low && !opts.trim;
+      const rigId = opts.boss ? (RIGS[npcId] ? npcId : null) : (fullParts && RIGS[opts.family]?.kind === 'species' ? opts.family : null);
       // (Its parts' ink outlines are baked a few a frame: until they all are, the sticker.)
       const rig = rigId ? rigInked(rigId, rigLayers(rigId)) : null;
       // A species rig's parts run on the clock, so each member of a pack runs a few
       // seconds apart from the next and they never swing in lock-step.
       if (rig) { drawRig(c, rigId, rig, opts, opts.boss ? t : t + sd * 7, flash, flashCol); return; }
+      const painted = pimg?.complete && pimg.naturalWidth;
       const drawBody = (g) => {
-        if (pimg && pimg.complete && pimg.naturalWidth) {
+        if (painted) {
           const tint = simg ? artTint(npcId, { boss: !!bimg, family: opts.family }) : null;
           if (tint && 'filter' in g) g.filter = tint;   // a borrowed picture, recoloured (baked into the cached sticker)
           drawCreaturePng(g, pimg);    // painted art carries its own shading
@@ -1110,15 +1130,16 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
           g.globalCompositeOperation = 'source-over';
         }
       };
-      const ready = !pimg || (pimg.complete && pimg.naturalWidth);
-      // Only the turtle's legs follow the stride; every other body is one pose.
-      const pose = opts.sprite === 'turtle' ? Math.round(_anim.stride * 2) : 0;
+      const ready = !pimg || painted;
+      // Only the procedural turtle poses its legs during the bake.
+      const pose = !painted && opts.sprite === 'turtle' ? Math.round(_anim.stride * 2) : 0;
       const look = bimg ? `boss:${npcId}` : simg ? `species:${opts.family}` : `${opts.sprite}|${col}|${pimg ? 'p' : 'v'}`;
-      const sticker = ready ? monsterSticker(`${look}|${pose}`, drawBody) : null;
+      const key = `${look}|${pose}`;
+      const sticker = ready ? monsterSticker(key, drawBody) : null;
       if (sticker) {
-        // Painted monsters animate in pieces (see drawPuppet); the rest draw whole.
-        const kind = (bimg || simg) && !opts.still ? PUPPET_KIND[opts.sprite] : null;
-        const inf = kind ? puppetInfo(`${look}|${pose}`, sticker) : null;
+        // Packs keep their body bob and lunges in low graphics with a single sticker.
+        const kind = (bimg || simg) && !opts.still && (opts.boss || fullParts) ? PUPPET_KIND[opts.sprite] : null;
+        const inf = kind ? puppetInfo(key, sticker) : null;
         const put = (img) => (inf ? drawPuppet(c, img, kind, inf, opts, t, sd) : c.drawImage(img, ST_X0, ST_Y0, ST_W, ST_H));
         put(sticker);
         // A white flash over the body when struck, a red pulse while a heavy blow charges.
@@ -1126,7 +1147,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
           const tint = monsterTint(sticker, flashCol);
           if (tint) { c.globalAlpha = flash; put(tint); c.globalAlpha = 1; }
         }
-      } else drawBody(c);              // headless (no DOM canvas) or art still loading
+      } else drawBody(c);   // use the painted picture while its outline waits for a frame's bake allowance
       if (opts.boss && !bimg && !opts.pet) bossCrown(c, opts.time || 0);  // insignia unless the boss art has its own crown
     });
   }

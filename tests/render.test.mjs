@@ -479,7 +479,7 @@ test('every boss and champion-able monster has a battle-bar portrait', async () 
   for (const [id, d] of Object.entries(NPCS)) {
     if (!d.attackable) continue;
     const pr = portraitFor(id, d);
-    assert.ok(pr && pr.src.split('?')[0].endsWith('.webp'), `${id} has a portrait`);
+    assert.match(pr?.src || '', /\.webp\?v=\d+$/, `${id} has a versioned portrait`);
     if (d.boss) assert.ok(pr.src.includes('/bosses/'), `${id} uses its boss art`);
   }
 });
@@ -713,7 +713,7 @@ test('final creature art: the last borrowing species and townsfolk wear their ow
     assert.ok(ids.length >= 3, `${f} has its three forms`);
     for (const id of ids) {
       const p = portraitFor(id, NPCS[id]);
-      assert.equal(p.src, `assets/creatures/species/${f}.webp`, `${id} draws its own art`);
+      assert.equal(p.src.split('?')[0], `assets/creatures/species/${f}.webp`, `${id} draws its own art`);
       assert.ok(!p.tint, `${id} is not recoloured`);
     }
   }

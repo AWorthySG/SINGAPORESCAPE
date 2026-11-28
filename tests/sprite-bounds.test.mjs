@@ -127,3 +127,86 @@ test('a dying pack monster falls as its sticker when frames are trimmed or graph
   assert.equal(rigDraws(true, false), 0, 'frames trimmed: it falls as its sticker, like the live ones');
   assert.equal(rigDraws(false, true), 0, 'low graphics: likewise');
 });
+
+test('an exhausted bake budget draws the painted monster and prepares its sticker on a later frame', () => {
+  const { ms, clock } = bakeBudget;
+  let now = 0;
+  bakeBudget.ms = 1;
+  bakeBudget.clock = () => ++now;
+  const render = (family, sprite) => {
+    const screen = recordingCtx(fakeCanvas());
+    S.drawCreature(screen, family, 100, 120, { family, sprite, low: true });
+    assert.equal(screen.ops.length, 1);
+    return screen.ops[0].img;
+  };
+  try {
+    bakeBudget.frame();
+    assert.equal(typeof render('paddy_locust', 'insect').getContext, 'function');
+    const direct = render('hyacinth_tangle', 'plant');
+    assert.match(direct.src, /species\/hyacinth_tangle\.webp/);
+    assert.equal(typeof render('paddy_locust', 'insect').getContext, 'function', 'a cached sticker is still available');
+    bakeBudget.frame();
+    assert.equal(typeof render('hyacinth_tangle', 'plant').getContext, 'function');
+  } finally {
+    bakeBudget.ms = ms;
+    bakeBudget.clock = clock;
+    bakeBudget.frame();
+  }
+});
+
+test('low and trimmed graphics draw ordinary monsters in one blit without preparing their puppet', () => {
+  const { ms, clock } = bakeBudget;
+  const createElement = document.createElement;
+  let reads = 0, now = 0;
+  document.createElement = () => {
+    const canvas = fakeCanvas();
+    canvas.getContext().getImageData = (x, y, w, h) => {
+      reads++;
+      const data = new Uint8ClampedArray(w * h * 4);
+      for (let py = 20; py < 80; py++) for (let px = 30; px < 100; px++) {
+        data[(py * w + px) * 4 + 3] = 255;
+      }
+      return { data };
+    };
+    return canvas;
+  };
+  const render = (extra = {}) => {
+    const screen = recordingCtx(fakeCanvas());
+    S.drawCreature(screen, 'shore_pit_viper', 100, 120, {
+      family: 'shore_pit_viper', sprite: 'serpent', moving: true, walk: 0.3, ...extra,
+    });
+    return screen.ops.filter(({ op }) => op === 'drawImage').length;
+  };
+  try {
+    bakeBudget.ms = 1;
+    bakeBudget.clock = () => ++now;
+    bakeBudget.frame();
+    assert.equal(render(), 1, 'the sticker bake uses up the allowance');
+    assert.equal(reads, 0, 'the puppet readback waits for a fresh frame');
+    bakeBudget.frame();
+    assert.equal(render({ low: true }), 1);
+    assert.equal(render({ trim: true }), 1);
+    assert.equal(reads, 0);
+    assert.ok(render() > 1, 'full graphics animate the painted body in pieces');
+    assert.equal(reads, 1, 'puppet geometry is measured once');
+    assert.ok(render() > 1, 'cached geometry is available after the allowance is spent');
+    assert.equal(reads, 1);
+  } finally {
+    document.createElement = createElement;
+    bakeBudget.ms = ms;
+    bakeBudget.clock = clock;
+    bakeBudget.frame();
+  }
+});
+
+test('painted turtles reuse their sticker across walk phases', () => {
+  const draw = (walk) => {
+    const screen = recordingCtx(fakeCanvas());
+    S.drawCreature(screen, 'sea_turtle', 100, 120, {
+      family: 'sea_turtle', sprite: 'turtle', low: true, moving: true, walk,
+    });
+    return screen.ops[0].img;
+  };
+  bakeBudget.frame();
+  assert.equal(draw(0.5), draw(1.5));
+});

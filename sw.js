@@ -32,8 +32,11 @@ self.addEventListener('fetch', (e) => {
   const put = (res) => { if (res && res.ok && res.type === 'basic') { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); } return res; };
   if (path.startsWith('assets/')) {
     // Cache first; refresh in the background.
+    const monsterRevision = url.searchParams.has('v')
+      && /^assets\/creatures\/(?:species\/.+\.webp|bosses\/.+\.webp|(?:crab|fowl|serpent|spider)\.png)$/.test(path);
     e.respondWith(caches.match(req).then((hit) => {
-      const net = fetch(req).then(put).catch(() => hit);
+      // A player may go offline before the updated picture has been fetched.
+      const net = fetch(req).then(put).catch(() => hit || (monsterRevision ? caches.match(req, { ignoreSearch: true }) : undefined));
       return hit || net;
     }));
     return;
