@@ -61,7 +61,7 @@ test('compact.css loads last, keeps hit areas and is well formed', () => {
   let depth = 0;
   for (const ch of bare) { if (ch === '{') depth++; else if (ch === '}') { depth--; assert.ok(depth >= 0); } }
   assert.equal(depth, 0, 'every { is closed');
-  assert.ok(!/@media \(pointer: coarse\) \{/.test(css), 'no bare touch block (layout tests read main.css\'s)');
+  assert.match(css, /@media \(pointer: coarse\) \{\s*#quickbar \.qb-pop \{ display: none; \}/, 'the quick actions fold on phones and tablets');
   // Smaller visuals, never smaller than a 44px target on a phone.
   const phone = css.slice(css.indexOf('@media (pointer: coarse) and (max-width: 540px) {'));
   for (const [, v] of phone.matchAll(/--(?:atk|sk): (\d+)px/g)) assert.ok(Number(v) >= 44, `${v}px stays a finger target`);

@@ -92,6 +92,7 @@ import { upgradeSlots, wouldWear, carryPreview } from '../game/bestpick.js';   /
 import { improveCount } from '../game/smartgear.js';
 import { mountRefineRun, mountEnchantRun, openImprove } from './smartgearui.js';   // refine and enchant runs, "Improve worn gear"
 export const COLLAPSE_V = 2;   // the saved fold states' version (see _loadCollapse)
+const COMPACT_MENU = '(pointer: coarse), (max-width: 540px), (max-height: 500px)';
 export const TIP_LINGER_MS = 1000;   // an item's hover description stays this long after the pointer leaves
 export const CHAT_LINES = 120;   // the chat keeps (and its log shows) this many lines
 export const MINIMAP_LONG_NAME = 16;   // a minimap area name longer than this is set smaller (setRegion)
@@ -272,9 +273,9 @@ export class UI {
     // Its window size: Normal / Large / Extra large / Full height, the − / + buttons and the grips (panelsize.js).
     this.panelSize = new PanelSizer(this.el.sidepanel, this.el.panelHead);
     this._setPanelTitle('inventory');
-    // Phones (portrait or landscape): enables the fold-on-retap tab behaviour.
+    // Touch and small windows let the active tab fold the menu on a second tap.
     if (typeof matchMedia === 'function') {
-      const mq = matchMedia('(max-width: 540px), (max-height: 500px)');
+      const mq = matchMedia(COMPACT_MENU);
       const set = () => this.el.sidepanel?.classList.toggle('compact-ui', mq.matches);
       set(); mq.addEventListener?.('change', set);
     }
@@ -554,6 +555,7 @@ export class UI {
     const [verb, noun] = interactCaption(label, this.game?.interactTarget);
     btn.querySelector('.ib-verb').innerHTML = noun ? `${escapeHtml(verb)}<span class="ib-noun">${escapeHtml(noun)}</span>` : escapeHtml(verb);
     btn.title = label ? `${label[0]} ${label[1]}` : 'Interact with the nearest thing (E or Space)';
+    btn.setAttribute?.('aria-label', btn.title);
   }
 
   // The three auto switches on the action bar (battle, gather, quest), each
@@ -793,9 +795,8 @@ export class UI {
       btn.innerHTML = glyphArtHTML('ui-collapse', collapsed ? '&#9656;' : '&#9662;', 16); // ▸ collapsed / ▾ expanded (the painted chevron turns, styles/compact.css)
       btn.title = `${collapsed ? 'Expand' : 'Collapse'} ${label}${key === 'panel' ? ' (I)' : ''}`;
     };
-    // Small screens start with the big panels folded (the game needs the room);
-    // a saved choice always wins.
-    const compact = typeof matchMedia === 'function' && matchMedia('(max-width: 540px), (max-height: 500px)').matches;
+    // Touch and small windows start with room for play. A saved choice wins.
+    const compact = typeof matchMedia === 'function' && matchMedia(COMPACT_MENU).matches;
     if (this._collapse[key] === undefined && compact && (key === 'panel' || key === 'chat')) this._collapse[key] = true;
     apply(!!this._collapse[key]);
     wired = true;

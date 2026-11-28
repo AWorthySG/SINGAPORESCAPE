@@ -230,7 +230,6 @@ test('qol.css is linked and well formed', () => {
   let depth = 0;
   for (const ch of css) { if (ch === '{') depth++; else if (ch === '}') { depth--; assert.ok(depth >= 0, 'an extra }'); } }
   assert.equal(depth, 0, 'every { is closed');
-  assert.ok(!/@media\s*\(pointer:\s*coarse\)\s*\{/.test(css), 'no bare coarse-pointer block');
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(html, /href="styles\/qol\.css"/);
 });

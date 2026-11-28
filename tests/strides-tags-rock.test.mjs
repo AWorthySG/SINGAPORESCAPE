@@ -15,7 +15,6 @@ import { TERRAIN } from '../src/data/world.js';
 import { CREATURE_RIGS, stride, gaitPhase } from '../src/render/creatureRigs.js';
 import { Renderer, REGION_GROUND, groundTextures } from '../src/render/renderer.js';
 import { targetTag, targetTagY, spriteReach, TAG_H } from '../src/render/worldlabels.js';
-import { recolourGround } from '../src/render/terrainfx.js';
 import { TICK_MS } from '../src/config.js';
 
 function fakeStorage() {
@@ -210,11 +209,12 @@ test('near the top of the view the tag goes under the feet, still clear of the m
 });
 
 // ---------------- The Peaks' rock ----------------
-test('the Celestial Peaks have ground of their own: their stone', () => {
+test('the Celestial Peaks use painted rock and the other districts have their own paving', () => {
   assert.deepEqual(Object.keys(REGION_GROUND['The Celestial Peaks']).map(Number), [TERRAIN.STONE]);
-  // Recoloured until painted rock arrives (then a `tex`, which groundTextures lists for the art lock-step).
-  assert.ok(REGION_GROUND['The Celestial Peaks'][TERRAIN.STONE].tint);
-  assert.ok(!groundTextures().has('stone-peaks'));
+  assert.equal(REGION_GROUND['The Celestial Peaks'][TERRAIN.STONE].tex, 'stone-peaks');
+  const districtStone = Object.values(REGION_GROUND).map((entry) => entry[TERRAIN.STONE].tex);
+  assert.ok(districtStone.every((name) => groundTextures().has(name)));
+  assert.equal(new Set(districtStone).size, 8, 'the two old ruin sites share a material');
 });
 
 test('Kampong Glam and Chinatown use their own paving and fall back if its art failed', () => {
@@ -240,20 +240,28 @@ test('Kampong Glam and Chinatown use their own paving and fall back if its art f
   assert.equal(pick(1), stone);
 });
 
-test('the recolour turns warm paving into cool grey-blue rock and keeps its pattern', () => {
-  // Three beige pixels of the paving: a crack, the slab, a highlight.
-  const px = [[196, 168, 140], [226, 200, 172], [240, 220, 196]];
-  const data = new Uint8ClampedArray(px.flatMap((p) => [...p, 255]));
-  recolourGround(data, REGION_GROUND['The Celestial Peaks'][TERRAIN.STONE].tint);
-  const out = [0, 1, 2].map((i) => [data[i * 4], data[i * 4 + 1], data[i * 4 + 2]]);
-  for (const [r, g, b] of out) {
-    assert.ok(b > r && b >= g, `cool: ${r},${g},${b}`);
-    assert.ok(b - r < 50, `grey rather than blue: ${r},${g},${b}`);
+test('the texture loader shares repeated district art and versions the repainted textures', () => {
+  const saved = Object.getOwnPropertyDescriptor(globalThis, 'Image');
+  const requests = [];
+  globalThis.Image = class { set src(url) { requests.push({ url, img: this }); } };
+  try {
+    const chunks = new Map([['0,0', {}]]), order = ['0,0'];
+    const tex = Renderer.prototype._loadGroundTextures.call({ terrainCanvas: { chunks, order } });
+    assert.equal(requests.length, groundTextures().size);
+    assert.equal(tex.region[`Temasek Ruins|${TERRAIN.STONE}`], tex.region[`Pulau Hantu|${TERRAIN.STONE}`]);
+    for (const name of ['grass', 'darkgrass', 'sand', 'water']) {
+      assert.ok(requests.some(({ url }) => url === `assets/world/ground-${name}.webp?v=2`));
+    }
+    for (const { img } of requests.slice(0, -1)) img.onload();
+    assert.equal(tex.ready, false);
+    requests.at(-1).img.onerror();
+    assert.equal(tex.ready, true, 'one failed texture still lets the rest appear');
+    assert.equal(chunks.size, 0);
+    assert.equal(order.length, 0);
+  } finally {
+    if (saved) Object.defineProperty(globalThis, 'Image', saved);
+    else delete globalThis.Image;
   }
-  const lum = ([r, g, b]) => r * 0.3 + g * 0.59 + b * 0.11;
-  assert.ok(lum(out[0]) < lum(out[1]) && lum(out[1]) < lum(out[2]), 'cracks stay darker than slabs');
-  assert.ok(lum(out[2]) - lum(out[0]) > lum(px[2]) - lum(px[0]), 'and read more clearly');
-  assert.equal(data[3], 255, 'opacity untouched');
 });
 
 // A stand-in canvas: any drawing call is a no-op, image data is real bytes.
@@ -285,20 +293,22 @@ function stoneTiles(w) {
   return { peaks, town };
 }
 
-test("the Peaks' stone is drawn from the recoloured texture, made once; elsewhere the paving is untouched", () => {
+test("the Peaks' tiles share the painted rock without reading pixels at bake time", () => {
   withDocument((made) => {
     const g = newGame();
     const r = new Renderer(g, {}, fakeCanvas(made).getContext('2d'));
     const plain = { naturalWidth: 128, naturalHeight: 128, id: 'plain' };
-    r.groundTex = { ready: true, variants: {}, region: {}, [TERRAIN.STONE]: plain, [TERRAIN.GRASS]: { naturalWidth: 128, id: 'grass' } };
+    const rock = { naturalWidth: 128, naturalHeight: 128, id: 'rock' };
+    const region = { [`The Celestial Peaks|${TERRAIN.STONE}`]: rock };
+    r.groundTex = { ready: true, variants: {}, region, [TERRAIN.STONE]: plain, [TERRAIN.GRASS]: { naturalWidth: 128, id: 'grass' } };
     const { peaks, town } = stoneTiles(g.world);
     assert.ok(peaks && town, 'stone in both places');
     const drawn = [];
     const dst = { drawImage: (img) => drawn.push(img) };
     const reads = made.reads;
     for (let i = 0; i < 50; i++) r._groundTile(dst, TERRAIN.STONE, peaks.x, peaks.y, 0, 0);
-    assert.equal(made.reads - reads, 1, 'recoloured once, not per tile');
-    assert.ok(drawn.every((img) => img !== plain && img === drawn[0]), 'the rock texture');
+    assert.equal(made.reads, reads, 'the artwork needs no per-chunk readback');
+    assert.ok(drawn.every((img) => img === rock), 'the rock texture');
     drawn.length = 0;
     r._groundTile(dst, TERRAIN.STONE, town.x, town.y, 0, 0);
     assert.equal(drawn[0], plain, 'town paving as before');
@@ -311,7 +321,8 @@ test('terrain chunks still bake once and come from the cache after', () => {
   withDocument(() => {
     const g = newGame();
     const r = new Renderer(g, {}, fakeCanvas({ reads: 0 }).getContext('2d'));
-    r.groundTex = { ready: true, variants: {}, region: {}, [TERRAIN.STONE]: { naturalWidth: 128, naturalHeight: 128 } };
+    const region = { [`The Celestial Peaks|${TERRAIN.STONE}`]: { naturalWidth: 128, naturalHeight: 128 } };
+    r.groundTex = { ready: true, variants: {}, region, [TERRAIN.STONE]: { naturalWidth: 128, naturalHeight: 128 } };
     const { peaks } = stoneTiles(g.world);
     const cx = Math.floor(peaks.x / 32), cy = Math.floor(peaks.y / 32);
     r._chunk(cx, cy);   // (the first bake also sets up the polish, whose signature then keys the cache)

@@ -11,7 +11,7 @@ import { World } from '../src/game/world.js';
 import { TILE } from '../src/config.js';
 import {
   BLEND_RANK, blendPlan, blendMask, scatterPlan, waterDetailPlan, shadowPlan, detailTable,
-  GROUND_DETAILS, DETAIL_ART, TerrainFx, tileHash, kerbPlan,
+  GROUND_DETAILS, DETAIL_ART, TerrainFx, tileHash, kerbPlan, paintGroundWash,
 } from '../src/render/terrainfx.js';
 
 let _world;
@@ -25,6 +25,39 @@ const fresh = () => { const w = new World(); w.build(buildWorld()); return w; };
 
 // Kampong Glam and its edges, the Sentosa shore and MacRitchie's east bank.
 const AREAS = [[40, 40, 80, 70], [30, 85, 80, 104], [20, 30, 50, 70], [40, 0, 80, 30]];
+
+test('natural ground takes its regional palette and fades toward the border', () => {
+  const casts = (name, t, x) => {
+    const strokes = [];
+    const g = { globalAlpha: 1, fillRect(...rect) { strokes.push([this.fillStyle, this.globalAlpha, ...rect]); } };
+    const w = { zoneAt: () => ({ name, x0: 0, x1: 20, y0: 0, y1: 20 }) };
+    paintGroundWash(g, w, t, x, 10, 0, TILE);
+    assert.equal(g.globalAlpha, 1);
+    return strokes;
+  };
+  const coast = casts('Sentosa Beach', TERRAIN.WATER, 10)[0];
+  const marsh = casts('Sungei Buloh Wetlands', TERRAIN.WATER, 10)[0];
+  const rift = casts('The Shadow Rift', TERRAIN.WATER, 10)[0];
+  assert.equal(new Set([coast[0], marsh[0], rift[0]]).size, 3);
+  assert.deepEqual(coast.slice(2), [0, TILE, TILE, TILE]);
+  const edge = casts('Sentosa Beach', TERRAIN.WATER, 1)[0];
+  assert.equal(edge[0], coast[0]);
+  assert.ok(edge[1] > 0 && edge[1] < coast[1]);
+  assert.deepEqual(casts('Sentosa Beach', TERRAIN.WATER, 0), []);
+  assert.deepEqual(casts('Sentosa Beach', TERRAIN.STONE, 10), []);
+});
+
+test('grass feathers into the Peaks’ rock, while the same edge in town has a kerb', () => {
+  const w = {
+    terrainAt: (x, y) => x === 10 && y === 10 ? TERRAIN.STONE : TERRAIN.GRASS,
+    zoneAt: () => ({ name: 'The Celestial Peaks' }),
+  };
+  assert.deepEqual(blendPlan(w, 10, 10).map(({ t }) => t), [TERRAIN.GRASS]);
+  assert.deepEqual(kerbPlan(w, 10, 10, 11, 11), []);
+  w.zoneAt = () => ({ name: 'Kampong Glam' });
+  assert.deepEqual(blendPlan(w, 10, 10), []);
+  assert.equal(kerbPlan(w, 10, 10, 11, 11).length, 1);
+});
 
 test('blend plans are the same on every build of the world', () => {
   const a = world(), b = fresh();
@@ -98,7 +131,9 @@ test('ground details keep off object tiles, water, bridges and the middle of roa
     const x = Math.floor(d.px / TILE), y = Math.floor(d.py / TILE), t = w.terrainAt(x, y);
     assert.equal(w.objectAt(x, y), null, `detail on an object at ${x},${y}`);
     assert.ok(t !== T.WATER && t !== T.WOOD, `detail on terrain ${t} at ${x},${y}`);
-    assert.equal(t === T.STONE, PAVING(d.id), `${d.id} on terrain ${t} at ${x},${y}`);
+    const rock = t === T.STONE && w.zoneAt(x, y)?.name === 'The Celestial Peaks';
+    assert.equal(t === T.STONE && !rock, PAVING(d.id), `${d.id} on terrain ${t} at ${x},${y}`);
+    if (rock) assert.ok(['pebble', 'stone'].includes(d.id), 'only scree is scattered on the rock');
     if (t === T.PATH) {
       onPath++;
       const verge = [[0, -1], [1, 0], [0, 1], [-1, 0]].some(([dx, dy]) => w.terrainAt(x + dx, y + dy) !== T.PATH);
@@ -223,6 +258,19 @@ function stubFactory(log) {
     return { width: w, height: h, getContext: () => ctx };
   };
 }
+
+test('the animated water layer paints ripples in open water and a thin edge at a quay', async () => {
+  const { Renderer } = await import('../src/render/renderer.js');
+  const calls = [], ctx = stubFactory(calls)(32, 32).getContext('2d');
+  const open = { terrainAt: () => TERRAIN.WATER };
+  const draw = (w, x, y) => Renderer.prototype._water.call({}, ctx, w, x, y, 0, 0, 800, true);
+  for (let x = 0; x < 8; x++) draw(open, x, 1);
+  assert.ok(calls.some((c) => c.startsWith('quadraticCurveTo:')));
+  assert.ok(calls.every((c) => !c.startsWith('fillRect:')), 'whole tiles don’t change brightness');
+  const pier = { terrainAt: (_x, y) => y === 0 ? TERRAIN.WOOD : TERRAIN.WATER };
+  draw(pier, 1, 1);
+  assert.ok(calls.includes(`fillRect:0,0,${TILE + 1},2`));
+});
 
 test('the bake runs headless against a stand-in canvas and is deterministic', () => {
   const w = world();

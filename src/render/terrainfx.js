@@ -29,24 +29,53 @@ export function tileHash(x, y, s = 0) {
 }
 
 // ---------------- Region ground ----------------
+// Water and banks carry the local palette even at noon, when the screen's
+// atmosphere is nearly clear. Washes tint the paper grain and painted ripples.
+const T = TERRAIN;
+const COAST = { [T.WATER]: ['#168f9b', 0.33], [T.SAND]: ['#ffebbb', 0.27] };
+const RESERVOIR = { [T.WATER]: ['#277577', 0.37], [T.SAND]: ['#aca67b', 0.34] };
+const WETLAND = { [T.WATER]: ['#356d55', 0.48], [T.SAND]: ['#98865f', 0.49] };
+const FOREST_FLOOR = { [T.GRASS]: ['#4e9669', 0.20], [T.DARKGRASS]: ['#2f7459', 0.29] };
+const HAUNTED = { [T.WATER]: ['#504574', 0.47], [T.GRASS]: ['#776c86', 0.28],
+  [T.DARKGRASS]: ['#544666', 0.38], [T.SAND]: ['#b0959b', 0.38] };
+const MOUNTAIN = { [T.WATER]: ['#6c8db5', 0.39], [T.GRASS]: ['#97b7b9', 0.31],
+  [T.DARKGRASS]: ['#63858d', 0.31], [T.SAND]: ['#c9d5db', 0.38] };
+const GROUND_WASHES = {
+  'Bukit Timah': FOREST_FLOOR,
+  'Jurong Forest': { ...FOREST_FLOOR, ...RESERVOIR },
+  'Mandai Rainforest': { ...FOREST_FLOOR, ...RESERVOIR },
+  'MacRitchie Reservoir': { ...FOREST_FLOOR, ...RESERVOIR },
+  'Sungei Buloh Wetlands': { ...FOREST_FLOOR, ...WETLAND },
+  'Punggol Waterway': RESERVOIR,
+  'Sentosa Beach': COAST,
+  'Southern Islands': COAST,
+  'Changi Coast': COAST,
+  'Coney Island': { ...FOREST_FLOOR, ...COAST },
+  'Marina Bay': { [T.WATER]: ['#346a9b', 0.31] },
+  'Tuas Docklands': { [T.WATER]: ['#456c87', 0.41], [T.SAND]: ['#bbb5ad', 0.27] },
+  'Pulau Hantu': HAUNTED,
+  'The Shadow Rift': HAUNTED,
+  'The Celestial Peaks': MOUNTAIN,
+};
 
-/**
- * Recolour a ground texture's pixels (RGBA `data`, changed in place) onto a
- * ramp from `lo` to `hi` by each pixel's brightness: `mid` is where the
- * texture's average lands on the ramp and `gain` stretches the differences
- * about it, so the slabs and cracks still read. Done once per texture when a
- * chunk first needs it (renderer.js REGION_GROUND), never per frame.
- */
-export function recolourGround(data, { lo, hi, mid = 0.5, gain = 1 }) {
-  const lum = (i) => (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255;
-  let sum = 0, n = 0;
-  for (let i = 0; i < data.length; i += 4) if (data[i + 3] > 0) { sum += lum(i); n++; }
-  const mean = n ? sum / n : 0.5;
-  for (let i = 0; i < data.length; i += 4) {
-    const v = Math.max(0, Math.min(1, mid + (lum(i) - mean) * gain));
-    for (let c = 0; c < 3; c++) data[i + c] = Math.round(lo[c] + (hi[c] - lo[c]) * v);
-  }
-  return data;
+/** Paint the same wash on a tile and on that material's feathered edges.
+ * Fade into the neighbouring palette across the region's last five tiles. */
+export function paintGroundWash(g, world, t, x, y, sx, sy) {
+  if (t === T.STONE || t === T.WOOD || t === T.PATH) return;
+  const zone = world.zoneAt?.(x, y);
+  const wash = zone && GROUND_WASHES[zone.name]?.[t];
+  if (!wash) return;
+  const edge = Math.min(x - zone.x0, zone.x1 - x, y - zone.y0, zone.y1 - y);
+  if (!(edge > 0)) return;
+  const f = Math.min(1, edge / 5);
+  g.fillStyle = wash[0];
+  g.globalAlpha = wash[1] * f * f * (3 - 2 * f);
+  g.fillRect(sx, sy, TILE, TILE);
+  g.globalAlpha = 1;
+}
+
+export function naturalStone(world, x, y) {
+  return world.zoneAt?.(x, y)?.name === 'The Celestial Peaks';
 }
 
 // ---------------- Soft edges ----------------
@@ -55,7 +84,8 @@ export function recolourGround(data, { lo, hi, mid = 0.5, gain = 1 }) {
 // texture a little way into a lower neighbour, along a wavy, dithered edge.
 // Water is highest, so shores take a soft, uneven waterline. Town paving
 // (stone) and bridges (wood) are built surfaces: paving gets a kerb instead
-// (kerbPlan), and bridges keep their crisp edges.
+// (kerbPlan), and bridges keep their crisp edges. Exposed rock in the Peaks
+// takes soft edges on all sides, where grass and scree spill over it.
 export const BLEND_RANK = {
   [TERRAIN.GRASS]: 1, [TERRAIN.DARKGRASS]: 2, [TERRAIN.SAND]: 3, [TERRAIN.PATH]: 4, [TERRAIN.WATER]: 5,
 };
@@ -74,13 +104,14 @@ const NB = [[0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1], [-1, 1], [-1, -1]
  * touches and which wobble pattern to use. Empty for most tiles.
  */
 export function blendPlan(world, x, y) {
-  const stone = world.terrainAt(x, y) === TERRAIN.STONE;
-  const r = stone ? 0 : BLEND_RANK[world.terrainAt(x, y)];
-  if (!r && !stone) return [];
+  const t = world.terrainAt(x, y), stone = t === TERRAIN.STONE;
+  const r = stone ? 0 : BLEND_RANK[t];
+  if (r === undefined) return [];
+  const paved = stone && !naturalStone(world, x, y);
   let found = null;
   for (let i = 0; i < 8; i++) {
     const nt = world.terrainAt(x + NB[i][0], y + NB[i][1]);
-    if (stone ? ONTO_STONE.has(nt) : (BLEND_RANK[nt] || 0) > r) (found || (found = new Map())).set(nt, (found.get(nt) || 0) | (1 << i));
+    if (paved ? ONTO_STONE.has(nt) : (BLEND_RANK[nt] || 0) > r) (found || (found = new Map())).set(nt, (found.get(nt) || 0) | (1 << i));
   }
   if (!found) return [];
   const out = [];
@@ -183,7 +214,7 @@ export function kerbPlan(world, tx0, ty0, tx1, ty1) {
   const S = TERRAIN.STONE;
   for (let y = ty0 - 1; y < ty1 + 1; y++) {
     for (let x = tx0 - 1; x < tx1 + 1; x++) {
-      if (world.terrainAt(x, y) !== S) continue;
+      if (world.terrainAt(x, y) !== S || naturalStone(world, x, y)) continue;
       let sides = 0, cave = 0;
       const beyond = [];
       for (let i = 0; i < 4; i++) {
@@ -292,7 +323,10 @@ export function detailTable(t, zone) {
   if (t === T.PATH) return { d: 0.3, w: [['stone', 2], ['pebble', 2.5]] };
   // Paving: the odd drain grate (ruins and wild places keep theirs plain).
   // Tile rugs, petals and lamp pools are placed by plazaDetail instead.
-  if (t === T.STONE) return BLEAK.has(zone) ? null : { d: 0.03, w: [['drain', 1]] };
+  if (t === T.STONE) {
+    if (zone === 'The Celestial Peaks') return { d: 0.18, w: [['pebble', 3], ['stone', 1]] };
+    return BLEAK.has(zone) ? null : { d: 0.03, w: [['drain', 1]] };
+  }
   return null;
 }
 // Objects that drop petals on the paving round them, and lamps that leave a pool of shade.
@@ -321,7 +355,7 @@ export function scatterPlan(world, tx0, ty0, tx1, ty1, opts = {}) {
       const t = world.terrainAt(x, y);
       if (t === T.WATER || t === T.WOOD) continue;
       if (world.objectAt(x, y)) continue;
-      if (t === T.STONE) { plazaDetail(world, x, y, opts, out); continue; }
+      if (t === T.STONE && !naturalStone(world, x, y)) { plazaDetail(world, x, y, opts, out); continue; }
       // A road's verge is the side facing off the road; the middle stays clear.
       let vx = 0, vy = 0;
       if (t === T.PATH) {
@@ -373,7 +407,7 @@ function plazaDetail(world, x, y, opts, out) {
   if (!tab) return;
   // A rug, a little way into its block (so two never touch), on clear paving only.
   const bx = Math.floor(x / RUG), by = Math.floor(y / RUG);
-  if (tileHash(bx, by, 220) < 0.5 * k && x === bx * RUG + 1 + Math.floor(tileHash(bx, by, 221) * (RUG - 3))
+  if (z?.name !== 'Tuas Docklands' && tileHash(bx, by, 220) < 0.5 * k && x === bx * RUG + 1 + Math.floor(tileHash(bx, by, 221) * (RUG - 3))
     && y === by * RUG + 1 + Math.floor(tileHash(bx, by, 222) * (RUG - 3))) {
     let clear = true;
     for (const [dx, dy] of [[1, 0], [0, 1], [1, 1]]) if (world.terrainAt(x + dx, y + dy) !== TERRAIN.STONE || obj(dx, dy)) clear = false;
@@ -825,9 +859,12 @@ export class TerrainFx {
                 const FW = Math.ceil(W / 2), FH = Math.ceil((ty1 - ty0) * TILE / 2);
                 foam = [makeCanvas(FW, FH, this.factory), opts.low ? null : makeCanvas(FW, FH, this.factory)];
               }
+              const strength = freshWater(world, x, y) ? 0.44 : 0.78;
               for (let f = 0; f < 2; f++) {
                 const fm = foam[f] && this._mask(p.bits, p.v, 'f' + f);
-                if (fm) foam[f].g.drawImage(fm, sx / 2, sy / 2, TILE / 2, TILE / 2);
+                if (!fm) continue;
+                foam[f].g.globalAlpha = strength;
+                foam[f].g.drawImage(fm, sx / 2, sy / 2, TILE / 2, TILE / 2);
               }
               foamCells.add(Math.floor((y - ty0) / FOAM_CELL) * 1024 + Math.floor((x - tx0) / FOAM_CELL));
             }
@@ -839,6 +876,7 @@ export class TerrainFx {
           sg.fillStyle = fill(sg, t);
           sg.setTransform(1, 0, 0, 1, 0, -sy);
           sg.fillRect(a, sy, sw, TILE);
+          for (const [x, p] of row) if (p.t === t) paintGroundWash(sg, world, t, x, y, x * TILE - ox, sy);
           sg.setTransform(1, 0, 0, 1, 0, 0);
           sg.globalCompositeOperation = 'destination-in';
           sg.drawImage(mrow.c, a, 0, sw, TILE, a, 0, sw, TILE);

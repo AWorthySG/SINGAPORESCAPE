@@ -1563,8 +1563,6 @@ body.boss-on #tip-toast { top: 132px; }
 #attack-btn, #target-btn { display: none; }
 @media (pointer: coarse) {
   :root { --pad-r: calc(var(--rail-w) + 20px); --pad-b: 18px; --atk: 84px; --sk: 54px; }
-  /* Tablets: the side panel sits bottom-right, so the pad sits to its left. */
-  @media (min-width: 541px) and (min-height: 501px) { :root { --pad-r: calc(var(--panel-w) + 36px); --pad-b: 22px; } }
 
   #attack-btn {
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
@@ -1583,8 +1581,9 @@ body.boss-on #tip-toast { top: 132px; }
   /* Next target: a small round button on the Attack button's top-right shoulder. */
   #target-btn {
     display: flex; align-items: center; justify-content: center;
-    position: fixed; z-index: 28; width: 40px; height: 40px; border-radius: 50%; padding: 0;
-    right: calc(var(--pad-r) + var(--atk) / 2 - 20px - 30px); bottom: calc(var(--pad-b) + var(--atk) / 2 - 20px + 62px);
+    position: fixed; z-index: 28; width: 44px; height: 44px; border-radius: 50%; padding: 0;
+    right: max(calc(6px + var(--sa-r)), calc(var(--pad-r) + var(--atk) / 2 - 52px));
+    bottom: calc(var(--pad-b) + var(--atk) / 2 + 40px);
     background: var(--aw-card); color: var(--aw-ink); border: 2.5px solid var(--aw-ink);
     box-shadow: 0 3px 0 rgba(34,48,74,.35); font: 900 20px/1 inherit; touch-action: none; user-select: none; -webkit-user-select: none;
   }
@@ -1612,11 +1611,11 @@ body.boss-on #tip-toast { top: 132px; }
   /* Interact (talk, gather, take) joins the cluster: above it when the screen
      is tall, to its left when it's wide. */
   #interact-btn {
-    position: fixed; left: auto; width: 62px; height: 62px; font-size: var(--fs-xs); padding: 4px; z-index: 27;
-    right: calc(var(--pad-r) + var(--atk) / 2 - 31px); bottom: calc(var(--pad-b) + var(--atk) / 2 - 31px + 178px);
+    position: fixed; left: auto; width: 68px; height: 68px; font-size: var(--fs-xs); padding: 4px; z-index: 27;
+    right: calc(var(--pad-r) + var(--atk) / 2 - 34px); bottom: calc(var(--pad-b) + var(--atk) / 2 + 144px);
   }
   @media (orientation: landscape) {
-    #interact-btn { right: calc(var(--pad-r) + var(--atk) / 2 - 31px + 178px); bottom: calc(var(--pad-b) + var(--atk) / 2 - 31px); }
+    #interact-btn { right: calc(var(--pad-r) + var(--atk) / 2 + 144px); bottom: calc(var(--pad-b) + var(--atk) / 2 - 34px); }
   }
 
   /* With the skills gone from it, the bar (auto battle + adrenaline) shrinks to
@@ -1631,25 +1630,6 @@ body.boss-on #tip-toast { top: 132px; }
 @media (pointer: coarse) and (orientation: portrait) and (max-width: 540px) {
   #chatbox.collapsed { min-width: 0; max-width: 120px; }   /* clear of the ultimate */
 }
-/* Tablets: the joystick sits in the bottom-left corner under the left thumb,
-   a size up, rather than at the desktop offset with the chat below it; the
-   chat moves up above it. bottom 184px = the stick's 24px offset + 148px + 12px. */
-@media (pointer: coarse) and (min-width: 541px) and (min-height: 501px) {
-  #joystick { left: calc(24px + env(safe-area-inset-left, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); width: 148px; height: 148px; }
-  #joystick-knob { width: 62px; height: 62px; }
-  #chatbox { bottom: calc(184px + env(safe-area-inset-bottom, 0px)); }
-}
-/* Tablets: the chat stays clear of the button cluster, and the auto battle +
-   adrenaline block sits just above the cluster rather than on the joystick. */
-@media (pointer: coarse) and (min-width: 541px) and (min-height: 501px) {
-  #chatbox { width: min(320px, 38vw); }
-  #ability-bar { left: auto; right: var(--pad-r); margin: 0; transform: none; align-items: flex-end; bottom: 300px; }
-  #adrenaline { width: 180px; }
-}
-@media (pointer: coarse) and (min-width: 541px) and (min-height: 501px) and (orientation: landscape) {
-  #ability-bar { bottom: 252px; }
-}
-
 /* ---------- Races: bestiary chips and the combat-tab weapon matchups ---------- */
 .bestiary-row .b-race { font-size: var(--fs-cap); font-weight: 800; padding: 1px 6px; border-radius: 999px; background: var(--aw-bg); border: 1px solid var(--aw-ink-faint); color: var(--aw-text); white-space: nowrap; }
 .bestiary-row .b-matchups { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: var(--fs-xs); margin: 2px 0 4px; }
@@ -2520,13 +2500,13 @@ body #tip-toast.tip-strip { font-size: var(--fs-xs); padding: 4px 6px 4px 7px; b
    - Phones: the side panel and the big windows open as bottom sheets.
    - Tablets: a docked, narrower side panel; the info strip top-left.
    ====================================================================== */
-/* Only phones show these (see ui.js: _initAutoMenu, _initSheets). */
+/* Shown in the touch layouts below (see ui.js: _initAutoMenu, _initSheets). */
 .sheet-handle { display: none; }
 #auto-menu-btn { display: none; }
 @keyframes sheetUp { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes sheetIn { from { transform: translateX(100%); } to { transform: none; } }
 
-/* ---------- Touch targets: 44px on every touch screen ---------- */
+/* ---------- Touch targets, Auto button, chat pill and menu launcher ---------- */
 @media (pointer: coarse) {
   .tab-btn { min-width: 44px; min-height: 44px; }
   .inv-slot, .equip-slot, .item-cell { min-width: 44px; min-height: 44px; }
@@ -2548,10 +2528,7 @@ body #tip-toast.tip-strip { font-size: var(--fs-xs); padding: 4px 6px 4px 7px; b
      so with a plain pointer (no cursor shows on a touch screen anyway). */
   .inv-slot, .equip-slot.filled, .item-cell, .prayer-cell, .quest-row.can-go, .skill-cell,
   .ctx-item, .dialogue-option, .orb, summary, .tc-actions button { cursor: pointer; }
-}
 
-/* ---------- Phones, both ways up: Auto button, chat pill, sheets ---------- */
-@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
   :root {
     --sa-t: env(safe-area-inset-top, 0px); --sa-r: env(safe-area-inset-right, 0px);
     --sa-b: env(safe-area-inset-bottom, 0px); --sa-l: env(safe-area-inset-left, 0px);
@@ -2595,18 +2572,22 @@ body #tip-toast.tip-strip { font-size: var(--fs-xs); padding: 4px 6px 4px 7px; b
     left: auto; bottom: auto; transform: none; width: 56px; z-index: 24;
     grid-template-columns: 1fr; grid-template-areas: "tabs"; border-radius: 14px; overflow: hidden;
   }
+  #sidepanel.collapsed #panel-head { display: none; }
   #sidepanel.collapsed #panel-tabs { display: flex; border-left: 0; }
   #sidepanel.collapsed .tab-btn:not(.active) { display: none; }
   #sidepanel.collapsed .tab-btn { min-height: 52px; padding: 3px 1px; }
   #sidepanel.collapsed .tab-btn .tab-label { display: block; }
+}
 
+/* ---------- Phones: drag-to-close panel and modal sheets ---------- */
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
   /* Open: a sheet with a drag handle, its tabs in one scrolling row above
      the body. Above the touch controls (27) and the tip (60), under menus. */
   #sidepanel:not(.collapsed), #sidepanel.wide:not(.collapsed) {
     position: fixed; z-index: 70; max-width: none; transform: none;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto minmax(0, 1fr);
-    grid-template-areas: "handle" "head" "tabs" "body";
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: "head" "tabs" "body";
   }
   #sidepanel .sheet-handle { grid-area: handle; }
   .sheet-handle { position: relative; flex: none; height: 22px; cursor: grab; touch-action: none; }
@@ -2781,26 +2762,55 @@ body #tip-toast.tip-strip { font-size: var(--fs-xs); padding: 4px 6px 4px 7px; b
   #modal-close { top: 5px; }
 }
 
-/* ---------- Tablets (768-1180 wide, touch) ---------- */
+/* ---------- Tablets: thumb controls on either side of a clear playfield ---------- */
 @media (pointer: coarse) and (min-width: 541px) and (min-height: 501px) {
-  :root { --panel-w: 284px; --rail-w: 60px; --boss-h: 0px; }
+  :root {
+    --pad-r: calc(28px + var(--sa-r));
+    --pad-b: calc(24px + var(--sa-b));
+    --auto-b: calc(184px + var(--sa-b));
+    --tablet-nav-b: calc(290px + var(--sa-b));
+  }
   body.boss-on { --boss-h: 70px; }   /* room for the foe read-out row */
-  /* The docked panel's body fills the height of its tab rail, so the bag
-     shows its full grid instead of ending in a blank strip. */
-  #sidepanel:not(.collapsed) { grid-template-rows: auto minmax(0, 1fr); }
-  #panel-body { height: auto; contain: size; font-size: var(--fs-sm); }
-  .tab-btn .tab-label { font-size: var(--fs-xs); }
+  #joystick { left: calc(24px + var(--sa-l)); bottom: var(--pad-b); width: 136px; height: 136px; }
+  #joystick-knob { width: 56px; height: 56px; }
+  #interact-btn {
+    right: calc(var(--pad-r) + var(--atk) / 2 - 34px);
+    bottom: calc(var(--pad-b) + var(--atk) / 2 + 144px);
+  }
+  #ability-bar, #chatbox, #chatbox.collapsed { left: calc(24px + var(--sa-l)); }
+  #chatbox:not(.collapsed), #chatbox.collapsed { bottom: calc(var(--auto-b) + 72px); }
+  #chatbox:not(.collapsed) { width: min(320px, 43vw); }
+  #ability-bar .auto-row { max-height: calc(100dvh - var(--auto-b) - var(--sa-t) - 84px); overflow-y: auto; }
+  #adrenaline { width: 158px; }
+
+  #sidepanel.collapsed { top: auto; right: var(--pad-r); bottom: var(--tablet-nav-b); }
+  #sidepanel:not(.collapsed), #sidepanel.wide:not(.collapsed) {
+    top: auto; right: calc(12px + var(--sa-r)); bottom: var(--tablet-nav-b);
+    width: min(414px, 64vw); max-height: min(564px, calc(100dvh - var(--tablet-nav-b) - var(--sa-t) - 12px));
+    grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: "head" "tabs" "body";
+    z-index: 62;
+  }
+  #sidepanel:not(.collapsed) #panel-tabs {
+    flex-direction: row; gap: 4px; border-left: 0; padding: 4px; border-bottom: 1px solid var(--aw-ink-faint);
+  }
+  #sidepanel:not(.collapsed) .tab-btn { flex: 1 1 0; min-height: 48px; min-width: 0; }
+  #sidepanel:not(.collapsed) #panel-body { min-height: 0; height: auto; max-height: none; contain: none; overscroll-behavior: contain; }
+  #sidepanel:not(.collapsed) #inventory-grid { grid-template-columns: repeat(auto-fill, minmax(49px, 1fr)); }
   /* The minimap's fold button: a full 44px tap area, out towards the edge. */
+  #minimap-panel { top: calc(10px + var(--sa-t)); right: calc(10px + var(--sa-r)); }
   #minimap-collapse::before { inset: -13px -12px -9px -10px; }
-  /* Info strip, top-left under the hover text: boss bar, then the Endless
-     Gate panel or the objectives (they never show together). */
-  /* One line, so it never runs down into the boss bar below it. */
+  #hover-text { display: none; }
+  /* Top-left life, foe and task read-outs sit above the playfield. */
   #boss-bar, #boss-bar.normal {
-    top: 44px; left: 10px; width: 340px; max-width: calc(100vw - 260px); transform: none; animation: none; margin: 0; box-sizing: border-box;
+    top: calc(44px + var(--sa-t)); left: calc(10px + var(--sa-l)); width: 340px; max-width: calc(100vw - 260px);
+    transform: none; animation: none; margin: 0; box-sizing: border-box;
   }
   #boss-bar-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-sm); }
   #boss-bar #boss-bar-portrait { width: 48px; height: 48px; margin: -6px 0 -6px -4px; }
-  #wave-hud, #quest-tracker, body.boss-on #quest-tracker { top: calc(44px + var(--boss-h)); left: 10px; max-width: 340px; }
+  #wave-hud, #quest-tracker, body.boss-on #quest-tracker {
+    top: calc(44px + var(--boss-h) + var(--sa-t)); left: calc(10px + var(--sa-l)); max-width: 340px;
+  }
 }
 /* Tablet portrait: the strip takes the top-left, so the minimap's caption
    names the area instead of a label in the middle. */
@@ -3373,9 +3383,12 @@ body.reduce-motion .nl-card { animation: none; }
   margin: 0; text-transform: none; letter-spacing: 0; font-size: var(--fs-sm); color: var(--aw-sun-deep);
 }
 
-/* The Interact button names its target too ("Chop" / "Oak"), cut short to fit. */
+/* Put the target's name under the action and allow two lines on touch. */
 #interact-btn .ib-verb { display: block; max-width: 100%; min-width: 0; overflow: hidden; }
-#interact-btn .ib-noun { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9em; opacity: .95; }
+#interact-btn .ib-noun {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  overflow: hidden; overflow-wrap: anywhere; white-space: normal; font-size: .94em; line-height: 1.06;
+}
 
 /* The quick-use slot: touch screens only (F on a keyboard). */
 #quick-slot { display: none; }
@@ -3398,6 +3411,9 @@ body.reduce-motion .nl-card { animation: none; }
 @media (pointer: coarse) and (orientation: landscape) {
   /* Interact sits left of the Attack button here: the slot goes above it. */
   #quick-slot { right: calc(var(--pad-r) + var(--atk) / 2 - 24px + 185px); bottom: calc(var(--pad-b) + var(--atk) / 2 - 24px + 75px); }
+}
+@media (pointer: coarse) and (min-width: 541px) and (min-height: 501px) {
+  #quick-slot { right: calc(var(--pad-r) + var(--atk) / 2 + 51px); bottom: calc(var(--pad-b) + var(--atk) / 2 + 160px); }
 }
 
 /* Phone side panel: opens at half height; dragged up it snaps full (ui.js _initSheets). */
