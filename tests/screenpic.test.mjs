@@ -1,8 +1,6 @@
 // Full-screen soft pictures (the edge vignette, the hit pulse, the hurt flash,
-// the depth view's haze) are drawn from copies made once at the screen's own
-// pixels (ambience.js drawScreenPic, depthview.js haze): made once, used again
-// while the screen keeps its size (a fight's zoom included), made afresh when
-// it changes, and the old way when there is nothing to make them with.
+// the depth view's haze) reuse small prepared pictures instead of painting
+// a screen-sized gradient every frame.
 import './seed.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,9 +12,12 @@ import { makeProjection, DEPTH_TILT } from '../src/render/projection.js';
 // A context that records its calls and keeps a transform (a, d: scale; b, c: turn; e, f: shift).
 function fakeCtx(m = { a: 2, b: 0, c: 0, d: 2, e: 0, f: 0 }) {
   const calls = [];
+  const stack = [];
   const grad = { stops: [], addColorStop(o, c) { this.stops.push([o, c]); } };
   const ctx = {
     calls, m: { ...m }, globalAlpha: 1,
+    save() { stack.push({ m: { ...this.m }, globalAlpha: this.globalAlpha }); },
+    restore() { Object.assign(this, stack.pop()); },
     getTransform() { return { ...this.m }; },
     setTransform(a, b, c, d, e, f) { this.m = { a, b, c, d, e, f }; calls.push(['setTransform', a, b, c, d, e, f]); },
     createLinearGradient: (...a) => { calls.push(['grad', ...a]); return grad; },
@@ -76,29 +77,37 @@ test('the vignette\'s small picture depends on the view\'s shape only, so a figh
   assert.equal(vignetteKey(1000, 100), 40, 'never thinner than 40px');
 });
 
-test('the depth view\'s haze: one column a pixel wide, painted once, drawn across the screen', () => {
-  const made = [];
-  globalThis.document = { createElement: () => { const g = fakeCtx({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }); const cv = { width: 0, height: 0, g, getContext: () => g }; made.push(cv); return cv; } };
+test('the haze reuses one narrow gradient as the view changes size', () => {
+  const { made, make } = factory();
+  globalThis.document = { createElement: make };
   try {
     const dv = new DepthView();
     const pj = makeProjection(DEPTH_TILT, 390 / 1.1, 844 / 1.1);
     pj.D = 2.2;
     const ctx = fakeCtx({ a: 2.2, b: 0, c: 0, d: 2.2, e: 0, f: 0 });
+    ctx.globalAlpha = 0.8;
     for (let i = 0; i < 4; i++) dv.haze(ctx, pj, 0.5, null, 0, 1000 + i * 16, true, true);
-    const cols = made.filter((c) => c.width === 1);
-    assert.equal(cols.length, 1, 'one column');
-    const bandPx = pj.vh * 0.34 * 2.2;
-    assert.equal(cols[0].height, Math.ceil(bandPx), 'as tall as the band in device pixels');
-    assert.equal(cols[0].g.calls.filter((c) => c[0] === 'grad').length, 1, 'its gradient worked out once');
-    assert.deepEqual(cols[0].g.calls.find((c) => c[0] === 'grad'), ['grad', 0, 0, 0, bandPx], 'over the band\'s own pixels');
+    assert.equal(made.length, 1, 'one column');
+    const [col] = made;
+    assert.equal(col.width, 1);
+    const gradients = () => col.g.calls.filter((c) => c[0] === 'grad');
+    assert.deepEqual(gradients(), [['grad', 0, 0, 0, col.height]], 'its gradient is painted once');
     const draws = ctx.calls.filter((c) => c[0] === 'drawImage');
     assert.equal(draws.length, 4, 'one copy a frame');
-    assert.deepEqual(draws[0], ['drawImage', cols[0], 0, 0, 1, cols[0].height, 0, 0, pj.vw * 2.2, cols[0].height], 'stretched across only, row for row');
-    assert.deepEqual(ctx.m, { a: 2.2, b: 0, c: 0, d: 2.2, e: 0, f: 0 }, 'the screen transform is put back for the wisps');
+    assert.deepEqual(draws[0], ['drawImage', col, 0, 0, pj.vw, pj.vh * 0.34], 'stretched to fit the band');
+
+    const wider = makeProjection(DEPTH_TILT, 844, 390);
+    dv.haze(ctx, wider, 0.5, null, 0, 1120, true, true);
+    assert.deepEqual(ctx.calls.at(-1), ['drawImage', col, 0, 0, wider.vw, wider.vh * 0.34]);
+    assert.equal(gradients().length, 1, 'resizing keeps the same painted gradient');
+    assert.deepEqual(ctx.m, { a: 2.2, b: 0, c: 0, d: 2.2, e: 0, f: 0 });
+    assert.equal(ctx.globalAlpha, 0.8, 'the caller keeps its alpha');
     assert.equal(ctx.calls.filter((c) => c[0] === 'fillRect').length, 0, 'no full gradient fill a frame');
-    // Dusk brings a new colour: painted again, in the same column.
-    dv.haze(ctx, pj, 0.72, null, 0, 2000, true, true);
-    assert.equal(made.filter((c) => c.width === 1).length, 1);
-    assert.equal(cols[0].g.calls.filter((c) => c[0] === 'grad').length, 2);
+
+    // Mist at dusk fills a taller band with a tint painted into the same column.
+    dv.haze(ctx, pj, 0.72, null, 0, 2000, true, true, { mist: 0.5 });
+    assert.deepEqual(ctx.calls.at(-1), ['drawImage', col, 0, 0, pj.vw, pj.vh * 0.4]);
+    assert.equal(made.length, 1);
+    assert.equal(gradients().length, 2);
   } finally { delete globalThis.document; }
 });

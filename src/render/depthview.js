@@ -105,7 +105,7 @@ export function hazeColour(phase, mood = null, out = [0, 0, 0]) {
   let i = 0;
   while (i < SKY.length - 2 && phase > SKY[i + 1][0]) i++;
   const [p0, c0] = SKY[i], [p1, c1] = SKY[i + 1];
-  const f = clamp01((phase - p0) / (p1 - p0));
+  const f = smooth((phase - p0) / (p1 - p0));
   for (let j = 0; j < 3; j++) out[j] = c0[j] + (c1[j] - c0[j]) * f;
   if (mood && mood[3] > 0) for (let j = 0; j < 3; j++) out[j] += (mood[j] - out[j]) * Math.min(0.35, mood[3] * 2);
   return out;
@@ -323,63 +323,53 @@ export class DepthView {
    * wisps in it drifting slower than the ground below (parallax with the
    * camera's centre camX). `calm` (Reduce motion) stops their own drift.
    */
-  haze(ctx, pj, phase, mood, camX, time, calm, trim) {
+  haze(ctx, pj, phase, mood, camX, time, calm, trim, wx = null) {
     const tilt = pj.tilt;
-    if (!(tilt > 0.01)) return;
+    if (!(tilt > 0.01) || wx?.roofed) return;
     const col = hazeColour(phase, mood, this._hz);
-    const night = phase < 0.24 || phase > 0.8;
-    const a = (night ? 0.34 : 0.58) * Math.min(1, tilt);
-    const band = pj.vh * HAZE_TOP, D = pj.D || 1;
-    // The band is the same from side to side, so it is painted once (again
-    // only when its colour or size moves on) into a column one pixel wide at
-    // the screen's own pixels, and that column is drawn across the screen: a
-    // gradient worked out over a third of the screen every frame cost a phone
-    // a couple of milliseconds. (Its size in device px stays put through a
-    // fight's zoom: the view shrinks as the scale grows.)
-    const bandPx = band * D;
-    const key = `${col[0] >> 3},${col[1] >> 3},${col[2] >> 3},${Math.round(a * 40)},${Math.round(bandPx * 16)}`;
-    if (key !== this._hazeKey) { this._hazeKey = key; this._hazePic = this._hazeFill(ctx, col, a, band, bandPx); }
-    const hp = this._hazePic;
-    if (hp && hp.width) {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.drawImage(hp, 0, 0, 1, hp.height, 0, 0, pj.vw * D, hp.height);
-      ctx.setTransform(D, 0, 0, D, 0, 0);
-    } else if (hp) { ctx.fillStyle = hp; ctx.fillRect(0, 0, pj.vw, band); }
-    if (trim) return;
-    const wisp = this._wisp || (this._wisp = this._bakeWisp());
-    if (!wisp) return;
+    const mist = wx?.mist || 0, gloom = wx?.gloom || 0;
+    const day = 0.5 - 0.5 * Math.cos(phase * Math.PI * 2);
+    const daylight = smooth((day - 0.16) / 0.63);
+    const colourMix = 0.3 * gloom + 0.24 * mist;
+    col[0] += (174 - col[0]) * colourMix; col[1] += (196 - col[1]) * colourMix; col[2] += (218 - col[2]) * colourMix;
+    const a = (0.32 + daylight * 0.22 + mist * 0.16 + gloom * 0.08) * Math.min(1, tilt);
+    const band = pj.vh * (HAZE_TOP + 0.12 * mist);
+    const key = `${col[0] | 0},${col[1] | 0},${col[2] | 0}`;
+    if (key !== this._hazeKey) { this._hazeKey = key; this._hazePic = this._hazeFill(key); }
+    ctx.save();
+    ctx.globalAlpha = a;
+    if (this._hazePic) ctx.drawImage(this._hazePic, 0, 0, pj.vw, band);
+    const wisp = trim ? null : this._wisp || (this._wisp = this._bakeWisp());
+    if (!wisp) { ctx.restore(); return; }
     // Wisps sit in the top of the band, moving at 40% of the ground's pace.
     const span = pj.vw + 240, drift = calm ? 0 : time * 0.004;
-    ctx.globalAlpha = night ? 0.1 : 0.22;
+    ctx.globalAlpha = 0.085 + daylight * 0.12 + mist * 0.09;
     for (let i = 0; i < 4; i++) {
       const w = 150 + 40 * (i % 2), h = 26 + 8 * (i % 3);
       const x = ((((i * 0.31 + 0.07) * span - camX * 0.4 + drift * (1 + i * 0.3)) % span) + span) % span - 120;
       const y = band * (0.12 + 0.14 * (i % 3));
       ctx.drawImage(wisp, x - w / 2, y - h / 2, w, h);
     }
-    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
-  /** The haze band's column (1 x bandPx device px), or the gradient itself when no canvas can be made. */
-  _hazeFill(ctx, col, a, band, bandPx) {
-    const grad = (g, h) => {
-      const gr = g.createLinearGradient(0, 0, 0, h);
-      const c = `${col[0] | 0},${col[1] | 0},${col[2] | 0}`;
-      gr.addColorStop(0, `rgba(${c},${a.toFixed(3)})`);
-      gr.addColorStop(0.35, `rgba(${c},${(a * 0.5).toFixed(3)})`);
-      gr.addColorStop(1, `rgba(${c},0)`);
-      return gr;
-    };
+  /** The band is baked into one small column. Height and alpha can vary
+   * without repainting it or allocating a new canvas. */
+  _hazeFill(col) {
     try {
       const cv = this._hazeCol || (this._hazeCol = document.createElement('canvas'));
-      const g = cv.getContext('2d'), h = Math.max(1, Math.ceil(bandPx));
-      if (g) {
-        if (cv.width !== 1 || cv.height !== h) { cv.width = 1; cv.height = h; } else g.clearRect(0, 0, 1, h);
-        g.fillStyle = grad(g, bandPx); g.fillRect(0, 0, 1, bandPx);
-        return cv;
-      }
-    } catch { /* no canvas: fill with the gradient */ }
-    return ctx.createLinearGradient ? grad(ctx, band) : null;
+      const h = 96;
+      if (cv.width !== 1 || cv.height !== h) { cv.width = 1; cv.height = h; }
+      const g = cv.getContext('2d');
+      if (!g) return null;
+      const gr = g.createLinearGradient(0, 0, 0, h);
+      gr.addColorStop(0, `rgba(${col},1)`);
+      gr.addColorStop(0.4, `rgba(${col},0.48)`);
+      gr.addColorStop(1, `rgba(${col},0)`);
+      g.clearRect(0, 0, 1, h);
+      g.fillStyle = gr; g.fillRect(0, 0, 1, h);
+      return cv;
+    } catch { return null; }
   }
 
   _bakeWisp() {

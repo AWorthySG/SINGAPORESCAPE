@@ -4,15 +4,15 @@ import { mulberry32 } from '../game/pets.js';
 import { blendMood } from './ambience.js';
 import { fxImage, drawFx } from './fxart.js';
 import { motionOK } from './juice.js';
+import { easeOut, smooth } from './motionkit.js';
 
 // Weather and region moods, purely for looks (nothing here touches the game's
 // rules). The forecast is worked out from the game clock alone, so the same
 // moment of play always has the same sky: time is cut into slots of a couple
 // of minutes and each slot's number is hashed into dry, rain or (rarer) storm.
-// On screen: cheap rain streaks drawn as one path, ripples on water, a wet
-// sheen on paths, dawn mist in the forests, embers drifting through the Shadow
-// Rift and snow on the Celestial Peaks. The sky's tints go to the light pass
-// (lighting.js) as washes, so they cost no extra full-screen fill.
+// Depth comes from a few batches of rain, splashes and mist laid on the
+// terrain, and thinner fog in the air. The sky's tints go to the light pass
+// (lighting.js) as washes.
 
 export const WEATHER_SLOT_MS = 137000;   // a slot of weather: about 2.3 minutes of play
 export const RAIN_CHANCE = 0.2;          // share of slots that rain (storms included)
@@ -46,29 +46,42 @@ export function slotWeather(slot) {
   return u < STORM_CHANCE ? 2 : u < RAIN_CHANCE ? 1 : 0;
 }
 
+function rainAmount(slot, kind) {
+  return kind === 2 ? 1 : kind === 1 ? 0.55 + hash01(slot * 31 + 7) * 0.3 : 0;
+}
+
 /**
  * The weather at a moment of play (game.playMs). Deterministic: the same
  * time always gives the same answer. Returns { rain 0..1, storm 0..1, flash 0..1 }.
- * Rain eases in and out at a slot's edges unless the next slot rains too.
+ * Two wet slots share their midpoint at the seam. Dry boundaries ramp in
+ * or out on the wet side, so rain, wind and storm light change together.
  */
 export function weatherAt(ms, out = { rain: 0, storm: 0, flash: 0 }) {
   const slot = Math.floor(ms / WEATHER_SLOT_MS), into = ms - slot * WEATHER_SLOT_MS;
   const kind = slotWeather(slot);
   out.rain = 0; out.storm = 0; out.flash = 0;
   if (!kind) return out;
-  const heavy = kind === 2 ? 1 : 0.55 + hash01(slot * 31 + 7) * 0.3;
-  let ramp = 1;
-  if (!slotWeather(slot - 1)) ramp = Math.min(ramp, into / RAMP_MS);
-  if (!slotWeather(slot + 1)) ramp = Math.min(ramp, (WEATHER_SLOT_MS - into) / RAMP_MS);
-  ramp = Math.max(0, Math.min(1, ramp));
-  out.rain = heavy * ramp;
+  out.rain = rainAmount(slot, kind);
+  out.storm = kind === 2 ? 1 : 0;
+  const left = into < RAMP_MS, right = into > WEATHER_SLOT_MS - RAMP_MS;
+  if (left || right) {
+    const adjacent = slot + (left ? -1 : 1), other = slotWeather(adjacent);
+    const edge = 1 - smooth((left ? into : WEATHER_SLOT_MS - into) / RAMP_MS);
+    const rain = other ? (out.rain + rainAmount(adjacent, other)) / 2 : 0;
+    const storm = other ? (out.storm + (other === 2 ? 1 : 0)) / 2 : 0;
+    out.rain += (rain - out.rain) * edge;
+    out.storm += (storm - out.storm) * edge;
+  }
   if (kind === 2) {
-    out.storm = ramp;
-    // Lightning: some seconds of a storm hold a flash, at a hashed moment in it.
+    // Lightning is one soft flash with a long tail. It settles before the
+    // next second, even for the latest possible start.
     const sec = Math.floor(ms / 1000);
     if (hash01(sec * 131 + 5) < 0.09) {
       const at = hash01(sec * 17 + 3) * 700, d = ms - sec * 1000 - at;
-      if (d >= 0 && d < 420) out.flash = ramp * (d < 90 ? 1 : d < 160 ? 0.35 : d < 230 ? 0.8 : Math.exp(-(d - 230) / 70));
+      if (d > 0 && d < 300) {
+        const seam = smooth(Math.min(into, WEATHER_SLOT_MS - into) / 400);
+        out.flash = out.storm * seam * smooth(d / 44) * (1 - smooth((d - 55) / 245));
+      }
     }
   }
   return out;
@@ -90,6 +103,17 @@ export function regionWeather(zone, base) {
 }
 
 const RAIN_CAP = 170, RAIN_CAP_LOW = 50, SNOW_CAP = 110, EMBER_CAP = 26, RIPPLE_CAP = 40, SPLASH_CAP = 36;
+const FULL_RAIN = [
+  { speed: 0.68, length: 0.67, width: 0.74, alpha: 0.34 },
+  { speed: 0.89, length: 0.96, width: 1.06, alpha: 0.51 },
+  { speed: 1.22, length: 1.29, width: 1.53, alpha: 0.7 },
+];
+const LIGHT_RAIN = [FULL_RAIN[0], FULL_RAIN[2]];
+const TAU = Math.PI * 2;
+const wrap = (v, span) => ((v % span) + span) % span;
+
+function paving(tt) { return tt === TERRAIN.PATH || tt === TERRAIN.STONE; }
+const puddleSeed = (x, y) => hash01(x * 92821 + y * 68917);
 
 // Cloud shadows: on a clear day, big soft shadows of passing clouds drift
 // across the land (and everyone on it). Each keeps its place in the world and
@@ -101,17 +125,19 @@ export const CLOUD_RES = 4;      // the cloud buffer is drawn at 1/4 of the scre
 /** How strong the cloud shadows are: full on a dry day, none at night, in rain or under a roof. */
 export function cloudShadeAt(day, rain, roofed) {
   if (roofed) return 0;
-  return Math.max(0, Math.min(1, (day - 0.35) / 0.4)) * Math.max(0, 1 - rain * 2.5);
+  return smooth((day - 0.35) / 0.4) * (1 - smooth(rain / 0.4));
 }
 
 export class Weather {
   constructor() {
     this._base = { rain: 0, storm: 0, flash: 0 };
     this.zone = '';
+    this._weatherAt = null;
     this.wet = 0;          // how wet the ground is: rises in rain, dries slowly after
     this.mist = 0;
     this._drops = []; this._flakes = []; this._embers = []; this._ripples = [];
-    this._splashes = [];   // rain bouncing off the ground (screen space)
+    this._splashes = [];   // rain bouncing off the ground (world coordinates)
+    this._puddles = [];
     this._rippleCarry = 0;
     this._visualRand = mulberry32(0xae5742d);   // weather never rolls the game's random stream
     this.clouds = 0;       // cloud shadow strength (cloudShadeAt)
@@ -120,7 +146,7 @@ export class Weather {
     // The washes handed to the light pass: rain's grey, mist's pale veil, the region's sky.
     this._rainWash = [58, 78, 118, 0];   // a cool slate blue
     this._mistWash = [214, 224, 234, 0];
-    this.state = { rain: 0, snow: 0, embers: 0, storm: 0, flash: 0, gloom: 0, clouds: 0,
+    this.state = { rain: 0, snow: 0, embers: 0, storm: 0, flash: 0, gloom: 0, clouds: 0, mist: 0, wet: 0, day: 1, calm: false, roofed: false,
       washes: [this._rainWash, this._mistWash, this._sky], flashWash: [236, 242, 255, 0] };
     // The light pass paints the cloud shadows into its own layer (lighting.js).
     this.state.cloudsInto = (g, ox, oy, vw, vh, t, scale) => this.drawCloudsInto(g, ox, oy, vw, vh, t, scale);
@@ -139,24 +165,33 @@ export class Weather {
   /** Per frame: work out the sky for the region and time, and ease the ground's wetness. */
   update(game, dt) {
     const zone = game.currentZoneName || '';
-    const base = weatherAt(game.playMs || 0, this._base);
-    const w = regionWeather(zone, base);
+    const ms = game.playMs || 0, base = weatherAt(ms, this._base);
+    const w = regionWeather(zone, base), roofed = ROOFED.has(zone);
     const s = this.state;
-    s.rain = w.rain; s.snow = w.snow; s.embers = w.embers; s.storm = w.storm;
-    s.flash = w.flash && motionOK(game) ? w.flash : 0;
-    s.gloom = Math.max(w.rain * 0.45, w.storm * 0.75, w.snow * 0.2);
-    this._rainWash[3] = w.rain * 0.1 + w.storm * 0.16;
+    // A move into another climate keeps the sky on screen while it blends.
+    // A loaded clock or a sealed room starts directly in its own conditions.
+    const mix = this._weatherAt === null || Math.abs(ms - this._weatherAt) > 3000 || roofed ? 1 : 1 - Math.exp(-Math.max(0, dt) / 740);
+    this._weatherAt = ms;
+    s.rain += (w.rain - s.rain) * mix; s.snow += (w.snow - s.snow) * mix;
+    s.embers += (w.embers - s.embers) * mix; s.storm += (w.storm - s.storm) * mix;
+    s.calm = !motionOK(game); s.roofed = roofed;
+    s.day = game.daylightFactor ? game.daylightFactor() : 1;
+    s.flash = s.calm ? 0 : w.flash * Math.min(1, s.storm * 1.4);
+    s.gloom = Math.max(s.rain * 0.46, s.storm * 0.76, s.snow * 0.2);
+    this._rainWash[3] = s.rain * 0.11 + s.storm * 0.17;
     const phase = game.dayPhase ? game.dayPhase() : 0.5;
-    this.mist = MIST_REGIONS.has(zone) ? Math.max(mistAt(phase), w.rain * 0.35) : 0;
-    if (HAZY.has(zone)) this.mist = Math.max(this.mist, HAZY.get(zone));   // a haze that never quite lifts
-    this._mistWash[3] = this.mist * 0.16;
-    s.flashWash[3] = s.flash * 0.32;
+    const forestMist = MIST_REGIONS.has(zone) ? Math.max(mistAt(phase), w.rain * 0.42) : 0;
+    const targetMist = Math.max(forestMist, HAZY.get(zone) || 0, w.storm * 0.28);
+    this.mist = s.mist += (targetMist - s.mist) * mix;
+    this._mistWash[3] = s.mist * 0.12;
+    s.flashWash[3] = s.flash * 0.26;
     blendMood(this._sky, REGION_SKY[zone] || NO_SKY, dt);
     // Puddles come up over ~20s of rain and dry over a minute after.
-    const target = ROOFED.has(zone) ? 0 : Math.min(1, w.rain * 1.4);
-    this.wet += (target - this.wet) * Math.min(1, dt / (target > this.wet ? 20000 : 60000));
+    const target = Math.min(1, s.rain * 1.4);
+    this.wet = roofed ? 0 : this.wet + (target - this.wet) * (1 - Math.exp(-Math.max(0, dt) / (target > this.wet ? 18000 : 56000)));
+    s.wet = this.wet;
     this.zone = zone;
-    this.clouds = cloudShadeAt(game.daylightFactor ? game.daylightFactor() : 1, w.rain + w.snow, ROOFED.has(zone));
+    this.clouds = cloudShadeAt(s.day, s.rain + s.snow, roofed);
     return s;
   }
 
@@ -167,47 +202,68 @@ export class Weather {
     // The light pass paints the cloud shadows (drawCloudsInto); trimmed or low
     // graphics go without.
     s.clouds = low ? 0 : this.clouds;
-    if (low) { this._ripples.length = 0; this._rippleCarry = 0; return; }
+    if (low || s.roofed) {
+      this._ripples.length = 0; this._splashes.length = 0; this._rippleCarry = 0;
+      return;
+    }
     const world = game.world;
     const x0 = Math.max(0, Math.floor(ox / TILE)), y0 = Math.max(0, Math.floor(oy / TILE));
     const x1 = Math.min(world.width - 1, Math.ceil((ox + vw) / TILE)), y1 = Math.min(world.height - 1, Math.ceil((oy + vh) / TILE));
     if (this.wet > 0.03 && !this.small()) {
-      // Puddles: a pale sky-blue sheen on some path and paving tiles (picked
-      // by the tile's spot, so they stay put), all filled in one go.
+      // A cool reflective centre and a narrow rim on the same wet patches.
+      // Batch the paint and the rims so many wet tiles stay cheap to draw.
+      const pts = this._puddles;
+      pts.length = 0;
       ctx.save();
-      ctx.globalAlpha = this.wet * 0.3;
-      ctx.fillStyle = '#cfe0f4';
+      ctx.globalAlpha = this.wet * 0.32;
+      ctx.fillStyle = '#bed5e6';
       ctx.beginPath();
       for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-        const tt = world.terrainAt(x, y);
-        if (tt !== TERRAIN.PATH && tt !== TERRAIN.STONE) continue;
-        const h = hash01(x * 92821 + y * 68917);
+        if (!paving(world.terrainAt(x, y))) continue;
+        const h = puddleSeed(x, y);
         if (h > 0.28) continue;
         const cx = x * TILE + 8 + h * 50 - ox, cy = y * TILE + 10 + ((h * 977) % 1) * 14 - oy, rx = 6 + h * 26;
+        pts.push(cx, cy, rx);
         ctx.moveTo(cx + rx, cy);
-        ctx.ellipse(cx, cy, rx, rx * 0.36, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx, cy, rx, rx * 0.4, 0, 0, TAU);
       }
       ctx.fill();
+      ctx.globalAlpha = this.wet * 0.38; ctx.strokeStyle = '#ebf6fa'; ctx.lineWidth = 0.65;
+      ctx.beginPath();
+      for (let i = 0; i < pts.length; i += 3) {
+        const x = pts[i], y = pts[i + 1], r = pts[i + 2];
+        ctx.moveTo(x + Math.cos(3.55) * r, y + Math.sin(3.55) * r * 0.4);
+        ctx.ellipse(x, y, r, r * 0.4, 0, 3.55, 5.28);
+      }
+      ctx.stroke();
       ctx.restore();
     }
-    // Ripples: rain landing on water tiles in view.
-    const rp = this._ripples;
+    this._drawGroundMist(ctx, ox, oy, vw, vh, t);
+    // Raindrops meet the terrain, so their rings and splashes stay in place
+    // while you walk past and tilt with the rest of the ground.
+    const rp = this._ripples, sp = this._splashes;
+    if (s.calm) { rp.length = 0; sp.length = 0; this._rippleCarry = 0; return; }
     if (s.rain > 0.05) {
       // Carry the fractional attempts forward so faster frames do not create more rain.
       this._rippleCarry += s.rain * dt * 0.4;
       const tries = Math.floor(this._rippleCarry);
       this._rippleCarry -= tries;
       const random = this._visualRand;
-      for (let i = 0; i < tries && rp.length < RIPPLE_CAP; i++) {
+      for (let i = 0; i < tries; i++) {
         const tx = x0 + Math.floor(random() * (x1 - x0 + 1)), ty = y0 + Math.floor(random() * (y1 - y0 + 1));
         const tt = world.terrainAt(tx, ty);
-        if (tt === TERRAIN.WATER) { rp.push({ x: tx * TILE + random() * TILE, y: ty * TILE + random() * TILE, life: 0 }); continue; }
-        // Drops landing in a puddle (the same spots the sheen marks) ripple too.
-        if (this.wet < 0.3 || (tt !== TERRAIN.PATH && tt !== TERRAIN.STONE)) continue;
-        const h = hash01(tx * 92821 + ty * 68917);
-        if (h > 0.28) continue;
-        const rx = 6 + h * 26;
-        rp.push({ x: tx * TILE + 8 + h * 50 + (random() - 0.5) * rx * 1.2, y: ty * TILE + 10 + ((h * 977) % 1) * 14 + (random() - 0.5) * rx * 0.3, life: 0 });
+        if (tt === TERRAIN.WATER) {
+          if (rp.length < RIPPLE_CAP) rp.push({ x: tx * TILE + random() * TILE, y: ty * TILE + random() * TILE, life: 0 });
+          continue;
+        }
+        if (!paving(tt)) continue;
+        const h = puddleSeed(tx, ty);
+        if (this.wet > 0.22 && h <= 0.28 && rp.length < RIPPLE_CAP) {
+          const rx = 6 + h * 26;
+          rp.push({ x: tx * TILE + 8 + h * 50 + (random() - 0.5) * rx * 1.2, y: ty * TILE + 10 + ((h * 977) % 1) * 14 + (random() - 0.5) * rx * 0.3, life: 0 });
+        } else if (!this.small() && sp.length < SPLASH_CAP && random() < 0.21) {
+          sp.push({ x: tx * TILE + random() * TILE, y: ty * TILE + random() * TILE, life: 0 });
+        }
       }
     } else this._rippleCarry = 0;
     if (rp.length) {
@@ -217,55 +273,99 @@ export class Weather {
         const r = rp[i];
         r.life += dt;
         if (r.life >= 650) { rp.splice(i, 1); continue; }
-        const k = r.life / 650;
-        ctx.globalAlpha = (1 - k) * 0.7;
-        ctx.beginPath(); ctx.ellipse(r.x - ox, r.y - oy, 1.5 + k * 9, 0.8 + k * 3.6, 0, 0, Math.PI * 2); ctx.stroke();
+        const k = r.life / 650, spread = easeOut(k);
+        ctx.globalAlpha = (1 - smooth(k)) * 0.62;
+        ctx.beginPath(); ctx.ellipse(r.x - ox, r.y - oy, 1.4 + spread * 9, 0.8 + spread * 5, 0, 0, TAU); ctx.stroke();
         // A second, smaller ring a moment behind the first.
-        if (k > 0.3) { const k2 = (k - 0.3) / 0.7; ctx.globalAlpha = (1 - k2) * 0.5; ctx.beginPath(); ctx.ellipse(r.x - ox, r.y - oy, 1 + k2 * 5, 0.5 + k2 * 2, 0, 0, Math.PI * 2); ctx.stroke(); }
+        if (k > 0.25) {
+          const u = (k - 0.25) / 0.75;
+          ctx.globalAlpha = Math.sin(u * Math.PI) * 0.34;
+          ctx.beginPath(); ctx.ellipse(r.x - ox, r.y - oy, 1 + u * 5, 0.7 + u * 3.4, 0, 0, TAU); ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+    if (sp.length) {
+      ctx.save();
+      ctx.strokeStyle = '#e3f4fc'; ctx.lineWidth = 0.9; ctx.lineCap = 'round';
+      for (let i = sp.length - 1; i >= 0; i--) {
+        const p = sp[i];
+        p.life += dt;
+        if (p.life >= 250) { sp.splice(i, 1); continue; }
+        const k = p.life / 250, r = 1.2 + easeOut(k) * 4, rise = Math.sin(k * Math.PI) * 4.2;
+        const x = p.x - ox, y = p.y - oy;
+        ctx.globalAlpha = (1 - smooth(k)) * 0.56;
+        ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.68, 0, 0, TAU);
+        ctx.moveTo(x - r, y - rise); ctx.lineTo(x - r - 1.2, y - rise - 1.5);
+        ctx.moveTo(x + r, y - rise); ctx.lineTo(x + r + 1.2, y - rise - 1.5);
+        ctx.stroke();
       }
       ctx.restore();
     }
   }
 
-  // A soft white blob for the mist, baked once.
+  // A soft irregular bank, baked once. Stretch the same texture into wisps
+  // over the ground or wider layers in the air.
   _mist() {
     if (this._mistImg !== null) return this._mistImg;
     if (typeof document === 'undefined' || !document.createElement) return (this._mistImg = false);
-    const cv = document.createElement('canvas'); cv.width = 128; cv.height = 64;
+    const cv = document.createElement('canvas'); cv.width = 192; cv.height = 72;
     const g = cv.getContext('2d');
     if (!g) return (this._mistImg = false);
-    const grd = g.createRadialGradient(64, 32, 0, 64, 32, 64);
-    grd.addColorStop(0, 'rgba(226,234,242,0.95)'); grd.addColorStop(0.5, 'rgba(226,234,242,0.55)'); grd.addColorStop(1, 'rgba(226,234,242,0)');
-    g.setTransform(1, 0, 0, 0.5, 0, 16); g.fillStyle = grd; g.fillRect(0, -32, 128, 128);
+    for (const [x, y, w, h, a] of [[94, 38, 89, 25, 0.8], [54, 31, 50, 24, 0.5], [127, 31, 58, 27, 0.51], [93, 26, 43, 24, 0.34]]) {
+      g.setTransform(w, 0, 0, h, x, y);
+      const grd = g.createRadialGradient(0, 0, 0, 0, 0, 1);
+      grd.addColorStop(0, `rgba(221,235,243,${a})`);
+      grd.addColorStop(0.54, `rgba(221,235,243,${a * 0.44})`);
+      grd.addColorStop(1, 'rgba(221,235,243,0)');
+      g.fillStyle = grd; g.fillRect(-1, -1, 2, 2);
+    }
     return (this._mistImg = cv);
+  }
+
+  _drawGroundMist(ctx, ox, oy, vw, vh, t) {
+    if (this.mist <= 0.025) return;
+    const img = this._mist();
+    if (!img) return;
+    const strideX = 318, strideY = 218, drift = this.state.calm ? 0 : t * 0.007;
+    const x0 = Math.floor((ox - drift - 160) / strideX), x1 = Math.ceil((ox + vw - drift + 160) / strideX);
+    const y0 = Math.floor((oy - 60) / strideY), y1 = Math.ceil((oy + vh + 60) / strideY);
+    ctx.save();
+    for (let j = y0; j <= y1; j++) for (let i = x0; i <= x1; i++) {
+      const seed = hash01(i * 571 + j * 1471), w = 200 + 142 * seed, h = 49 + 26 * seed;
+      const x = i * strideX + seed * 90 + drift - ox, y = j * strideY + (seed * 97 % 1) * 110 - oy;
+      if (x + w / 2 < 0 || y + h / 2 < 0 || x - w / 2 > vw || y - h / 2 > vh) continue;
+      ctx.globalAlpha = this.mist * (0.23 + seed * 0.18);
+      ctx.drawImage(img, x - w / 2, y - h / 2, w, h);
+    }
+    ctx.restore();
   }
 
   /** Weather in the air, over everything: mist banks, rain or snow, embers.
    *  Low graphics keeps a thinner rain and snow and skips the rest. */
   drawAir(ctx, ox, oy, vw, vh, t, dt, low) {
     const s = this.state;
-    // Mist: a few big soft banks drifting slowly across the forest floor.
-    if (!low && this.mist > 0.05) {
+    // A thinner foreground veil. The denser banks have already been drawn
+    // on the terrain behind the buildings and characters.
+    if (!low && !s.roofed && this.mist > 0.04) {
       const img = this._mist();
       if (img) {
         ctx.save();
-        ctx.globalAlpha = Math.min(0.8, this.mist * 0.8);
-        const bw = Math.max(vw, vh) * 0.75, bh = bw * 0.38;
-        const spanX = vw + bw, spanY = vh + bh;
-        const wrap = (v, m) => ((v % m) + m) % m;
-        for (let i = 0; i < 7; i++) {
-          // Each bank keeps its place in the world (sliding with the camera at
-          // a slower parallax) and drifts slowly east.
-          const x = wrap(i * 523 + t * 0.006 * (1 + (i % 3) * 0.4) - ox * 0.3, spanX) - bw * 0.5;
-          const y = wrap(i * 389 - oy * 0.3, spanY) - bh * 0.5;
+        ctx.globalAlpha = this.mist * (0.12 + 0.15 * s.day);
+        const bw = Math.max(vw, vh) * 0.83, bh = bw * 0.29;
+        const spanX = vw + bw, spanY = vh + bh, drift = s.calm ? 0 : t * 0.013;
+        for (let i = 0; i < 4; i++) {
+          const x = wrap(i * 523 + drift * (1 + i * 0.26) - ox * 0.56, spanX) - bw * 0.5;
+          const y = wrap(i * 389 - oy * 0.52, spanY) - bh * 0.5;
           ctx.drawImage(img, x - bw / 2, y - bh / 2, bw, bh);
         }
         ctx.restore();
       }
     }
-    this._rain(ctx, vw, vh, dt, low);
-    this._snow(ctx, vw, vh, t, dt, low);
-    if (!low) this._embersDraw(ctx, vw, vh, t, dt);
+    const move = s.calm ? 0 : dt, clock = s.calm ? 0 : t;
+    this._rain(ctx, vw, vh, move, low, clock);
+    this._snow(ctx, vw, vh, clock, move, low);
+    if (!low) this._embersDraw(ctx, vw, vh, clock, move);
   }
 
   // A soft, lumpy cloud shadow, baked once: a few overlapping round blobs.
@@ -296,7 +396,7 @@ export class Weather {
     if (!img) return;
     const cw = Math.max(vw, vh) * 1.5, ch = cw * 0.5;
     const spanX = vw + cw * 1.2, spanY = vh + ch * 1.2;
-    const wrap = (v, m) => ((v % m) + m) % m;
+    const drift = this.state.calm ? 0 : t * 0.012;
     g.globalCompositeOperation = 'source-over';
     g.globalAlpha = Math.min(1, k * CLOUD_ALPHA / 0.55);
     // Big (a cloud is wider than the screen) and spaced so that one or two
@@ -304,7 +404,7 @@ export class Weather {
     for (let i = 0; i < CLOUD_COUNT; i++) {
       // World-anchored (they slide with the ground as you walk) and drifting
       // east at a breeze's pace, each at its own speed.
-      const x = wrap(i * 977 + t * 0.012 * (1 + (i % 3) * 0.3) - ox, spanX) - cw;
+      const x = wrap(i * 977 + drift * (1 + (i % 3) * 0.3) - ox, spanX) - cw;
       const y = wrap(i * 613 - oy, spanY) - ch;
       if (x > vw || y > vh || x + cw < 0 || y + ch < 0) continue;   // wholly off screen
       g.drawImage(img, x * scale, y * scale, cw * scale, ch * scale);
@@ -312,47 +412,31 @@ export class Weather {
     g.globalAlpha = 1;
   }
 
-  _rain(ctx, vw, vh, dt, low) {
+  _rain(ctx, vw, vh, dt, low, t = 0) {
     const s = this.state, drops = this._drops, random = this._visualRand;
-    const want = Math.round((low ? RAIN_CAP_LOW : RAIN_CAP) * (this.small() ? 0.5 : 1) * s.rain * Math.min(1.4, (vw * vh) / (1100 * 620)));
-    while (drops.length < want) drops.push({ x: random() * (vw + 80), y: random() * vh, v: 0.75 + random() * 0.5 });
+    const small = this.small(), bands = low || small ? LIGHT_RAIN : FULL_RAIN;
+    const want = Math.round((low ? RAIN_CAP_LOW : RAIN_CAP) * (small ? 0.5 : 1) * s.rain * Math.min(1.4, (vw * vh) / (1100 * 620)));
+    while (drops.length < want) drops.push({ x: random() * (vw + 80), y: random() * vh, v: 0.84 + random() * 0.33 });
     if (drops.length > want) drops.length = want;
-    const sp = this._splashes;
-    if (low || !drops.length) sp.length = 0;
     if (!drops.length) return;
-    const slant = 0.22 + s.storm * 0.25, len = 13 + s.storm * 6, fall = 0.9 + s.storm * 0.3;
+    const gust = Math.sin(t * 0.0017) * 0.045 + Math.sin(t * 0.0042) * 0.025;
+    const slant = 0.2 + s.storm * 0.23 + gust * (0.22 + s.storm);
+    const len = 15 + s.storm * 8, fall = 0.93 + s.storm * 0.35;
     ctx.save();
-    ctx.lineCap = 'round';
-    // Two layers for depth: far drops thin and faint, near ones longer and
-    // brighter. A near drop that reaches the ground bounces up in a splash.
-    for (const near of [false, true]) {
-      ctx.strokeStyle = near ? 'rgba(236,244,255,0.78)' : 'rgba(214,226,246,0.45)';
-      ctx.lineWidth = near ? 1.6 : 1;
+    ctx.lineCap = 'round'; ctx.strokeStyle = '#e3f2ff';
+    for (let z = 0; z < bands.length; z++) {
+      const band = bands[z], speed = fall * band.speed;
+      ctx.globalAlpha = band.alpha * (0.66 + s.rain * 0.34) * (0.8 + s.day * 0.2) * (s.calm ? 0.68 : 1);
+      ctx.lineWidth = band.width;
       ctx.beginPath();
-      for (const d of drops) {
-        if ((d.v > 1.05) !== near) continue;
-        d.y += fall * d.v * dt; d.x -= slant * fall * d.v * dt;
-        if (d.y > (d.land || vh + 10) || d.x < -20) {
-          if (near && !low && d.land && sp.length < SPLASH_CAP) sp.push({ x: d.x, y: d.y, life: 0 });
+      for (let i = z; i < drops.length; i += bands.length) {
+        const d = drops[i], step = speed * d.v * dt;
+        d.y += step; d.x -= slant * step;
+        if (d.y > vh + len || d.x < -25 || d.x > vw + 82) {
           d.y = -10 - random() * 40; d.x = random() * (vw + 80);
-          d.land = near ? vh * (0.15 + random() * 0.85) : 0;   // where on screen it hits the ground
         }
-        const l = len * d.v * (near ? 1.25 : 0.8);
+        const l = len * d.v * band.length;
         ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + slant * l, d.y - l);
-      }
-      ctx.stroke();
-    }
-    // Splashes: a tiny crown of two droplets that hop out and fade.
-    if (sp.length) {
-      ctx.strokeStyle = 'rgba(236,244,255,0.8)'; ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      for (let i = sp.length - 1; i >= 0; i--) {
-        const p = sp[i];
-        p.life += dt;
-        if (p.life >= 240) { sp.splice(i, 1); continue; }
-        const k = p.life / 240, r = 2 + k * 4, up = Math.sin(k * Math.PI) * 4;
-        ctx.moveTo(p.x - r, p.y - up); ctx.lineTo(p.x - r - 1.5, p.y - up - 2);
-        ctx.moveTo(p.x + r, p.y - up); ctx.lineTo(p.x + r + 1.5, p.y - up - 2);
       }
       ctx.stroke();
     }

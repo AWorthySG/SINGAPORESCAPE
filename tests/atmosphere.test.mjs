@@ -93,8 +93,9 @@ test('each region keeps its character: green-hazed Bukit Timah, warm Sentosa, co
   const w = new Weather();
   w.update({ currentZoneName: 'The Wilderness', playMs: 0, dayPhase: () => 0.5 }, 16);
   assert.ok(w.mist >= HAZY.get('The Wilderness'), 'the Wilderness mist never lifts');
-  w.update({ currentZoneName: 'Kampong Glam', playMs: 0, dayPhase: () => 0.5 }, 16);
-  assert.equal(w.mist, 0, 'the town is clear at noon');
+  const town = { currentZoneName: 'Kampong Glam', playMs: 0, dayPhase: () => 0.5 };
+  for (let i = 0; i < 70; i++) w.update(town, 80);
+  assert.ok(w.mist < 0.001, 'the air clears as you enter town at noon');
   assert.ok(!MIST_REGIONS.has('Kampong Glam'));
 });
 
