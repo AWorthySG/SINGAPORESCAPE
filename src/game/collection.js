@@ -41,7 +41,7 @@ function bossItems(id) {
   const gear = table.filter((x) => !getItem(x).stackable);
   const own = gear.filter((x) => getItem(x).equip && TABLES.get(x) <= 2);
   const top = [...gear].sort((a, b) => (getItem(b).value || 0) - (getItem(a).value || 0)).slice(0, 3);
-  const out = uniq([...own, ...top]);
+  const out = uniq([...(getNpc(id).trophyDrops || []).map((r) => r.id), ...own, ...top]);
   for (const s of sigDropsFor(id)) if (real(s.id)) out.push(s.id);   // its signature weapon(s)
   if (RARE_BOSS_BONES[id]) out.push(RARE_BOSS_BONES[id]);
   return out;

@@ -153,7 +153,7 @@ test('restoring at the bench: a relic, two of its site\'s finds and a brush make
   setLevel(g, 'archaeology', 20);
   const bench = g.world.objects.find((o) => o.objId === 'restoration_bench');
   const recipes = tradeRecipes('archaeology');
-  assert.equal(recipes.length, DIG_SITES.length * 3);
+  assert.equal(recipes.filter((recipe) => ITEMS[recipe.result].artefact).length, DIG_SITES.length * 3);
   assert.deepEqual(recipesFor('archaeology').filter((r) => r.kind === 'restore').length, recipes.length);
   const r = recipes.find((x) => x.result === 'tiffin_carrier');
   g.inventory.add('encrusted_tiffin_carrier', 2); g.inventory.add('pottery_shard', 4);

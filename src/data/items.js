@@ -18,7 +18,8 @@ import { signatureWeapons } from './bossWeapons.js';
 import { TOOL_KINDS, TOOL_TIERS, toolId, toolBonusText } from './tooltiers.js';
 import { diveItems, PEARL_JEWELLERY } from './diving.js';
 import { digItems } from './archaeology.js';
-import { CRAFTED_ACCESSORIES } from './accessories.js';
+import { CRAFTED_ACCESSORIES, RESTORED_ACCESSORIES, TEXTILE_ACCESSORIES } from './accessories.js';
+import { BOSS_REWARDS } from './bossRewards.js';
 
 import { aOrAn, AOrAn } from '../core/utils.js';
 const RAW = {
@@ -1077,6 +1078,12 @@ function classifyWeapon(id, eq) {
 // are classified, so they get their type's usual stat and attack speed too.
 const _SIG = signatureWeapons(RAW, classifyWeapon, new Set(Object.keys(UNIQUE_TYPE)));
 Object.assign(RAW, _SIG.items);
+const TROPHY_ICONS = { ring: '💍', amulet: '📿', body: '🛡️', weapon: '⚔️' };
+for (const [bossId, rewards] of Object.entries(BOSS_REWARDS)) {
+  for (const { id, name, value, equip, examine } of rewards) {
+    RAW[id] = { name, value, icon: TROPHY_ICONS[equip.slot], examine, bossReward: bossId, equip: { ...equip } };
+  }
+}
 Object.assign(UNIQUE_TYPE, _SIG.types);
 // Shortbows are close-range bows: a quarter of the reach they had, but every
 // shot looses a spread of three arrows (see SHORTBOW_ARROWS in game.js).
@@ -1330,9 +1337,13 @@ for (const K of TOOL_KINDS) {
 }
 
 // ---- Craftable accessory pairs ----
-for (const [id, name, slot, req, bonuses, value, , , , examine, style] of CRAFTED_ACCESSORIES) {
+for (const [id, name, slot, req, bonuses, value, , , , examine, style] of [...CRAFTED_ACCESSORIES, ...RESTORED_ACCESSORIES]) {
   RAW[id] = { name, icon: slot === 'ring' ? '💍' : '📿', value, examine,
     equip: { slot, req, bonuses, ...(style ? { style } : {}) } };
+}
+
+for (const [id, name, slot, req, bonuses, value, examine] of TEXTILE_ACCESSORIES) {
+  RAW[id] = { name, icon: slot === 'ring' ? '💍' : '📿', value, examine, equip: { slot, req, bonuses } };
 }
 
 // ---- Stronger rings and amulets ----

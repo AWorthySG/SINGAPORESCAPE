@@ -75,7 +75,8 @@ export function openIslandSkill(ui, skill) {
             + (workshop?.level >= 8 && known ? button(made ? 'Order filled today' : 'Fill order', 'order:' + p.id, made || !ready || lvl < p.level || dye < 2 || coins < 16) : '')
             + (known ? button(book.scarf === p.id ? 'Remove' : 'Wear', 'wear:' + p.id) : '');
           const offer = known && !made ? ` · Order: 2 dye + 16 coins for ${islandPayout(game, skill, Math.round(p.xp * 1.5))} coins` : '';
-          return row(swatch(p) + p.name, `Level ${p.level} · ${getItem(p.dye).name}${offer}`, actions);
+          const reward = p.reward ? ` · Order reward: ${getItem(p.reward).name}` : '';
+          return row(swatch(p) + p.name, `Level ${p.level} · ${getItem(p.dye).name}${offer}${reward}`, actions);
         }).join('');
     }
     const stage = musicStage(game);

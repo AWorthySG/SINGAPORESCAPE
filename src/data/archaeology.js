@@ -20,6 +20,7 @@
 // digsites.js places the sites.
 
 import { TOOL_TIERS } from './tooltiers.js';
+import { RESTORED_ACCESSORIES } from './accessories.js';
 
 export const DIG_TAG = 'trowel';
 
@@ -223,6 +224,9 @@ export function restoreRecipes() {
       out.push({ result: r.id, qty: 1, inputs: [[r.encrusted, 1], [s.gives, RESTORE_INPUT]], level: r.level,
         xp: restoreXp(s), tool: 'brush' });
     }
+  }
+  for (const [result, , , , , , level, xp, inputs] of RESTORED_ACCESSORIES) {
+    out.push({ result, qty: 1, inputs, level, xp, tool: 'brush' });
   }
   return out.sort((a, b) => a.level - b.level);
 }

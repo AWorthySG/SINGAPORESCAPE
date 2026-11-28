@@ -10,7 +10,8 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
 import { ITEMS } from '../data/items.js';
 import { BESTIARY_BOSSES } from '../data/bestiary.js';
 import { CON_TIERS, CON_WOOD } from '../data/construction.js';
-import { CRAFTED_ACCESSORIES } from '../data/accessories.js';
+import { CRAFTED_ACCESSORIES, RESTORED_ACCESSORIES, TEXTILE_ACCESSORIES } from '../data/accessories.js';
+import { BOSS_REWARDS } from '../data/bossRewards.js';
   const OL = '#22304A';                 // A-Worthy navy ink outline
   // palettes
   const C = {
@@ -438,8 +439,13 @@ import { CRAFTED_ACCESSORIES } from '../data/accessories.js';
   I.diamond_amulet = I.amulet_of_power;
   // Pearl jewellery and prayer accessories
   I.holy_beads = I.temple_pendant = I.starlit_pendant = I.pearl_amulet = I.amulet_of_power;
-  for (const [id, , slot] of CRAFTED_ACCESSORIES) {
-    I[id] = slot === 'ring' ? I.gold_ring : I.amulet_of_power;
+  const rewardGear = [
+    ...[...CRAFTED_ACCESSORIES, ...RESTORED_ACCESSORIES, ...TEXTILE_ACCESSORIES].map(([id, , slot]) => [id, slot]),
+    ...Object.values(BOSS_REWARDS).flat().map(({ id, equip }) => [id, equip.slot]),
+  ];
+  const rewardFallback = { ring: I.gold_ring, amulet: I.amulet_of_power, body: plate(C.steel, C.steelHi), weapon: blade(C.steel, C.steelHi) };
+  for (const [id, slot] of rewardGear) {
+    I[id] = rewardFallback[slot];
   }
   I.ring_of_devotion = ringIcon(C.gold, '#ffffff'); I.ring_of_serenity = ringIcon('#2f9e6e', '#ffffff'); I.pearl_ring = ringIcon('#c8ccd4', '#ffffff');
   I.pilgrim_cape = capeIcon('#8a6a3a', '#d8b878'); I.lantern_cape = capeIcon('#c0392b', '#f5b82e');
@@ -734,7 +740,7 @@ import { CRAFTED_ACCESSORIES } from '../data/accessories.js';
   // A-Worthy mascot artwork, where it exists, replaces the stickered vectors.
   // Items with A-Worthy mascot-sticker artwork (assets/icons/item-<id>.webp).
   const ITEM_ART = new Set([
-    ...CRAFTED_ACCESSORIES.map(([id]) => id),
+    ...rewardGear.map(([id]) => id),
     'coins', 'bronze_axe', 'bronze_pickaxe', 'small_net', 'tinderbox', 'hammer',
     'logs', 'oak_logs', 'willow_logs',
     'copper_ore', 'tin_ore', 'iron_ore', 'coal', 'bronze_bar', 'iron_bar', 'silver_bar', 'gold_bar',

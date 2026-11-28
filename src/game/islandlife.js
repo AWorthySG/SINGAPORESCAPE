@@ -1,4 +1,5 @@
 import { LANDINGS, LOOMS, PATTERNS, PHOTO_ASSIGNMENTS, STAGES, TUNES, VOYAGES } from '../data/islandlife.js';
+import { getItem } from '../data/items.js';
 import { teleportPlayer, unlockFx } from './skillunlocks.js';
 
 export const nearIslandSite = (p, site, range = 2) => Math.max(Math.abs(p.x - site.x), Math.abs(p.y - site.y)) <= range;
@@ -143,7 +144,9 @@ export function makeIslandPattern(game, id, { order = false } = {}) {
     const payout = islandPayout(game, 'textile_arts', Math.round(pattern.xp * 1.5));
     claimIslandActivity(game, 'order:' + id);
     pay(game, payout);
-    finish(game, 'textile_arts', pattern.xp * 2, `You fill the ${pattern.name} order for ${payout} coins.`);
+    const reward = pattern.reward;
+    if (reward) game.inventory.add(reward, 1);
+    finish(game, 'textile_arts', pattern.xp * 2, `You fill the ${pattern.name} order for ${payout} coins${reward ? ` and a ${getItem(reward).name.toLowerCase()}` : ''}.`);
     return true;
   }
   if (!book.patterns.includes(id)) book.patterns.push(id);

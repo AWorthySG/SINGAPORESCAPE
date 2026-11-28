@@ -675,7 +675,7 @@ test('standard amulets, rings and capes each suit one style, with equal ladders'
   }
   for (const [id, it] of Object.entries(ITEMS)) {
     const eq = it.equip;
-    if (!eq || !ACCESSORY_SLOTS.includes(eq.slot) || /_sash$/.test(id) || separateLadders.has(id)) continue;
+    if (!eq || !ACCESSORY_SLOTS.includes(eq.slot) || /_sash$/.test(id) || separateLadders.has(id) || it.bossReward) continue;
     const b = eq.bonuses || {};
     if (!['attack', 'strength', 'ranged', 'magic', 'dance'].some((k) => b[k])) continue;
     assert.ok(ACCESSORY_STYLE[id] || CRAFTED[id], `${id} has a style`);

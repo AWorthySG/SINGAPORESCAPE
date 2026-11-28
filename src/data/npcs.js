@@ -1,3 +1,4 @@
+import { BOSS_REWARDS } from './bossRewards.js';
 import { CROPS } from './trades.js';
 import { accessoriesFor, PRAYER_GEAR } from './items.js';
 import { BOSS_ABILITIES } from './bossAbilities.js';
@@ -632,6 +633,7 @@ for (const id of [...MONSTER_IDS, ...EXTRA_MONSTER_IDS, ...MORE_MONSTER_IDS, ...
 // bundle of good arrows, and dragonhide.
 for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS, ...BESTIARY_BOSS_IDS]) {
   const b = BOSS_DEFS[id];
+  if (BOSS_REWARDS[id]) b.trophyDrops = BOSS_REWARDS[id];
   const lvl = b.level || 1;
   const arrow = lvl < 50 ? 'mithril_arrow' : lvl < 90 ? 'adamant_arrow' : 'rune_arrow';
   b.dropTable = [...(b.dropTable || []),

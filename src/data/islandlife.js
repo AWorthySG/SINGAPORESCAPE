@@ -45,9 +45,9 @@ export const PATTERNS = [
   { id: 'chilli', name: 'Chilli flower', level: 1, xp: 22, dye: 'chilli', colours: ['#a24849', '#f3d49a'] },
   { id: 'pandan', name: 'Pandan leaf', level: 3, xp: 36, dye: 'pandan_leaves', colours: ['#396b58', '#f7dca1'] },
   { id: 'sireh', name: 'Sireh star', level: 5, xp: 52, dye: 'sireh_leaf', colours: ['#365c78', '#add9be'] },
-  { id: 'butterfly', name: 'Butterfly pea indigo', level: 8, xp: 78, dye: 'butterfly_pea', art: 'pandan', hue: 108, colours: ['#484b91', '#b9a4df'] },
+  { id: 'butterfly', name: 'Butterfly pea indigo', level: 8, xp: 78, dye: 'butterfly_pea', reward: 'batik_bloom_ring', art: 'pandan', hue: 108, colours: ['#484b91', '#b9a4df'] },
   { id: 'ginger', name: 'Torch ginger bloom', level: 15, xp: 118, dye: 'torch_ginger', art: 'chilli', hue: -28, colours: ['#9d496f', '#f7c8a8'] },
-  { id: 'mangosteen', name: 'Mangosteen night', level: 22, xp: 158, dye: 'mangosteen', art: 'sireh', hue: 58, colours: ['#604961', '#dcc3a5'] },
+  { id: 'mangosteen', name: 'Mangosteen night', level: 22, xp: 158, dye: 'mangosteen', reward: 'batik_night_amulet', art: 'sireh', hue: 58, colours: ['#604961', '#dcc3a5'] },
 ];
 export const TUNES = [
   { id: 'kopi', name: 'Kopi Waltz', notes: [0, 1, 2, 1], level: 1, xp: 17, tip: 12 },

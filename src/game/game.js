@@ -73,6 +73,7 @@ import { MORAL_EVENTS, MORAL_BY_ID, moralCoins, BLESS_MS, BLESS_XP } from '../da
 import { alignmentTier, alignmentStyle, greetingFor } from '../data/alignment.js';
 import { tickBossMechanics, mechAbilityUsed, mechAutoFight, inHazard } from './bossmech.js';
 import { SIGNATURE_DROP_CHANCE, sigDropsFor } from '../data/bossWeapons.js';
+import { rollBossReward } from '../data/bossRewards.js';
 import { nextJob, jobKey, makeBatch, batched } from './autoprocess.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS, SLAYER_TASKS, SLAYER_HELM_DMG, slayerBuffs, slayerBuffText } from '../data/slayer.js';
@@ -4352,14 +4353,20 @@ export class Game {
         if (first) { first[1] += l[1]; loot.splice(i, 1); } else piles.set(l[0], l);
       }
     }
+    // Trophies enter after class substitutions so they always keep their identity.
+    const trophy = def.boss && rollBossReward(def.trophyDrops);
+    if (trophy) {
+      loot.push([trophy, 1, 'legendary']);
+      this.msg(`Boss trophy! ${getItem(trophy).name}.`, 'level');
+    }
     // Gear quality: the copy that drops keeps it (loot.js), and it multiplies that copy's stats.
     for (const l of loot) {
       if (!getItem(l[0]).equip) continue;
       const q = rollQuality(l[3] === 'boss' || def.boss ? 'boss' : npc.champion ? 'champion' : 'normal');
-      const sig = l[3] === 'sig';
+      const namedDrop = l[3] === 'sig' || l[0] === trophy;
       l.length = 3;
       if (!q) continue;
-      l[2] = sig ? 'legendary' : QUALITY[q].rarity;
+      l[2] = namedDrop ? 'legendary' : QUALITY[q].rarity;
       l[3] = q;
       this._announceQuality(l[0], q);
     }

@@ -106,7 +106,7 @@ export function classGearFor(classId, level, rand = Math.random) {
   if (rand() < 0.5) { const t = SECONDARY_WEAPON[classId] && rand() < (SECOND_SHARE[classId] || 0.25) ? SECONDARY_WEAPON[classId] : cls.weapon; return pickBest(weaponsOfType(t).filter((w) => !UNIQUES.has(w))); }
   const slot = ['head', 'body', 'legs', 'hands', 'feet'][Math.floor(rand() * 5)];
   const fam = ARMOUR_FAMILY[classId];
-  return pickBest(Object.keys(ITEMS).filter((x) => ITEMS[x].equip?.family === fam && ITEMS[x].equip.slot === slot));
+  return pickBest(Object.keys(ITEMS).filter((x) => !ITEMS[x].bossReward && ITEMS[x].equip?.family === fam && ITEMS[x].equip.slot === slot));
 }
 
 /** The piece of a family that best matches another piece's slot and level (for loot).
@@ -124,7 +124,7 @@ export function equivalentArmour(id, family) {
 const _familyPieces = new Map();
 const familyPieces = (family) => {
   let list = _familyPieces.get(family);
-  if (!list) _familyPieces.set(family, (list = Object.keys(ITEMS).filter((x) => ITEMS[x].equip?.family === family)));
+  if (!list) _familyPieces.set(family, (list = Object.keys(ITEMS).filter((x) => !ITEMS[x].bossReward && ITEMS[x].equip?.family === family)));
   return list;
 };
 function findEquivalentArmour(id, family) {
@@ -192,4 +192,4 @@ export function equivalentWeapon(id, type) {
 }
 // Boss uniques and boss signature weapons (bossWeapons.js) only come from their own boss, never as stand-in loot.
 const UNIQUES = new Set(['tiger_kris', 'merlion_blade', 'cursed_cutlass', 'seraph_blade', 'megalodon_jaw', 'granite_maul', 'void_blade', 'leviathan_trident', 'tiger_fang',
-  ...Object.keys(ITEMS).filter((id) => ITEMS[id].signature)]);
+  ...Object.keys(ITEMS).filter((id) => ITEMS[id].signature || ITEMS[id].bossReward)]);
