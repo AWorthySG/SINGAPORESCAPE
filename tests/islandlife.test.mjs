@@ -7,7 +7,7 @@ import { Game } from '../src/game/game.js';
 import { islandPhotoArt, LANDINGS, LOOM, LOOMS, PHOTO_ASSIGNMENTS, STAGES, TUNES, VOYAGES } from '../src/data/islandlife.js';
 import { encoreNotes, exploreCove, finishIslandTune, finishVoyage, islandBook, learnIslandTune, makeIslandPattern, recordIslandPhoto, restoreIslandLife } from '../src/game/islandlife.js';
 import { saveGame } from '../src/game/save.js';
-import { drawIslandSites } from '../src/render/islandlife.js';
+import { worldArtMax } from '../src/render/sprites.js';
 
 function fresh() {
   const store = new Map();
@@ -70,18 +70,35 @@ test('textiles cost ingredients, music checks its stage and performance, and bot
   assert.deepEqual(restoreIslandLife({ photos: ['unknown'], display: 'unknown' }), restoreIslandLife());
 });
 
-test('landings have distinctive sails which stay still under Reduce motion', () => {
+test('landings, looms and stages have art and Interact opens the right skill', () => {
   const g = fresh();
-  const { x, y } = LANDINGS.changi;
-  const draw = (t, calm) => {
-    const calls = [];
-    const ctx = new Proxy({}, { get: (_, k) => (...args) => calls.push([k, ...args]) });
-    drawIslandSites(ctx, g, x * 32 - 20, y * 32 - 20, 96, 96, t, calm);
-    assert.ok(calls.some(([op]) => op === 'lineTo'));
-    return calls;
-  };
-  assert.deepEqual(draw(0, true), draw(960, true));
-  assert.notDeepEqual(draw(0, false), draw(960, false));
+  let opened = null;
+  g.ui = new Proxy({ openSkillGuide(skill) { opened = skill; } }, { get: (ui, key) => ui[key] || (() => {}) });
+  for (const [id, skill, sites] of [
+    ['sailing_landing', 'sailing', Object.values(LANDINGS)],
+    ['batik_loom', 'textile_arts', LOOMS],
+    ['busker_stage', 'music', STAGES],
+  ]) for (const at of sites) {
+    visit(g, at);
+    const node = g.world.objectAt(at.x, at.y);
+    assert.equal(node?.objId, id);
+    assert.ok(worldArtMax(node), `${id} has painted world art`);
+    assert.ok(!g.world.isBlocked(at.x, at.y), `${at.name} can still be stood on`);
+    assert.equal(g._findInteract()?.ref, node, `${at.name} is the Interact target`);
+    opened = null;
+    g.interact();
+    assert.equal(opened, skill);
+  }
+  const signs = g.world.objects.filter((o) => o.objId === 'sign').map((o) => o.sign || '');
+  assert.equal(signs.filter((s) => s.startsWith('Sailing landing')).length, 2);
+  assert.equal(signs.filter((s) => s.startsWith('Shell shallows')).length, 2);
+  const dock = LANDINGS.changi;
+  const threats = g.npcs.filter((n) => n.attackable && n.def.aggressive
+    && g.world.zoneAt(n.spawnX, n.spawnY)?.name === 'Changi Coast');
+  for (const n of threats) {
+    const distance = Math.max(Math.abs(n.spawnX - dock.x), Math.abs(n.spawnY - dock.y));
+    assert.ok(distance > n.wander + (n.def.aggroRange || 4) + 2, `${n.name} stays clear of the boarding area`);
+  }
 });
 
 test('advanced voyages unlock in route order and freight can pay once per route per day', () => {

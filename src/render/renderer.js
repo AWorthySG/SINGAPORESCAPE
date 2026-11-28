@@ -1,4 +1,4 @@
-import { drawIslandScarf, drawIslandSites } from './islandlife.js';
+import { drawHomeAlbum, drawIslandScarf } from './islandlife.js';
 import { drawHeritageBank, drawHeritageServiceCue, drawMarketValance, heritageService } from './heritagewalk.js';
 import { isDepthShop } from './streetdepth.js';
 import { damageNumber as splatNum } from '../core/utils.js';   // hitsplats: 54000 -> "54K"
@@ -332,7 +332,7 @@ export class Renderer {
     } else {
       this._drawTerrain(x0, y0, x1, y1, ox, oy, timeMs);
     }
-    drawIslandSites(ctx, game, ox, oy, vw, vh, timeMs, trim || game.reduceMotion);
+    drawHomeAlbum(ctx, game, ox, oy, vw, vh);
     const service = game.player.alive && heritageService(game.world, game.player);
     if (service && game.hover?.obj !== service) drawHeritageServiceCue(ctx, service, ox, oy);
     this._drawGroundDecals(ox, oy);

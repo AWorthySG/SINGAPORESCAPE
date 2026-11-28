@@ -111,6 +111,12 @@ test('the lumber yards stand in Kampong Glam and Kranji, clear of the home plot,
   for (const y of g.lumberYards) {
     assert.equal(g.world.zoneAt(y.x, y.y)?.name, y.name === 'Kranji' ? 'Kranji Farmlands' : 'Kampong Glam', y.name);
     for (const id of ['sawmill', 'kiln', 'workbench']) assert.ok(g.world.objects.some((o) => o.objId === id && Math.abs(o.x - y.x) <= 5 && Math.abs(o.y - y.y) <= 3), `${y.name}: ${id}`);
+    if (y.name === 'Kranji') {
+      const anvil = g.world.objectAt(y.x + 6, y.y + 1);
+      assert.equal(anvil?.objId, 'anvil', 'a public anvil beside the workbench');
+      assert.equal(g.world.isBlocked(y.x + 5, y.y + 1), false, 'one standing tile reaches both stations');
+      assert.equal(g.world.objectAt(y.x + 6, y.y)?.sign, 'Kranji lumber yard');
+    }
   }
   const o = g.home.origin;
   for (const s of g.world.objects.filter((x) => ['sawmill', 'kiln', 'workbench'].includes(x.objId))) {

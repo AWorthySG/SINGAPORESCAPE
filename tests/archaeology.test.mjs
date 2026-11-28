@@ -11,6 +11,7 @@ import { Game } from '../src/game/game.js';
 import { clearSave, saveGame, loadGame } from '../src/game/save.js';
 import { ITEMS } from '../src/data/items.js';
 import { OBJECTS } from '../src/data/objects.js';
+import { getNpc } from '../src/data/npcs.js';
 import { CRAFT } from '../src/data/crafting.js';
 import { SHOPS } from '../src/data/shops.js';
 import { SKILL_BY_ID } from '../src/data/skills.js';
@@ -19,6 +20,7 @@ import { TOOL_TIERS, toolId } from '../src/data/tooltiers.js';
 import { SKILL_UNLOCKS } from '../src/data/unlocks.js';
 import { SKILL_HOURS } from '../src/data/skillhours.js';
 import { buildWorld } from '../src/data/world.js';
+import { TEACHING_DIG_ART, TEACHING_DIG_TILES } from '../src/data/digsites.js';
 import { DIG_SITES, DIG_SITE_SIZE, TROWELS, MUSEUM_SETS, SHOP_TROWEL_TIER, RELIC_CHANCE, RELIC_SET_BONUS, museumPage, restoreRecipes } from '../src/data/archaeology.js';
 import { resolveExcavate, setDigRand, findRelic, digJackpot, relicChance, museumSets, donateAll, setsDone } from '../src/game/archaeology.js';
 import { NODE_JACKPOT } from '../src/game/jackpot.js';
@@ -88,7 +90,10 @@ test('every site is placed in its region, reachable, and the museum stands in Ch
   for (const s of DIG_SITES) {
     const os = w.objects.filter((o) => o.objId === s.id);
     assert.equal(os.length, DIG_SITE_SIZE, `${s.id}: ${os.length} placed`);
-    for (const o of os) assert.equal(zoneAt(o.x, o.y)?.name, s.region, `${s.id} in ${s.region}`);
+    for (const o of os) {
+      const region = o.art === TEACHING_DIG_ART ? 'Chinatown' : s.region;
+      assert.equal(zoneAt(o.x, o.y)?.name, region, `${s.id} in ${region}`);
+    }
     if (s.level >= 100) assert.ok(zoneAt(os[0].x, os[0].y).far || zoneAt(os[0].x, os[0].y).lo >= 120, `${s.id} is in a far region`);
     const site = g.world.objects.find((o) => o.objId === s.id);
     g.player.x = g.player.tx = 58; g.player.y = g.player.ty = 55;
@@ -98,6 +103,16 @@ test('every site is placed in its region, reachable, and the museum stands in Ch
   assert.equal(cur.length, 1); assert.equal(bench.length, 1);
   assert.equal(zoneAt(cur[0].x, cur[0].y).name, 'Chinatown');
   assert.ok(chebyshev(cur[0].x, cur[0].y, bench[0].x, bench[0].y) <= 1, 'the bench beside her');
+  const teaching = g.world.objects.filter((o) => o.art === TEACHING_DIG_ART);
+  assert.deepEqual(teaching.map((o) => [o.x, o.y]), TEACHING_DIG_TILES);
+  for (const o of teaching) {
+    assert.equal(o.objId, 'kampong_ruins', 'the beginner digs still count towards starter contracts');
+    assert.equal(o.def.site, OBJECTS.kampong_ruins.site);
+    assert.equal(o.def.name, 'Museum teaching trench');
+    assert.ok(chebyshev(o.x, o.y, bench[0].x, bench[0].y) <= 2, 'the teaching trench is beside the museum');
+    assert.ok(!w.npcSpawns.some((n) => (n.opts?.aggressive ?? getNpc(n.npcId).aggressive)
+      && chebyshev(n.x, n.y, o.x, o.y) <= 5), 'the teaching site is away from aggressive spawns');
+  }
   // Placed after everything else: the world without the late additions has none.
   const bare = buildWorld({ groves: false });
   assert.equal(bare.objects.filter((o) => OBJECTS[o.objId]?.type === 'dig').length, 0);

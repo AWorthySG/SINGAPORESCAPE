@@ -697,6 +697,12 @@ export const OBJECTS = {
   palm: { name: 'Palm tree', type: 'scenery', emoji: '🌴', blocking: true, examine: 'A tall palm.' },
   lamp: { name: 'Lamp post', type: 'scenery', emoji: '🏮', blocking: true, examine: 'It lights the path.' },
   sign: { name: 'Signpost', type: 'scenery', emoji: '🪧', blocking: false, examine: 'Welcome to Kampong Glam!' },
+  batik_loom: { name: 'Batik loom', type: 'islandsite', skill: 'textile_arts', verb: 'Use', emoji: '🧵', blocking: false,
+    examine: 'A batik loom with dyed fabric ready to work.' },
+  busker_stage: { name: 'Busking stage', type: 'islandsite', skill: 'music', verb: 'Perform at', emoji: '🎵', blocking: false,
+    examine: 'A small stage for a tune and a tip.' },
+  sailing_landing: { name: 'Sailing landing', type: 'islandsite', skill: 'sailing', verb: 'Sail from', emoji: '⛵', blocking: false,
+    examine: 'A mooring where small boats set out along the coast.' },
 
   // ---------------- Kampong home (home.js) ----------------
   // Each has its own picture (assets/world/); `homeTab` is the panel each opens.

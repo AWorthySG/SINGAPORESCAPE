@@ -21,7 +21,7 @@ import { RESIDENTS } from '../data/consequences.js';
 import { PORTRAIT_CROPS } from '../data/portraitcrops.js';
 import { BESTIARY_SPECIES, BESTIARY_BOSSES } from '../data/bestiary.js';
 import { GENERATION_ONLY_SCENERY, OBJECTS } from '../data/objects.js';
-import { drawDiveSpot } from './diveart.js';
+import { drawDiveFlag, drawDiveSpot } from './diveart.js';
 import { drawDigSite, drawRestoreBench } from './digart.js';
 
 const CROP_COLORS = Object.fromEntries(CROPS.map((c) => [c[0], c[9]]));
@@ -2736,6 +2736,8 @@ const WORLD_ART = {
     'hermit_camp', 'old_shipyard', 'stargazer_terrace', 'buried_courtyard', 'temasek_palace_dig'].map((k) => [`obj-${k}`, [46, 38, 14]])),
   'obj-restoration_bench': [52, 42, 16],
   'obj-sawmill': [52, 44, 16], 'obj-kiln': [50, 50, 16], 'obj-workbench': [52, 42, 16], 'obj-home_workbench': [52, 44, 16],
+  'obj-kampong_ruins-1': [46, 39, 15],
+  'obj-batik_loom': [44, 49, 16], 'obj-busker_stage': [52, 50, 16], 'obj-sailing_landing': [49, 48, 16],
   'obj-home_parlour': [56, 46, 16], 'obj-home_bed': [56, 44, 16], 'obj-home_altar': [46, 50, 16], 'obj-home_bank': [46, 40, 15],
   'obj-home_portal': [52, 54, 16], 'obj-hawker_counter': [56, 56, 16],
   // A world event's node (worldevents.js): the rare shoal, the meteorite and the ancient tree.
@@ -2813,7 +2815,7 @@ export function bedLook(obj) {
 }
 const _worldImg = {};
 // Replaced art gets a new URL so the offline cache serves the current sprite.
-const revisedWorldArt = new Set(['obj-heritage_lamp', 'obj-lantern_post']);
+const revisedWorldArt = new Set(['obj-heritage_lamp', 'obj-lantern_post', 'obj-fishing_spot', 'obj-rod_spot', 'obj-harpoon_spot']);
 function worldImage(key) {
   if (!WORLD_ART[key]) return null;
   if (_worldImg[key] !== undefined) return _worldImg[key];
@@ -2921,7 +2923,12 @@ export function drawObjectSprite(ctx, obj, cx, cy, time = 0, low = false, still 
   if (t === 'fire' || t === 'farm') for (const k of Object.keys(WORLD_ART)) if (k.startsWith(t === 'fire' ? 'obj-fire-' : 'obj-farm_patch-')) worldImage(k);
   else if (obj.def.frames) for (let i = 0; i < obj.def.frames; i++) worldImage(`obj-${obj.objId}-${i}`);
   const art = key && worldImage(key);
-  if (art && art.complete && art.naturalWidth) { drawWorldArt(ctx, obj, art, key, cx, cy, time, upperAlpha); if (t === 'fishing') drawCatchBadge(ctx, obj, cx, cy, time, low, still); return; }
+  if (art && art.complete && art.naturalWidth) {
+    drawWorldArt(ctx, obj, art, key, cx, cy, time, upperAlpha);
+    if (t === 'fishing') drawCatchBadge(ctx, obj, cx, cy, time, low, still);
+    if (t === 'dive') drawDiveFlag(ctx, cx + 12, cy + 7);
+    return;
+  }
   if (obj.def.footprint) return;   // a landmark has no drawn stand-in: it appears once its picture loads
   if (CACHED_OBJECTS.has(t)) {
     const key = `obj|${t}|${obj.objId}|${obj.def.ore || ''}|${obj.depleted ? 1 : 0}`;

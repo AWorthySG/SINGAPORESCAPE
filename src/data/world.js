@@ -4,6 +4,7 @@
 
 import { NPCS, MONSTER_IDS, BOSS_IDS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS, MORE_MONSTER_IDS, MORE_BOSS_IDS, stretchLevel } from './npcs.js';
 import { STATIONS } from './transport.js';
+import { LANDINGS } from './islandlife.js';
 import { GENERATION_ONLY_SCENERY } from './objects.js';
 import { placeLandmarks } from './landmarks.js';
 import { placeGroves, QUARRY_PLAN } from './groves.js';
@@ -1499,6 +1500,32 @@ export function buildWorld({ groves: withGroves = true } = {}) {
   // stream, so nothing placed before them moves. They come with the groves
   // (tests build the world without both to check that).
   if (withGroves) placeDigSites({ T, width: W, height: H, get, inB, isFree, placeObj, placeNpc, inTown, inNewTown, objects, npcSpawns, start: { x: 58, y: 55 }, rand: mulberry32(20261127) });
+
+  // The first voyage starts at the pier. Clear the boarding area of threats
+  // that could wander into attack range, like the MRT platforms.
+  const landing = LANDINGS.changi, coast = zoneByName('Changi Coast');
+  const gapTo = (x, y, at) => Math.max(Math.abs(x - at.x), Math.abs(y - at.y));
+  const taken = new Set(npcSpawns.map((s) => key(s.x, s.y)));
+  const onCoast = (x, y) => x >= coast.x0 && x <= coast.x1 && y >= coast.y0 && y <= coast.y1;
+  for (const s of npcSpawns) {
+    const def = NPCS[s.npcId];
+    if (!def?.attackable || def.fixed || !(s.opts?.aggressive ?? def.aggressive) || !onCoast(s.x, s.y)) continue;
+    const clearance = (s.wander || def.wander || 0) + (def.aggroRange || 4) + 2;
+    if (gapTo(s.x, s.y, landing) > clearance) continue;
+    let destination = null;
+    for (let r = 1; r <= 2 * clearance && !destination; r++) {
+      for (let dy = -r; dy <= r && !destination; dy++) for (let dx = -r; dx <= r && !destination; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const x = s.x + dx, y = s.y + dy;
+        if (onCoast(x, y) && gapTo(x, y, landing) > clearance && LANDABLE.includes(get(x, y))
+          && isFree(x, y) && !taken.has(key(x, y)) && STATIONS.every((st) => gapTo(x, y, st) >= MRT_CLEAR)) destination = { x, y };
+      }
+    }
+    if (!destination) continue;
+    taken.delete(key(s.x, s.y));
+    Object.assign(s, destination);
+    taken.add(key(s.x, s.y));
+  }
 
   // The Lion guards the Golden-domed Hall off the heritage walk, clear of the road.
   Object.assign(lion, { x: 64, y: 82 });
