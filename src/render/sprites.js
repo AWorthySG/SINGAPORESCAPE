@@ -190,9 +190,13 @@ const SPECIES_ART = new Set([
 ]);
 // Newer species without painted art yet borrow a close relative's art until
 // theirs arrives (remove the line when the file is added).
-const SPECIES_ALIAS = {};
+const SPECIES_ALIAS = { puddle_wisp: 'will_o_wisp', lantern_moth: 'atlas_moth', verge_boar: 'wild_boar' };
 // ...recoloured by a CSS filter so a borrowed picture still reads as its own creature.
-const SPECIES_TINT = {};
+const SPECIES_TINT = {
+  puddle_wisp: 'hue-rotate(-24deg) saturate(0.8) brightness(1.08)',
+  lantern_moth: 'hue-rotate(16deg) saturate(1.25)',
+  verge_boar: 'sepia(0.2) saturate(0.82) brightness(0.92)',
+};
 // The bestiary expansion's species (bestiary.js) borrow this way until their art arrives.
 const slugName = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 for (const b of BESTIARY_SPECIES) { const f = slugName(b.name); if (!SPECIES_ART.has(f)) { SPECIES_ALIAS[f] = b.borrow; SPECIES_TINT[f] = b.tint; } }
@@ -271,8 +275,11 @@ const TOWN_ART = new Set([
 ]);
 // Newer townsfolk borrow another's picture, recoloured, until their own art
 // arrives (remove the line when the file is added).
-const TOWN_ALIAS = {};
-const TOWN_TINT = {};
+const TOWN_ALIAS = { transit_hawker: 'rq_rajoo', transit_caretaker: 'rq_priya' };
+const TOWN_TINT = {
+  transit_hawker: 'hue-rotate(-16deg) saturate(1.08)',
+  transit_caretaker: 'hue-rotate(14deg) saturate(0.9)',
+};
 // A region quest giver without a picture of their own borrows one the same way (regionQuests.js).
 for (const [id, g] of Object.entries(REGION_GIVERS)) if (!TOWN_ART.has(id)) { TOWN_ALIAS[id] = g.art; TOWN_TINT[id] = g.tint; }
 // A living-world resident without a picture of their own wears the one they borrow (`art`).
@@ -282,6 +289,10 @@ const townFile = (id) => (TOWN_ART.has(id) ? id : TOWN_ALIAS[id] || null);
 const REPAINTED_TOWN_ART = new Set(['banker', 'guide', 'hawker', 'pest_officer', 'shopkeeper', 'skills_tutor']);
 const townArtRevision = (id) => REPAINTED_TOWN_ART.has(id) ? '?v=3' : '';
 export const townArtSrc = (id) => TOWN_ART.has(id) ? `assets/creatures/townsfolk/${id}.webp${townArtRevision(id)}` : null;
+export function townPortrait(id) {
+  const src = townArtSrc(townFile(id));
+  return src ? { src, filter: TOWN_ART.has(id) ? '' : TOWN_TINT[id] || '' } : null;
+}
 const _townImg = {};
 function townImage(id) {
   if (_townImg[id] !== undefined) return _townImg[id];

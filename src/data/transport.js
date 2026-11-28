@@ -2,7 +2,7 @@
 // arrival tile; travelling between them costs a small EZ-link fare. Deep-end
 // zones (Wilderness, Pulau Hantu) are deliberately not on the network — they
 // must be reached on foot.
-export const STATIONS = [
+export const BASE_STATIONS = [
   { id: 'kampong_glam', name: 'Kampong Glam', x: 68, y: 52 },
   { id: 'chinatown', name: 'Chinatown', x: 76, y: 52 },
   { id: 'bukit_timah', name: 'Bukit Timah', x: 64, y: 18 },
@@ -27,5 +27,9 @@ export const STATIONS = [
   { id: 'celestial_peaks', name: 'Celestial Peaks', x: 474, y: 320 },
 ];
 
+// Added after the seeded mainland is built, so the original spawns and roads
+// keep their coordinates. The public MRT network includes it like any stop.
+export const TRANSIT_ROAD_STATION = { id: 'transit_road', name: 'Transit Road, Nee Soon Camp', x: 448, y: 152 };
+export const STATIONS = [...BASE_STATIONS, TRANSIT_ROAD_STATION];
 export const STATION_BY_ID = Object.fromEntries(STATIONS.map((s) => [s.id, s]));
 export const MRT_FARE = 30;

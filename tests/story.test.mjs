@@ -50,10 +50,10 @@ const killFor = (g, npc) => { npc.hp = 0; g.killNpc(npc); };
 const storyNpcs = (g) => g.npcs.filter((n) => n.storyEvent);
 
 // ---------------- Data ----------------
-test('the story runs from Kampong Glam to the Celestial Peaks, every region line in one chapter, in order', () => {
+test('the story runs from Kampong Glam to the Celestial Peaks, every main story line in order', () => {
   assert.equal(CHAPTERS.length, 12);
   const lines = CHAPTERS.flatMap((c) => c.quests.filter((q) => q.startsWith('rq_')));
-  assert.deepEqual(lines, REGION_LINES.map((l) => l.id), 'every region line exactly once, in journey order');
+  assert.deepEqual(lines, REGION_LINES.filter((l) => !l.sideStory).map((l) => l.id), 'every main story line exactly once, in journey order');
   assert.deepEqual(CHAPTERS[0].regions, ['Kampong Glam', 'Chinatown']);
   assert.deepEqual(CHAPTERS.at(-1).regions, ['The Celestial Peaks']);
   for (const c of CHAPTERS) {

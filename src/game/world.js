@@ -1,5 +1,7 @@
 import { getObject } from '../data/objects.js';
 import { TERRAIN } from '../data/world.js';
+import { STATIONS } from '../data/transport.js';
+import { GEOGRAPHIC_PLACE_BY_ID } from '../data/geography.js';
 import { uid } from '../core/utils.js';
 import { FIRE_LIFETIME_TICKS, GROUND_ITEM_LIFETIME_TICKS } from '../config.js';
 
@@ -12,7 +14,10 @@ export class World {
     this.bus = bus;
   }
 
-  build(data) {
+  build(data, { forward, reverse } = {}) {
+    this.layout = data.layout || 'legacy';
+    this._forward = forward;
+    this._reverse = reverse;
     this.width = data.width;
     this.height = data.height;
     this.mapHeight = data.mapHeight || data.height;   // the country, without the sea the Endless Gate floats in
@@ -25,6 +30,11 @@ export class World {
     this.towns = data.towns || [];   // [x0, y0, x1, y1] of each outer town
     this.resourceZones = data.resourceZones || [];   // { id, name, skill, cx, cy, x0..y1 } (world.js, resourcezones.js)
     this.groves = data.groves || [];   // patches thick with one kind of tree, { id, name, objId, region, cx, cy, x0..y1, count } (groves.js)
+    const stations = forward ? STATIONS.map((station) => this.authoredTile({ ...station, access: GEOGRAPHIC_PLACE_BY_ID[station.id]?.access })) : STATIONS;
+    this.stations = stations.filter((station) => !station.access);
+    this._stationById = new Map(stations.map((station) => [station.id, station]));
+    this.ferryLinks = data.ferryLinks || [];
+    this._walkComponents = null;
 
     this.objects = [];
     this.objectByTile = new Map();
@@ -37,13 +47,91 @@ export class World {
         if (this.terrain[this.idx(x, y)] === TERRAIN.WATER) this.baseBlocked[this.idx(x, y)] = 1;
       }
     }
+    const islandStops = new Map(stations.filter((station) => station.access).map((station) => [this.idx(station.x, station.y), station]));
     for (const o of data.objects) {
       const extra = {};
       if (o.sign) extra.sign = o.sign;
       if (o.art) extra.art = o.art;
       if (o.displayName) extra.def = { ...getObject(o.objId), name: o.displayName };
-      this.addObject(o.objId, o.x, o.y, extra);
+      const island = o.objId === 'mrt_station' && islandStops.get(this.idx(o.x, o.y));
+      if (island) this.addObject('sign', o.x, o.y, { sign: island.name });
+      else this.addObject(o.objId, o.x, o.y, extra);
     }
+    for (const { from, to } of this.ferryLinks) {
+      this.addFerryLanding(from, to);
+      this.addFerryLanding(to, from);
+    }
+  }
+
+  authoredTile(tile) {
+    const at = this._forward?.(tile.x, tile.y);
+    return at ? { ...tile, ...at } : tile;
+  }
+
+  legacyTile(tile) {
+    const at = this._reverse?.(tile.x, tile.y);
+    return at ? { ...tile, ...at } : tile;
+  }
+
+  station(id) { return this._stationById.get(id); }
+
+  addFerryLanding(from, to) {
+    const def = { ...getObject('ferry_landing'), name: `Ferry to ${to.name}` };
+    this.addObject('ferry_landing', from.x, from.y, { def, art: 'obj-sampan', destination: to });
+  }
+
+  /** First crossing for a trip between land areas. Cache connected walkable
+   *  areas as they are used, since many trips share the same mainland. */
+  ferryToward(from, to) {
+    if (!this.ferryLinks.length) return null;
+    const source = this._walkComponent(from);
+    const target = this._walkComponent(to);
+    if (!source || !target || source === target) return null;
+    const queue = [{ component: source, landing: null }];
+    const seen = new Set([source]);
+    for (const step of queue) {
+      for (const link of this.ferryLinks) {
+        const a = this._walkComponent(link.from), b = this._walkComponent(link.to);
+        const start = a === step.component ? link.from : b === step.component ? link.to : null;
+        const next = a === step.component ? b : a;
+        if (!start || !next || seen.has(next)) continue;
+        const landing = step.landing || this.objectAt(start.x, start.y);
+        if (next === target) return landing;
+        seen.add(next);
+        queue.push({ component: next, landing });
+      }
+    }
+    return null;
+  }
+
+  _walkComponent(tile) {
+    let { x, y } = tile;
+    if (this.isBlocked(x, y)) {
+      const near = [[x, y - 1], [x - 1, y], [x + 1, y], [x, y + 1]].find(([nx, ny]) => !this.isBlocked(nx, ny));
+      if (!near) return 0;
+      [x, y] = near;
+    }
+    const state = this._walkComponents ||= { ids: new Uint16Array(this.width * this.height), count: 0 };
+    const start = this.idx(x, y);
+    if (state.ids[start]) return state.ids[start];
+    const id = ++state.count;
+    const queue = [start];
+    const width = this.width;
+    state.ids[start] = id;
+    while (queue.length) {
+      const i = queue.pop();
+      const col = i % width;
+      const march = (next) => {
+        if (state.ids[next] || this.baseBlocked[next]) return;
+        state.ids[next] = id;
+        queue.push(next);
+      };
+      if (col > 0) march(i - 1);
+      if (col + 1 < width) march(i + 1);
+      if (i >= width) march(i - width);
+      if (i < state.ids.length - width) march(i + width);
+    }
+    return id;
   }
 
   idx(x, y) { return y * this.width + x; }

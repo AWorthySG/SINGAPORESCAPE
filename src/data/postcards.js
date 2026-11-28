@@ -24,6 +24,7 @@ export const REGION_POSTCARDS = {
   'Coney Island': 'Casuarina trees and a quiet beach all to ourselves.',
   'Gardens by the Bay': 'Supertrees glowing at dusk. So pretty, right?',
   'Kranji Farmlands': 'Fresh eggs, frogs and goat’s milk. Farm life best.',
+  'Transit Road, Nee Soon Camp': 'Rain on the leaves, hot teh tarik under the awning.',
   'Tuas Docklands': 'Cranes, containers and the hum of the port at night.',
   'Temasek Ruins': 'Old stones from old Temasek. Walk softly here.',
   'The Celestial Peaks': 'Above the clouds, the stars feel close enough to touch.',

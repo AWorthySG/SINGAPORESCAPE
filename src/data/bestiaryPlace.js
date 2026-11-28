@@ -14,7 +14,7 @@
 //     groves, veins, fishing spots, traps, chests, agility courses, farm patches),
 //     so a new pack never interrupts a gathering run.
 import { NPCS, BESTIARY_MONSTER_IDS, BESTIARY_BOSS_IDS } from './npcs.js';
-import { STATIONS } from './transport.js';
+import { BASE_STATIONS } from './transport.js';
 
 export const CAMPS_PER_SPECIES = 4;
 // The starter ring (world.js's "Tame the starter ring" uses 30): nothing new spawns this close.
@@ -50,7 +50,7 @@ export function placeBestiary(ctx) {
   const zoneByName = (name) => zones.find((z) => z.name === name);
   const WZ = zoneByName('The Wilderness');
   const taken = new Set(npcSpawns.map((s) => key(s.x, s.y)));
-  const nearStation = (x, y) => STATIONS.some((st) => cheb(st.x, st.y, x, y) < mrtClear + 2);
+  const nearStation = (x, y) => BASE_STATIONS.some((st) => cheb(st.x, st.y, x, y) < mrtClear + 2);
   const inZ = (z, x, y) => x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1;
   // Aggressive spawns in the Wilderness stay wander (3) + aggro range (4) + 1 tiles in from its west edge.
   const ok = (z, x, y, def) => x >= 1 && y >= 1 && x <= W - 2 && y <= H - 2 && inZ(z, x, y)

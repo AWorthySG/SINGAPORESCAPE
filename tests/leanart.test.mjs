@@ -49,11 +49,9 @@ test('the sun shadows ask only for the landmarks near the view, not the whole is
     const cx = (o.x + fw / 2) * TILE - ox, cy = o.y * TILE - oy;
     return Math.max(0, -cx, cx - vw, -cy, cy - vh) / TILE;
   };
-  for (const o of lms) {
-    const src = `assets/world/obj-${o.def.art || o.objId}.webp`;
-    if (srcs.includes(src)) assert.ok(dist(o) < 40, `${o.objId} asked for at ${dist(o).toFixed(0)} tiles from the view`);
-    else assert.ok(dist(o) > 12, `${o.objId}, ${dist(o).toFixed(0)} tiles away, is asked for ahead of time`);
-  }
+  const artPath = (o) => `assets/world/obj-${o.def.art || o.objId}.webp`;
+  for (const src of srcs) assert.ok(lms.some((o) => artPath(o) === src && dist(o) < 40), `${src} has a landmark within view`);
+  for (const o of lms) if (dist(o) <= 12) assert.ok(srcs.includes(artPath(o)), `${o.objId} is asked for ahead of time`);
   // The far ones are asked for once the view comes near them.
   const far = lms.filter((o) => !srcs.includes(`assets/world/obj-${o.def.art || o.objId}.webp`));
   assert.ok(far.length > 0);

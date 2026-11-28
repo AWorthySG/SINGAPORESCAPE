@@ -8,7 +8,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { BESTIARY_SPECIES, BESTIARY_BOSSES, ISLAND_BANDS } from '../src/data/bestiary.js';
-import { NPCS, ALL_MONSTER_IDS, ALL_BOSS_IDS, BESTIARY_MONSTER_IDS, BESTIARY_BOSS_IDS, getNpc } from '../src/data/npcs.js';
+import { NPCS, MONSTER_IDS, EXTRA_MONSTER_IDS, MORE_MONSTER_IDS, ALL_MONSTER_IDS, ALL_BOSS_IDS, BESTIARY_MONSTER_IDS, BESTIARY_BOSS_IDS, getNpc } from '../src/data/npcs.js';
 import { buildWorld, MRT_CLEAR } from '../src/data/world.js';
 import { STARTER } from '../src/data/bestiaryPlace.js';
 import { STATIONS } from '../src/data/transport.js';
@@ -41,7 +41,9 @@ test('about 200 new monsters (67 species in three forms) and 20 new bosses, all 
   for (const id of BESTIARY_MONSTER_IDS) assert.ok(ALL_MONSTER_IDS.includes(id) && !NPCS[id].boss, id);
   for (const id of BESTIARY_BOSS_IDS) assert.ok(ALL_BOSS_IDS.includes(id) && NPCS[id].boss, id);
   // Earlier monsters and bosses are all still there, with their own numbers.
-  assert.equal(ALL_MONSTER_IDS.length - BESTIARY_MONSTER_IDS.length, 536);
+  const earlier = new Set([...MONSTER_IDS, ...EXTRA_MONSTER_IDS, ...MORE_MONSTER_IDS]);
+  assert.equal(earlier.size, 536);
+  assert.equal(ALL_MONSTER_IDS.filter((id) => earlier.has(id)).length, earlier.size);
   assert.equal(ALL_BOSS_IDS.length - BESTIARY_BOSS_IDS.length, 57);
   assert.equal(new Set(ALL_MONSTER_IDS).size, ALL_MONSTER_IDS.length, 'no monster id is used twice');
   for (const [id, level] of [['chicken', 1], ['elder_kancil', 16], ['goblin_warchief', 81], ['nian_beast', 194], ['buaya_putih', 227], ['jade_dragon', 9999]]) {
@@ -137,11 +139,10 @@ test('the world places every new monster in its own region, safely, and every ne
   assert.equal(new Set(world.npcSpawns.map((s) => `${s.x},${s.y}`)).size, world.npcSpawns.length);
 });
 
-test('nothing already in the world moved', () => {
-  const old = world.npcSpawns.filter((s) => !NEW.has(s.npcId) && s.npcId !== 'museum_curator');   // (Archaeology's curator: placed after, digsites.js)
-  // The new ones are placed after everything else (this count moves only when other content is added).
+test('the expansion preserves the earlier roster and landmarks', () => {
+  const old = world.npcSpawns.filter((s) => !NEW.has(s.npcId) && s.npcId !== 'museum_curator' && !s.npcId.startsWith('transit_'));
   assert.equal(old.length, 9516);
-  // The new ones sit in one block near the end (only the fixed thieving marks follow).
+  // The expansion's spawns sit in one block near the end.
   const first = world.npcSpawns.findIndex((s) => NEW.has(s.npcId));
   assert.ok(world.npcSpawns.slice(first, first + placedCount()).every((s) => NEW.has(s.npcId)));
   assert.deepEqual(old.slice(-2).map((s) => [s.npcId, s.x, s.y]), [['jade_merchant', 79, 56], ['jade_merchant', 88, 55]]);

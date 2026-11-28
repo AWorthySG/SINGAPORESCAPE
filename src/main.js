@@ -47,7 +47,7 @@ title.warm();
 // straight in). Gives up after a couple of seconds offline (see cloud.js).
 await cloud().boot();
 
-const game = new Game();
+const game = new Game({ layout: 'singapore' });
 // Graphics quality: "low" renders at 1x and trims particles, for older phones.
 game.lowFx = lowGfx;
 const ui = new UI(game);

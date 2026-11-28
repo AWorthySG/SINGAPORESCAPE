@@ -10,6 +10,7 @@
 // kills report to onRegionKill, and finished lines' perks join outsideBonuses
 // through regionPerks. The UI asks regionDialogue for a giver's conversation.
 import { REGION_LINES, REGION_GIVERS } from '../data/regionQuests.js';
+import { getDialogue } from '../data/dialogue.js';
 import { getNpc } from '../data/npcs.js';
 import { getItem } from '../data/items.js';
 import { NPC } from './npc.js';
@@ -42,12 +43,16 @@ export function placeRegionGivers(game) {
   const taken = new Set(game.npcs.map((n) => n.x * 4096 + n.y));
   game._rqGivers = {};
   for (const [id, g] of Object.entries(REGION_GIVERS)) {
+    const placed = game.npcs.find((n) => n.npcId === id);
+    if (placed) { game._rqGivers[id] = placed; continue; }
     const region = LINE_BY_GIVER[id]?.region;
+    const authored = { x: g.at[0], y: g.at[1] };
+    const center = w.authoredTile?.(authored) ?? authored;
     let spot = null;
     for (let r = 0; r <= 10 && !spot; r++) {
       for (let dy = -r; dy <= r && !spot; dy++) for (let dx = -r; dx <= r && !spot; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-        const x = g.at[0] + dx, y = g.at[1] + dy;
+        const x = center.x + dx, y = center.y + dy;
         if (!w.inBounds(x, y) || w.isBlocked(x, y) || w.objectAt(x, y) || taken.has(x * 4096 + y)) continue;
         if (region && w.zoneAt(x, y)?.name !== region) continue;
         spot = { x, y };
@@ -331,7 +336,10 @@ export function regionAction(game, action) {
  *  they're shown, so they follow the quest as it moves on. */
 export function regionDialogue(game, npc) {
   const id = npc.npcId, speaker = npc.name;
-  const node = (text, options = []) => ({ speaker, text, options: [...options, { label: 'Goodbye.', next: 'end' }] });
+  const l = LINE_BY_GIVER[id];
+  const local = getDialogue(l?.localDialogue);
+  const localOptions = local?.start.options.filter((option) => option.next !== 'end') || [];
+  const node = (text, options = []) => ({ speaker, text, options: [...options, ...localOptions, { label: 'Goodbye.', next: 'end' }] });
   const build = () => {
     // A step from any line that is waiting on this person comes first.
     for (const l of REGION_LINES) {
@@ -351,7 +359,6 @@ export function regionDialogue(game, npc) {
       return options.length ? node(`Did you bring them?${alternative}`, options)
         : node(`I still need ${st.qty} ${what}.${alternative} ${regionGuide(game, l.id).text}.`);
     }
-    const l = LINE_BY_GIVER[id];
     if (!l) return node('Hello there.');
     const q = game.quests[l.id];
     // A finished line's choice comes first, straight after the hand-in.
@@ -367,10 +374,10 @@ export function regionDialogue(game, npc) {
     return node(l.intro, [{ label: 'Need a hand with anything?', next: 'offer' }]);
   };
   const tree = {
+    ...local,
     // A Paragon or a Villain hears about it first (questChoices.js TIER_LINES).
     get start() { const n = build(), t = QC.tierLine(game, id); return t ? { ...n, text: `${t} ${n.text}` } : n; },
     get offer() {
-      const l = LINE_BY_GIVER[id];
       return { speaker, text: l?.offer || '', options: [{ label: "I'll help.", action: `rq:start:${l?.id}`, next: 'start' }, { label: 'Maybe later.', next: 'end' }] };
     },
     get said() { return { speaker, text: game._rqSaid || 'Thank you.', options: [{ label: 'Okay.', next: 'start' }] }; },

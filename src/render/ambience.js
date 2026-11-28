@@ -28,6 +28,7 @@ export const ZONE_MOOD = {
   'Coney Island': [186, 226, 166, 0.06],
   'Gardens by the Bay': [196, 236, 206, 0.05],
   'Kranji Farmlands': [238, 220, 140, 0.06],
+  'Transit Road, Nee Soon Camp': [228, 224, 164, 0.07],
   'Tuas Docklands': [166, 178, 200, 0.08],
   'Temasek Ruins': [218, 186, 146, 0.08],
   'The Celestial Peaks': [212, 212, 250, 0.08],
@@ -195,7 +196,9 @@ export class ObjectReactions {
         }
       }
     }
-    if (p.alive && c.x > 41 * TILE && c.x < 79 * TILE && c.y > 52 * TILE && c.y < 87 * TILE) {
+    const tile = { x: c.x / TILE, y: c.y / TILE };
+    const local = w.legacyTile?.(tile) || tile;
+    if (p.alive && local.x > 41 && local.x < 79 && local.y > 52 && local.y < 87) {
       for (const o of w.landmarks || []) {
         if (!isDepthShop(o) || !hidesPoint(o, c.x, c.y)) continue;
         near.add(o);

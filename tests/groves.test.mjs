@@ -123,13 +123,18 @@ test('nothing placed before the groves moved: the world without them is the same
   assert.deepEqual(data.npcSpawns.filter((s) => s.npcId !== 'museum_curator'), bare.npcSpawns);
   assert.deepEqual(data.landmarks, bare.landmarks);
   assert.deepEqual(data.resourceZones, bare.resourceZones);
-  assert.deepEqual(data.objects.slice(0, bare.objects.length), bare.objects, 'every earlier object where it was, in the same order');
+  // Transit Road is hand-built after the seeded passes in both versions.
+  const townStart = (w) => w.objects.findIndex((o) => o.displayName === 'Transit Road Flats');
+  const beforeTown = townStart(data), bareBeforeTown = townStart(bare);
+  assert.ok(beforeTown > 0 && bareBeforeTown > 0);
+  assert.deepEqual(data.objects.slice(beforeTown), bare.objects.slice(bareBeforeTown), 'the same Transit Road scenery');
+  assert.deepEqual(data.objects.slice(0, bareBeforeTown), bare.objects.slice(0, bareBeforeTown), 'every earlier object where it was, in the same order');
   // (Diving's reefs, then Archaeology's dig sites and bench, come after the groves
   // and quarries: divereefs.js, digsites.js.)
   const LATE = new Set(['dive', 'dig', 'restore']);
-  const added = data.objects.slice(bare.objects.length).filter((o) => !LATE.has(OBJECTS[o.objId]?.type));
+  const added = data.objects.slice(bareBeforeTown, beforeTown).filter((o) => !LATE.has(OBJECTS[o.objId]?.type));
   assert.equal(added.length, data.groves.reduce((s, g) => s + g.count, 0), 'only the groves\' trees were added');
-  assert.ok(data.objects.slice(bare.objects.length + added.length).every((o) => LATE.has(OBJECTS[o.objId]?.type)), 'and the reefs and dig sites after them');
+  assert.ok(data.objects.slice(bareBeforeTown + added.length, beforeTown).every((o) => LATE.has(OBJECTS[o.objId]?.type)), 'and the reefs and dig sites after them');
   assert.deepEqual(bare.groves, []);
 });
 

@@ -206,6 +206,56 @@ export const DIALOGUES = {
       options: [{ label: 'Haha, see you.', next: 'end' }],
     },
   },
+
+  transit_mapmaker: {
+    start: {
+      speaker: 'Nur Aisyah',
+      text: 'Welcome to Transit Road, Nee Soon Camp. I’m Aisyah. I draw the paths around here, though the rain keeps adding new puddles to my maps.',
+      options: [
+        { label: 'Where can I get food?', next: 'plaza' },
+        { label: 'Where’s the station?', next: 'station' },
+        { label: 'Where does the trail go?', next: 'trail' },
+        { label: 'See you around.', next: 'end' },
+      ],
+    },
+    plaza: {
+      speaker: 'Nur Aisyah',
+      text: 'Look for Uncle Ravi’s Rain or Shine Stall in the plaza. He’ll pull you a fresh teh tarik while you decide where to go.',
+      options: [{ label: 'Back.', next: 'start' }],
+    },
+    station: {
+      speaker: 'Nur Aisyah',
+      text: 'The MRT platform is at the east end of the plaza, near the bank booths. If you’re walking to Kranji Village, take the road toward Mandai first.',
+      options: [{ label: 'Back.', next: 'start' }],
+    },
+    trail: {
+      speaker: 'Nur Aisyah',
+      text: 'Follow the rain trees south from the plaza. Once you reach the reeds and puddles, you’re at the Rain-Tree Verge. Mei Lin keeps the trail clear and knows what lives there.',
+      options: [{ label: 'Back.', next: 'start' }],
+    },
+  },
+
+  transit_caretaker: {
+    start: {
+      speaker: 'Mei Lin',
+      text: 'I’ve just cleared the leaves off the trail. Look down when you pass the puddles. Sometimes the blue lights in the water are puddle wisps.',
+      options: [
+        { label: 'What lives by the verge?', next: 'creatures' },
+        { label: 'Is it safe to pass through?', next: 'safety' },
+        { label: 'I’ll keep an eye out.', next: 'end' },
+      ],
+    },
+    creatures: {
+      speaker: 'Mei Lin',
+      text: 'Look near the water for wisps and under the lamps for lantern moths. The verge boars are bigger. They like to root for food under the rain trees.',
+      options: [{ label: 'Back.', next: 'start' }],
+    },
+    safety: {
+      speaker: 'Mei Lin',
+      text: 'You can walk past the creatures in peace. If you want to test your skills, try a puddle wisp first. The boars put up the strongest fight.',
+      options: [{ label: 'Back.', next: 'start' }],
+    },
+  },
 };
 
 export function getDialogue(id) {

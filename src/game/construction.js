@@ -29,6 +29,7 @@ const YARD_W = 5, YARD_H = 3;   // the row and a free row either side
  *  margin), or null. */
 export function findYard(world, home, anchor) {
   const width = anchor.anvil ? WITH_ANVIL.at(-1)[1] + 1 : YARD_W;
+  const center = world.authoredTile?.(anchor) ?? anchor;
   const plot = home?.origin;
   const clearOfHome = (x0, y0) => !plot || x0 + width < plot.x - 1 || x0 > plot.x + HOME_W || y0 + YARD_H < plot.y - 1 || y0 > plot.y + HOME_H;
   const free = (x0, y0) => {
@@ -42,7 +43,7 @@ export function findYard(world, home, anchor) {
   for (let r = 0; r <= 30; r++) {
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-      if (free(anchor.x + dx, anchor.y + dy)) return { x: anchor.x + dx, y: anchor.y + dy };
+      if (free(center.x + dx, center.y + dy)) return { x: center.x + dx, y: center.y + dy };
     }
   }
   return null;

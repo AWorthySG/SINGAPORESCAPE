@@ -36,10 +36,11 @@ const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 // Regions by what drifts on their breeze, and where the town birds and the
 // hawker cats live.
 const LEAFY = new Set(['Bukit Timah', 'Jurong Forest', 'Mandai Rainforest', 'MacRitchie Reservoir', 'Pulau Ubin',
-  'Sungei Buloh Wetlands', 'Coney Island']);
+  'Sungei Buloh Wetlands', 'Coney Island', 'Transit Road, Nee Soon Camp']);
 const PETALS = new Set(['Gardens by the Bay', 'Kampong Glam', 'Chinatown', 'Marina Bay', 'Kranji Farmlands', 'Punggol Waterway',
   'Sentosa Beach', 'Changi Coast']);
-const TOWNS = new Set(['Kampong Glam', 'Chinatown', 'Marina Bay', 'Pulau Ubin', 'Kranji Farmlands', 'Punggol Waterway']);
+const TOWNS = new Set(['Kampong Glam', 'Chinatown', 'Marina Bay', 'Pulau Ubin', 'Kranji Farmlands', 'Punggol Waterway',
+  'Transit Road, Nee Soon Camp']);
 const GRIM = new Set(['The Wilderness', 'Pulau Hantu', 'Tekong Badlands', 'The Shadow Rift']);
 const LEAF_ART = ['leaf_green', 'leaf_lime', 'leaf_green', 'leaf_dry'];
 const PETAL_ART = ['petal_pink', 'frangipani', 'petal_pink', 'petal_red'];

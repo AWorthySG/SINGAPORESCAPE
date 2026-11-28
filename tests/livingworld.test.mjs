@@ -289,7 +289,7 @@ test('every consequence points at a real moral event, quest, shop and resident',
 test('region reputation: ranks, gains and losses, discounts and titles', () => {
   const g = newGame();
   g.doTick();
-  assert.equal(REP_REGIONS.length, 23);
+  assert.deepEqual([...REP_REGIONS].sort(), g.world.zones.filter((z) => !z.instance).map((z) => z.name).sort());
   assert.equal(repRank(g, 'Chinatown').id, 'stranger');
   assert.deepEqual(REP_RANKS.slice(1).map((r) => r.name), ['Stranger', 'Known', 'Friend', 'Hero', 'Legend']);
   assert.equal(rankFor(-1).id, 'distrusted');

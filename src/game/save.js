@@ -13,8 +13,10 @@ import { serializeLiving, loadLiving } from './living.js';
 import { serializeKeep, loadKeep } from './bankkeep.js';
 import { trimBlessings, starterBlessings } from './blessings.js';
 import { classSpell } from '../data/magic.js';
+import { geographicTile } from '../data/worldlayout.js';
 
 const VERSION = 1;
+const GEOGRAPHIC_LAYOUT = 'singapore';
 // An unreadable save is copied here before a new game replaces it, so a bug or
 // a bad version check never destroys someone's progress for good.
 export const BACKUP_KEY = SAVE_KEY + '-backup';
@@ -51,6 +53,7 @@ export function snapshot(game) {
   const at = game.waves?.active && game.waves.ret ? game.waves.ret : game.player;
   return {
     version: VERSION,
+    worldLayout: game.world.layout === GEOGRAPHIC_LAYOUT ? GEOGRAPHIC_LAYOUT : undefined,
     savedAt: Date.now(),
     firstJourney: game.firstJourney || undefined,
     islandLife: game.islandLife || undefined,
@@ -300,6 +303,9 @@ export function loadGame(game) {
     return false;
   }
   try {
+    if (game.world.layout === GEOGRAPHIC_LAYOUT && (data.worldLayout == null || data.worldLayout === 'legacy')) {
+      migrateMapCoordinates(game, data);
+    }
     exchangeRetiredLoot(data);
     loadFields(game, data);
     loadFirstJourney(game, data.firstJourney);
@@ -313,6 +319,56 @@ export function loadGame(game) {
     throw err;
   }
   return true;
+}
+
+function canLoadAt(game, tile) {
+  return game.world.inBounds(tile.x, tile.y) && !game.world.isBlocked(tile.x, tile.y)
+    && !(game.waves?.inArena?.(tile.x, tile.y) ?? inArena(tile.x, tile.y));
+}
+
+/** Older saves use the original world tiles. Named regions, quests and
+ *  stations retain their identities across layouts. */
+function migrateMapCoordinates(game, data) {
+  const mapPoint = (point) => Number.isInteger(point?.x) && Number.isInteger(point?.y)
+    ? geographicTile(point.x, point.y) : null;
+  const mapOpenTile = (point) => {
+    const tile = mapPoint(point);
+    if (!tile || inArena(point.x, point.y)) return null;
+    if (canLoadAt(game, tile)) return tile;
+    const nearby = game._nearestFree?.(tile.x, tile.y);
+    return nearby && canLoadAt(game, nearby) ? nearby : null;
+  };
+
+  if (data.player && typeof data.player === 'object') {
+    Object.assign(data.player, mapOpenTile(data.player) ?? game.world.spawnPoint);
+  }
+
+  const grave = data.play?.grave;
+  if (Number.isFinite(grave?.x) && Number.isFinite(grave.y)) {
+    Object.assign(grave, mapOpenTile(grave) ?? game.world.respawnPoint);
+  }
+
+  const task = data.resumeTask;
+  if (task?.kind === 'work' || task?.kind === 'walk') {
+    const tile = task.kind === 'walk' ? mapOpenTile(task) : mapPoint(task);
+    data.resumeTask = tile ? { ...task, ...tile } : null;
+  }
+
+  if (Array.isArray(data.clue?.spots)) {
+    for (const spot of data.clue.spots) {
+      const tile = mapPoint(spot);
+      if (tile) Object.assign(spot, tile);
+    }
+  }
+
+  // The home plot keeps its authored offsets. Its patches are built by the
+  // home loader before farm data restores crops to these remapped positions.
+  if (Array.isArray(data.farms)) {
+    data.farms = data.farms.flatMap((farm) => {
+      const tile = mapPoint(farm);
+      return tile ? [{ ...farm, ...tile }] : [];
+    });
+  }
 }
 
 // Retired fishing junk is exchanged at its coin value. Send the player's
@@ -349,7 +405,7 @@ function loadFields(game, data) {
 
   const p = data.player || {};
   // (Never into the Endless Gate's arena: a run isn't saved, and there's no walking out.)
-  if (game.world.inBounds(p.x, p.y) && !game.world.isBlocked(p.x, p.y) && !inArena(p.x, p.y)) {
+  if (canLoadAt(game, p)) {
     game.player.x = game.player.tx = p.x;
     game.player.y = game.player.ty = p.y;
   }
