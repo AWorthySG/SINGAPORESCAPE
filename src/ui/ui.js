@@ -793,9 +793,6 @@ export class UI {
     this._wireCollapse('panel', this.el.sidepanel, this.el.panelCollapse, 'panel');
     this._wireCollapse('chat', id('chatbox'), id('chat-collapse'), 'log');
     this._wireCollapse('minimap', id('minimap-panel'), id('minimap-collapse'), 'minimap');
-    id('chat-head')?.addEventListener('click', () => {
-      if (id('chatbox').classList.contains('collapsed')) id('chat-collapse').click();
-    });
   }
 
   _wireCollapse(key, panel, btn, label) {

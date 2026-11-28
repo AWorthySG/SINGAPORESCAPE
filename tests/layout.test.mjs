@@ -193,7 +193,7 @@ test('the notification lane: top centre on a desktop, under the objectives on a 
   const rect = (left, top, width, height) => ({ left, top, width, height, right: left + width, bottom: top + height });
   // Desktop: centred under the region name, and below a boss bar that shares the top centre.
   const desk = placeLane({ 'region-label': rect(540, 10, 200, 28), 'quest-tracker': rect(10, 44, 200, 60) }, 1280, 'desk');
-  assert.deepEqual(desk, { top: 44, left: 460, width: 360 });
+  assert.deepEqual(desk, { top: 48, left: 460, width: 360 });
   const boss = placeLane({ 'region-label': rect(540, 10, 200, 28), 'boss-bar': rect(440, 44, 400, 70) }, 1280, 'desk');
   assert.equal(boss.top, 120, 'under the boss bar');
   // Phone portrait in a fight: boss bar, then the Endless Gate panel, then the

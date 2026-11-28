@@ -219,9 +219,10 @@ export function cardHTML(x, waiting = 0, mini = false) {
  *  on its side) or 'desk'. */
 export function laneMode() {
   if (typeof window === 'undefined') return 'desk';
+  const flat = typeof matchMedia === 'function' && matchMedia('(pointer: coarse) and (max-height: 500px) and (orientation: landscape)').matches;
+  if (flat) return 'flat';
   if (window.innerWidth <= 600) return 'phone';
-  const flat = typeof matchMedia === 'function' && matchMedia('(pointer: coarse) and (max-height: 500px)').matches;
-  return flat ? 'flat' : 'desk';
+  return 'desk';
 }
 
 const IDS = ['region-label', 'quest-tracker', 'boss-bar', 'wave-hud', 'minimap-panel', 'minimap-dock',
@@ -249,7 +250,7 @@ export function placeLane(b, vw, mode) {
     bottom: Math.max(map.bottom, dock.bottom),
   } : map || dock;
   const bag = b.sidepanel?.width < 100 ? b.sidepanel : null;
-  const rightStrip = [bag, b.quickbar, b['combat-resources'], b.adrenaline, b['xp-hud']];
+  const rightStrip = [bag, b.quickbar, b['combat-resources'], b.adrenaline, b['xp-hud'], b['region-label']];
   const below = (top, left, width) => {
     // The boss bar and the Endless Gate panel can share the column (and on a
     // phone your life bar tops it): go under them.
@@ -308,7 +309,8 @@ export function placeLane(b, vw, mode) {
     width = Math.min(360, vw - 20);
     left = (vw - width) / 2;
     const rl = b['region-label'];
-    top = below(rl ? rl.bottom + 6 : 44, left, width);
+    // Keep the notice's entrance and exit motion clear of both caption lines.
+    top = below(rl ? rl.bottom + 10 : 44, left, width);
     // A side panel made wider or taller (panelsize.js) can reach in under the
     // lane's right end: the lane stops short of it (a few cards run ~250px down).
     const panel = b.sidepanel;

@@ -61,7 +61,7 @@ export function trackerHTML(rows, folded, { max = TRACKER_ROWS, open = false } =
   if (!rows.length) return '';
   const n = rows.filter((r) => !r.includes('trk-xp')).length;
   const head = `<button type="button" class="trk-title trk-fold" aria-expanded="${folded ? 'false' : 'true'}" title="${folded ? 'Show' : 'Hide'} objectives">`
-    + (folded ? `&#9733; ${n || rows.length} objective${(n || rows.length) === 1 ? '' : 's'}` : 'Objectives')
+    + (folded ? `&#9733; ${n || rows.length} objective${(n || rows.length) === 1 ? '' : 's'}` : 'Objective')
     + `<span class="trk-chev" aria-hidden="true">${glyphArtHTML('ui-collapse', folded ? '&#9656;' : '&#9662;', 14)}</span></button>`;
   if (folded) return head;
   const extra = rows.length - max;
