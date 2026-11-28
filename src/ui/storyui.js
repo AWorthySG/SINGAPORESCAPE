@@ -9,7 +9,7 @@ import { REGION_GIVERS } from '../data/regionQuests.js';
 import { getNpc } from '../data/npcs.js';
 import { getItem } from '../data/items.js';
 import { pageCount, spotTile, guardianKind } from '../game/lore.js';
-import { townArt, portraitFor } from '../render/sprites.js';
+import { townArtSrc, portraitFor } from '../render/sprites.js';
 import { choiceBadgeHTML, choiceLineHTML } from './pathui.js';   // each chapter's Good / Evil choice
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -18,9 +18,10 @@ const HOW = { drop: 'a rare drop from monsters here', spot: 'a glinting note hid
 
 /** A speaker's picture: their own townsfolk art, the one they borrow (recoloured), or a boss's or creature's portrait. */
 export function speakerArt(who) {
-  if (townArt().has(who)) return { src: `assets/creatures/townsfolk/${who}.webp`, filter: '' };
+  const src = townArtSrc(who);
+  if (src) return { src, filter: '' };
   const g = REGION_GIVERS[who];
-  if (g) return { src: `assets/creatures/townsfolk/${g.art}.webp`, filter: g.tint || '' };
+  if (g) return { src: townArtSrc(g.art), filter: g.tint || '' };
   const def = getNpc(who);
   const p = def && portraitFor(who, def);
   return p ? { src: p.src, filter: '', pos: p.pos } : null;
