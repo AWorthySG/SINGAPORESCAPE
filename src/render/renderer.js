@@ -1,4 +1,4 @@
-import { drawHomeAlbum, drawIslandScarf } from './islandlife.js';
+import { drawHomeAlbum, drawHomeTextile, drawIslandScarf } from './islandlife.js';
 import { drawHeritageBank, drawHeritageServiceCue, drawMarketValance, heritageLocations, heritageService } from './heritagewalk.js';
 import { drawDistrictScenery, visibleDistrictScenery } from './districtscenery.js';
 import { buildingSun, isDepthShop } from './streetdepth.js';
@@ -342,6 +342,7 @@ export class Renderer {
       this.depth.castShadows(ctx, casters, W.landmarks, ox, oy, vw, vh, dayPhase, timeMs, ground ? this.depth.G : dpr, sky, lean);
     }
     drawHomeAlbum(ctx, game, ox, oy, vw, vh);
+    drawHomeTextile(ctx, game, ox, oy, vw, vh);
     const service = game.player.alive && heritageService(game.world, game.player);
     if (service && game.hover?.obj !== service) drawHeritageServiceCue(ctx, service, ox, oy);
     this._drawGroundDecals(ox, oy);

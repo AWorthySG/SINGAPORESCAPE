@@ -39,3 +39,62 @@
 .lsx-text small { display: block; font-size: var(--fs-xs); color: var(--aw-text-sec); }
 .lsx-bar { height: 7px; border-radius: 999px; background: var(--aw-muted); border: 1.5px solid var(--aw-ink); overflow: hidden; }
 .lsx-bar i { display: block; height: 100%; background: #9be37a; }
+
+/* Music's next note stays readable with or without the optional beat cue. */
+.island-music .music-phrases {
+  margin-block: .65rem;
+  padding: .55rem .65rem;
+  border: 1px solid var(--aw-ink-faint);
+  border-radius: .65rem;
+  background: var(--aw-card);
+}
+.island-music .music-phrases > div + div { margin-top: .55rem; }
+.island-music .music-phrase {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem;
+  padding: 0;
+  margin: .3rem 0 0;
+  list-style: none;
+}
+.island-music .music-phrase li {
+  padding: .22rem .42rem;
+  border: 1px solid transparent;
+  border-radius: .35rem;
+  color: var(--aw-text);
+  background: var(--aw-muted);
+}
+.island-music .music-phrase .passed { background: #dce9df; color: #27493d; }
+.island-music .music-phrase .current { border-color: var(--aw-ink); background: var(--island-accent); color: white; font-weight: 800; }
+.island-music .music-next {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  align-items: baseline;
+  margin: .65rem 0 .4rem;
+}
+.island-music .music-next span { margin-inline-start: auto; color: var(--aw-text-sec); font-size: var(--fs-sm); }
+.island-music .music-keys {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .4rem;
+}
+.island-music .music-keys button {
+  min-height: 52px;
+  padding: .25rem;
+  font-size: var(--fs-sm);
+}
+.island-music .music-keys [data-next-note] { box-shadow: inset 0 0 0 2px #ffdda0; }
+.island-music .music-keys kbd { font: inherit; font-size: var(--fs-xs); padding-inline: .18rem; }
+.island-music .music-secondary { margin-block: .6rem; }
+.island-music .music-beat {
+  min-height: 2.2rem;
+  display: grid;
+  place-items: center;
+  margin-bottom: .4rem;
+  border-radius: .5rem;
+  background: var(--aw-muted);
+  color: var(--aw-text);
+  font-weight: 800;
+}
+.island-music .music-beat.on-beat { background: #dce9df; color: #234437; box-shadow: inset 0 0 0 2px #4f7564; }

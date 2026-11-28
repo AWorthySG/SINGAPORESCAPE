@@ -11,13 +11,26 @@
 //
 // Browser only (main.js calls initPhotoMode); the pure helpers below are what
 // the tests drive.
-import { recordIslandPhoto } from '../game/islandlife.js';
+import { atIslandSite, islandSiteTile, recordIslandPhoto } from '../game/islandlife.js';
+import { activePhotoWalk, photoDusk, recordPhotoStop, rememberPhotoThumbnail } from '../game/photowalk.js';
+import { TILE } from '../config.js';
 import { keyboardBlocked } from './keyboard.js';
 import { typing } from './quickbar.js';
 import { composePostcard, photoPostcardSize } from '../render/postcard.js';
+import { compactPhoto } from '../render/photothumb.js';
 import { fxImage, badgeKey } from '../render/fxart.js';
 import { postcardLine, SITE_URL, TAGLINE } from '../data/postcards.js';
 import { glyphArtHTML } from '../render/icons.js';
+
+export function photoWalkHint(active, { near, framed, dusk } = {}) {
+  if (!active) return 'Find a nice spot, then snap your postcard!';
+  const { walk, progress, stop } = active;
+  const title = `${progress.step + 1}/${walk.stops.length} · ${stop.name}`;
+  if (!near) return `${title}. Walk to the stop, or use Go in Photo walks.`;
+  const framing = framed ? 'Framing bonus ready.' : 'Centre the subject for a framing bonus.';
+  const light = stop.dusk && !dusk ? ' Dusk (17:00–20:00) adds a light bonus.' : '';
+  return `${title}. In range. ${framing}${light}`;
+}
 
 /** "a-worthy-postcard-kampong-glam.png" */
 export const postcardFileName = (region) =>
@@ -58,6 +71,7 @@ export class PhotoMode {
     this.blob = null; this.url = null;
     this.capture = null;
     this.logo = null;   // the mascot for the postcard's corner: asked for when postcard mode first opens, not at start-up
+    this.walkMode = false;
     this._build();
   }
 
@@ -79,7 +93,7 @@ export class PhotoMode {
       <div class="pm-frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <div class="pm-flash" aria-hidden="true"></div>
       <div class="pm-bar pm-framing">
-        <p class="pm-hint">Find a nice spot, then snap your postcard!</p>
+        <p class="pm-hint" role="status">Find a nice spot, then snap your postcard!</p>
         <div class="pm-row">
           <button type="button" class="pm-btn pm-close">Back to game</button>
           <button type="button" class="pm-btn pm-shutter" aria-label="Take postcard">${glyphArtHTML('ui-photo', CAMERA_SVG, 22)} Snap!</button>
@@ -104,6 +118,7 @@ export class PhotoMode {
     on('.pm-retake', () => this.frame());
     on('.pm-save', () => this.save());
     on('.pm-share', () => this.share());
+    this.game.bus?.on('tick', () => { if (this.walkMode && this.state === 'framing') this.updateHint(); });
     window.addEventListener('keydown', (e) => {
       if (e.defaultPrevented || e.isComposing || e.repeat || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
       if (document.body.classList.contains('title-on')) return;
@@ -116,7 +131,29 @@ export class PhotoMode {
     }, true);
   }
 
-  open() { this.frame(); }
+  open(options = {}) {
+    this.walkMode = options.walk ?? !!activePhotoWalk(this.game);
+    this.frame();
+  }
+
+  framed(stop) {
+    const tile = islandSiteTile(this.game.world, stop), camera = this.game.camera;
+    if (!camera) return false;
+    const point = camera.worldToScreen((tile.x + .5) * TILE, (tile.y + .5) * TILE);
+    const canvas = this.canvas.getBoundingClientRect(), frame = this.el.querySelector('.pm-frame').getBoundingClientRect();
+    const x = point.x + canvas.left, y = point.y + canvas.top;
+    return frame.width > 0 && frame.height > 0
+      && x >= frame.left + frame.width * .12 && x <= frame.right - frame.width * .12
+      && y >= frame.top + frame.height * .12 && y <= frame.bottom - frame.height * .12;
+  }
+
+  updateHint() {
+    const active = this.walkMode ? activePhotoWalk(this.game) : null;
+    const near = active && atIslandSite(this.game, active.stop, active.stop.range);
+    const text = photoWalkHint(active, { near, framed: near && this.framed(active.stop), dusk: active && photoDusk(this.game) });
+    const node = this.el.querySelector('.pm-hint');
+    if (node.textContent !== text) node.textContent = text;
+  }
 
   frame() {
     if (!this.logo && typeof Image === 'function') { this.logo = new Image(); this.logo.src = 'assets/mascot-login.webp'; }
@@ -126,6 +163,8 @@ export class PhotoMode {
     document.body.classList.add('photo-on');
     this.el.classList.remove('hidden', 'previewing', 'flashing');
     this.el.classList.add('framing');
+    if (this.walkMode && !activePhotoWalk(this.game)) this.walkMode = false;
+    this.updateHint();
   }
 
   close() {
@@ -145,7 +184,11 @@ export class PhotoMode {
     const cv = buildPostcard(this.game, this.canvas, make, { vw: window.innerWidth, vh: window.innerHeight, logo: this.logo && this.logo.complete && this.logo.naturalWidth ? this.logo : null });
     if (!cv) return;
     this.capture = cv;
-    const subject = recordIslandPhoto(this.game);
+    const active = this.walkMode ? activePhotoWalk(this.game) : null;
+    const walkShot = active ? recordPhotoStop(this.game, { framed: this.framed(active.stop) }) : null;
+    const subject = active ? null : recordIslandPhoto(this.game);
+    const print = subject?.id ?? (walkShot?.complete ? walkShot.walk.id : null);
+    if (print) rememberPhotoThumbnail(this.game, print, compactPhoto(this.canvas, make));
     this.el.classList.remove('flashing'); void this.el.offsetWidth; this.el.classList.add('flashing');
     this.game.audio?.play?.('pickup');   // a little shutter click
     const done = (blob) => {
@@ -157,8 +200,11 @@ export class PhotoMode {
       this.url = URL.createObjectURL(blob);
       this.el.querySelector('.pm-img').src = this.url;
       const result = this.el.querySelector('.pm-assignment');
-      result.textContent = subject ? (subject.commission ? `Commission accepted: ${subject.name} · ${subject.coins} coins` : `Album print earned: ${subject.name}`) : '';
-      result.classList.toggle('hidden', !subject);
+      result.textContent = walkShot?.complete ? `${walkShot.walk.name} complete · ${Math.round(walkShot.xp).toLocaleString('en-GB')} XP`
+        : walkShot ? `Stop ${walkShot.step}/${walkShot.total} photographed. Next: ${walkShot.next.name}.`
+          : active ? 'The postcard is ready. Take the walk photo at its assigned stop.'
+            : subject ? (subject.commission ? `Commission accepted: ${subject.name} · ${subject.coins} coins` : `Album print earned: ${subject.name}`) : '';
+      result.classList.toggle('hidden', !result.textContent);
       this.state = 'preview';
       this.el.classList.remove('framing');
       this.el.classList.add('previewing');

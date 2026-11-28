@@ -62,6 +62,33 @@ test('a killed NPC falls from its interpolated position and respawns at home', (
   assert.deepEqual(n.renderCenter(), { x: 5.5 * TILE, y: 5.5 * TILE });
 });
 
+test('a blocked ordinary chase releases combat and can restart if the path opens', () => {
+  const player = new Character(6, 2);
+  player.alive = true;
+  const npc = new NPC('estuarine_stingray', 2, 2);
+  npc.wander = 0;
+  let barrier = true;
+  const route = { width: 12, height: 5, isBlocked: (x) => barrier && x === 4 };
+  const game = { player, fightLevel: () => 1, pathCfg: () => route, world: route, _aggroAttackers: 0 };
+  for (let tick = 0; tick < 6; tick++) {
+    npc.tick(game);
+    assert.equal(npc.target, null);
+    assert.equal(game._aggroAttackers, 0);
+  }
+  barrier = false;
+  for (let tick = 0; tick < 5; tick++) npc.tick(game);
+  assert.equal(npc.target, player);
+  assert.ok(npc.isMoving);
+
+  const wave = new NPC('estuarine_stingray', 2, 2);
+  wave.wave = true;
+  wave.repathCooldown = 2;
+  barrier = true;
+  game._aggroAttackers = 0;
+  wave.tick(game);
+  assert.equal(wave.target, player, 'the wave can still acquire a target while retrying a shrine path');
+});
+
 test('the walking blend rises and settles equally at different frame rates', () => {
   const animate = (frames) => {
     const c = new Character(0, 0);

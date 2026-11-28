@@ -72,6 +72,7 @@ export class NPC extends Character {
     // Road's cast) start predictably and leave the seeded world rolls alone.
     this.wanderCooldown = this.def.noDice ? 5 : randInt(2, 8);
     this.repathCooldown = 0;
+    this.aggroRetry = 0;
     this.lastTargetTile = null;
     this.combatLatch = 0;         // ticks left showing in-combat HP bar
     this.specialCooldown = this.def.specialEvery || 9; // boss special cadence
@@ -178,6 +179,7 @@ export class NPC extends Character {
     if (this.recentDmg) this.recentDmg = this.recentDmg < 1 ? 0 : this.recentDmg * HEAL_WINDOW_DECAY;
     if (this.attackCooldown > 0) this.attackCooldown--;
     if (this.repathCooldown > 0) this.repathCooldown--;
+    if (this.aggroRetry > 0) this.aggroRetry--;
     if (this.combatLatch > 0) this.combatLatch--;
     if (this.specialCooldown > 0) this.specialCooldown--;
     if (this.telegraph > 0) this.telegraph--;
@@ -207,7 +209,7 @@ export class NPC extends Character {
     // Acquire a target through aggression. Capped so a pack of wandering
     // monsters can't all pile onto the player unprovoked at once — temporary
     // boss "adds" are exempt since ganging up is their whole point.
-    if (!this.target && this.def.aggressive && player.alive) {
+    if (!this.target && this.def.aggressive && player.alive && this.aggroRetry <= 0) {
       const range = this.def.aggroRange || 4;
       const distToPlayer = chebyshev(this.x, this.y, player.x, player.y);
       const distToSpawn = chebyshev(this.x, this.y, this.spawnX, this.spawnY);
@@ -262,10 +264,23 @@ export class NPC extends Character {
         // Chase: path to a tile adjacent to the target. Plan from the tile we're
         // stepping onto (not the stale one) so a mid-step repath continues
         // smoothly instead of jittering backwards.
-        if (!this.lastTargetTile || this.lastTargetTile.x !== t.x || this.lastTargetTile.y !== t.y) {
-          const path = findPath(game.pathCfg(), this.stepTile(), { x: t.x, y: t.y },
+        const stranded = !this.isMoving && !this.def.boss && !this.def.fixed && !this.wave && !this.temporary;
+        if (stranded || !this.lastTargetTile || this.lastTargetTile.x !== t.x || this.lastTargetTile.y !== t.y) {
+          // No adjacent tile inside the leash can reach a player this far from home.
+          const outsideLeash = stranded && chebyshev(this.spawnX, this.spawnY, t.x, t.y) > leash + 1;
+          const path = outsideLeash ? [] : findPath(game.pathCfg(), this.stepTile(), { x: t.x, y: t.y },
             { reachAdjacent: true, maxNodes: 2000 });
           if (path.length) this.setPath(path);
+          else if (stranded) {
+            // A wall, water, or the leash can cut off a chase. Give the
+            // monster a few ticks before looking for the player again.
+            this.target = null;
+            this.lastTargetTile = null;
+            this.aggroRetry = 4;
+            game._aggroAttackers = Math.max(0, (game._aggroAttackers || 0) - 1);
+            this._returnHome(game);
+            return;
+          }
           this.lastTargetTile = { x: t.x, y: t.y };
           this.repathCooldown = 1;
         }
