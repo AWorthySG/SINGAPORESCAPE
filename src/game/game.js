@@ -5481,7 +5481,12 @@ export class Game {
     // 1b. Step out of a boss's ground marker, still fighting (see _autoDodge).
     this._autoDodge();
     const a = p.action;
-    if (a?.type === 'travelboard' || (a?.type === 'ferry' && a.onLand)) return;
+    if (a?.type === 'travelboard' || (a?.type === 'ferry' && a.onLand)) {
+      const att = this.nearbyNpcs().find((n) => n.alive && n.attackable && !n.ally && n.target === p
+        && chebyshev(p.x, p.y, n.x, n.y) <= this.attackRange());
+      if (att) { this._autoLast = att; this.attackNpc(att); }
+      return;
+    }
     const fighting = a && a.type === 'attack' && a.npc && a.npc.alive;
     // A target we just sent you at that cleared itself without dying was
     // unreachable: skip it for a while instead of retrying every tick.

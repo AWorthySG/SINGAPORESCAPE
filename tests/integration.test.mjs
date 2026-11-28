@@ -746,13 +746,14 @@ test('quick-eat consumes the first food in the bag', () => {
   assert.equal(game.inventory.count('kaya_toast'), before - 1, 'one food consumed');
 });
 
-test('world-map long-range travel sets a path across the island', () => {
+test('world-map long-range travel uses a walk when the MRT fare is unavailable', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
   game.start();
+  game.inventory.remove('coins', game.inventory.count('coins'));
   // Travel from the spawn town toward Sentosa Beach (far south).
-  game.walkToFar({ x: 58, y: 92 });
+  assert.ok(game.travelToTile({ x: 58, y: 92 }));
   assert.ok(game.player.path.length > 0, 'a multi-tile path was planned');
 });
 
@@ -5333,8 +5334,8 @@ test('auto battle walks a strong player past weak monsters to ones of their leve
   g._autoBattleTick();
   assert.ok(p.path.length >= pathLen - 2 && g._autoTravel, 'the route is kept, not re-planned');
   // ...but a weak monster attacking you is still fought.
-  const rat = g.npcs.find((n) => n.alive && n.attackable && !n.def.boss && (n.def.level || 1) < lo);
-  rat.x = rat.tx = p.x + 1; rat.y = rat.ty = p.y; rat.target = p;
+  const rat = g.spawnNpc('goblin', p.x + 1, p.y, { wander: 0 });
+  rat.target = p;
   assert.equal(g._autoIsWeak(rat), false, 'an attacker always counts');
   g._autoBattleTick();
   assert.equal(p.action?.npc, rat, 'turns to fight the attacker');
