@@ -72,7 +72,7 @@ test('an MRT hop auto battle makes on its own leaves the open window alone; one 
   // The station farthest from the start: a trip long enough to ride the MRT.
   const far = STATIONS.reduce((b, s) => (Math.hypot(s.x - p.x, s.y - p.y) > Math.hypot(b.x - p.x, b.y - p.y) ? s : b));
   const start = { x: p.x, y: p.y };
-  g._autoRun(() => g._mrtHopToward({ x: far.x, y: far.y }));
+  assert.ok(g._autoRun(() => g.travelToTile(far)));
   assert.ok(Math.hypot(p.x - start.x, p.y - start.y) > 30, 'auto battle rode the MRT');
   assert.equal(ui.closed, 0, 'the window the player had open stayed open');
   assert.equal(g._autoTrip, false, 'the flag never outlives the auto step');

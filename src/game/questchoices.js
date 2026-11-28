@@ -220,9 +220,7 @@ export function crossroads(game) {
 export function goToMoral(game, id) {
   const ev = MORAL_BY_ID[id], n = game.npcs.find((x) => x.def.moral === id);
   if (!ev || !n || !game.player.alive || game.moral.choices[id]) return false;
-  let ok = false;
-  game._pathBudget = 150000;   // the trip can cross the whole map, like a quest's Go
-  try { game._mrtHopToward?.(n); ok = game.defaultNpcAction(n) !== false; } finally { game._pathBudget = 0; }
+  const ok = game.goToNpc(n);
   game.msg(ok ? `You set off for the ${ev.name.toLowerCase()} in ${ev.zone}.` : `I can't find the way to the ${ev.name.toLowerCase()}.`, 'system');
   return ok;
 }

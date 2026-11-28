@@ -76,26 +76,27 @@ function scratch(n) {
  * @param {{x:number,y:number}} goal
  * @param {object} [opts]
  * @param {boolean} [opts.reachAdjacent] stop when adjacent to goal (for blocked targets)
+ * @param {number} [opts.range] stop within this Chebyshev range of the goal
  * @param {number} [opts.maxNodes]
  * @returns {{x:number,y:number}[]} steps after `start` ending at the reached tile ([] if none / already there)
  */
 export function findPath(cfg, start, goal, opts = {}) {
   const { width, height, isBlocked } = cfg;
-  const reachAdjacent = !!opts.reachAdjacent;
+  const range = opts.range ?? (opts.reachAdjacent ? 1 : 0);
   const maxNodes = opts.maxNodes ?? 20000;
   // The world's own walls: the same search, reading the grid straight off.
   const grid = cfg.grid;
   if (grid && grid.length === width * height && isTile(start, width, height) && Number.isInteger(goal.x) && Number.isInteger(goal.y)) {
-    return gridPath(grid, width, height, start, goal, reachAdjacent, maxNodes);
+    return gridPath(grid, width, height, start, goal, range, maxNodes);
   }
 
   const inB = (x, y) => x >= 0 && x < width && y >= 0 && y < height;
   const idx = (x, y) => y * width + x;
   const cheb = (x, y) => Math.max(Math.abs(x - goal.x), Math.abs(y - goal.y));
-  const isGoal = reachAdjacent ? (x, y) => cheb(x, y) <= 1 : (x, y) => x === goal.x && y === goal.y;
+  const isGoal = (x, y) => cheb(x, y) <= range;
 
   if (isGoal(start.x, start.y)) return [];
-  if (!reachAdjacent && (!inB(goal.x, goal.y) || isBlocked(goal.x, goal.y))) return [];
+  if (!range && (!inB(goal.x, goal.y) || isBlocked(goal.x, goal.y))) return [];
 
   const { cameX, cameY, g, seen, closed } = scratch(width * height);
   const gen = GEN;
@@ -148,11 +149,11 @@ const isTile = (t, w, h) => Number.isInteger(t.x) && Number.isInteger(t.y) && t.
  *  Off the map counts as a wall, as World.isBlocked has it. Every search a
  *  crowd makes (chases, wandering, auto battle's route checks, quest trips)
  *  comes through here: on a phone the longest took tens of milliseconds. */
-function gridPath(grid, width, height, start, goal, reachAdjacent, maxNodes) {
+function gridPath(grid, width, height, start, goal, range, maxNodes) {
   const gx = goal.x, gy = goal.y;
   const sc = Math.max(Math.abs(start.x - gx), Math.abs(start.y - gy));
-  if (reachAdjacent ? sc <= 1 : sc === 0) return [];
-  if (!reachAdjacent && (gx < 0 || gy < 0 || gx >= width || gy >= height || grid[gy * width + gx] === 1)) return [];
+  if (sc <= range) return [];
+  if (!range && (gx < 0 || gy < 0 || gx >= width || gy >= height || grid[gy * width + gx] === 1)) return [];
 
   const { cameX, cameY, g, seen, closed } = scratch(width * height);
   const gen = GEN;
@@ -174,7 +175,7 @@ function gridPath(grid, width, height, start, goal, reachAdjacent, maxNodes) {
     if (closed[ci] === gen) continue;
     closed[ci] = gen;
     const dx = cx > gx ? cx - gx : gx - cx, dy = cy > gy ? cy - gy : gy - cy;
-    if (reachAdjacent ? (dx <= 1 && dy <= 1) : (dx === 0 && dy === 0)) return reconstruct(cameX, cameY, W, start, { x: cx, y: cy });
+    if (dx <= range && dy <= range) return reconstruct(cameX, cameY, W, start, { x: cx, y: cy });
 
     // The open ways out, a bit each: the four sides, then a corner only when
     // both sides beside it are open too (no corner cutting).
@@ -215,4 +216,92 @@ function reconstruct(cameX, cameY, width, start, end) {
   }
   path.reverse();
   return path;
+}
+
+/** Shortest trip to any goal, using the distance a player actually moves.
+ *  Boarding costs one tile's worth of travel and MRT travel is instant.
+ *  Equal lengths favour saving the fare, then taking fewer ferries.
+ *  Return the first walking leg after any MRT ride. */
+export function findTravelRoute(cfg, start, goals, { range = 0, stations = [], ferries = [] } = {}) {
+  const { width: w, height: h, grid } = cfg;
+  if (!isTile(start, w, h) || !goals.length) return null;
+  const blocked = grid?.length === w * h ? (x, y, i) => grid[i] === 1 : cfg.isBlocked;
+  const index = (x, y) => y * w + x;
+  const inside = (x, y) => x >= 0 && y >= 0 && x < w && y < h;
+  const source = index(start.x, start.y), ends = new Map();
+  for (const goal of goals) {
+    if (!isTile(goal, w, h)) continue;
+    for (let y = goal.y - range; y <= goal.y + range; y++) for (let x = goal.x - range; x <= goal.x + range; x++) {
+      if (!inside(x, y)) continue;
+      const i = index(x, y);
+      if (i === source) return { goal, distance: 0, path: [] };
+      if (!ends.has(i) && !blocked(x, y, i)) ends.set(i, goal);
+    }
+  }
+  if (!ends.size) return null;
+
+  // Boarding uses the same one-tile reach as the in-world interaction.
+  const exits = new Map();
+  for (const ferry of ferries) {
+    const { landing, arrival } = ferry;
+    if (!arrival || !isTile(arrival, w, h) || blocked(arrival.x, arrival.y, index(arrival.x, arrival.y))) continue;
+    for (let y = landing.y - 1; y <= landing.y + 1; y++) for (let x = landing.x - 1; x <= landing.x + 1; x++) {
+      if (!inside(x, y)) continue;
+      const i = index(x, y);
+      if (i !== source && blocked(x, y, i)) continue;
+      if (!exits.has(i)) exits.set(i, []);
+      exits.get(i).push(ferry);
+    }
+  }
+
+  const { cameX: parent, g, seen, closed } = scratch(w * h);
+  const gen = GEN, transit = new Map();
+  // No shortest route can use a directed crossing twice. Keep all the
+  // tie-breakers together worth less than a single walking step.
+  const fare = ferries.length + 1, tieScale = fare * 2;
+  const unit = 1000000, step = unit * tieScale, diagonal = Math.round(Math.SQRT2 * unit) * tieScale;
+  HN = 0;
+  const offer = (x, y, i, cost, prev, link) => {
+    if (seen[i] === gen && (closed[i] === gen || g[i] <= cost)) return;
+    seen[i] = gen; g[i] = cost; parent[i] = prev;
+    if (link) transit.set(i, link);
+    else transit.delete(i);
+    hpush(x, y, cost);
+  };
+  offer(start.x, start.y, source, 0, -1);
+  for (const { station, arrival } of stations) {
+    if (!arrival || !isTile(arrival, w, h)) continue;
+    const i = index(arrival.x, arrival.y);
+    if (!blocked(arrival.x, arrival.y, i)) offer(arrival.x, arrival.y, i, fare, -1, { st: station });
+  }
+
+  while (HN) {
+    hpop();
+    const x = popX, y = popY, i = index(x, y);
+    if (closed[i] === gen) continue;
+    closed[i] = gen;
+    const goal = ends.get(i);
+    if (goal) {
+      const distance = Math.floor(g[i] / tieScale) / unit;
+      let st, ferry, path = [];
+      for (let at = i; at >= 0; at = parent[at]) {
+        const link = transit.get(at);
+        if (link?.landing) { ferry = link.landing; path = []; }
+        else if (link?.st) st = link.st;
+        else if (parent[at] >= 0) path.push({ x: at % w, y: Math.floor(at / w) });
+      }
+      return { goal, distance, st, ferry, path: path.reverse() };
+    }
+    for (const link of exits.get(i) || []) {
+      const { x: tx, y: ty } = link.arrival;
+      offer(tx, ty, index(tx, ty), g[i] + step + 1, i, link);
+    }
+    for (let k = 0; k < DIRS.length; k++) {
+      const dx = DXS[k], dy = DYS[k], nx = x + dx, ny = y + dy, next = index(nx, ny);
+      if (!inside(nx, ny) || blocked(nx, ny, next)) continue;
+      if (dx && dy && (blocked(nx, y, i + dx) || blocked(x, ny, i + dy * w))) continue;
+      offer(nx, ny, next, g[i] + (dx && dy ? diagonal : step), i);
+    }
+  }
+  return null;
 }

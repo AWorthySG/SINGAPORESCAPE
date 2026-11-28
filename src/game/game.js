@@ -40,6 +40,7 @@ import { footFx } from './footfx.js';
 import { CombatFx, MAX_EFFECTS, keepLive, hitImpact, hitsplatFx, deathFx, abilityAccent, isMilestoneLevel } from '../render/combatfx.js';
 import { juiceHit, juiceKill, juiceLevel, noteAbility, shakeAllowed, spriteDt } from '../render/juice.js';
 import { findPath } from '../engine/pathfinding.js';
+import { planTravel } from './travel.js';
 import {
   playerAttackVsNpc, npcAttackVsPlayer, OFFHAND_SHARE, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
@@ -113,7 +114,7 @@ import { bossToolDrop } from './bosstools.js';   // world bosses drop gathering 
 import { levelHaul } from './levelhaul.js';   // a bigger haul as your gathering level rises
 import { recordHarvest } from './jackpot.js';   // now and then a record harvest
 import { tickWarmth, warmthBonus } from './bonfire.js';   // bonfires and their warmth
-import { bestGatherNode, bestGatherPick, gatheringPickFor, gatheringTrip, topGatherSource, gatherLevel, safeRouteCfg, safeToGather, specialNode } from './whatnext.js';
+import { bestGatherNode, bestGatherPick, gatheringPickFor, gatheringTrip, gatheringTravel, topGatherSource, gatherLevel, safeRouteCfg, safeToGather, specialNode } from './whatnext.js';
 import { Teleports } from './teleports.js';   // the Town and Grave teleports
 import { Discovery } from './discovery.js';   // encyclopedia discoveries and their rewards
 import * as Rounds from './rounds.js';   // gun rounds and the ammo slot
@@ -223,7 +224,6 @@ export const AGILITY_ATK_MAX = 75, AGILITY_ATK_HALF = 1000;
 const COIN_SKILL_MULT = 20;
 const PLAYER_STEP_MUL = 0.7;   // the player's base step time (see player.js)
 const ROAD_PACE = 0.75;        // step time on a road or bridge: a third quicker than open ground
-const MRT_HOP_MIN = 60;        // trips longer than this (tiles) ride the MRT part of the way when it helps
 const DANCE_RICOCHET = 2;
 // Above this many attacks a beat (1/0.05 = 20), attacks are grouped into volleys.
 const VOLLEY_MIN_BEATS = 0.05;
@@ -1811,18 +1811,13 @@ export class Game {
 
   /** Auto gather with a ticked list and nothing to do: head for the nearest ticked node. */
   startGatherPicks() {
-    if (!this.gatherPicks.size) return false;
-    const here = this.playerTile();
-    let best = null, bd = Infinity;
-    for (const o of this.world.objects) {
-      if (!this.gatherPicks.has(o.objId) || o.depleted) continue;
-      if (o.def?.skill && (o.def.level || 1) > this.skills.level(o.def.skill)) continue;
-      const d = chebyshev(here.x, here.y, o.x, o.y);
-      if (d < bd) { bd = d; best = o; }
-    }
-    if (!best) { this.msg('None of the kinds you ticked are ready nearby yet.', 'system'); return false; }
+    if (!this.player.alive || !this.gatherPicks.size) return false;
+    const candidates = this.world.objects.filter((o) => this.gatherPicks.has(o.objId) && !o.depleted
+      && (!o.def?.skill || (o.def.level || 1) <= this.skills.level(o.def.skill)));
+    const trip = this._objectTravel(candidates);
+    if (!trip) { this.msg('None of the kinds you ticked are ready and reachable yet.', 'system'); return false; }
     if (!this.autoGather) this.toggleAutoGather(true);
-    return this.goToObject(best);
+    return this.goToObject(trip.goal, null, trip);
   }
 
   _gatherKindName(objId) {
@@ -1943,63 +1938,39 @@ export class Game {
    *  objects (anywhere on the island) and start on it (or `start(obj)`, the
    *  life skill shortcuts' "make everything you can here"). */
   goToNearest(objIds, start = null) {
+    if (!this.player.alive) return false;
     if (this.world.layout === 'singapore' && objIds.some((id) => gatheringSource(OBJECTS[id]))) {
-      const found = this.player.alive && gatheringPickFor(this, objIds);
+      const found = gatheringPickFor(this, objIds);
       if (!found) { this.msg("I can't find a safe route to one of those.", 'system'); return false; }
       return this.goToObject(found.obj, start && (() => start(found.obj)), found.trip);
     }
     const ids = new Set(objIds);
-    const here = this.playerTile();
-    let best = null, bd = Infinity;
-    for (const o of this.world.objects) {
-      if (!ids.has(o.objId) || o.depleted) continue;
-      const d = (o.x - here.x) ** 2 + (o.y - here.y) ** 2;
-      if (d < bd) { bd = d; best = o; }
-    }
-    if (!best || !this.player.alive) { this.msg("I can't find one of those anywhere.", 'system'); return false; }
-    return this.goToObject(best, start && (() => start(best)));
+    const trip = planTravel(this, this.world.objects.filter((o) => ids.has(o.objId) && !o.depleted), { range: 1 });
+    if (!trip) { this.msg("I can't find the way to one of those.", 'system'); return false; }
+    return this.goToObject(trip.goal, start && (() => start(trip.goal)), trip);
   }
 
-  /** Walk to one object, however far away, and start on it when you arrive
-   *  (or do `start()` instead of what tapping it does). A `trip` planned to keep
-   *  out of danger (the Life skills shortcut's, whatnext.js) rides the MRT only
-   *  if it planned to, and walks the safe way. */
+  /** Approach an object and start the chosen action when you arrive. */
   goToObject(obj, start = null, trip = null) {
     if (!this.player.alive) return false;
-    if (!trip && this.world.layout === 'singapore' && gatheringSource(obj.def) && !specialNode(obj)) {
-      trip = gatheringTrip(this, obj);
-      if (!trip) { this.msg("I can't find a safe route to that spot.", 'system'); return false; }
-    }
-    if (!trip && this._ferryToward(obj, () => this.goToObject(obj, start))) return true;
-    if (!trip) this._mrtHopToward(obj);
-    else if (trip.st && !this.travelTo(trip.st.id, true)) return false;
-    this._pathBudget = 150000;       // like quest trips, these can cross the whole map
-    this._routeCfg = trip?.cfg || null;
-    let r;
-    try {
-      if (trip?.ferry) {
-        const landing = trip.ferry;
-        r = this.beginAction({ type: 'ferry', obj: landing, target: landing, onLand: () => this.goToObject(obj, start) }, landing, true);
-      } else r = start ? start() : this.defaultObjectAction(obj);
-    } finally { this._pathBudget = 0; this._routeCfg = null; }
-    // (Making at a station is instant, so a "do all" beside one is already done.)
-    const ok = !!this.player.action || this.player.isMoving || (!!start && r === true);
-    this.msg(ok ? `You head for the ${obj.def.name.toLowerCase()}.` : "I can't find the way there.", 'system');
-    if (ok && !this._autoTrip) this.ui?.closeModal();
+    const safe = this.world.layout === 'singapore' && gatheringSource(obj.def) && !specialNode(obj);
+    trip ??= safe ? gatheringTrip(this, obj) : planTravel(this, [obj], { range: 1 });
+    const modal = this.ui?.modal;
+    const ok = this._travelAction(trip, start || (() => this.defaultObjectAction(obj)), () => this.goToObject(obj, start));
+    this.msg(ok ? `You head for the ${obj.def.name.toLowerCase()}.` : safe ? "I can't find a safe route to that spot." : "I can't find the way there.", 'system');
+    if (ok && !this._autoTrip && this.ui?.modal === modal) this.ui?.closeModal();
     return ok;
   }
 
-  /** Walk to someone, however far away, and talk to them (or whatever tapping
-   *  them does) when you arrive: the life skill shortcut to the Slayer master. */
+  /** Approach someone and talk to them or perform their default action. */
   goToNpc(npc) {
     if (!this.player.alive || !npc?.alive) return false;
-    if (this._ferryToward(npc, () => this.goToNpc(npc))) return true;
-    this._mrtHopToward(npc);
-    this._pathBudget = 150000;
-    try { this.defaultNpcAction(npc); } finally { this._pathBudget = 0; }
-    const ok = !!this.player.action || this.player.isMoving;
+    const modal = this.ui?.modal, range = npc.attackable ? this.attackRange() : 1;
+    const target = !npc.attackable && npc.isMoving ? { x: npc.tx, y: npc.ty } : npc;
+    const trip = planTravel(this, [target], { range });
+    const ok = this._travelAction(trip, () => this.defaultNpcAction(npc), () => this.goToNpc(npc));
     this.msg(ok ? `You head for ${npc.name}.` : "I can't find the way there.", 'system');
-    if (ok && !this._autoTrip) this.ui?.closeModal();
+    if (ok && !this._autoTrip && this.ui?.modal === modal) this.ui?.closeModal();
     return ok;
   }
 
@@ -2007,8 +1978,9 @@ export class Game {
    *  MRT hop to a boss or a quest) leave an open window alone: it used to
    *  close Gear Mastery, a refine or a dismantle under the player's finger. */
   _autoRun(fn) {
+    const wasAuto = !!this._autoTrip;
     this._autoTrip = true;
-    try { fn(); } finally { this._autoTrip = false; }
+    try { return fn(); } finally { this._autoTrip = wasAuto; }
   }
 
   /** World map: ride the MRT to any station (every station is open from the start).
@@ -2020,54 +1992,51 @@ export class Game {
     return this.travelTo(stationId);
   }
 
-  /** A long trip: if a station lies much nearer the destination than you do,
-   *  ride the MRT there first (one fare) so you only walk the last stretch.
-   *  Returns true if it rode. Used by the world map's Travel, quest Go and auto quest. */
-  _mrtHopToward(tile) {
-    const st = this._mrtHopStation(tile);
-    return !!st && this._mrtCanHop() && this.travelTo(st.id, true);
-  }
-
   /** Whether a trip may hop on the MRT now (the fare, and nothing after you). */
   _mrtCanHop() {
     const p = this.player, here = this.playerTile();
     if (!p.alive || this.inventory.count('coins') < MRT_FARE) return false;
-    if (this.world.zoneAt(here.x, here.y)?.wilderness) return false;   // no MRT out of the Wilderness
+    const zone = this.world.zoneAt(here.x, here.y);
+    if (zone?.wilderness || zone?.instance) return false;
     return !this.npcs.some((n) => n.alive && n.target === p);
   }
 
-  /** The station _mrtHopToward would ride to, or null. With `ok`, the nearest to
-   *  the destination of the stations ok(st) takes, whenever it lies nearer than
-   *  you do (the Life skills shortcut: one a safe walk goes on from, whatnext.js). */
-  _mrtHopStation(tile, ok = null) {
-    const here = this.playerTile(), walk = chebyshev(here.x, here.y, tile.x, tile.y);
-    if (!ok && walk < MRT_HOP_MIN) return null;
-    let best = null, bd = Infinity;
-    for (const st of this.world.stations) { const d = chebyshev(st.x, st.y, tile.x, tile.y); if (d < bd && (!ok || (d < walk && ok(st)))) { bd = d; best = st; } }
-    if (!best || (ok ? bd >= walk : walk - bd < MRT_HOP_MIN / 2 || bd > walk * 0.6)) return null;
-    return best;
+  /** Start the next leg only after the whole destination has a route. Once
+   *  ashore, recalculate with the current map, fare and safety conditions. */
+  _followTravel(trip, finish, resume) {
+    if (!trip || !this.player.alive) return false;
+    if (trip.st && (!this._mrtCanHop() || !this.travelTo(trip.st.id, true))) return false;
+    if (!trip.ferry) return finish(trip.path);
+    const landing = trip.ferry, onLand = this._autoTrip ? () => this._autoRun(resume) : resume;
+    return this.beginAction({ type: 'ferry', obj: landing, target: landing, onLand }, landing, true, trip.path);
   }
 
-  _ferryToward(tile, onLand) {
-    const landing = this.world.ferryToward(this.playerTile(), tile);
-    if (!landing) return false;
-    this._mrtHopToward(landing);
-    const previousBudget = this._pathBudget;
-    this._pathBudget = 150000;
-    try {
-      return this.beginAction({ type: 'ferry', obj: landing, target: landing, onLand }, landing, true);
-    } finally { this._pathBudget = previousBudget; }
+  _travelAction(trip, start, resume) {
+    return this._followTravel(trip, (path) => {
+      const previous = this._travelApproach;
+      this._travelApproach = { goal: trip.goal, path };
+      try {
+        const r = start();
+        return r === true || (r !== false && (!!this.player.action || this.player.isMoving));
+      } finally { this._travelApproach = previous; }
+    }, resume);
   }
 
-  /** World map: get to any tile, by MRT and on foot. */
-  travelToTile(tile) {
-    if (!this.player.alive) return false;
-    if (this._ferryToward(tile, () => this.travelToTile(tile))) return true;
-    this._mrtHopToward(tile);
-    this._pathBudget = 150000;
-    try { this.walkToFar(tile); } finally { this._pathBudget = 0; }
-    return true;
+  _plannedWalk(target, range) {
+    const plan = this._travelApproach;
+    if (!plan || plan.goal.x !== target.x || plan.goal.y !== target.y) return;
+    const end = plan.path.at(-1) || this.playerTile();
+    if (chebyshev(end.x, end.y, target.x, target.y) <= range) return plan.path;
   }
+
+  _objectTravel(objects) {
+    if (this.world.layout === 'singapore' && objects.some((o) => gatheringSource(o.def) && !specialNode(o))) {
+      return gatheringTravel(this, objects);
+    }
+    return planTravel(this, objects, { range: 1 });
+  }
+
+  travelToTile(tile) { return this.walkToFar(tile); }
 
   /** One-shot action: approach, then fire `onArrive` and clear. */
   _tickArrival(a, target, adjacent, onArrive, cue) {
@@ -2092,12 +2061,7 @@ export class Game {
       // Approach / chase a moving target. Ranged attackers only walk as far as
       // the first tile within reach, not right up to it.
       if (!a.lastNpcTile || a.lastNpcTile.x !== npc.x || a.lastNpcTile.y !== npc.y || !p.isMoving) {
-        let path = findPath(this.pathCfg(), this.playerTile(), { x: npc.x, y: npc.y },
-          { reachAdjacent: true, maxNodes: 4000 });
-        if (range > 1) {
-          const cut = path.findIndex((t) => chebyshev(t.x, t.y, npc.x, npc.y) <= range);
-          if (cut !== -1) path = path.slice(0, cut + 1);
-        }
+        const path = this._plannedWalk(npc, range) ?? findPath(this.pathCfg(), this.playerTile(), npc, { range, maxNodes: 4000 });
         if (path.length) this.player.setPath(path, this.canRun());
         else if (!p.isMoving) { this.msg("I can't reach that!"); p.clearAction(); return; }
         a.lastNpcTile = { x: npc.x, y: npc.y };
@@ -5420,13 +5384,14 @@ export class Game {
   }
 
   // ---------------- Begin actions (from input / UI) ----------------
-  beginAction(action, target, adjacent) {
+  beginAction(action, target, adjacent, walk) {
     const start = this.playerTile();
     const reached = adjacent
       ? chebyshev(start.x, start.y, target.x, target.y) <= 1
       : start.x === target.x && start.y === target.y;
     if (!reached) {
-      const path = findPath(this.pathCfg(), start, target, { reachAdjacent: adjacent, maxNodes: this._pathBudget || 6000 });
+      const path = walk ?? this._plannedWalk(target, adjacent ? 1 : 0)
+        ?? findPath(this.pathCfg(), start, target, { reachAdjacent: adjacent, maxNodes: this._pathBudget || 6000 });
       if (!path.length) { this.msg("I can't reach that."); return false; }
       this.player.setPath(path, this.canRun());
     } else {
@@ -5513,6 +5478,7 @@ export class Game {
     // 1b. Step out of a boss's ground marker, still fighting (see _autoDodge).
     this._autoDodge();
     const a = p.action;
+    if (a?.type === 'ferry' && a.onLand) return;   // keep the planned crossing while walking to its landing
     const fighting = a && a.type === 'attack' && a.npc && a.npc.alive;
     // A target we just sent you at that cleared itself without dying was
     // unreachable: skip it for a while instead of retrying every tick.
@@ -5895,14 +5861,7 @@ export class Game {
       best = n; bd = d;
     }
     if (!best || bd <= 20) return false;   // none, or already close: the normal pick handles it
-    this._pathBudget = 150000;
-    let hopped = false;
-    try {
-      hopped = this._mrtHopToward(best);
-      if (!hopped) this.walkToFar({ x: best.x, y: best.y });
-    } finally { this._pathBudget = 0; }
-    if (!hopped && !p.isMoving) { this._autoSkip.set(best.entityId, this.tickCount + 200); return false; }   // no way there
-    if (hopped) this._autoBossNext = this.tickCount;   // off the train: walk the rest next tick
+    if (!this.travelToTile(best)) { this._autoSkip.set(best.entityId, this.tickCount + 200); return false; }
     if (this._autoBossTrip?.npc !== best) this.msg(`Auto battle: heading for ${best.name} (level ${best.def.level}).`, 'system');
     this._autoBossTrip = { npc: best, until: this._autoBossTrip?.npc === best ? this._autoBossTrip.until : this.tickCount + 1500 };
     return true;
@@ -5929,7 +5888,7 @@ export class Game {
   /** On a quest or Slayer hunt with none of its monsters within reach: go to
    *  the nearest one anywhere on the map (by MRT when that's quicker). */
   _autoHeadToQuestHunt() {
-    const p = this.player, here = this.playerTile();
+    const here = this.playerTile();
     const inWild = !!this.world.zoneAt(here.x, here.y)?.wilderness;
     let best = null, bd = Infinity;
     for (const n of this.npcs) {
@@ -5942,11 +5901,8 @@ export class Game {
       if (d < bd) { bd = d; best = n; }
     }
     if (!best) return false;
-    this._mrtHopToward(best);
     const t = this._nearestFree(best.x, best.y);
-    const path = t && findPath(this.pathCfg(), this.playerTile(), t, { maxNodes: 150000 });
-    if (!path || !path.length) { this._autoSkip.set(best.entityId, this.tickCount + 100); return false; }
-    p.setPath(path, this.canRun()); p.clearAction();
+    if (!t || !this.travelToTile(t)) { this._autoSkip.set(best.entityId, this.tickCount + 100); return false; }
     this._autoTravel = { x: t.x, y: t.y };
     this.msg(`Auto battle: heading to ${best.name} for your ${this._questFamily ? 'Slayer task' : 'quest'}.`, 'system');
     return true;
@@ -5969,9 +5925,7 @@ export class Game {
     }
     if (!best) return false;
     const t = this._nearestFree(best.x, best.y);
-    const path = t && findPath(this.pathCfg(), this.playerTile(), t, { maxNodes: 150000 });
-    if (!path || !path.length) { this._autoSkip.set(best.entityId, this.tickCount + 100); return false; }
-    p.setPath(path, this.canRun()); p.clearAction();
+    if (!t || !this.travelToTile(t)) { this._autoSkip.set(best.entityId, this.tickCount + 100); return false; }
     this._autoTravel = { x: t.x, y: t.y };
     this.msg(`Auto battle: heading to monsters of your level (${best.name}, level ${best.def.level}).`, 'system');
     return true;
@@ -6293,7 +6247,7 @@ export class Game {
     for (const { n, score, tier } of cands.slice(0, 4)) {
       // Already in reach (or adjacent): no walking needed, so no route check.
       if (chebyshev(p.x, p.y, n.x, n.y) <= Math.max(1, range)) { if (score < bestScore) { bestScore = score; best = n; } continue; }
-      const route = findPath(this.pathCfg(), this.playerTile(), { x: n.x, y: n.y }, { reachAdjacent: true, maxNodes: 8000 });
+      const route = findPath(this.pathCfg(), this.playerTile(), n, { range: Math.max(1, range), maxNodes: 8000 });
       if (!route.length) { this._autoSkip.set(n.entityId, this.tickCount + 40); continue; }
       // Keep the priority tier (boss > something attacking you > champion > rest) over route length.
       const real = route.length + tier;
@@ -6361,26 +6315,32 @@ export class Game {
   }
 
   walkTo(tile) {
-    if (!this.world.inBounds(tile.x, tile.y)) return;
+    if (!this.player.alive || !this.world.inBounds(tile.x, tile.y)) return false;
     this._autoLife = null;   // walking off yourself ends any auto gather loop
     this.autoGatherBest = null;   // ...and "the best you can" (a Life skills shortcut)
-    const start = this.playerTile();
-    if (start.x === tile.x && start.y === tile.y) { this.player.clearAction(); return; }
-    let path = findPath(this.pathCfg(), start, tile, {});
-    if (!path.length) path = findPath(this.pathCfg(), start, tile, { reachAdjacent: true });
-    if (path.length) { this.player.setPath(path, this.canRun()); this.player.clearAction(); }
+    const approach = this._plannedWalk(tile, 1);
+    if (approach) return this._startWalk(approach);
+    const range = this.world.isBlocked(tile.x, tile.y) ? 1 : 0;
+    return this._followTravel(planTravel(this, [tile], { range }), (path) => this._startWalk(path), () => this.walkTo(tile));
   }
 
-  /** Long-range walk used by the world map; snaps to the nearest walkable tile. */
+  _startWalk(path) {
+    this.player.setPath(path, path.length > 0 && this.canRun());
+    this.player.clearAction();
+    return true;
+  }
+
+  /** The world map snaps a blocked destination to a nearby dry tile. */
   walkToFar(tile) {
+    if (!this.player.alive) return false;
     this._autoLife = null; this.autoGatherBest = null;
-    if (this._ferryToward(tile, () => this.walkToFar(tile))) return;
     const t = this._nearestFree(tile.x, tile.y);
-    if (!t) { this.msg("I can't reach there."); return; }
-    if (this.playerTile().x === t.x && this.playerTile().y === t.y) return;
-    const path = findPath(this.pathCfg(), this.playerTile(), t, { maxNodes: this._pathBudget || 40000 });
-    if (path.length) { this.player.setPath(path, this.canRun()); this.player.clearAction(); this.msg('You set off across the island.', 'system'); }
-    else this.msg("I can't find a path there.");
+    const ok = t && this._followTravel(planTravel(this, [t]), (path) => {
+      if (path.length) this.msg('You set off across the island.', 'system');
+      return this._startWalk(path);
+    }, () => this.walkToFar(tile));
+    if (!ok) this.msg("I can't find a path there.");
+    return !!ok;
   }
 
   attackNpc(npc) {
@@ -7542,63 +7502,57 @@ export class Game {
   /** Quest journal "Go": walk to wherever the quest needs you next and start on it. */
   questTravel(id) {
     const g = this.questGuide(id);
-    const p = this.player;
-    const here = this.playerTile();
-    const d2 = (o) => (o.x - here.x) ** 2 + (o.y - here.y) ** 2;
-    const nearest = (list) => list.reduce((b, o) => (!b || d2(o) < d2(b) ? o : b), null);
-    if (!p.alive || g.kind === 'none') { if (g.text && g.text !== 'Complete') this.msg(g.text + '.', 'system'); return false; }
+    if (!this.player.alive || g.kind === 'none') { if (g.text && g.text !== 'Complete') this.msg(g.text + '.', 'system'); return false; }
     this._questTarget = null;
     this._questFamily = null;
     this._questBoss = false;
-    this._pathBudget = 150000;       // quest trips can cross the whole map
+    const resume = () => this.questTravel(id);
     let ok = false, tooStrong = false, wildOnly = false;
-    try {
-      if (g.kind === 'npc') {
-        const n = nearest(this.npcs.filter((x) => x.npcId === g.npcId));
-        if (n) {
-          ok = this._ferryToward(n, () => this.questTravel(id));
-          if (!ok) { this._mrtHopToward(n); ok = this.defaultNpcAction(n) !== false; }
-        }
-      } else if (g.kind === 'obj') {
-        const o = nearest(this.world.objects.filter((x) => x.objId === g.objId && !x.depleted));
-        if (o) {
-          ok = this._ferryToward(o, () => this.questTravel(id));
-          if (!ok) { this._mrtHopToward(o); this.defaultObjectAction(o); ok = !!p.action || p.isMoving; }
-        }
-      } else if (g.kind === 'light') {
-        if (this.burnableLogs().length) ok = this.startFiremaking() !== false;
-      } else if (g.kind === 'hunt' || g.kind === 'boss') {
-        const cl = this.fightLevel();
-        const fits = g.kind === 'boss'
-          ? (n) => n.def.boss && !n.def.fixed && this._autoCanBeat(n)   // the same can-beat check as auto battle
-          : g.target ? (n) => n.npcId === g.target
-          : g.family ? (n) => !n.def.boss && n.def.family === g.family
-          : (n) => !n.def.boss && (n.def.level || 1) <= cl + 5;
-        const mob = g.npc?.alive ? g.npc : nearest(this.npcs.filter((n) => n.alive && n.attackable && !n.temporary && fits(n)
-          && (!this.world.zoneAt(n.x, n.y)?.wilderness || this.world.zoneAt(here.x, here.y)?.wilderness)));
-        if (mob) {
-          this._questTarget = g.target || null;
-          this._questFamily = g.family || null;
-          // Bosses are taken on for this quest trip only, not switched on for good.
-          this._questBoss = g.kind === 'boss';
-          if (this._ferryToward(mob, () => this.questTravel(id))) { ok = true; return ok; }
-          if (this._mrtHopToward(mob)) this.walkToFar({ x: mob.x, y: mob.y });
-          else if (chebyshev(here.x, here.y, mob.x, mob.y) > 12) this.walkToFar({ x: mob.x, y: mob.y });
-          else this.attackNpc(mob);
+    if (g.kind === 'npc') {
+      const trip = this._questNpcTravel(g.npcId);
+      ok = this._travelAction(trip, () => this.defaultNpcAction(trip.goal.npc), resume);
+    } else if (g.kind === 'obj') {
+      const trip = this._objectTravel(this.world.objects.filter((o) => o.objId === g.objId && !o.depleted));
+      ok = this._travelAction(trip, () => this.defaultObjectAction(trip.goal), resume);
+    } else if (g.kind === 'light') {
+      if (this.burnableLogs().length) ok = this.startFiremaking() !== false;
+    } else if (g.kind === 'hunt' || g.kind === 'boss') {
+      const cl = this.fightLevel(), inWild = this.inWilderness();
+      const fits = g.kind === 'boss'
+        ? (n) => n.def.boss && !n.def.fixed && this._autoCanBeat(n)
+        : g.target ? (n) => n.npcId === g.target
+        : g.family ? (n) => !n.def.boss && n.def.family === g.family
+        : (n) => !n.def.boss && (n.def.level || 1) <= cl + 5;
+      const targets = g.npc?.alive ? [g.npc] : this.npcs.filter((n) => n.alive && n.attackable && !n.temporary && fits(n));
+      const trip = planTravel(this, inWild ? targets : targets.filter((n) => !this.world.zoneAt(n.x, n.y)?.wilderness),
+        { range: this.attackRange() });
+      if (trip) {
+        this._questTarget = g.target || null;
+        this._questFamily = g.family || null;
+        // Bosses are taken on for this quest trip only.
+        this._questBoss = g.kind === 'boss';
+        ok = this._travelAction(trip, () => {
+          this.attackNpc(trip.goal);
           if (!this.autoBattle) this.toggleAutoBattle(true);
-          ok = true;
-        } else if (g.kind === 'boss') {
-          // Say why: a boss you could beat that only roams the Wilderness, or none at all.
-          wildOnly = this.npcs.some((n) => n.alive && n.attackable && !n.temporary && fits(n));
-          tooStrong = !wildOnly;
-        }
+          return true;
+        }, resume);
+      } else if (g.kind === 'boss') {
+        wildOnly = targets.length > 0 && targets.every((n) => this.world.zoneAt(n.x, n.y)?.wilderness);
+        tooStrong = !targets.length;
       }
-    } finally { this._pathBudget = 0; }
+    }
     this.msg(ok ? `Quest: ${g.text}.` : tooStrong ? `Quest: ${g.text}, but every boss is too strong for you for now. Train up first.`
       : wildOnly ? `Quest: ${g.text}, but the only boss you can beat roams the Wilderness. Head there yourself.`
       : `Quest: ${g.text}, but I can't find the way there.`, 'system');
     if (ok && (AUTO_QUEST_ACTIONS[id] || id === 'slayer')) this.autoQuestId = id;   // auto quest works on the quest you last chose
     return ok;
+  }
+
+  _questNpcTravel(npcId) {
+    const targets = this.npcs.filter((n) => n.alive && n.npcId === npcId).map((npc) => ({
+      npc, x: npc.isMoving ? npc.tx : npc.x, y: npc.isMoving ? npc.ty : npc.y,
+    }));
+    return planTravel(this, targets, { range: 1 });
   }
 
   // ---------------- Auto quest ----------------
@@ -7685,10 +7639,7 @@ export class Game {
       // Auto battle was already on: point it at the quest's monsters (it would
       // otherwise go on fighting whatever it liked), and leave it on afterwards.
       if (!this._autoQuestFight) {
-        this._pathBudget = 150000;
-        let ok;
-        try { ok = this.questTravel(id); } finally { this._pathBudget = 0; }
-        if (!ok) { this.toggleAutoQuest(false, `there's nothing I can fight for "${g.text}" right now.`); return; }
+        if (!this.questTravel(id)) { this.toggleAutoQuest(false, `there's nothing I can fight for "${g.text}" right now.`); return; }
         this._autoQuestFight = true;
         this._autoQuestKeepBattle = true;
       }
@@ -7730,48 +7681,38 @@ export class Game {
       }
     } else this._autoQuestStuck = 0;
     this._autoQuestMark = mark;
-    const here = this.playerTile();
-    const d2 = (o) => (o.x - here.x) ** 2 + (o.y - here.y) ** 2;
-    const nearest = (list) => list.reduce((b, o) => (!b || d2(o) < d2(b) ? o : b), null);
-    this._pathBudget = 150000;       // quest trips can cross the whole map
-    try {
-      if (g.kind === 'npc') {
-        const n = nearest(this.npcs.filter((x) => x.npcId === g.npcId));
-        if (!n) { this.toggleAutoQuest(false, `I can't find ${getNpc(g.npcId).name}.`); return; }
-        if (this._ferryToward(n)) return;
-        this._mrtHopToward(n);
-        const tgt = { x: n.x, y: n.y };
-        this.beginAction({ type: 'questtalk', npc: n, quest: id, target: tgt }, tgt, true);
-      } else if (g.kind === 'obj') {
-        // A farm patch has to be one you can use now: ripe, or empty with a seed to plant.
-        const seed = this.inventory.slots.some((sl) => sl && CROP_BY_SEED[sl.id]);
-        const o = nearest(this.world.objects.filter((x) => x.objId === g.objId && !x.depleted
-          && (x.def.type !== 'farm' || (x.crop ? !(x.growLeft > 0) : seed))));
-        if (!o) { this.toggleAutoQuest(false, `I can't find anywhere to "${g.text}".`); return; }
-        if (this._ferryToward(o)) return;
-        const make = AUTO_QUEST_STATION[o.def.type];
-        this._mrtHopToward(o);
-        if (make) {
-          // A step that names what it wants (`make`) makes just that, so a spare
-          // ore from a lucky swing isn't smelted into a lesser bar.
-          let job = nextJob(this, make);
-          for (const skip = new Set(); g.make && job && job.recipe?.result !== g.make; job = nextJob(this, make, skip)) skip.add(jobKey(job));
-          if (!job) { this.toggleAutoQuest(false, `you don't have what you need to "${g.text}".`); return; }
-          if (g.make) this.beginAction({ ...job, obj: o }, { x: o.x, y: o.y }, true);
-          else this.startAll(make, o);
-        } else {
-          if (this.inventory.freeSlots() <= 0) { this.toggleAutoQuest(false, 'your bag is full. Bank or drop something and switch it back on.'); return; }
-          this.defaultObjectAction(o);
-        }
-      } else if (g.kind === 'light') {
-        if (!this.burnableLogs().length || !this.hasTool('tinderbox')) { this.toggleAutoQuest(false, 'you need logs and a tinderbox to light a fire.'); return; }
-        this.startFiremaking();
-      } else if (fighting) {
-        if (!this.questTravel(id)) { this.toggleAutoQuest(false, `there's nothing I can fight for "${g.text}" right now.`); return; }
-        this._autoQuestFight = true;
-        this._autoQuestKeepBattle = false;   // auto quest switched auto battle on, so it switches it off again
+    const resume = () => this._autoQuestTick();
+    if (g.kind === 'npc') {
+      const trip = this._questNpcTravel(g.npcId);
+      if (!trip) { this.toggleAutoQuest(false, `I can't reach ${getNpc(g.npcId).name}.`); return; }
+      const { npc, x, y } = trip.goal, target = { x, y };
+      this._travelAction(trip, () => this.beginAction({ type: 'questtalk', npc, quest: id, target }, target, true), resume);
+    } else if (g.kind === 'obj') {
+      // A farm patch has to be one you can use now: ripe, or empty with a seed to plant.
+      const seed = this.inventory.slots.some((sl) => sl && CROP_BY_SEED[sl.id]);
+      const trip = this._objectTravel(this.world.objects.filter((o) => o.objId === g.objId && !o.depleted
+        && (o.def.type !== 'farm' || (o.crop ? !(o.growLeft > 0) : seed))));
+      if (!trip) { this.toggleAutoQuest(false, `I can't find anywhere reachable to "${g.text}".`); return; }
+      const o = trip.goal, make = AUTO_QUEST_STATION[o.def.type];
+      if (make) {
+        // A step that names what it wants makes just that, so a spare
+        // ore from a lucky swing isn't smelted into a lesser bar.
+        let job = nextJob(this, make);
+        for (const skip = new Set(); g.make && job && job.recipe?.result !== g.make; job = nextJob(this, make, skip)) skip.add(jobKey(job));
+        if (!job) { this.toggleAutoQuest(false, `you don't have what you need to "${g.text}".`); return; }
+        this._travelAction(trip, () => g.make ? this.beginAction({ ...job, obj: o }, o, true) : this.startAll(make, o), resume);
+      } else {
+        if (this.inventory.freeSlots() <= 0) { this.toggleAutoQuest(false, 'your bag is full. Bank or drop something and switch it back on.'); return; }
+        this._travelAction(trip, () => this.defaultObjectAction(o), resume);
       }
-    } finally { this._pathBudget = 0; }
+    } else if (g.kind === 'light') {
+      if (!this.burnableLogs().length || !this.hasTool('tinderbox')) { this.toggleAutoQuest(false, 'you need logs and a tinderbox to light a fire.'); return; }
+      this.startFiremaking();
+    } else if (fighting) {
+      if (!this.questTravel(id)) { this.toggleAutoQuest(false, `there's nothing I can fight for "${g.text}" right now.`); return; }
+      this._autoQuestFight = true;
+      this._autoQuestKeepBattle = false;   // auto quest switched auto battle on, so it switches it off again
+    }
   }
 
   /** Auto quest reached a quest NPC: start the quest, hand it in, or (for the
@@ -8065,8 +8006,8 @@ export class Game {
     this.inventory.remove('coins', MRT_FARE);
     // A ride you choose (the world map, a station's gates) ends "the best you
     // can": it used to ride you straight back. Plain auto gather carries on where
-    // you land, as it always has. A long trip's own hop (`hop`: _mrtHopToward, the
-    // Life skills shortcut's) is part of that trip.
+    // you land, as it always has. A hop planned by automatic travel is part
+    // of that trip and can carry on with the action it was taking you to.
     if (!hop) this.autoGatherBest = null;
     const p = this.player;
     p.stopNow(); p.clearAction();
