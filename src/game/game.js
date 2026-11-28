@@ -33,7 +33,7 @@ import { Cinematics } from './cinematics.js';
 import { leafArt } from '../render/fxart.js';
 import { strikeLead } from '../render/motionkit.js';
 import { footFx } from './footfx.js';
-import { CombatFx, MAX_EFFECTS, keepLive, hitImpact, hitsplatFx, deathFx, isMilestoneLevel } from '../render/combatfx.js';
+import { CombatFx, MAX_EFFECTS, keepLive, hitImpact, hitsplatFx, deathFx, abilityAccent, isMilestoneLevel } from '../render/combatfx.js';
 import { juiceHit, juiceKill, juiceLevel, noteAbility, shakeAllowed, spriteDt } from '../render/juice.js';
 import { findPath } from '../engine/pathfinding.js';
 import {
@@ -1076,17 +1076,18 @@ export class Game {
    *  hits, red for a monster's telegraphed heavy blow. */
   _slash(target, color) {
     const c = target.renderCenter ? target.renderCenter() : target;
+    const jobClass = target === this.player ? null : this.jobClass;
     // A spear doesn't sweep: its hit is a straight streak along the thrust,
     // from you through the target.
     if (this.weaponType() === 'spear' && target !== this.player) {
       const pc = this.player.renderCenter();
-      this.effects.push({ type: 'slash', thrust: true, x: c.x, y: c.y - 6, ang: Math.atan2(c.y - pc.y, c.x - pc.x), color, life: 170, maxLife: 170 });
+      this.effects.push({ type: 'slash', thrust: true, x: c.x, y: c.y - 6, ang: Math.atan2(c.y - pc.y, c.x - pc.x), color, jobClass, life: 170, maxLife: 170 });
       return;
     }
     this.effects.push({
       type: 'slash', x: c.x, y: c.y - 6,
       ang: Math.random() * Math.PI * 2, dir: Math.random() < 0.5 ? -1 : 1,
-      color, life: 190, maxLife: 190,
+      color, jobClass, life: 190, maxLife: 190,
     });
   }
 
@@ -1174,8 +1175,8 @@ export class Game {
     if (this.particles.length > (this.lowFx ? 80 : 300)) this.particles.shift();
   }
 
-  spawnHitSparks(entity, color) {
-    if (entity !== this.player) hitImpact(this, entity, color);   // the weapon's own impact (render/combatfx.js)
+  spawnHitSparks(entity, color, jobClass = this.jobClass) {
+    if (entity !== this.player) hitImpact(this, entity, color, jobClass);   // the weapon's own impact (render/combatfx.js)
     const c = entity.renderCenter();
     for (let i = 0; i < 7; i++) {
       const a = Math.random() * Math.PI * 2, s = 0.04 + Math.random() * 0.08;
@@ -1192,7 +1193,7 @@ export class Game {
 
   _deathBurst(npc) {
     const c = npc.renderCenter();
-    this.spawnHitSparks(npc, '#ffd9b0');
+    this.spawnHitSparks(npc, '#ffd9b0', null);
     this.spawnPoof(c.x, c.y - 4, npc.def.color || '#caa15a');
     this.bus.emit('sfx', npc.def.boss ? 'bossdie' : 'die');
     deathFx(this, npc);   // a puff of stars and a sticker "poof" as it falls
@@ -2334,6 +2335,7 @@ export class Game {
       this.braceCounter = ab.counter || 0;   // a guard that strikes back (see resolveNpcAttack)
       this.msg('You brace for impact — incoming damage halved!', 'system');
       this.spawnSparkle(this.player, '#7fd8ff', 12);
+      abilityAccent(this);
       this.bus.emit('sfx', 'spec');
     } else if (ab.kind === 'buff') {
       // A class buff: one at a time, a new one replaces the last. A stacking
@@ -2347,6 +2349,7 @@ export class Game {
         this.msg(`${ab.name}! ${ab.desc}`, 'system');
         this.addHitsplat(this.player, 0, { text: ab.name });
         this.spawnSparkle(this.player, '#ffd24a', 14);
+        abilityAccent(this);
         this.bus.emit('sfx', 'spec');
       }
     } else if (ab.kind === 'heal') {
@@ -2354,6 +2357,7 @@ export class Game {
       this.player.hp = Math.min(this.maxHp(), this.player.hp + heal);
       this.msg(`${ab.name} restores ${heal} life.`, 'system');
       this.spawnSparkle(this.player, '#7fff8f', 14);
+      abilityAccent(this);
       this.bus.emit('hp');
       this.bus.emit('sfx', 'eat');
     }
@@ -2526,7 +2530,7 @@ export class Game {
     if (ab?.guard) { if (!(this.braceTicks > 0)) this.braceCounter = 0; this.braceTicks = Math.max(this.braceTicks || 0, ab.guard); }
     if (ab?.summon && this.jobClass === 'merchant') for (let k = 0; k < ab.summon; k++) Mercs.spawnFollower(this);
     if (spec) { this.msg(`Special attack: ${spec.name}!`, 'combat'); this.spawnSparkle(this.player, '#ffd24a', 12); }
-    if (ab) { this.msg(`Ability: ${ab.name}!`, 'combat'); this.spawnSparkle(this.player, '#ff9a3a', 10); this.bus.emit('sfx', 'spec'); }
+    if (ab) { this.msg(`Ability: ${ab.name}!`, 'combat'); this.spawnSparkle(this.player, '#ff9a3a', 10); abilityAccent(this); this.bus.emit('sfx', 'spec'); }
     if (weak) this.spawnSparkle(npc, '#9affd0', 6);
     if (race === 'strong') this.spawnSparkle(npc, '#ffd24a', 5);
     // Say it once per foe: an "Effective!" pop the first time your weapon bites, or "Resisted".
@@ -2708,7 +2712,7 @@ export class Game {
     if (this._pendingCrit && dmg > 0) {
       opts = { ...opts, critX: this._pendingCrit };
       // Brawlers (claw fighters) rake the foe: three bloody swipe marks across it on every crit.
-      if (this.jobClass === 'brawler') this.effects.push({ type: 'swipe', entity: npc, mega: this._pendingCrit >= 4, ang: (Math.random() - 0.5) * 0.5, life: 520, maxLife: 520 });
+      if (this.jobClass === 'brawler') this.effects.push({ type: 'swipe', jobClass: this.jobClass, entity: npc, mega: this._pendingCrit >= 4, ang: (Math.random() - 0.5) * 0.5, life: 520, maxLife: 520 });
     }
     const wasCrit = this._pendingCrit > 0 && dmg > 0;
     this._pendingCrit = 0;
@@ -2862,7 +2866,7 @@ export class Game {
     // The tracer carries on past the target.
     const from = target.renderCenter();
     const life = 160;
-    this.effects.push({ type: 'projectile', kind: 'bullet', gun: 'rifle', x: from.x, y: from.y - 8,
+    this.effects.push({ type: 'projectile', kind: 'bullet', jobClass: this.jobClass, gun: 'rifle', x: from.x, y: from.y - 8,
       ex: from.x + ux * RIFLE_PIERCE_TILES * TILE, ey: from.y - 8 + uy * RIFLE_PIERCE_TILES * TILE, color: '#fff2b0', life, maxLife: life, arc: 0 });
   }
 
@@ -2902,7 +2906,7 @@ export class Game {
     // The arrow flies on from the target to the last foe it pierced.
     const from = target.renderCenter(), to = hits[hits.length - 1][1].renderCenter();
     const life = 120 + Math.hypot(to.x - from.x, to.y - from.y) / 0.8;
-    this.effects.push({ type: 'projectile', kind: 'arrow', x: from.x, y: from.y - 8, ex: to.x, ey: to.y - 8,
+    this.effects.push({ type: 'projectile', kind: 'arrow', jobClass: this.jobClass, x: from.x, y: from.y - 8, ex: to.x, ey: to.y - 8,
       color: '#d9c45a', life, maxLife: life, arc: 0, ammo: this._shotAmmo || null, crit: false, gun: null });
   }
 
@@ -3076,7 +3080,7 @@ export class Game {
       for (const q of pts) if (Math.hypot(q.x - pc.x, q.y - pc.y) > Math.hypot(ex - pc.x, ey - pc.y)) { ex = q.x; ey = q.y; }
     }
     const reachPx = Math.max(TILE, ...[tc, ...pts].map((q) => Math.hypot(q.x - pc.x, q.y - pc.y)));
-    this.effects.push({ type: 'cleave', style, x: pc.x, y: pc.y - 6, tx: tc.x, ty: tc.y - 6, ex, ey: ey - 6,
+    this.effects.push({ type: 'cleave', style, jobClass: this.jobClass, x: pc.x, y: pc.y - 6, tx: tc.x, ty: tc.y - 6, ex, ey: ey - 6,
       r: reachPx, foes: pts.map((q) => ({ x: q.x, y: q.y - 6 })), color: '#ffb347',
       life: style === 'slam' ? 340 : 260, maxLife: style === 'slam' ? 340 : 260 });
     if (style === 'slam') this.addShake(2.5, 180);
@@ -3106,7 +3110,7 @@ export class Game {
     // From the hero's hand, or (a ricochet) from the last monster the whip hit.
     const from = (src || this.player).renderCenter(), to = npc.renderCenter();
     const off = src ? 0 : (to.x >= from.x ? 8 : -8);
-    this.effects.push({ type: 'lash', x: from.x + off, y: from.y - (src ? 8 : 4), ex: to.x, ey: to.y - 8, color, life: 260, maxLife: 260 });
+    this.effects.push({ type: 'lash', jobClass: this.jobClass, x: from.x + off, y: from.y - (src ? 8 : 4), ex: to.x, ey: to.y - 8, color, life: 260, maxLife: 260 });
   }
 
   /** The backpack slot holding your strongest arrows (highest arrow strength),
@@ -3621,7 +3625,7 @@ export class Game {
       : kind === 'bullet' ? 60 + dist / 5 + Math.abs(spread) * 12   // about twice as quick as they were; a longer streak keeps them in sight
         : kind === 'shuriken' || kind === 'coin' ? Math.min(560, 120 + dist / 0.6) + Math.abs(spread) * 40
           : 240 + Math.abs(spread) * 40;
-    this.effects.push({ type: 'projectile', kind, x: fx, y: from.y - 6 + off, ex: to.x, ey: to.y - 8 + off * 0.6, color, life, maxLife: life,
+    this.effects.push({ type: 'projectile', kind, jobClass: this.jobClass, x: fx, y: from.y - 6 + off, ex: to.x, ey: to.y - 8 + off * 0.6, color, life, maxLife: life,
       arc: kind === 'arrow' ? Math.min(22, dist * 0.09) : 0,
       // Which arrows were loosed (bronze ... eternal): the renderer draws each kind its own way.
       ammo: kind === 'arrow' ? this._shotAmmo || null : null, crit,

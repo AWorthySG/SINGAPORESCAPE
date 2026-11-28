@@ -270,7 +270,8 @@ function allyCoin(game, m, target) {
   if (game.effects.length >= 200) return;
   const from = m.renderCenter(), to = target.renderCenter();
   const life = Math.min(560, 120 + Math.hypot(to.x - from.x, to.y - from.y) / 0.6);
-  game.effects.push({ type: 'projectile', kind: 'coin', x: from.x, y: from.y - 6, ex: to.x, ey: to.y - 8, color: '#f5b82e', life, maxLife: life, arc: 0 });
+  game.effects.push({ type: 'projectile', kind: 'coin', jobClass: m.follower ? game.jobClass : null,
+    x: from.x, y: from.y - 6, ex: to.x, ey: to.y - 8, color: '#f5b82e', life, maxLife: life, arc: 0 });
 }
 
 

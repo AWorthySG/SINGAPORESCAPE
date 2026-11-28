@@ -10,6 +10,8 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
 import { ALL_WEAPON_TYPES } from '../src/data/items.js';
+import { CLASSES } from '../src/data/classes.js';
+import { CLASS_ACCENTS, classAccent } from '../src/data/classColours.js';
 import { SPELLS } from '../src/data/magic.js';
 import { RARITY, QUALITY } from '../src/game/loot.js';
 import {
@@ -85,6 +87,60 @@ test('the hit hook spawns each weapon kind\'s own pieces', () => {
   assert.ok(liveSlots(run('staff', 'magic', tint('water'))).some((s) => s.k === FX_KIND.DOT && s.g > 0), 'droplets fall back');
   assert.ok(kinds(run('wand', 'magic', tint('earth'))).has(FX_KIND.CHIP), 'earth chips');
   assert.ok(kinds(run('wand', 'magic', tint('wind'))).has(FX_KIND.SWIRL), 'wind swirls');
+});
+
+test('every playable class has a distinct accent on its weapon impact', () => {
+  assert.deepEqual(Object.keys(CLASS_ACCENTS).sort(), CLASSES.map(({ id }) => id).sort());
+  assert.equal(new Set(Object.values(CLASS_ACCENTS).map(({ colour }) => colour)).size, CLASSES.length);
+  assert.equal(classAccent('constructor'), null);
+  for (const { id, weapon, style } of CLASSES) {
+    const { colour, light } = classAccent(id);
+    assert.match(colour, /^#[0-9a-f]{6}$/);
+    assert.match(light, /^#[0-9a-f]{6}$/);
+    const g = fakeGame(weapon, style);
+    g.jobClass = id;
+    hitImpact(g, g.target, '#fff2b0');
+    assert.ok(liveSlots(g.cfx).some((s) => s.col === colour), id);
+  }
+});
+
+test('class accents preserve elemental hits and enemy attack colours', () => {
+  const fire = SPELLS.find((s) => s.element === 'fire');
+  const spellGame = fakeGame('staff', 'magic');
+  hitImpact(spellGame, spellGame.target, fire.tint);
+  const original = liveSlots(spellGame.cfx).map(({ k, col, delay }) => ({ k, col, delay }));
+  spellGame.cfx.clear();
+  spellGame.jobClass = 'wizard';
+  hitImpact(spellGame, spellGame.target, fire.tint);
+  const coloured = liveSlots(spellGame.cfx).map(({ k, col, delay }) => ({ k, col, delay }));
+  assert.deepEqual(coloured.filter(({ col }) => col !== classAccent('wizard').colour), original);
+  assert.ok(coloured.some(({ k, col }) => k === FX_KIND.RING && col === classAccent('wizard').colour));
+
+  const game = { ...fakeGame('spear', 'melee'), jobClass: 'lancer', effects: [] };
+  Game.prototype._slash.call(game, game.target, '#ffd24a');
+  Game.prototype._slash.call(game, game.player, '#ff6a5a');
+  Game.prototype._projectile.call(game, game.target, fire.tint);
+  const [playerHit, enemyHit, projectile] = game.effects;
+  assert.equal(playerHit.jobClass, 'lancer');
+  assert.equal(playerHit.color, '#ffd24a');
+  assert.equal(enemyHit.jobClass, null);
+  assert.equal(enemyHit.color, '#ff6a5a');
+  assert.equal(projectile.jobClass, 'lancer');
+  assert.equal(projectile.color, fire.tint);
+});
+
+test('immediate combat skills retain their normal cue with a class ring in reduced motion', () => {
+  const game = freshGame('monk');
+  game.player.hp = 1;
+  game.reduceMotion = true;
+  game.cfx.clear();
+  game.particles.length = 0;
+  game.activateAbility('second_wind');
+  assert.ok(game.player.hp > 1);
+  assert.ok(game.particles.some(({ color }) => color === '#7fff8f'));
+  const ring = liveSlots(game.cfx).find((s) => s.k === FX_KIND.RING && s.col === classAccent('monk').colour);
+  assert.ok(ring);
+  assert.equal(ring.a, ring.b, 'the reduced-motion ring holds its size');
 });
 
 test('a melee blow\'s impact is held for the hero\'s strike; the real game spawns it on a hit', () => {

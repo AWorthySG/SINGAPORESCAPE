@@ -5,9 +5,10 @@ import { drawLayeredObject, isDepthShop } from './streetdepth.js';
 import { fireScale } from '../game/bonfire.js';   // bonfires are drawn bigger
 import { itemIconImage } from './icons.js';
 import { CROPS } from '../data/trades.js';
+import { classAccent } from '../data/classColours.js';
 import { drawHeroRig } from './heroRig.js';
 import { drawRangedHeroRig } from './rangedHeroRig.js';
-import { drawPictureTool, drawWeaponTrail } from './heroanim.js';
+import { drawPictureTool, drawWeaponTrail, HERO_CLIPS } from './heroanim.js';
 import { drawHeroBack, heroBackReady } from './heroAnimArt.js';
 import { heroLit, bakeRim } from './herolight.js';
 import { poseBlender } from './poseBlend.js';
@@ -2324,8 +2325,9 @@ function heroPuppet(c, img, w, h, g, t, calm) {
 const easeOut = (x) => 1 - (1 - x) * (1 - x);
 const easeIn = (x) => x * x;
 const seg = (k, a, b) => Math.max(0, Math.min(1, (k - a) / (b - a)));
-function heroAttackPose(style, k) {
+function heroAttackPose(style, k, accent, beats) {
   const P = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1, flash: 0, behind: null, front: null };
+  const tint = (fallback, alpha) => `rgba(${accent?.rgb || fallback},${alpha.toFixed(3)})`;
   if (style === 'melee') {
     // Wind up (lean back, crouch) -> lunge and slash -> settle.
     const up = easeOut(seg(k, 0, 0.3)), hit = easeOut(seg(k, 0.3, 0.5)), back = easeIn(seg(k, 0.55, 1));
@@ -2345,16 +2347,19 @@ function heroAttackPose(style, k) {
       c.save(); c.lineCap = 'round';
       c.strokeStyle = `rgba(34,48,74,${(0.85 * fade).toFixed(3)})`; c.lineWidth = 9;
       c.beginPath(); c.arc(14, -16, 28, a1, a0); c.stroke();
-      c.strokeStyle = `rgba(255,255,255,${fade.toFixed(3)})`; c.lineWidth = 6;
+      if (accent) {
+        c.strokeStyle = tint('255,255,255', fade); c.lineWidth = 7.5; c.stroke();
+      }
+      c.strokeStyle = `rgba(255,255,255,${fade.toFixed(3)})`; c.lineWidth = accent ? 3.2 : 6;
       c.beginPath(); c.arc(14, -16, 28, a1, a0); c.stroke();
-      c.strokeStyle = `rgba(245,184,46,${fade.toFixed(3)})`; c.lineWidth = 2.4;
+      c.strokeStyle = tint('245,184,46', fade); c.lineWidth = 2.4;
       c.beginPath(); c.arc(14, -16, 32, a1 + 0.2, a0); c.stroke();
       if (a > 0.25 && a < 0.65) {   // impact star where the blade lands
         const r = 4 + Math.sin(seg(a, 0.25, 0.65) * Math.PI) * 6;
         c.fillStyle = `rgba(255,236,170,${fade.toFixed(3)})`;
         c.beginPath();
         for (let i = 0; i < 8; i++) { const ang = i * Math.PI / 4, rr2 = i % 2 ? r * 0.4 : r; c.lineTo(40 + Math.cos(ang) * rr2, -8 + Math.sin(ang) * rr2); }
-        c.closePath(); c.fill(); c.strokeStyle = `rgba(34,48,74,${fade.toFixed(3)})`; c.lineWidth = 1.2; c.stroke();
+        c.closePath(); c.fill(); c.strokeStyle = tint('34,48,74', fade); c.lineWidth = 1.2; c.stroke();
       }
       c.restore();
     };
@@ -2367,13 +2372,19 @@ function heroAttackPose(style, k) {
     P.sy = k < 0.5 ? 1 - draw * 0.06 : 1 + Math.sin(seg(k, 0.5, 0.8) * Math.PI) * 0.08;
     P.sx = 2 - P.sy;
     P.flash = Math.sin(seg(k, 0.5, 0.7) * Math.PI);
+    const first = beats?.length ? Math.min(...beats) : 0.5;
     P.behind = (c) => {   // a tightening focus ring while drawing
-      if (k > 0.5) return;
-      c.save(); c.strokeStyle = `rgba(255,255,255,${(0.5 * draw).toFixed(3)})`; c.lineWidth = 1.4;
-      c.setLineDash([3, 3]); c.beginPath(); c.arc(0, -14, 26 - draw * 10, 0, Math.PI * 2); c.stroke(); c.restore();
+      if (k > first) return;
+      const focus = easeOut(seg(k, 0, first));
+      c.save(); c.strokeStyle = tint('255,255,255', (accent ? 0.72 : 0.5) * focus); c.lineWidth = 1.4;
+      c.setLineDash([3, 3]); c.beginPath(); c.arc(0, -14, 26 - focus * 10, 0, Math.PI * 2); c.stroke(); c.restore();
     };
     P.front = (c) => {
-      const a = seg(k, 0.5, 0.85);
+      // The second pistol uses its own beat, even when it fires first.
+      let shot = beats?.length ? -1 : 0.5;
+      for (const beat of beats || []) if (beat <= k && beat > shot) shot = beat;
+      if (shot < 0) return;
+      const a = seg(k, shot, shot + 0.35);
       if (a <= 0 || a >= 1) return;
       // Speed lines and a burst of air shooting forward from the bow.
       c.save(); c.lineCap = 'round';
@@ -2382,10 +2393,13 @@ function heroAttackPose(style, k) {
         const y = -24 + i * 6, x0 = 32 + a * 22, len = 14 * f + 5;
         c.strokeStyle = `rgba(34,48,74,${(0.8 * f).toFixed(3)})`; c.lineWidth = 4 - i * 0.4;
         c.beginPath(); c.moveTo(x0, y); c.lineTo(x0 + len, y); c.stroke();
-        c.strokeStyle = `rgba(255,255,255,${f.toFixed(3)})`; c.lineWidth = 2 - i * 0.3;
+        if (accent) {
+          c.strokeStyle = tint('255,255,255', f); c.lineWidth = 3.3 - i * 0.38; c.stroke();
+        }
+        c.strokeStyle = `rgba(255,255,255,${f.toFixed(3)})`; c.lineWidth = accent ? 1.4 - i * 0.2 : 2 - i * 0.3;
         c.beginPath(); c.moveTo(x0, y); c.lineTo(x0 + len, y); c.stroke();
       }
-      c.strokeStyle = `rgba(245,184,46,${f.toFixed(3)})`; c.lineWidth = 2.6;
+      c.strokeStyle = tint('245,184,46', f); c.lineWidth = 2.6;
       c.beginPath(); c.arc(30, -15, 5 + a * 12, -1.1, 1.1); c.stroke();
       c.restore();
     };
@@ -2407,17 +2421,18 @@ function heroAttackPose(style, k) {
       rg.addColorStop(0, `rgba(200,150,255,${(0.45 * g).toFixed(3)})`); rg.addColorStop(1, 'rgba(200,150,255,0)');
       c.fillStyle = rg; c.beginPath(); c.arc(0, -14, 30, 0, Math.PI * 2); c.fill();
       c.globalCompositeOperation = 'source-over';
-      c.strokeStyle = `rgba(155,82,173,${(0.8 * g).toFixed(3)})`; c.lineWidth = 1.3;
+      c.strokeStyle = tint('155,82,173', 0.8 * g); c.lineWidth = 1.3;
       c.beginPath(); c.ellipse(0, 14, 16 * g, 5 * g, 0, 0, Math.PI * 2); c.stroke();
       for (let i = 0; i < 6; i++) {
         const ang = t * 0.008 + i * Math.PI / 3, r = 20 + Math.sin(t * 0.01 + i) * 2;
-        c.fillStyle = i % 2 ? `rgba(245,184,46,${g.toFixed(3)})` : `rgba(220,190,255,${g.toFixed(3)})`;
+        c.fillStyle = i % 2 ? tint('245,184,46', g) : `rgba(220,190,255,${g.toFixed(3)})`;
         c.beginPath(); c.arc(Math.cos(ang) * r, -14 + Math.sin(ang) * r * 0.55, 1.8, 0, Math.PI * 2); c.fill();
       }
       c.restore();
     };
     P.front = (c) => {
-      const a = seg(k, 0.6, 0.9);
+      const castBeat = beats?.[0] ?? 0.6;
+      const a = seg(k, castBeat, castBeat + 0.3);
       if (a <= 0 || a >= 1) return;
       // A bright burst flung forward as the spell leaves the staff.
       c.save(); c.globalCompositeOperation = 'lighter';
@@ -2427,6 +2442,11 @@ function heroAttackPose(style, k) {
       rg.addColorStop(0.5, `rgba(200,150,255,${(0.8 * (1 - a)).toFixed(3)})`);
       rg.addColorStop(1, 'rgba(200,150,255,0)');
       c.fillStyle = rg; c.beginPath(); c.arc(24, -22, r, 0, Math.PI * 2); c.fill();
+      if (accent) {
+        c.globalCompositeOperation = 'source-over';
+        c.strokeStyle = tint('200,150,255', (1 - a) * 0.76); c.lineWidth = 1.35;
+        c.beginPath(); c.arc(24, -22, r * 0.72, -1, 1); c.stroke();
+      }
       c.restore();
     };
   }
@@ -2448,6 +2468,9 @@ const smoothstep01 = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3
 
 export function drawPlayer(ctx, cx, cy, opts = {}) {
   const style = opts.hasWeapon && (opts.weaponType === 'ranged' || opts.weaponType === 'magic' || opts.weaponType === 'dance') ? opts.weaponType : 'melee';
+  const anim = opts.anim, calm = opts.calm || anim?.calm;
+  const accent = classAccent(opts.jobClass || anim?.jobClass);
+  const fancy = !opts.low && !anim?.low && !calm;
   const himg = CLASS_HERO_ART.has(opts.jobClass) ? heroImage(opts.jobClass) : HERO_STYLES.includes(style) ? heroImage(style) : null;
   const painted = himg && himg.complete && himg.naturalWidth;
   staged(ctx, cx, cy, opts, (c) => {
@@ -2468,15 +2491,15 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
     if (painted) {
       // The painted hero carries its own weapon, so each attack is acted out with
       // the whole body: a wind-up, a strike and a recovery, plus a style effect.
-      const k = opts.swingK ?? -1;
-      const pose = k >= 0 ? heroAttackPose(style === 'dance' ? 'melee' : style, k) : null;   // the Dancer lunges with her whip
+      const clip = accent && anim?.kind === 'combat' && Number.isFinite(anim.u) ? anim : null;
+      const k = clip?.u ?? opts.swingK ?? -1;
+      const pose = k >= 0 ? heroAttackPose(style === 'dance' ? 'melee' : style, k, accent, HERO_CLIPS[clip?.id]?.hits) : null;
       const t = opts.time || 0;
-      if (pose && pose.behind) pose.behind(c, k, t);
+      if (fancy && pose?.behind) pose.behind(c, k, t);
       c.save();
       const b = _heroBody;
       // An animation clip (heroanim.js: per weapon type, life skill, idle)
       // moves the whole body; it blends itself, so it skips blendHero.
-      const anim = opts.anim, calm = opts.calm || anim?.calm;
       if (anim) {
         const ch = anim.ch;
         b.dx = ch.bx; b.dy = ch.by; b.rot = ch.lean; b.sy = 1 - ch.squash; b.sx = 1 + ch.squash * 0.6;
@@ -2516,7 +2539,7 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
         }
         // A single picture can't move its arms: it just bobs and leans, with the tool in a fist.
         if (anim) drawPictureTool(c, anim);
-        if (pose && pose.flash > 0) {
+        if (fancy && pose && pose.flash > 0) {
           c.save();
           c.globalAlpha *= pose.flash * 0.35; c.globalCompositeOperation = 'lighter';
           c.drawImage(pic, -w / 2, HERO_ART_FEET - h, w, h);
@@ -2525,8 +2548,8 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       }
       c.restore();
       // A melee clip draws its own weapon's swoosh in place of the generic crescent.
-      if (anim && anim.trail && style !== 'ranged' && style !== 'magic') drawWeaponTrail(c, anim);
-      else if (pose && pose.front) pose.front(c, k, t);
+      if (anim?.trail && style !== 'ranged' && style !== 'magic' && !opts.low) drawWeaponTrail(c, anim, accent);
+      else if (fancy && pose?.front) pose.front(c, k, t);
       return;
     }
     // The hero is the A-Worthy mascot. Unarmoured, it wears a tunic in the
@@ -2607,8 +2630,8 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       c.strokeStyle = M_INK; c.lineWidth = 3; c.beginPath(); c.moveTo(10.4, 12); c.lineTo(12.6, -14); c.stroke();
       c.strokeStyle = '#8A5A2B'; c.lineWidth = 1.7; c.beginPath(); c.moveTo(10.4, 12); c.lineTo(12.6, -14); c.stroke();
       c.lineCap = 'butt';
-      if (flare > 0) {
-        c.fillStyle = `rgba(200,150,255,${(0.45 * flare).toFixed(3)})`; circle(c, 12.8, -16, 5 + flare * 5); c.fill();
+      if (fancy && flare > 0) {
+        c.fillStyle = `rgba(${accent?.rgb || '200,150,255'},${(0.45 * flare).toFixed(3)})`; circle(c, 12.8, -16, 5 + flare * 5); c.fill();
       }
       circle(c, 12.8, -16, 2.8 + flare * 1.6); fill(c, flare > 0.4 ? '#C890F0' : '#9B52AD'); line(c, M_INK, 1.1);
       c.fillStyle = 'rgba(255,255,255,0.7)'; circle(c, 12, -16.9, 0.9 + flare); c.fill();
@@ -2636,11 +2659,11 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
         for (let i = 1; i < pts.length; i++) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i]; c.quadraticCurveTo(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2); }
         c.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]); c.stroke(); };
       stroke(2.6, M_INK); stroke(1.3, '#8A5A2B');
-      if (reach > 0.85) {   // the crack: a little starburst at the tip
+      if (fancy && reach > 0.85) {   // the crack: a little starburst at the tip
         const [tx, ty] = pts[pts.length - 1];
         c.fillStyle = '#FFE89A';
         c.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, r = i % 2 ? 1.4 : 4; c.lineTo(tx + Math.cos(a) * r, ty + Math.sin(a) * r); } c.closePath(); c.fill();
-        line(c, M_INK, 0.6);
+        line(c, accent?.colour || M_INK, accent ? 1.2 : 0.6);
       }
       c.restore();
       rr(c, 8.8, 2.4, 3.6, 4, 1.4); fill(c, '#5A3A1E'); line(c, M_INK, 0.8);   // handle
@@ -2653,9 +2676,14 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
         : k < 0.62 ? -1.0 + 2.4 * ease((k - 0.3) / 0.32)
         : 1.4 * (1 - ease((k - 0.62) / 0.38));
       c.save(); c.translate(10, 4); c.rotate(ang); c.translate(-10, -4);
-      if (k > 0.3 && k < 0.7) {   // motion smear behind the blade
+      if (fancy && k > 0.3 && k < 0.7) {   // motion smear behind the blade
         c.strokeStyle = 'rgba(255,255,255,0.55)'; c.lineWidth = 5; c.lineCap = 'round';
-        c.beginPath(); c.arc(10, 4, 17, -Math.PI / 2 - 0.9, -Math.PI / 2 - 0.15); c.stroke();
+        c.beginPath(); c.arc(10, 4, 17, -Math.PI / 2 - 0.9, -Math.PI / 2 - 0.15);
+        if (accent) {
+          c.strokeStyle = `rgba(${accent.rgb},0.75)`; c.stroke();
+          c.strokeStyle = accent.light; c.lineWidth = 2;
+        }
+        c.stroke();
       }
       c.strokeStyle = M_INK; c.lineWidth = 3.4; c.lineCap = 'round'; c.beginPath(); c.moveTo(10.6, 2); c.lineTo(14.6, -16); c.stroke();
       c.strokeStyle = '#e9edf2'; c.lineWidth = 2; c.beginPath(); c.moveTo(10.6, 2); c.lineTo(14.6, -16); c.stroke();
