@@ -63,7 +63,7 @@ export class CosyLight {
   constructor() {
     this.ok = typeof document !== 'undefined' && !!document.createElement;
     this._grade = cosyGrade(0.5);
-    this._gradeCv = null; this._gradeKey = '';
+    this._grades = [null, null];
     this._sprites = new Map();
     this.blooms = 0;   // blooms drawn last frame (for tests and tuning)
   }
@@ -75,25 +75,28 @@ export class CosyLight {
     } catch { return null; }
   }
 
-  // The grade picture: a sideways gradient from the sun's colour to the far
-  // colour, with the sun's own glow low on its edge. Re-baked only when the
-  // colours move enough to see (a few times over a dusk).
+  // Bake one diagonal grade for each side of the sky. The light's strength
+  // is applied at draw time, so the colours can fade throughout the evening.
   _gradePic(gr) {
-    const key = `${gr.fromLeft ? 'L' : 'R'}${Math.round(gr.a * 40)}`;
-    if (this._gradeCv && key === this._gradeKey) return this._gradeCv;
-    const cv = this._gradeCv || this._canvas(GRADE_W, GRADE_H);
+    const key = gr.fromLeft ? 1 : 0;
+    if (this._grades[key]) return this._grades[key];
+    const cv = this._canvas(GRADE_W, GRADE_H);
     if (!cv) return null;
     const g = cv.getContext('2d');
     g.clearRect(0, 0, GRADE_W, GRADE_H);
     const x0 = gr.fromLeft ? 0 : GRADE_W, x1 = GRADE_W - x0;
-    const lin = g.createLinearGradient(x0, 0, x1, GRADE_H * 0.6);
+    const lin = g.createLinearGradient(x0, GRADE_H * 0.11, x1, GRADE_H * 0.9);
     const c = (rgb, a) => `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
     lin.addColorStop(0, c(gr.sun, 1));
     lin.addColorStop(0.55, c([(gr.sun[0] + gr.far[0]) >> 1, (gr.sun[1] + gr.far[1]) >> 1, (gr.sun[2] + gr.far[2]) >> 1], 1));
     lin.addColorStop(1, c(gr.far, 1));
     g.fillStyle = lin; g.fillRect(0, 0, GRADE_W, GRADE_H);
-    this._gradeCv = cv; this._gradeKey = key;
-    return cv;
+    const height = g.createLinearGradient(0, 0, 0, GRADE_H);
+    height.addColorStop(0, 'rgba(255,220,175,0.24)');
+    height.addColorStop(0.55, 'rgba(255,220,175,0)');
+    height.addColorStop(1, 'rgba(153,102,149,0.22)');
+    g.fillStyle = height; g.fillRect(0, 0, GRADE_W, GRADE_H);
+    return (this._grades[key] = cv);
   }
 
   _sunPic() {
@@ -102,8 +105,9 @@ export class CosyLight {
     if (cv) {
       const g = cv.getContext('2d');
       const r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-      r.addColorStop(0, 'rgba(255,214,140,0.9)');
-      r.addColorStop(0.4, 'rgba(255,170,90,0.35)');
+      r.addColorStop(0, 'rgba(255,231,166,0.96)');
+      r.addColorStop(0.36, 'rgba(255,180,103,0.46)');
+      r.addColorStop(0.73, 'rgba(255,159,95,0.13)');
       r.addColorStop(1, 'rgba(255,150,80,0)');
       g.fillStyle = r; g.fillRect(0, 0, 64, 64);
     }
@@ -133,31 +137,34 @@ export class CosyLight {
    * vw x vh). `lights` is the light pass (for its gathered lights), `night`
    * the renderer's darkness (0 noon .. 1 midnight). False when it can't run.
    */
-  draw(ctx, game, lights, night, ox, oy, vw, vh, t, pj = null) {
+  draw(ctx, game, lights, night, ox, oy, vw, vh, t, pj = null, wx = null) {
     this.blooms = 0;
     if (!this.ok) return false;
     const fvw = vw, fvh = vh;   // the depth view's flat rectangle (pj), for finding the lamps
     if (pj) { vw = pj.vw; vh = pj.vh; }
     const gr = cosyGrade(game.dayPhase ? game.dayPhase() : 0.5, this._grade);
+    const gloom = wx?.gloom || 0;
+    const a = wx?.roofed ? 0 : gr.a * (1 - gloom * 0.78);
     ctx.save();
-    if (gr.a > 0.02) {
+    if (a > 0.002) {
       const pic = this._gradePic(gr);
       if (pic) {
         ctx.globalCompositeOperation = 'soft-light';
-        ctx.globalAlpha = gr.a;
+        ctx.globalAlpha = a;
         ctx.drawImage(pic, 0, 0, vw, vh);
         // The low sun's glow from its side of the screen.
         const sun = this._sunPic();
         if (sun) {
           ctx.globalCompositeOperation = 'lighter';
-          ctx.globalAlpha = gr.a * 0.45;
-          const r = Math.max(vw, vh) * 0.7;
-          const sx = gr.fromLeft ? -r * 0.25 : vw + r * 0.25;
-          ctx.drawImage(sun, sx - r, vh * 0.12 - r, r * 2, r * 2);
+          ctx.globalAlpha = a * 0.48;
+          const r = Math.max(vw, vh) * 0.78, ry = r * 0.69;
+          const sx = gr.fromLeft ? -r * 0.16 : vw + r * 0.16;
+          ctx.drawImage(sun, sx - r, vh * 0.23 - ry, r * 2, ry * 2);
         }
       }
     }
-    const bk = bloomStrength(night);
+    const bk = bloomStrength(night + (1 - night) * gloom * 0.88);
+    const scatter = Math.min(1, (wx?.mist || 0) * 0.74 + (wx?.rain || 0) * 0.38);
     if (bk > 0.02 && lights && lights.gather) {
       const list = lights._lights && lights.count ? lights._lights : lights.gather(game, ox, oy, fvw, fvh, t, pj);
       ctx.globalCompositeOperation = 'lighter';
@@ -166,9 +173,9 @@ export class CosyLight {
         if (!WARM.has(L.rgb.join(','))) continue;
         const pic = this._bloomPic(L.rgb);
         if (!pic) break;
-        const r = L.r * 0.42 * L.k;
-        ctx.globalAlpha = Math.min(1, 0.5 * bk * L.k);
-        ctx.drawImage(pic, L.x - r, L.y - r, r * 2, r * 2);
+        const r = L.r * (0.42 + scatter * 0.14) * L.k, ry = r * (1 + 0.23 * scatter);
+        ctx.globalAlpha = Math.min(1, (0.5 + scatter * 0.14) * bk * L.k);
+        ctx.drawImage(pic, L.x - r, L.y - ry, r * 2, ry * 2);
         this.blooms++;
       }
     }

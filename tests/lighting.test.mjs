@@ -10,7 +10,8 @@ import { Game } from '../src/game/game.js';
 import { Renderer } from '../src/render/renderer.js';
 import { OBJECTS } from '../src/data/objects.js';
 import { DAY_CYCLE_MS, TILE } from '../src/config.js';
-import { LIGHTS, lightFor, nightDarkness, skyWashes, LightPass, nightMode, nightMultiply } from '../src/render/lighting.js';
+import { LIGHTS, lightFor, nightDarkness, skyWashes, LightPass, nightMode, nightMultiply, twilightWash } from '../src/render/lighting.js';
+import { makeProjection, projectFlat } from '../src/render/projection.js';
 import { moonDark } from '../src/render/atmosphere.js';
 import {
   weatherAt, slotWeather, mistAt, regionWeather, Weather, WEATHER_SLOT_MS, RAIN_CHANCE, STORM_CHANCE, MIST_REGIONS, REGION_SKY,
@@ -62,6 +63,12 @@ test('a multi-tile facade lights the street from the centre of its frontage', ()
   assert.equal(light.x, (x - 1 + def.footprint[0] / 2) * TILE);
   assert.equal(light.y, (y - 0.5) * TILE + LIGHTS[objId].y);
   assert.equal(light.rgb, LIGHTS[objId].rgb);
+  assert.ok(light.groundY > light.y && light.sq < 1, 'the window and its pool on the street are separate');
+  const pj = makeProjection(1, 240, 240);
+  const [tilted] = new LightPass().gather(game, TILE, TILE, pj.fw, pj.fh, 0, pj);
+  const ground = projectFlat(pj, light.x, light.groundY);
+  assert.equal(tilted.groundY, ground.y);
+  assert.equal(tilted.y, ground.y + (light.y - light.groundY) * ground.s);
 });
 
 test('the world has lights where you would expect them, and a felled magic tree goes dark', () => {
@@ -160,13 +167,9 @@ function gradedPixel(dst, night, mood, moon) {
   const nd = nightDarkness(night), dark = moonDark(moon, [0, 0, 0, nd]);
   const sky = skyWashes(0.745);
   const washes = [mood, ...sky];
-  if (nd < 0.03) {
-    const gr = composeWashes([...washes, dark]);
-    return dst.map((c, i) => c * (1 - gr[3]) + gr[i] * gr[3]);
-  }
   const u = nightMode(nd), gr = composeWashes(washes), m = nightMultiply(gr, u, dark);
-  const a = gr[3] * (1 - u);
-  return dst.map((c, i) => (c * (1 - a) + gr[i] * a) * m[i] / 255);
+  const wash = twilightWash(gr, dark, u), a = wash[3];
+  return dst.map((c, i) => (c * (1 - a) + wash[i] * a) * m[i] / 255);
 }
 
 test('night is a deep moonlit blue that keeps white rims and navy ink apart, and comes on without a jump', () => {
@@ -289,7 +292,7 @@ test('region weather: snow on the Peaks, embers and no rain in the Rift, nothing
   assert.ok(cp[2] > cp[0], 'the Peaks are cold');
 });
 
-test('dawn mist fills the forests only, and only around dawn', () => {
+test('the forest mist at dawn fades smoothly as you approach town', () => {
   assert.ok(mistAt(0.27) > 0.95 && mistAt(0.5) < 0.01 && mistAt(0) < 0.01);
   const g = freshGame();
   g.playMs = 0.27 * DAY_CYCLE_MS;
@@ -298,8 +301,11 @@ test('dawn mist fills the forests only, and only around dawn', () => {
   while (slotWeather(Math.floor(g.playMs / WEATHER_SLOT_MS))) g.playMs += DAY_CYCLE_MS;
   g.currentZoneName = 'Bukit Timah'; w.update(g, 16);
   assert.ok(w.mist > 0.8, 'misty Bukit Timah at dawn');
+  const thick = w.mist;
   g.currentZoneName = 'Kampong Glam'; w.update(g, 16);
-  assert.equal(w.mist, 0, 'no mist in town');
+  assert.ok(w.mist > thick * 0.94 && w.mist < thick, 'the mist starts to lift at the border');
+  for (let i = 0; i < 70; i++) w.update(g, 80);
+  assert.ok(w.mist < 0.001, 'settled in clear town air');
 });
 
 test('weather is looks only: rendering a storm changes nothing in the game', () => {
@@ -329,7 +335,7 @@ test('small and touch screens get half the rain and no puddle sheen', () => {
       set: (t, k, v) => { t[k] = v; return true; },
     });
     ww._rain(ctx, 1100, 620, 16, false);
-    assert.equal(strokes, 2, 'all the streaks in two strokes: the far layer and the near one');
+    assert.equal(strokes, small ? 2 : 3, 'one batch per visible rain layer');
     return moves;
   };
   assert.ok(Math.abs(streaks(true) - streaks(false) / 2) <= 1, 'half the streaks on a small screen');

@@ -3,6 +3,7 @@ import { blendMood, composeWashes, buildVignette } from './ambience.js';
 import { timeGrade, moonDark } from './atmosphere.js';
 import { projectFlat } from './projection.js';
 import { motionOK } from './juice.js';
+import { smooth } from './motionkit.js';
 import { censerBolt } from './censerSwing.js';
 import { fxFade, fxProgress, isSpellShot, spellPose } from './fxdepth.js';
 
@@ -94,6 +95,7 @@ const LIT_LIFT = 0.3;
 // How far a pool reaches into the night compared with its radius, and how
 // strongly its middle is lit.
 const POOL_REACH = 1.15, POOL_K = 0.95;
+const MOON_SPILL = [132, 162, 219];
 // How much deeper than the old wash the night's multiply goes (the darkness
 // level is shared with the lights' timing, nightDarkness).
 export const NIGHT_DEPTH = 1.15;
@@ -127,8 +129,17 @@ export function nightMode(dark) {
  * leaves it, so each is turned into the multiply that treats white the same.
  */
 export function nightMultiply(gr, u, dark, out = [255, 255, 255]) {
-  const a = gr[3] * u, A = Math.min(0.95, dark[3] * NIGHT_DEPTH);
+  const a = gr[3] * u, A = Math.min(0.95, dark[3] * NIGHT_DEPTH) * u;
   for (let i = 0; i < 3; i++) out[i] = 255 * (1 - a + a * gr[i] / 255) * (1 - A + A * dark[i] / 255);
+  return out;
+}
+
+/** The part of the grade and darkness still drawn as a wash during twilight. */
+export function twilightWash(gr, dark, u, out = [0, 0, 0, 0]) {
+  const nr = (1 - u) * dark[3], dr = gr[3] * (1 - u) * (1 - nr);
+  const a = nr + dr;
+  for (let i = 0; i < 3; i++) out[i] = a > 0 ? (dark[i] * nr + gr[i] * dr) / a : 0;
+  out[3] = a;
   return out;
 }
 
@@ -157,7 +168,8 @@ export function skyWashes(phase, out = [[255, 176, 150, 0], [255, 128, 64, 0], [
   const bump = (c, w) => { const d = (phase - c) / w; return Math.exp(-d * d); };
   out[0][3] = 0.15 * bump(0.255, 0.045);
   for (let i = 0; i < 3; i++) out[1][i] = dusk[i];
-  out[1][3] = dusk[3] * bump(0.745, 0.05) * (1 - 0.5 * gloom);
+  const afterglow = 0.91 * bump(0.739, 0.058) + 0.2 * bump(0.796, 0.042);
+  out[1][3] = dusk[3] * afterglow * (1 - 0.65 * gloom);
   out[2][3] = 0.1 * bump(0.63, 0.06);
   return out;
 }
@@ -185,6 +197,7 @@ export class LightPass {
     this._tg = timeGrade(0.5);
     this._washes = [];
     this._grade = [0, 0, 0, 0];
+    this._twilight = [0, 0, 0, 0];
     this._mul = [255, 255, 255];
     this._lit = new Map();                       // each light colour lifted for the light map
     this.count = 0;                              // lights drawn last frame (for tests and tuning)
@@ -218,19 +231,22 @@ export class LightPass {
    *  each light is moved to where it lands on the tilted screen. */
   gather(game, ox, oy, vw, vh, t, pj = null) {
     const out = this._lights; out.length = 0;
-    const add = (x, y, r, rgb, k, sq = 1) => { if (out.length < MAX_LIGHTS) out.push({ x, y, r, rgb, k, sq }); };
+    const add = (x, y, r, rgb, k, sq = 1, groundY = y) => {
+      if (out.length < MAX_LIGHTS) out.push({ x, y, r, rgb, k, sq, groundY });
+    };
     const inView = (x, y, r) => x > -r && y > -r && x < vw + r && y < vh + r;
     const movingLight = motionOK(game);
     for (const o of this._scan(game.world, t)) {
       const L = this._fixtures.get(o) || lightFor(o);
       if (!L) continue;
       const width = o.def?.footprint?.[0] || 1;
-      const x = (o.x + width / 2) * TILE - ox, y = o.y * TILE + TILE / 2 + L.y - oy;
+      const x = (o.x + width / 2) * TILE - ox, row = o.y * TILE + TILE / 2 - oy;
+      const y = row + L.y, groundY = row + Math.max(L.y + 4, L.win ? 12 : 6);
       if (!inView(x, y, L.r)) continue;
       let k = 1;
       if (L.flicker) k -= L.flicker * (movingLight ? 0.5 + 0.5 * Math.sin(t * 0.017 + o.x * 2.3) * Math.sin(t * 0.0071 + o.y) : 0.5);
       if (L.pulse) k -= L.pulse * (movingLight ? 0.5 + 0.5 * Math.sin(t * 0.0023 + o.x + o.y * 1.7) : 0.5);
-      add(x, y, L.r, this._tint.get(o) || L.rgb, k);
+      add(x, y, L.r, this._tint.get(o) || L.rgb, k, 0.69, groundY);
     }
     const p = game.player;
     if (p && p.alive) {
@@ -267,7 +283,10 @@ export class LightPass {
       if (inView(x, y, r)) add(x, y, r, hexRgb(n.castT > 0 ? n.castCol : n.def.color, [230, 90, 120]),
         n.castT > 0 ? 0.88 + 0.12 * (n.castT / 700) : 0.85 + (movingLight ? Math.sin(t * 0.004) * 0.1 : 0));
     }
-    if (pj) for (const L of out) { const p = projectFlat(pj, L.x, L.y, this._pp || (this._pp = {})); L.x = p.x; L.y = p.y; L.r *= p.s; }
+    if (pj) for (const L of out) {
+      const p = projectFlat(pj, L.x, L.groundY, this._pp || (this._pp = {}));
+      L.x = p.x; L.y = p.y + (L.y - L.groundY) * p.s; L.groundY = p.y; L.r *= p.s;
+    }
     return out;
   }
 
@@ -276,8 +295,10 @@ export class LightPass {
     const key = rgb.join(',');
     let cv = this._glow.get(key);
     if (cv) return cv;
+    if (typeof document === 'undefined' || !document.createElement) return null;
     cv = document.createElement('canvas'); cv.width = cv.height = 64;
     const g = cv.getContext('2d');
+    if (!g) return null;
     const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
     grd.addColorStop(0, `rgba(${key},1)`);
     grd.addColorStop(0.35, `rgba(${key},0.75)`);
@@ -309,8 +330,9 @@ export class LightPass {
 
   // A light's colour lifted toward white for the light map, worked out once a colour.
   _litColour(rgb) {
-    let c = this._lit.get(rgb);
-    if (!c) { c = rgb.map((v) => Math.round(v + (255 - v) * LIT_LIFT)); this._lit.set(rgb, c); }
+    const key = rgb.join(',');
+    let c = this._lit.get(key);
+    if (!c) { c = rgb.map((v) => Math.round(v + (255 - v) * LIT_LIFT)); this._lit.set(key, c); }
     return c;
   }
 
@@ -337,8 +359,8 @@ export class LightPass {
     const cast = this._nightCast[3] * (0.4 + 0.6 * moon);
     for (let i = 0; i < 3; i++) this._dark[i] += (this._nightCast[i] - this._dark[i]) * cast;
     // Storms darken the day enough for the lamps to come on.
-    const dark = Math.max(nightDarkness(night), wx ? wx.gloom * 0.6 : 0);
-    this._dark[3] = nightDarkness(night);
+    const darkness = this._dark[3] = nightDarkness(night);
+    const dark = darkness + (1 - darkness) * (wx?.gloom || 0) * 0.55;
     const w = this._washes; w.length = 0;
     w.push(mood, sky[0], sky[1], sky[2]);
     if (wx) w.push(...wx.washes);
@@ -348,7 +370,8 @@ export class LightPass {
     // small layer, so they cost no full-screen layer of their own.
     const clouds = wx && wx.clouds > 0.02 && wx.cloudsInto;
     const flash = wx && wx.flash > 0;
-    if (dark < 0.03) {
+    const u = nightMode(dark);
+    if (u === 0) {
       // Daylight: the whole grade as one translucent wash, as it always was.
       w.push(this._dark);
       if (flash) w.push(wx.flashWash);
@@ -369,7 +392,6 @@ export class LightPass {
     }
     // Lamps on: the day's washes fade into the light map over the start of
     // dusk (u), and while they do the rest of them is still washed on top.
-    const u = nightMode(dark);
     const gr = composeWashes(w, this._grade);
     const g = this._layer(vw, vh);
     if (!g) return false;
@@ -380,16 +402,29 @@ export class LightPass {
     g.fillStyle = `rgb(${m[0] | 0},${m[1] | 0},${m[2] | 0})`; g.fillRect(0, 0, lw, lh);
     g.globalCompositeOperation = 'source-over';
     if (clouds) wx.cloudsInto(g, ox, oy, vw, vh, t, sx);
+    // A broad, cool moonlit patch in the distance, inside the same small map.
+    const moonAlpha = moon * u * (wx?.roofed ? 0 : 1 - (wx?.gloom || 0)) * 0.28;
+    if (moonAlpha > 0.004) {
+      const moonPic = this._sprite(MOON_SPILL);
+      if (moonPic) {
+        const x = 0.58 + Math.sin(phase * Math.PI * 2) * 0.24;
+        g.globalAlpha = moonAlpha;
+        g.drawImage(moonPic, lw * (x - 0.81), -lh * 0.56, lw * 1.62, lh * 1.58);
+      }
+    }
     const lights = this.gather(game, ox, oy, fvw, fvh, t, pj);
     // How strongly lights win against the dark: none by day, nearly fully at night.
-    const strength = Math.min(1, dark * 2.4);
+    const strength = Math.min(1, dark * 2.4) * smooth((dark - 0.03) / 0.23);
     // Each pool paints its light's (lifted) colour into the map: warm under
     // lamps and fires, cool under crystals, full brightness at its heart.
     for (const L of lights) {
       const r = L.r * L.k * POOL_REACH;
       const ry = r * (L.sq ?? 1);
+      const image = this._sprite(this._litColour(L.rgb));
+      if (!image) continue;
       g.globalAlpha = Math.min(1, POOL_K * strength * L.k);
-      g.drawImage(this._sprite(this._litColour(L.rgb)), (L.x - r) * sx, (L.y - ry) * sy, 2 * r * sx, 2 * ry * sy);
+      const y = L.groundY ?? L.y;
+      g.drawImage(image, (L.x - r) * sx, (y - ry) * sy, 2 * r * sx, 2 * ry * sy);
     }
     // The edge vignette goes into the map too, so the night costs one
     // full-screen layer rather than two (the renderer then skips its own).
@@ -401,9 +436,12 @@ export class LightPass {
     }
     g.globalAlpha = 1;
     this.count = lights.length;
-    if (u < 1 && gr[3] * (1 - u) > 0.004) {
-      ctx.fillStyle = `rgba(${gr[0] | 0},${gr[1] | 0},${gr[2] | 0},${(gr[3] * (1 - u)).toFixed(3)})`;
-      ctx.fillRect(0, 0, vw, vh);
+    if (u < 1) {
+      const wash = twilightWash(gr, this._dark, u, this._twilight);
+      if (wash[3] > 0.004) {
+        ctx.fillStyle = `rgba(${wash[0] | 0},${wash[1] | 0},${wash[2] | 0},${wash[3].toFixed(3)})`;
+        ctx.fillRect(0, 0, vw, vh);
+      }
     }
     const op = ctx.globalCompositeOperation;
     ctx.globalCompositeOperation = 'multiply';

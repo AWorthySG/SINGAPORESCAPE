@@ -686,7 +686,7 @@ export class Renderer {
     if (pj) {
       applyScreen(ctx, pj);
       // The far edge fades into the sky's haze, with wisps drifting over it.
-      this.depth.haze(ctx, pj, game.dayPhase(), this._mood, cam.cx, timeMs, !motionOK(game), trim);
+      this.depth.haze(ctx, pj, dayPhase, this._mood, cam.cx, timeMs, calm, trim, this.weather.state);
     }
 
     this._drawClueMarker(ox, oy, vw, vh, timeMs);
@@ -700,8 +700,8 @@ export class Renderer {
     // The light pass (lighting.js) paints the grade and the night's darkness
     // with lamps, fires and spells cut out of it, then the weather in the air;
     // low graphics (and headless runs) keep the old flat fill.
-    if (game.lowFx || !this.lights.ok || !this.lights.draw(ctx, game, this.atmos.crisp(this._blendMood(fdt), game.dayPhase(), this.weather.state.gloom), night, this.weather.state, ox, oy, vw, vh, timeMs, pj)) this._drawDayNight(svw, svh, night, fdt);
-    else if (!game.fxTrim) this.cosy.draw(ctx, game, this.lights, night, ox, oy, vw, vh, timeMs, pj);   // golden hour and lantern glow (cosylight.js)
+    if (game.lowFx || !this.lights.ok || !this.lights.draw(ctx, game, this.atmos.crisp(this._blendMood(fdt), dayPhase, this.weather.state.gloom), night, this.weather.state, ox, oy, vw, vh, timeMs, pj)) this._drawDayNight(svw, svh, night, fdt);
+    else if (!game.fxTrim) this.cosy.draw(ctx, game, this.lights, night, ox, oy, vw, vh, timeMs, pj, this.weather.state);
     this.weather.drawAir(ctx, fox, foy, svw, svh, timeMs, fdt, trim);
     // Frames running slow (governor.js) also skip these two full-screen layers:
     // the golden hour's soft-light grade and the vignette are the costliest
@@ -734,7 +734,10 @@ export class Renderer {
   _drawDayNight(vw, vh, night, dt) {
     this._blendMood(dt);
     dayNightWashes(night, this._dn);
-    const g = composeWashes(this._washes, this._grade);
+    const w = this._washes, wx = this.weather.state;
+    w.length = 3;
+    w.push(...wx.washes, wx.flashWash);
+    const g = composeWashes(w, this._grade);
     if (g[3] <= 0.004) return;
     this.ctx.fillStyle = `rgba(${g[0] | 0},${g[1] | 0},${g[2] | 0},${g[3].toFixed(3)})`;
     this.ctx.fillRect(0, 0, vw, vh);
