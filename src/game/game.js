@@ -8069,7 +8069,7 @@ export class Game {
     p.stopNow(); p.clearAction();
     p.x = p.tx = tile.x; p.y = p.ty = tile.y; p.progress = 0; p.moving = false; p.path = [];
     this.msg(`You take the ferry to ${landing.destination.name}.`, 'system');
-    this.bus.emit('sfx', 'travel');
+    this.bus.emit('sfx', 'travel:ferry');
     this.updateRegion();
     return true;
   }
