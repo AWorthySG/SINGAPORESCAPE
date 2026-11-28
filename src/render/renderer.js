@@ -1000,8 +1000,10 @@ export class Renderer {
       const head = Math.min(1, t * 3.2), tail = Math.max(0, t * 1.6 - 0.25);
       const hx = x0 + dx * head + ux * 10, hy = y0 + dy * head + uy * 10;
       const sx = x0 + dx * tail, sy = y0 + dy * tail;
+      if (accent) ctx.globalCompositeOperation = 'source-over';
       ctx.globalAlpha = fade * 0.45; ctx.strokeStyle = accent?.colour || e.color; ctx.lineWidth = 9;
       ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(hx, hy); ctx.stroke();
+      ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = fade; ctx.strokeStyle = '#fff6d8'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(hx, hy); ctx.stroke();
       if (head < 1 || t < 0.5) {   // the spear point
@@ -1021,8 +1023,10 @@ export class Renderer {
       const mid = Math.atan2(ty - y0, tx - x0), spread = 1.25;
       const a0 = mid - spread, a1 = mid - spread + 2 * spread * Math.min(1, t * 2.2);
       const r = e.r * 0.9 + 6;
+      if (accent) ctx.globalCompositeOperation = 'source-over';
       ctx.globalAlpha = fade * 0.35; ctx.strokeStyle = accent?.colour || e.color; ctx.lineWidth = 14 * fade + 4;
       ctx.beginPath(); ctx.arc(x0, y0, r, a0, a1); ctx.stroke();
+      ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = fade; ctx.strokeStyle = '#fff1c4'; ctx.lineWidth = 3.5;
       ctx.beginPath(); ctx.arc(x0, y0, r, Math.max(a0, a1 - 0.6), a1); ctx.stroke();
       ctx.globalAlpha = fade * 0.6; ctx.lineWidth = 2;
@@ -1033,8 +1037,10 @@ export class Renderer {
       const R = Math.max(28, e.foes.reduce((m, f) => Math.max(m, Math.hypot(f.x - e.tx, f.y - e.ty)), 0) + 12);
       ctx.globalAlpha = fade * 0.9; ctx.strokeStyle = e.color; ctx.lineWidth = 6 * fade + 1;
       ctx.beginPath(); ctx.ellipse(tx, ty + 8, R * (0.25 + t), R * (0.25 + t) * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+      if (accent) ctx.globalCompositeOperation = 'source-over';
       ctx.globalAlpha = fade * 0.25; ctx.fillStyle = accent?.light || '#ffd9a0';
       ctx.beginPath(); ctx.ellipse(tx, ty + 8, R * (0.2 + t * 0.8), R * (0.2 + t * 0.8) * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = fade; ctx.strokeStyle = '#fff1c4'; ctx.lineWidth = 2;
       for (let i = 0; i < 6; i++) {
         const a = i * Math.PI / 3 + 0.4, l = R * Math.min(1, t * 2.5) * 0.8;
@@ -1050,10 +1056,17 @@ export class Renderer {
           if (d <= 0) continue;
           const a = (i % 2 ? 0.7 : -0.7) + k, len = 20;
           const cx = Math.cos(a) * len / 2, cy = Math.sin(a) * len / 2;
+          ctx.beginPath(); ctx.moveTo(fx - cx, fy - cy); ctx.lineTo(fx - cx + 2 * cx * d, fy - cy + 2 * cy * d);
+          if (accent) {
+            ctx.globalCompositeOperation = 'source-over';
+            strokeAccent(ctx, accent, 6, fade * 0.4);
+            ctx.globalCompositeOperation = 'lighter';
+          }
           ctx.globalAlpha = fade; ctx.strokeStyle = '#fff6d8'; ctx.lineWidth = 2.5;
-          ctx.beginPath(); ctx.moveTo(fx - cx, fy - cy); ctx.lineTo(fx - cx + 2 * cx * d, fy - cy + 2 * cy * d); ctx.stroke();
-          ctx.globalAlpha = fade * 0.4; ctx.strokeStyle = accent?.colour || e.color; ctx.lineWidth = 6;
-          ctx.beginPath(); ctx.moveTo(fx - cx, fy - cy); ctx.lineTo(fx - cx + 2 * cx * d, fy - cy + 2 * cy * d); ctx.stroke();
+          ctx.stroke();
+          if (!accent) {
+            ctx.globalAlpha = fade * 0.4; ctx.strokeStyle = e.color; ctx.lineWidth = 6; ctx.stroke();
+          }
         }
       }
     } else {
@@ -1062,10 +1075,18 @@ export class Renderer {
         ctx.save();
         ctx.translate(f.x - ox, f.y - oy);
         ctx.rotate(-0.6 + k * 0.9 + (t - 0.5) * 2.1);
+        if (accent) {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.beginPath(); ctx.arc(0, 0, 14, -0.55, 0.55);
+          strokeAccent(ctx, accent, 7 - t * 4, fade * 0.35);
+          ctx.globalCompositeOperation = 'lighter';
+        }
         ctx.globalAlpha = fade * 0.9; ctx.strokeStyle = e.color; ctx.lineWidth = 3.2 - t * 1.8;
         ctx.beginPath(); ctx.arc(0, 0, 14, -0.8, 0.8); ctx.stroke();
-        ctx.globalAlpha = fade * 0.35; ctx.strokeStyle = accent?.colour || e.color; ctx.lineWidth = 7 - t * 4;
-        ctx.beginPath(); ctx.arc(0, 0, 14, -0.55, 0.55); ctx.stroke();
+        if (!accent) {
+          ctx.globalAlpha = fade * 0.35; ctx.lineWidth = 7 - t * 4;
+          ctx.beginPath(); ctx.arc(0, 0, 14, -0.55, 0.55); ctx.stroke();
+        }
         ctx.restore();
       }
     }
@@ -1147,11 +1168,20 @@ export class Renderer {
         ctx.lineCap = 'round';
         ctx.strokeStyle = e.color;
         const head = -10 + t * 26, tail = head - 22 * (1 - t * 0.6);
+        if (accent) {
+          // Daylit ground stays visible through the class paint, while the
+          // additive core on top still reads as the hit or critical glow.
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.beginPath(); ctx.moveTo(tail + 6, 0); ctx.lineTo(head, 0);
+          strokeAccent(ctx, accent, 7 - t * 4, (1 - t) * 0.35);
+          ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = e.color;
+        }
         ctx.globalAlpha = (1 - t) * 0.9; ctx.lineWidth = 3 - t * 1.6;
         ctx.beginPath(); ctx.moveTo(tail, 0); ctx.lineTo(head, 0); ctx.stroke();
-        ctx.strokeStyle = accent?.colour || e.color;
-        ctx.globalAlpha = (1 - t) * 0.35; ctx.lineWidth = 7 - t * 4;
-        ctx.beginPath(); ctx.moveTo(tail + 6, 0); ctx.lineTo(head, 0); ctx.stroke();
+        if (!accent) {
+          ctx.globalAlpha = (1 - t) * 0.35; ctx.lineWidth = 7 - t * 4;
+          ctx.beginPath(); ctx.moveTo(tail + 6, 0); ctx.lineTo(head, 0); ctx.stroke();
+        }
         ctx.restore();
         ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
         continue;
@@ -1164,14 +1194,20 @@ export class Renderer {
         ctx.rotate(e.ang + e.dir * (t - 0.5) * 2.1);
         ctx.globalCompositeOperation = 'lighter';
         ctx.lineCap = 'round';
+        if (accent) {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.beginPath(); ctx.arc(0, 0, 13, -0.55, 0.55);
+          strokeAccent(ctx, accent, 7 - t * 4, (1 - t) * 0.35);
+          ctx.globalCompositeOperation = 'lighter';
+        }
         ctx.strokeStyle = e.color;
         ctx.globalAlpha = (1 - t) * 0.9;
         ctx.lineWidth = 3.2 - t * 1.8;
         ctx.beginPath(); ctx.arc(0, 0, 13, -0.8, 0.8); ctx.stroke();
-        ctx.strokeStyle = accent?.colour || e.color;
-        ctx.globalAlpha = (1 - t) * 0.35;
-        ctx.lineWidth = 7 - t * 4;
-        ctx.beginPath(); ctx.arc(0, 0, 13, -0.55, 0.55); ctx.stroke();
+        if (!accent) {
+          ctx.globalAlpha = (1 - t) * 0.35; ctx.lineWidth = 7 - t * 4;
+          ctx.beginPath(); ctx.arc(0, 0, 13, -0.55, 0.55); ctx.stroke();
+        }
         ctx.restore();
         ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
         continue;
