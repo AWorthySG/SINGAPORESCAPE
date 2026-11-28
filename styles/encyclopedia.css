@@ -92,7 +92,7 @@
 .ency-place-hero:has(> .ency-place-picture:not(.scenery)) { grid-template-columns: clamp(74px, 28%, 168px) minmax(0, 1fr); }
 .ency-place-hero > .ency-place-picture { min-height: 108px; }
 .ency-place-hero > .ency-place-picture.scenery {
-  aspect-ratio: 12 / 5; max-height: 242px;
+  width: 100%; aspect-ratio: 12 / 5; max-height: 242px;
   border-bottom: 1px solid var(--district-ink, #baab8d);
 }
 @media (max-height: 560px) and (orientation: landscape) {
