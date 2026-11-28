@@ -1,13 +1,15 @@
 // Right-hand arrangements for the stage's C4 to C5 keyboard.
 // Each row is a bar. A bare pitch is a quarter note; pairs give pitch and beats.
 function score(info, bars) {
-  return {
-    ...info,
-    notes: bars.flat().map((note) => {
+  const notes = [], measureStarts = [];
+  for (const bar of bars) {
+    measureStarts.push(notes.length);
+    for (const note of bar) {
       const [midi, beats = 1] = Array.isArray(note) ? note : [note];
-      return { midi, beats };
-    }),
-  };
+      notes.push({ midi, beats });
+    }
+  }
+  return { ...info, notes, measureStarts };
 }
 
 export const PIANO_SCORES = [
