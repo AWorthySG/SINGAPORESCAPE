@@ -6,12 +6,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ALL_WEAPON_TYPES } from '../src/data/items.js';
 import { CLASSES } from '../src/data/classes.js';
+import { CONSTRUCT } from '../src/data/construction.js';
+import { FLETCH } from '../src/data/trades.js';
 import {
   HERO_CLIPS, HERO_CHANNELS, SKILL_ACTION_TYPES, WEAPON_CLIP, DUAL_CLIPS, actionClipId, actionPropId, weaponClipId,
   sampleHeroClip, heroAnimFrame, blendHeroFrame, CLIP_BLEND_MS, FISHING, attachFishing, drawFishingGear, blowMs, strikeClock,
   drawHeroArm, armInFront, propPoint,
 } from '../src/render/heroanim.js';
 import { OBJECTS } from '../src/data/objects.js';
+import { EventBus } from '../src/core/events.js';
 import { drawPlayer } from '../src/render/sprites.js';
 import { ITEMS } from '../src/data/items.js';
 import { dualType } from '../src/game/equipment.js';
@@ -23,7 +26,10 @@ const ACTIONS = [
   ...['net', 'rod', 'lobster_pot', 'harpoon'].map((tool) => ({ type: 'fish', obj: { def: { tool } } })),
   { type: 'cook', rawId: 'raw_barramundi' }, { type: 'cookdish' }, { type: 'smelt', recipe: { inputs: [{ id: 'copper_ore', qty: 1 }] } },
   { type: 'smith' }, { type: 'craft', recipe: { tool: 'chisel' } }, { type: 'hunt' }, { type: 'dive' }, { type: 'excavate' },
-  { type: 'recipe', skill: 'fletching', recipe: { inputs: [['logs', 1]] } }, { type: 'recipe', skill: 'herblore', recipe: { inputs: [['vial', 1]] } },
+  ...['arrow_shaft', 'bronze_arrow'].map((result) => ({ type: 'recipe', skill: 'fletching', recipe: FLETCH.find((r) => r.result === result) })),
+  { type: 'recipe', skill: 'herblore', recipe: { inputs: [['vial', 1]] } },
+  { type: 'recipe', skill: 'archaeology', recipe: { inputs: [['encrusted_relic', 1]] } },
+  ...['plank', 'brick', 'wooden_stool'].map((result) => ({ type: 'recipe', skill: 'construction', recipe: CONSTRUCT.find((r) => r.result === result) })),
   { type: 'firemake' }, { type: 'farm', obj: {} }, { type: 'farm', seed: 'durian_seed', obj: {} }, { type: 'farm', obj: { crop: 'x', growLeft: 0 } },
   { type: 'thieve' }, { type: 'stall' },
   ...['agility_balance', 'agility_net', 'agility_rope', 'agility_ledge', 'agility_zip', 'agility_course'].map((objId) => ({ type: 'agility', obj: { objId } })),
@@ -52,11 +58,29 @@ test('the hero holds the right tool for the job', () => {
   assert.equal(actionPropId(game, { type: 'fish', obj: { def: { tool: 'rod' } } }), 'fishing_rod');
   assert.equal(actionPropId(game, { type: 'smith' }), 'hammer');
   assert.equal(actionPropId(game, { type: 'cook', rawId: 'raw_barramundi' }), 'raw_barramundi');
-  assert.equal(actionPropId(game, { type: 'recipe', skill: 'fletching' }), 'knife');
+  const arrow = { type: 'recipe', skill: 'fletching', recipe: FLETCH.find((r) => r.result === 'bronze_arrow') };
+  const shaft = { ...arrow, recipe: FLETCH.find((r) => r.result === 'arrow_shaft') };
+  assert.equal(actionPropId(game, shaft), 'knife');
+  assert.equal(actionClipId(shaft), 'fletch');
+  assert.equal(actionPropId(game, arrow), 'arrow_shaft');
+  assert.equal(actionClipId(arrow), 'craft');
   assert.equal(actionPropId(game, { type: 'smelt', recipe: { inputs: [{ id: 'copper_ore', qty: 1 }] } }), 'copper_ore');
   // The axe actually wielded wins over the default.
   const wielding = { equipment: { get: () => 'bronze_axe' }, inventory: { slots: [] } };
   assert.equal(actionPropId(wielding, { type: 'woodcut' }), 'bronze_axe');
+});
+
+test('a cooking flip turns once without spinning backward through the angle wrap', () => {
+  let oldAngle = sampleHeroClip('cook', 0.7).ch.prop;
+  let total = 0;
+  for (let i = 701; i <= 950; i++) {
+    const angle = sampleHeroClip('cook', i / 1000).ch.prop;
+    const step = Math.atan2(Math.sin(angle - oldAngle), Math.cos(angle - oldAngle));
+    assert.ok(step <= 1e-10 && step > -0.08, `smooth, one-way turn at ${i / 1000}`);
+    total += step;
+    oldAngle = angle;
+  }
+  assert.ok(Math.abs(total + 2 * Math.PI - 1.2) < 1e-9);
 });
 
 test('every weapon type (main and secondary) has an attack clip', () => {
@@ -126,7 +150,119 @@ test('a life-skill strike lands on the game tick that pays out', async () => {
   heroAnimFrame(g, 10016);   // the blend starts from the pose on screen
   const mid = heroAnimFrame(g, 10016 + CLIP_BLEND_MS / 2);
   assert.ok(mid.ch.mix > 0.05 && mid.ch.mix < 0.95, 'tool arms fade out across the blend');
-  assert.ok(heroAnimFrame(g, 10016 + CLIP_BLEND_MS * 2).ch.mix < 1e-9, 'and are gone after it');
+  assert.equal(mid.tool, 'bronze_axe', 'the axe fades with the hands');
+  const end = heroAnimFrame(g, 10016 + CLIP_BLEND_MS * 2);
+  assert.ok(end.ch.mix < 1e-9, 'the arms are gone after it');
+  assert.equal(end.tool, null);
+});
+
+function actingHero(action) {
+  const player = { x: 10, y: 10, faceX: 1, isMoving: false, action, swingProgress: () => -1,
+    noteFacing() { this.faceX = this.facing.dx; } };
+  return { player, bus: new EventBus(), attackInterval: () => 1 };
+}
+
+test('gathering keeps the tool visible and a real attack still takes over immediately', () => {
+  const game = actingHero({ type: 'woodcut', obj: { x: 11, y: 10 } });
+  game.player.swingProgress = () => 0;
+  assert.equal(heroAnimFrame(game, 1000).id, 'woodcut');
+  const target = { alive: true };
+  game.player.action = { type: 'attack', npc: target };
+  game.player.target = target;
+  assert.equal(heroAnimFrame(game, 1016).kind, 'combat');
+});
+
+test('instant work draws the reported prop and faces its target for one pose', () => {
+  const game = actingHero(null);
+  heroAnimFrame(game, 0);
+  game.bus.emit('skillpose', { id: 'farm_plant', prop: 'durian_seed', target: { x: 9, y: 10 } });
+  const pose = heroAnimFrame(game, 16);
+  assert.equal(pose.id, 'farm_plant');
+  assert.equal(pose.tool, 'durian_seed');
+  assert.equal(game.player.faceX, -1);
+  assert.equal(heroAnimFrame(game, 700).tool, null, 'the planted seed is left in the soil');
+  assert.equal(heroAnimFrame(game, 1000).id, 'idle');
+  assert.equal(sampleHeroClip('farm_harvest', 0.5, { tool: 'durian' }).tool, null);
+  assert.equal(sampleHeroClip('farm_harvest', 0.8, { tool: 'durian' }).tool, 'durian');
+  assert.equal(sampleHeroClip('offer', 0.8, { tool: 'bones' }).tool, null);
+});
+
+test('a tree that falls before the first work frame still shows the axe stroke', async () => {
+  const { Game } = await import('../src/game/game.js');
+  globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  const game = new Game(); game.start();
+  const tree = game.world.objects.find((obj) => obj.def.type === 'tree' && obj.def.level === 1 && obj.def.depleteChance > 0);
+  const p = game.player;
+  p.stopNow(); p.x = p.tx = tree.x + 1; p.y = p.ty = tree.y;
+  tree.logsLeft = 1;
+  heroAnimFrame(game, 0);
+  game.bus.on('xp', () => game.bus.emit('levelup'));
+  game.defaultObjectAction(tree);
+  game.resolvePlayerAction();
+  assert.equal(tree.depleted, true);
+  assert.equal(p.action, null);
+  assert.equal(heroAnimFrame(game, 16).tool, 'bronze_axe');
+});
+
+test('a completed batch can play even when its action was resolved between frames', () => {
+  const game = actingHero(null);
+  const action = { type: 'cook', rawId: 'raw_trout', obj: { x: 11, y: 10 } };
+  heroAnimFrame(game, 0);
+  game.bus.emit('skillpose', { action });
+  const initial = heroAnimFrame(game, 16);
+  assert.equal(initial.id, 'cook');
+  assert.equal(initial.tool, 'raw_trout');
+  assert.equal(initial.u, 0);
+  assert.equal(heroAnimFrame(game, 620).id, 'idle');
+});
+
+test('construction shows the real material or tool at each station', () => {
+  const obj = { x: 11, y: 10, def: { type: 'homebench' } };
+  const recipe = (result) => CONSTRUCT.find((r) => r.result === result);
+  const action = { type: 'recipe', skill: 'construction', recipe: recipe('plank'), obj };
+  const game = actingHero(action);
+  for (const [i, [result, clip, prop]] of [['plank', 'saw', 'logs'], ['wooden_stool', 'build', 'hammer'], ['brick', 'kiln', 'clay']].entries()) {
+    action.recipe = recipe(result);
+    const f = heroAnimFrame(game, 1000 + i * 600);
+    assert.equal(f.id, clip);
+    assert.equal(f.tool, prop);
+  }
+});
+
+test('hawkering stays idle between sales and leaves the sold dish on the counter', () => {
+  const obj = { x: 11, y: 10 }, game = actingHero({ type: 'hawk', obj });
+  assert.equal(heroAnimFrame(game, 0).id, 'idle');
+  game.bus.emit('skillpose', { id: 'serve', prop: 'chicken_rice', target: obj });
+  const pose = heroAnimFrame(game, 16);
+  assert.equal(pose.id, 'serve');
+  assert.equal(pose.tool, 'chicken_rice');
+  const handedOver = heroAnimFrame(game, 600);
+  assert.equal(handedOver.id, 'serve');
+  assert.equal(handedOver.tool, null);
+  assert.equal(heroAnimFrame(game, 1000).id, 'idle');
+});
+
+test('stall thieving completes the reach once and waits while the stall restocks', () => {
+  const obj = { x: 11, y: 10, depleted: false }, action = { type: 'stall', obj };
+  const game = actingHero(action);
+  assert.equal(heroAnimFrame(game, 0).id, 'stall');
+  obj.depleted = true;
+  game.bus.emit('skillpose', { action });
+  assert.equal(heroAnimFrame(game, 16).id, 'stall');
+  assert.equal(heroAnimFrame(game, 1000).id, 'idle');
+  assert.equal(heroAnimFrame(game, 1400).id, 'idle');
+  obj.depleted = false;
+  assert.equal(heroAnimFrame(game, 1500).id, 'stall');
+});
+
+test('diving switches to breathing at the surface and returns to reef work', () => {
+  const action = { type: 'dive', obj: { x: 11, y: 10 } };
+  const game = actingHero(action);
+  assert.equal(heroAnimFrame(game, 1000).id, 'dive');
+  action.surface = 2;
+  assert.equal(heroAnimFrame(game, 1600).id, 'dive_surface');
+  action.surface = 0;
+  assert.equal(heroAnimFrame(game, 2800).id, 'dive');
 });
 
 test('a beat throws a few world particles, and none in low graphics', async () => {
@@ -357,6 +493,37 @@ test('fishing line, bobber, net, pot and harpoon draw for every part, headless o
       drawFishingGear(ctx, sampleHeroClip('idle', 0), 0, 0);   // not fishing: nothing to draw
     }
   } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
+});
+
+test('fishing tethers meet the same endpoint on either side of a cast transition', () => {
+  const endpoint = (tool, k, hx = 30, hy = 52) => {
+    const ctx = stubCtx(), ends = [];
+    ctx.getTransform = () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+    ctx.quadraticCurveTo = (cx, cy, x, y) => ends.push([x, y]);
+    const anim = attachFishing(sampleHeroClip(FISHING[tool].cast, k, { low: true }),
+      { tool, phase: 'cast', k, tx: 32, ty: 0 });
+    anim.fish.hand = [40, 46]; anim.fish.tip = [55, 30];
+    drawFishingGear(ctx, anim, hx, hy, 30, 52);
+    return ends[0];
+  };
+  for (const [tool, at] of [['rod', 0.47], ['net', 0.8], ['lobster_pot', 0.62]]) {
+    const before = endpoint(tool, at - 1e-6), after = endpoint(tool, at);
+    assert.ok(Math.hypot(after[0] - before[0], after[1] - before[1]) < 0.01, `${tool} keeps its attachment`);
+  }
+  assert.deepEqual(endpoint('lobster_pot', 0.42), [55, 24], 'the pot leaves from its held centre');
+  assert.deepEqual(endpoint('rod', 0.9), endpoint('rod', 0.9, 43, 60), 'the water stays put if the hero is knocked');
+});
+
+test('a fishing session waits for a real catch from its own spot', () => {
+  const spot = { objId: 'rod_spot', x: 11, y: 10, def: { tool: 'rod' } };
+  const game = actingHero({ type: 'fish', obj: spot });
+  assert.equal(heroAnimFrame(game, 1000).fish.phase, 'cast');
+  assert.equal(heroAnimFrame(game, 2000).fish.phase, 'wait');
+  assert.equal(heroAnimFrame(game, 7000).fish.phase, 'wait', 'elapsed time alone does not fabricate a fish');
+  game.bus.emit('fishcatch', { id: 'raw_pike', objId: 'other_spot' });
+  assert.equal(heroAnimFrame(game, 7016).fish.phase, 'wait');
+  game.bus.emit('fishcatch', { id: 'raw_trout', objId: 'rod_spot' });
+  assert.equal(heroAnimFrame(game, 7032).fish.id, 'raw_trout');
 });
 
 test('a catch from the game starts the haul with that very fish, then the hero casts again', async () => {

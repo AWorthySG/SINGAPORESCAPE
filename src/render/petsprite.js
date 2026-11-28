@@ -8,6 +8,7 @@ import { TILE } from '../config.js';
 import { getNpc } from '../data/npcs.js';
 import { PET_BY_ID } from '../game/pets.js';
 import { drawCreature, drawShadow } from './sprites.js';
+import { motionOK } from './juice.js';
 
 export const PET_SCALE = 0.45;
 const PET_ART_PX = 28;   // a pet picture's box on the map (its 256px canvas, shrunk)
@@ -47,7 +48,8 @@ export function petDrawable(game, ctx, ox, oy, vw, vh, timeMs) {
   if (cx < -60 || cy < -60 || cx > vw + 60 || cy > vh + 60) return null;
   const sc = Math.max(0.55, (def.scale || 1) * PET_SCALE);
   // A little hop while it trots after you, a slow breath at rest (none with reduced motion).
-  const hop = game.reduceMotion ? 0 : moving ? Math.abs(Math.sin(timeMs * 0.016)) * 5 : (1 + Math.sin(timeMs * 0.004)) * 0.6;
+  const calm = !motionOK(game);
+  const hop = calm ? 0 : moving ? Math.abs(Math.sin(timeMs * 0.016)) * 5 : (1 + Math.sin(timeMs * 0.004)) * 0.6;
   const img = petImage(f.id);
   return { sortY: f.py / TILE - 0.02, z: 2, draw: () => {
     drawShadow(ctx, cx, cy + 9 * sc, 9 * sc * (1 - hop / 20), 4 * sc);
@@ -61,7 +63,7 @@ export function petDrawable(game, ctx, ox, oy, vw, vh, timeMs) {
       return;
     }
     drawCreature(ctx, P.npcId, cx, cy - 2 - hop, {
-      time: timeMs, fx: f.fx || 1, moving: false, still: true, pet: true, low: true,
+      time: calm ? 0 : timeMs, fx: f.fx || 1, moving: false, still: true, pet: true, low: true, calm,
       scale: sc, sprite: def.sprite, color: def.color, boss: def.boss, family: def.family,
     });
   } };

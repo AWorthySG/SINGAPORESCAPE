@@ -490,6 +490,7 @@ export function smeltBatch(game, action, sound = true) {
   game.msg(`You smelt ${bars} ${name}${bars === 1 ? '' : 's'}`
     + (t.extra ? ` (${t.extra} extra from a hot crucible)` : '')
     + (t.failed ? `; ${t.failed} lot${t.failed === 1 ? '' : 's'} of ore ${t.failed === 1 ? 'was' : 'were'} too impure` : '') + '.');
+  game.bus.emit('skillpose', { action: { type: 'smelt', recipe: action.recipe, obj: action.obj }, target: action.obj });
   return false;
 }
 
@@ -594,7 +595,8 @@ export function resolveFiremake(game, action) {
   // Every log of this kind (or every log you can burn, for "burn everything")
   // goes on one fire at once, or onto the fire already here: a bigger, longer
   // bonfire that warms whoever stands near it (bonfire.js).
-  burnAll(game, action.all ? (game.burnableLogs?.() || [action.logId]) : [action.logId], action.count || Infinity);
+  const burned = burnAll(game, action.all ? (game.burnableLogs?.() || [action.logId]) : [action.logId], action.count || Infinity);
+  if (burned) game.bus.emit('skillpose', { action, target: action.tile });
   return false;
 }
 

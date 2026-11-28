@@ -29,6 +29,7 @@ import { tileHash } from './terrainfx.js';
 import { fxImage, fxLoop, drawFx } from './fxart.js';
 import { plantLean, localWind } from './wind.js';
 import { applyRow } from './projection.js';
+import { arc } from './motionkit.js';
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -47,6 +48,7 @@ const PETAL_ART = ['petal_pink', 'frangipani', 'petal_pink', 'petal_red'];
 const EGRET_SKIES = new Set(['Sungei Buloh Wetlands', 'Changi Coast', 'Sentosa Beach', 'Southern Islands', 'Punggol Waterway', 'MacRitchie Reservoir']);
 const WING_MS = 110;     // a wingbeat frame
 const PECK_MS = 260;     // a pecking pigeon's frame
+const BIRD_HOP_MS = 160;
 const TAIL_MS = 340;     // a cat's tail flick
 const TUMBLE_MS = 180;   // a leaf or petal turning over
 // The painted tumbling loops stand in for these single leaves and petals.
@@ -69,6 +71,12 @@ export const FLOCK_CAP = 7;      // birds in a flock overhead
 export const CAT_CAP = 3;
 const STEAMERS = new Set(['stall_food', 'range', 'hawker_stall_noodle', 'hawker_stall_satay']);
 const CAT_STALLS = new Set(['stall_food', 'stall_market', 'hawker_stall_noodle', 'fish_stall']);
+
+function birdGround(world, x, y) {
+  if (!world.inBounds(x, y) || world.isBlocked(x, y)) return false;
+  const terrain = world.terrainAt(x, y);
+  return terrain === TERRAIN.STONE || terrain === TERRAIN.PATH || terrain === TERRAIN.SAND;
+}
 
 /**
  * The island's breeze at time t (ms), 0 (still) .. 1 (a strong gust): a slow
@@ -110,7 +118,7 @@ export class AmbientLife {
     this.flock = { on: false, x: 0, y: 0, vx: 0, vy: 0, n: 0, dir: 1, t: 0, sp: 'myna_fly' };
     this._flockIn = 9000;
     this.birds = { on: false, flee: false, x: 0, y: 0, t: 0, n: 0, m: [] };
-    for (let i = 0; i < BIRD_CAP; i++) this.birds.m.push({ dx: 0, dy: 0, vx: 0, vy: 0, face: 1, p: 0, sp: 'myna' });
+    for (let i = 0; i < BIRD_CAP; i++) this.birds.m.push({ dx: 0, dy: 0, vx: 0, vy: 0, face: 1, p: 0, sp: 'myna', hop: 0, hx: 0, hy: 0 });
     this._birdsIn = 1500;
     this._sprites = {};       // baked sprites by name
     this.drawn = 0;           // things drawn last frame (tests and tuning)
@@ -235,6 +243,7 @@ export class AmbientLife {
         b.flee = true; b.t = 0;
         for (let i = 0; i < b.n; i++) {
           const m = b.m[i], away = Math.sign(b.x + m.dx - p.x) || 1;
+          m.dy -= 2 * arc(m.hop / BIRD_HOP_MS); m.hop = 0;
           m.vx = away * (0.07 + this.rnd() * 0.06); m.vy = -0.09 - this.rnd() * 0.05; m.face = away;
         }
       }
@@ -245,8 +254,19 @@ export class AmbientLife {
         // Pecking about: now and then one hops a little way and turns round.
         for (let i = 0; i < b.n; i++) {
           const m = b.m[i];
+          if (m.hop > 0) {
+            const step = Math.min(dt, m.hop);
+            m.dx += m.hx * step / BIRD_HOP_MS; m.dy += m.hy * step / BIRD_HOP_MS;
+            m.hop -= step;
+          }
           m.p += dt;
-          if (m.p > 2400) { m.p = this.rnd() * 600; m.dx += (this.rnd() - 0.5) * 10; m.dy += (this.rnd() - 0.5) * 6; if (this.rnd() < 0.4) m.face = -m.face; }
+          if (m.p > 2400) {
+            m.p = this.rnd() * 600;
+            const hx = (this.rnd() - 0.5) * 10, hy = (this.rnd() - 0.5) * 6;
+            if (this.rnd() < 0.4) m.face = -m.face;
+            const x = Math.floor((b.x + m.dx + hx) / TILE), y = Math.floor((b.y + m.dy + hy) / TILE);
+            if (birdGround(game.world, x, y)) { m.hx = hx; m.hy = hy; m.hop = BIRD_HOP_MS; }
+          }
         }
       }
       if (b.x < ox - 60 || b.y < oy - 60 || b.x > ox + vw + 60 || b.y > oy + vh + 60) b.on = false;
@@ -258,9 +278,7 @@ export class AmbientLife {
     this._birdsIn = 900;
     const w = game.world, p = game.player.renderCenter();
     const tx = Math.floor((ox + 40 + this.rnd() * (vw - 80)) / TILE), ty = Math.floor((oy + 40 + this.rnd() * (vh - 80)) / TILE);
-    if (!w.inBounds(tx, ty) || w.isBlocked(tx, ty)) return;
-    const tt = w.terrainAt(tx, ty);
-    if (tt !== TERRAIN.STONE && tt !== TERRAIN.PATH && tt !== TERRAIN.SAND) return;
+    if (!birdGround(w, tx, ty)) return;
     const x = tx * TILE + TILE / 2, y = ty * TILE + TILE * 0.7;
     if (Math.hypot(p.x - x, p.y - y) < TILE * 5) return;
     b.on = true; b.flee = false; b.t = 0; b.x = x; b.y = y;
@@ -268,7 +286,9 @@ export class AmbientLife {
     for (let i = 0; i < b.n; i++) {
       const m = b.m[i];
       m.dx = (this.rnd() - 0.5) * 34; m.dy = (this.rnd() - 0.5) * 16; m.face = this.rnd() < 0.5 ? -1 : 1;
-      m.p = this.rnd() * 2400; m.vx = 0; m.vy = 0;
+      const bx = Math.floor((x + m.dx) / TILE), by = Math.floor((y + m.dy) / TILE);
+      if (!birdGround(w, bx, by)) { m.dx = 0; m.dy = 0; }
+      m.p = this.rnd() * 2400; m.vx = 0; m.vy = 0; m.hop = 0;
       const r = this.rnd(); m.sp = r < 0.4 ? 'pigeon' : r < 0.8 ? 'myna' : 'sparrow';
     }
   }
@@ -347,13 +367,14 @@ export class AmbientLife {
     if (b.on && !b.flee) {
       for (let i = 0; i < b.n; i++) {
         const m = b.m[i], x = b.x + m.dx - ox, y = b.y + m.dy - oy;
+        const lift = 2 * arc(m.hop / BIRD_HOP_MS);
         const peck = Math.sin(m.p * 0.006 + i) > 0.6;
         // A pigeon bobs through its painted pecking loop; mynas and sparrows peck now and then.
         const img = m.sp === 'pigeon' ? fxLoop('critter', 'pigeon_peck', t, PECK_MS, i * 397) : fxImage(`critter-${m.sp}${peck ? '_peck' : ''}`);
         ctx.fillStyle = 'rgba(34,48,74,0.18)';
         ctx.beginPath(); ctx.ellipse(x, y + 2.5, 4, 1.3, 0, 0, Math.PI * 2); ctx.fill();
-        if (img) drawFx(ctx, img, x, y - 3, m.sp === 'pigeon' ? 13 : 12, m.face < 0);
-        else drawBirdShape(ctx, x, y - 2, m.face, peck);
+        if (img) drawFx(ctx, img, x, y - 3 - lift, m.sp === 'pigeon' ? 13 : 12, m.face < 0);
+        else drawBirdShape(ctx, x, y - 2 - lift, m.face, peck);
         this.drawn++;
       }
     }

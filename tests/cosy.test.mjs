@@ -14,7 +14,7 @@ import {
 } from '../src/render/postcard.js';
 import { REGION_POSTCARDS, postcardLine, SITE_URL, TAGLINE } from '../src/data/postcards.js';
 import { REGION_BADGES, DARK_REGIONS } from '../src/render/fxart.js';
-import { postcardFileName, shareText, postmarkDate, buildPostcard } from '../src/ui/photomode.js';
+import { PhotoMode, postcardFileName, shareText, postmarkDate, buildPostcard } from '../src/ui/photomode.js';
 import { cosySkylineSvg, fireflyHtml, dressTitle, COSY_VIEW } from '../src/ui/cosytitle.js';
 import { Game } from '../src/game/game.js';
 import { Renderer } from '../src/render/renderer.js';
@@ -230,6 +230,37 @@ test('postcard mode builds a card from the game, names the file and words the sh
   assert.match(pm, /e\.key\.toLowerCase\(\) === 'o'/);
   const { KEYBOARD_GROUPS } = await import('../src/data/keyboard.js');
   assert.ok(KEYBOARD_GROUPS.some(([, rows]) => rows.some(([action, key]) => action === 'Take a postcard' && key === 'O')));
+});
+
+test('postcard shutters and reveals respect the in-game motion setting', () => {
+  const css = readFileSync(new URL('../styles/cosy.css', import.meta.url), 'utf8');
+  assert.match(css, /body\.reduce-motion :is\(\.pm-img, #photo-mode\.flashing \.pm-flash\) \{ animation: none; \}/);
+});
+
+test('a postcard shutter waits for its image and closing cancels a pending preview', (t) => {
+  const g = freshGame(), callbacks = [];
+  const classList = { add() {}, remove() {}, toggle() {} };
+  const oldDocument = globalThis.document, oldWindow = globalThis.window;
+  globalThis.document = { body: { classList }, createElement: () => ({ getContext: recordingCtx, toBlob: (done) => callbacks.push(done) }) };
+  globalThis.window = { innerWidth: 390, innerHeight: 844 };
+  t.after(() => { globalThis.document = oldDocument; globalThis.window = oldWindow; });
+  const camera = Object.assign(Object.create(PhotoMode.prototype), {
+    game: g, canvas: { width: 390, height: 844 }, state: 'framing',
+    el: { classList, querySelector: () => ({ classList }) }, _canShare: () => false,
+  });
+  camera.snap();
+  camera.snap();
+  assert.equal(callbacks.length, 1);
+  camera.close();
+  camera.frame();
+  camera.snap();
+  assert.equal(callbacks.length, 2);
+  callbacks[0](new Blob());
+  assert.equal(camera.state, 'framing');
+  callbacks[1](new Blob());
+  assert.equal(camera.state, 'preview');
+  camera.close();
+  assert.equal(camera.url, null);
 });
 
 // ---------------- The title ----------------

@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { Renderer } from '../src/render/renderer.js';
 import { OBJECTS } from '../src/data/objects.js';
+import { TERRAIN } from '../src/data/world.js';
 import { TILE } from '../src/config.js';
 import { timeGrade, blendedMood, Atmosphere, BLEND_TILES, moonDark, CRISP_CLEAR } from '../src/render/atmosphere.js';
 import { AmbientLife, windAt, swayLean, swayKind, LEAF_CAP, GLINT_CAP, BIRD_CAP, FLOCK_CAP } from '../src/render/ambient.js';
@@ -237,6 +238,42 @@ test('ambient life in town: birds, cats and steam come and go from fixed pools, 
   assert.ok(amb._water.length <= 2 * 30 * 25, 'the water list holds the view at most');
 });
 
+test('a pecking town bird travels through a hop and stays off the water', () => {
+  const placeBird = (shore) => {
+    const amb = new AmbientLife();
+    amb.on = true;
+    Object.assign(amb.birds, { on: true, n: 1, x: 112, y: 150 });
+    const bird = amb.birds.m[0];
+    Object.assign(bird, { dx: 14, dy: 0, p: 2391 });
+    const rolls = [0.5, 0.99, 0.01, 0.1];
+    amb.rnd = () => rolls.shift();
+    const game = {
+      world: { inBounds: () => true, isBlocked: (x) => shore && x >= 4,
+        terrainAt: (x) => shore && x >= 4 ? TERRAIN.WATER : TERRAIN.PATH },
+      player: { renderCenter: () => ({ x: 500, y: 400 }) },
+    };
+    const step = (dt) => amb._updateBirds(game, dt, 'Kampong Glam', 0, 0, 0, 600, 400);
+    return { amb, bird, step };
+  };
+  const path = placeBird(false);
+  path.step(16);
+  assert.equal(path.bird.dx, 14, 'setting off keeps the same position');
+  path.step(80);
+  assert.ok(path.bird.dx > 14 && path.bird.dx < 18.9, 'the next frame is part way to the landing');
+  const ellipses = [], ctx = recordingCtx();
+  ctx.ellipse = (x, y) => ellipses.push([x, y]);
+  path.amb.drawGround(ctx, [], 0, 0, 0);
+  const [shadow, body] = ellipses;
+  assert.equal(shadow[0], body[0]);
+  assert.equal(shadow[1] - body[1], 6.5, 'the bird lifts while its shadow stays on the ground');
+  path.step(80);
+  assert.equal(path.bird.dx, 18.9);
+
+  const shore = placeBird(true);
+  shore.step(16); shore.step(80); shore.step(80);
+  assert.equal(shore.bird.dx, 14, 'a hop off the path into water is skipped');
+});
+
 test('water glints wink on the sea in view, capped', () => {
   const g = freshGame();
   g._movePlayerNear(30, 96, 2);
@@ -310,4 +347,25 @@ test('the weather keeps its cloud strength up to date, and drawing rain and clou
   w.clouds = 1; w.state.rain = 1;
   for (let i = 0; i < 60; i++) w.drawAir(ctx, 0, 0, 800, 600, 1000 + i * 16, 16, false);   // no document: no cloud picture, no throw
   assert.ok(w._splashes.length <= 36, 'splashes stay capped');
+});
+
+test('rain ripples keep their spawn rate at different frame rates and leave game rolls alone', () => {
+  const game = { world: { width: 20, height: 20, terrainAt: () => TERRAIN.WATER } };
+  const run = (dt) => {
+    const weather = new Weather(), ctx = recordingCtx();
+    weather.state.rain = 0.125;
+    for (let t = dt; t <= 500; t += dt) weather.drawGround(ctx, game, 0, 0, 400, 400, t, dt, false);
+    const positions = weather._ripples.map(({ x, y }) => [x, y]);
+    weather.drawGround(ctx, game, 0, 0, 400, 400, 520, 20, true);
+    assert.equal(weather._ripples.length, 0, 'reducing effects clears old rain marks');
+    weather.drawAir(ctx, 0, 0, 800, 600, 540, 20, false);
+    return positions;
+  };
+  const random = Math.random;
+  Math.random = () => { throw new Error('weather rolled gameplay RNG'); };
+  try {
+    const quick = run(4), slow = run(20);
+    assert.equal(quick.length, 25);
+    assert.deepEqual(quick, slow);
+  } finally { Math.random = random; }
 });

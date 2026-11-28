@@ -113,7 +113,8 @@ export function snapshot(game) {
     uiMemory: game.uiMemory && typeof game.uiMemory === 'object' ? game.uiMemory : null,
     jobClass: game.jobClass,
     potions: game.potions,
-    farms: game.world.objects.filter((o) => o.def.type === 'farm' && o.crop).map((o) => ({ x: o.x, y: o.y, crop: o.crop, left: o.growLeft })),
+    farms: game.world.objects.filter((o) => o.def.type === 'farm' && o.crop)
+      .map((o) => ({ x: o.x, y: o.y, crop: o.crop, left: o.growLeft, total: o.growTotal })),
     home: game.home?.serialize(),   // the kampong home (home.js)
     hawker: game.hawker?.serialize(),   // your hawker stall: rented, reputation, totals (hawkerstall.js)
     snareGiven: !!game.snareGiven,  // the one-off Hunter snare for older saves (onboarding.js)
@@ -435,7 +436,11 @@ function loadFields(game, data) {
   if (Array.isArray(data.farms)) {
     for (const f of data.farms) {
       const o = game.world.objectAt(f.x, f.y);
-      if (o && o.def.type === 'farm' && CROP_BY_ID[f.crop]) { o.crop = f.crop; o.growLeft = Math.max(0, Number(f.left) || 0); }
+      if (o && o.def.type === 'farm' && CROP_BY_ID[f.crop]) {
+        o.crop = f.crop;
+        o.growLeft = Math.max(0, Number(f.left) || 0);
+        o.growTotal = Number.isFinite(f.total) && f.total > 0 && f.total >= o.growLeft ? f.total : undefined;
+      }
     }
   }
   if (data.settings?.autoGather === true) game.autoGather = true;

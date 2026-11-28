@@ -9,7 +9,17 @@ const SIDES = ['Port · left', 'Starboard · right'];
 const NOTES = ['Low', 'Middle', 'High'];
 const button = (label, key, disabled = false) => `<button type="button" class="wm-go" data-island="${key}"${disabled ? ' disabled' : ''}>${label}</button>`;
 const row = (title, hint, actions = '') => `<section class="island-row"><div><b>${title}</b><small>${hint}</small></div><div class="island-actions">${actions}</div></section>`;
-const swatch = (p) => `<img class="island-swatch" src="assets/icons/scarf-${p.art || p.id}.webp" style="filter:hue-rotate(${p.hue || 0}deg)" alt="">`;
+const swatch = (p, printed) => `<img class="island-swatch${printed ? ' just-printed' : ''}" src="assets/icons/scarf-${p.art || p.id}.webp" style="filter:hue-rotate(${p.hue || 0}deg)" alt="">`;
+
+function voyageTrack(values, count) {
+  const offset = (side) => side == null ? 0 : side ? 8 : -8;
+  const leg = values.length;
+  const position = (step) => (step + 0.5) / (count + 1) * 100;
+  const buoys = Array.from({ length: count }, (_, i) => `<i style="left:${position(i + 1)}%"></i>`).join('');
+  return `<div class="island-voyage" aria-hidden="true">${buoys}<div class="island-boat${leg ? ' steering' : ''}"
+    style="--from:${position(Math.max(0, leg - 1))}%;--to:${position(leg)}%;--from-side:${offset(values[leg - 2])}px;--to-side:${offset(values[leg - 1])}px">
+    <img alt="" src="assets/world/obj-sampan.webp"></div></div>`;
+}
 
 export function islandAlbumHTML(game) {
   const book = islandBook(game);
@@ -29,7 +39,7 @@ export function openIslandSkill(ui, skill) {
   const game = ui.game, info = ISLAND_BY_ID[skill];
   if (!info) return false;
   const book = islandBook(game);
-  let attempt = null, message = '';
+  let attempt = null, message = '', printed = null;
   const sites = new Map();
   const go = (site) => {
     const key = `go:${site.x},${site.y}`;
@@ -76,7 +86,7 @@ export function openIslandSkill(ui, skill) {
             + (known ? button(book.scarf === p.id ? 'Remove' : 'Wear', 'wear:' + p.id) : '');
           const offer = known && !made ? ` · Order: 2 dye + 16 coins for ${islandPayout(game, skill, Math.round(p.xp * 1.5))} coins` : '';
           const reward = p.reward ? ` · Order reward: ${getItem(p.reward).name}` : '';
-          return row(swatch(p) + p.name, `Level ${p.level} · ${getItem(p.dye).name}${offer}${reward}`, actions);
+          return row(swatch(p, printed === p.id) + p.name, `Level ${p.level} · ${getItem(p.dye).name}${offer}${reward}`, actions);
         }).join('');
     }
     const stage = musicStage(game);
@@ -97,7 +107,9 @@ export function openIslandSkill(ui, skill) {
     const preview = !music || start === null;
     return `<div class="island-challenge"><h3>${music ? entry.name + (attempt.encore ? ' · Encore' : '') : (attempt.freight ? 'Freight to ' : 'Chart to ') + LANDINGS[entry.to].name}</h3>
       <p>${music ? (preview ? 'Read the tune, then play it from memory. Leave a short beat between notes.' : 'Play the tune from memory.') : 'Pass each buoy on the side marked on your chart.'}</p>
-      <div class="island-chart">${preview ? sequence.map((n, i) => `<span${i === values.length ? ' class="current"' : ''}>${names[n]}</span>`).join('') : `${values.length} / ${sequence.length} notes`}</div>
+      ${music ? '' : voyageTrack(values, sequence.length)}
+      <div class="island-chart">${preview ? sequence.map((n, i) => `<span${i === values.length ? ' class="current"' : i < values.length ? ' class="passed"' : ''}>${names[n]}</span>`).join('')
+        : `${values.length} / ${sequence.length} notes${attempt.note == null ? '' : `<span class="island-note" aria-hidden="true" style="--pitch:${(1 - attempt.note) * 4}px">♪</span>`}`}</div>
       <div class="island-actions">${music && preview ? button('Start playing', 'start:') : names.map((n, i) => button(n, 'answer:' + i)).join('')}${button('Back', 'back:')}</div></div>`;
   };
   const render = (body) => {
@@ -113,6 +125,7 @@ export function openIslandSkill(ui, skill) {
       b.addEventListener('click', () => {
         const key = b.dataset.island, [act, id] = key.split(':');
         message = '';
+        printed = null;
         if (act === 'go') {
           if (game.travelToTile(sites.get(key))) ui.closeModal();
           else { message = 'There is no safe route from here.'; render(body); }
@@ -133,8 +146,13 @@ export function openIslandSkill(ui, skill) {
         }
         if (act === 'back') attempt = null;
         if (act === 'start') attempt.last = attempt.start = performance.now();
-        if (act === 'print') message = makeIslandPattern(game, id) ? 'Scarf printed and worn.' : 'Bring the materials to the weaver.';
-        if (act === 'order') message = makeIslandPattern(game, id, { order: true }) ? 'Order filled and paid.' : 'This order is unavailable.';
+        if (act === 'print' || act === 'order') {
+          const order = act === 'order';
+          const made = makeIslandPattern(game, id, { order });
+          if (made) printed = id;
+          message = order ? (made ? 'Order filled and paid.' : 'This order is unavailable.')
+            : (made ? 'Scarf printed and worn.' : 'Bring the materials to the weaver.');
+        }
         if (act === 'wear' && book.patterns.includes(id)) { book.scarf = book.scarf === id ? null : id; game.saveSoon = true; }
         if (act === 'learn') message = learnIslandTune(game, id) ? 'The hawker musician teaches you the tune.' : 'This tune is unavailable here.';
         if (act === 'cove') message = exploreCove(game, id) ? 'Find added to your pack.' : 'Make space in your pack or try at the cove.';
@@ -142,6 +160,7 @@ export function openIslandSkill(ui, skill) {
           const { music, entry, values, start, sequence, freight, encore } = attempt, value = Number(id);
           const now = performance.now();
           if (music && now - attempt.last < 180) {
+            attempt.note = null;
             message = 'Leave a short beat between notes.';
             render(body);
             body.querySelector(`[data-island="answer:${value}"]`)?.focus();
@@ -149,6 +168,7 @@ export function openIslandSkill(ui, skill) {
           }
           if (music) {
             attempt.last = now;
+            attempt.note = value;
             game.audio?.play?.('island-note-' + id);
           }
           if (sequence[values.length] !== value) {

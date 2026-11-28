@@ -206,6 +206,9 @@ export function drawHeroRig(ctx, opts = {}) {
   const swordsman = classId === 'swordsman', corsair = classId === 'corsair';
   const placed = PLACED[classId];
   const shield = classId === 'paladin' || classId === 'knight';
+  const bareShieldArm = shield && opts.hasShield === false;
+  const rogueDagger = rogue && (opts.offhandWeapon ?? (opts.dualWield !== false));
+  const rogueCombo = rogueDagger && opts.dualWield !== false;
   const polearm = classId === 'lancer' || classId === 'halberdier';
   const broad = classId === 'berserker' || classId === 'juggernaut' || classId === 'gladiator';
   // A Corsair with a scimitar in each hand carries the second in the back hand
@@ -245,7 +248,7 @@ export function drawHeroRig(ctx, opts = {}) {
   // renderer says so; the title's and the reflection's heroes keep the glove).
   const monk = classId === 'monk';
   const bareBack = monk && opts.dualWield === false && opts.hasShield === false;
-  let offFrame = combat && osh && (!corsair || pairedWeapon) && !bareBack && hasSwingArt(classId, 'off') ? swingPhase(anim.ch, 'off') : null;
+  let offFrame = combat && osh && (!corsair || pairedWeapon) && (!rogue || rogueCombo) && !bareBack && hasSwingArt(classId, 'off') ? swingPhase(anim.ch, 'off') : null;
   // The Monk's painted palm wind-up hides behind the body, so through the
   // coil its own rig arm draws the glove back beside the hip instead.
   if (monk && offFrame === 'wind') offFrame = null;
@@ -294,6 +297,9 @@ export function drawHeroRig(ctx, opts = {}) {
   // A placed rig's back arm turns about its own shoulder, behind the body (the
   // Monk's glove, held out at the hip, coils back and down beside it).
   else if (placed) { const b = placed.back; draw('back', b[0], b[1] + pose.breathe, b[2], b[3], -pose.back, b[4], b[5], arms); }
+  else if (bareShieldArm) {
+    if (arms > 0.001) faded(ctx, arms, () => drawEmptyArm(ctx, classId, -15, -9 + pose.breathe, -0.65 + pose.back, 10));
+  }
   // The Ninja and Merchant are slimmer, so their back hand sits closer in, half behind the body.
   // On a two-handed grip the back hand is on the handle instead (drawn below).
   else if (!swordsman && !rogue && !brawler) draw('back', slim ? -5 : -17, -9 + pose.breathe, shield ? 20 : 15, shield ? 29 : 18, pose.back, shield ? 17 : samurai ? 5 : 10, shield ? 8 : 3, grip ? 0 : arms);
@@ -311,8 +317,11 @@ export function drawHeroRig(ctx, opts = {}) {
   if (bareCross) bareArm();
   if (offFront && !offLast) offArm();
   else if (rogue && !offFrame) {
-    draw('back', -14, -9 + pose.breathe, 22, 18, pose.back, 18, 3, (1 - shown2) * arms);
-    drawIf('strike', -6 + (pose.reach2 || 0), -8 + pose.breathe, 26, 10, (-pose.back - 1.7) * 0.2, 4, 4, shown2 * arms);
+    if (rogueDagger) {
+      const strike = rogueCombo ? shown2 : 0;
+      draw('back', -14, -9 + pose.breathe, 22, 18, rogueCombo ? pose.back : -pose.step * 0.32, 18, 3, (1 - strike) * arms);
+      drawIf('strike', -6 + (pose.reach2 || 0), -8 + pose.breathe, 26, 10, (-pose.back - 1.7) * 0.2, 4, 4, strike * arms);
+    } else if (arms > 0.001) faded(ctx, arms, () => drawEmptyArm(ctx, classId, osh[0], osh[1] + pose.breathe, -0.7 - pose.back, 10));
   }
   if (brawler) {
     draw('back', -14, -9 + pose.breathe, 17, 26, -pose.back - 0.5, 14, 23, (1 - shown2) * arms);

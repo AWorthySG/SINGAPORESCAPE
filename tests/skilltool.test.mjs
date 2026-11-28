@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
 import { xpForLevel } from '../src/data/xp.js';
+import { FLETCH } from '../src/data/trades.js';
 import { TOOL_KINDS, toolIds } from '../src/data/tooltiers.js';
 import {
   actionPropId, heroAnimFrame, sampleHeroClip, attachFishing, drawHeroArm, drawFishingGear, rodPicture,
@@ -60,7 +61,8 @@ test('every tiered tool kind: the hero holds the best one their level allows, br
   // The one-of-a-kind tools are held too.
   only(g, 'hammer', 'knife', 'tinderbox', 'chisel', 'lobster_pot');
   assert.equal(actionPropId(g, { type: 'smith' }), 'hammer');
-  assert.equal(actionPropId(g, { type: 'recipe', skill: 'fletching' }), 'knife');
+  const shaft = FLETCH.find((recipe) => recipe.result === 'arrow_shaft');
+  assert.equal(actionPropId(g, { type: 'recipe', skill: 'fletching', recipe: shaft }), 'knife');
   assert.equal(actionPropId(g, { type: 'firemake' }), 'tinderbox');
   assert.equal(actionPropId(g, { type: 'craft', recipe: { tool: 'chisel' } }), 'chisel');
   assert.equal(actionPropId(g, { type: 'fish', obj: { def: { tool: 'lobster_pot' } } }), 'lobster_pot');

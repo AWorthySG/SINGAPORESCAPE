@@ -191,6 +191,9 @@ test('every spot kind\'s fish has a sticker of its own, so spots sharing a pictu
     assert.ok(caught.has(fish), `${fish} is caught at a spot`);
     assert.ok(['left', 'up'].includes(face), `${fish}: ${face}`);
   }
+  for (const fish of ['arowana', 'barramundi', 'belida', 'cobia', 'giant_trevally', 'ikan_keli', 'milkfish', 'queenfish', 'threadfin']) {
+    assert.equal(FISH_FACING[`raw_${fish}`], 'left', `${fish} has a left-facing head in its painted art`);
+  }
 });
 
 test('a spot\'s fish lies half-sunk, then every 5-7 s leaps a short arc, the other way each time, on its own beat', () => {
@@ -290,10 +293,10 @@ test('a school coming or going lets a leap under way finish and the next begin f
 test('the fish is drawn as one sticker over its spot; low graphics keeps the little badge', () => {
   const src = readFileSync(new URL('../src/render/sprites.js', import.meta.url), 'utf8');
   assert.match(src, /const id = !obj\.worldEvent && obj\.def\.catches\?\.\[0\]\?\.id;/, 'its one fish; not on a world event shoal');
-  // The renderer passes low graphics, and whether a school is at the spot.
+  // The renderer passes the low-motion option and whether a school is at the spot.
   const rsrc = readFileSync(new URL('../src/render/renderer.js', import.meta.url), 'utf8');
-  assert.match(rsrc, /const still = o\.def\.type === 'fishing' && fishCalm\(o, game\.fishSchools\?\.at\(o\), timeMs\);/);
-  assert.equal(rsrc.match(/drawObjectSprite\(ctx, o, cx, cy, timeMs, !!game\.lowFx, still(?:, upper \? fade : 1)?\)/g)?.length, 2);
+  assert.match(rsrc, /const still = o\.def\.type === 'fishing' && \(calm \|\| fishCalm\(o, game\.fishSchools\?\.at\(o\), timeMs\)\);/);
+  assert.equal(rsrc.match(/drawObjectSprite\(ctx, o, cx, cy, timeMs, !!game\.lowFx \|\| calm, still(?:, upper \? fade : 1)?\)/g)?.length, 2);
   // Draw it with every picture loaded, through a context that records its calls.
   globalThis.Image = class { constructor() { this.complete = true; this.naturalWidth = 160; this.naturalHeight = 160; } };
   try {

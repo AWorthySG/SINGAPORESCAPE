@@ -2,8 +2,9 @@
 // floating dive buoy in the reef's colour over a patch of coral and rippling
 // rings) and the breath bar over the hero while they dive. Sticker style: navy
 // ink #22304A, pastel fills. A few paths a frame, no garbage.
-import { TILE } from '../config.js';
-import { DIVE_SPOT_BY_ID } from '../data/diving.js';
+import { TILE, TICK_MS } from '../config.js';
+import { clamp } from '../core/utils.js';
+import { DIVE_SPOT_BY_ID, SURFACE_TICKS } from '../data/diving.js';
 
 const INK = '#22304A';
 const SHORE_SIDES = [[0, -1], [1, 0], [0, 1], [-1, 0]];
@@ -60,6 +61,22 @@ export function drawDiveFlag(ctx, x, y) {
   ctx.restore();
 }
 
+/** Soft rings at the foot of the painted reef's own buoy. */
+export function drawDiveRipples(ctx, obj, cx, cy, time) {
+  const phase = time * 0.0016 + obj.x * 0.31 + obj.y * 0.17;
+  ctx.save();
+  const alpha = ctx.globalAlpha;
+  ctx.strokeStyle = '#dff8fb'; ctx.lineWidth = 0.8;
+  for (let i = 0; i < 2; i++) {
+    const k = (phase + i * 0.5) % 1;
+    ctx.globalAlpha = alpha * k * (1 - k) * 1.5;
+    ctx.beginPath();
+    ctx.ellipse(cx + 12, cy + 7, 2.5 + k * 4, 0.9 + k * 1.8, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 /** A reef at tile centre (cx, cy). The buoy bobs on its own beat (its tile). */
 export function drawDiveSpot(ctx, obj, cx, cy, time = 0) {
   const col = obj.def.color || DIVE_SPOT_BY_ID[obj.objId]?.color || '#9ee0d0';
@@ -97,11 +114,14 @@ export function drawDiveSpot(ctx, obj, cx, cy, time = 0) {
 
 export const BREATH_BAR_W = 34;
 export const BREATH_BAR_H = 5;
-/** Breath to show while diving: { frac (0..1 of the dive left), up (coming up for air) }, or null. */
+/** Breath left underwater or refilled at the surface, as a fraction of the bar. */
 export function breathShown(game) {
   const a = game?.player?.action;
   if (a?.type !== 'dive' || !(a.maxBreath > 0)) return null;
-  return { frac: a.surface > 0 ? 0 : Math.max(0, Math.min(1, a.breath / a.maxBreath)), up: a.surface > 0 };
+  if (!(a.surface > 0)) return { frac: clamp(a.breath / a.maxBreath, 0, 1), up: false };
+  const tick = clamp((game.tickAcc || 0) / TICK_MS, 0, 1);
+  const frac = clamp((SURFACE_TICKS - a.surface + tick) / SURFACE_TICKS, 0, 1);
+  return { frac, up: true };
 }
 
 /** The breath bar centred at (cx, y top), over the hero, while they dive. */
@@ -113,10 +133,11 @@ export function drawBreathBar(ctx, game, cx, y, now = 0) {
   ctx.fillStyle = '#FFFFFF'; ctx.fillRect(x - 1.5, y - 1.5, w + 3, h + 3);
   ctx.fillStyle = '#cfe6f2'; ctx.fillRect(x, y, w, h);
   if (b.up) {
-    // Up for air: the bar fills back up, pulsing.
-    ctx.globalAlpha = 0.55 + 0.35 * Math.sin(now * 0.012);
-    ctx.fillStyle = '#8fd6ff'; ctx.fillRect(x, y, w, h);
-    ctx.globalAlpha = 1;
+    // The refill follows the actual surface pause, including between ticks.
+    const alpha = ctx.globalAlpha;
+    if (!game.reduceMotion) ctx.globalAlpha = alpha * (0.88 + 0.12 * Math.sin(now * 0.008));
+    ctx.fillStyle = '#3a9ad8'; ctx.fillRect(x, y, w * b.frac, h);
+    ctx.globalAlpha = alpha;
   } else {
     ctx.fillStyle = b.frac > 0.25 ? '#3a9ad8' : '#f2a03d';
     ctx.fillRect(x, y, Math.round(w * b.frac), h);

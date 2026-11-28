@@ -419,29 +419,29 @@ export const OBJECTS = {
   // ---------------- Agility course ----------------
   agility_course: {
     name: 'Agility course', label: 'Agility', type: 'agility', verb: 'Train at', emoji: '🏃', blocking: true,
-    skill: 'agility', xp: 18, examine: 'Clamber across to train your Agility.',
+    skill: 'agility', agilityMotion: 'jump', xp: 18, examine: 'Clamber across to train your Agility.',
   },
   // A rooftop-style obstacle loop in Bukit Timah. Train each in turn; finishing a
   // full lap (touching every obstacle) grants a bonus and a Mark of grace.
   agility_balance: {
     name: 'Balance beam', label: 'Beam', type: 'agility', verb: 'Cross', emoji: '🪵', blocking: false,
-    skill: 'agility', level: 1, xp: 22, markChance: 0.05, examine: 'Tip-toe across the beam. (Agility 1)',
+    skill: 'agility', agilityMotion: 'balance', level: 1, xp: 22, markChance: 0.05, examine: 'Tip-toe across the beam. (Agility 1)',
   },
   agility_net: {
     name: 'Cargo net', label: 'Net', type: 'agility', verb: 'Climb', emoji: '🕸️', blocking: false,
-    skill: 'agility', level: 5, xp: 30, markChance: 0.06, examine: 'Scramble up the net. (Agility 5)',
+    skill: 'agility', agilityMotion: 'climb', level: 5, xp: 30, markChance: 0.06, examine: 'Scramble up the net. (Agility 5)',
   },
   agility_rope: {
     name: 'Rope swing', label: 'Rope', type: 'agility', verb: 'Swing on', emoji: '🪢', blocking: false,
-    skill: 'agility', level: 10, xp: 38, markChance: 0.07, examine: 'Swing across the gap. (Agility 10)',
+    skill: 'agility', agilityMotion: 'rope', level: 10, xp: 38, markChance: 0.07, examine: 'Swing across the gap. (Agility 10)',
   },
   agility_ledge: {
     name: 'Narrow ledge', label: 'Ledge', type: 'agility', verb: 'Edge across', emoji: '🧗', blocking: false,
-    skill: 'agility', level: 15, xp: 46, markChance: 0.08, examine: 'Shuffle along the ledge. (Agility 15)',
+    skill: 'agility', agilityMotion: 'ledge', level: 15, xp: 46, markChance: 0.08, examine: 'Shuffle along the ledge. (Agility 15)',
   },
   agility_zip: {
     name: 'Zip-line', label: 'Zip', type: 'agility', verb: 'Ride', emoji: '🛝', blocking: false,
-    skill: 'agility', level: 20, xp: 60, markChance: 0.10, finish: true, examine: 'Ride the zip-line home. (Agility 20)',
+    skill: 'agility', agilityMotion: 'zip', level: 20, xp: 60, markChance: 0.10, finish: true, examine: 'Ride the zip-line home. (Agility 20)',
   },
   // ---- Endgame courses (Agility 100-300) ----
   // Six courses, each a loop of 4-5 obstacles spread round a square about ten
@@ -454,137 +454,137 @@ export const OBJECTS = {
   // Every obstacle has its own picture (assets/world/obj-<id>.webp).
   supertree_skyway_stairs: {
     name: 'Spiral stair', label: 'Stair', type: 'agility', verb: 'Climb', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 100, xp: 124, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'stairs', level: 100, xp: 124, markChance: 0.08,
     examine: 'Up the spiral stair round a Supertree trunk. (Agility 100)',
   },
   supertree_skyway_bridge: {
     name: 'Skyway bridge', label: 'Bridge', type: 'agility', verb: 'Cross', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 100, xp: 124, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'balance', level: 100, xp: 124, markChance: 0.08,
     examine: 'A swaying walkway between the Supertrees. (Agility 100)',
   },
   supertree_skyway_vines: {
     name: 'Vine wall', label: 'Wall', type: 'agility', verb: 'Climb', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 100, xp: 124, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'climb', level: 100, xp: 124, markChance: 0.08,
     examine: 'Hand over hand up a wall of creepers. (Agility 100)',
   },
   supertree_skyway_zipline: {
     name: 'Supertree zip-line', label: 'Zip-line', type: 'agility', verb: 'Ride', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 100, xp: 124, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'zip', level: 100, xp: 124, markChance: 0.08,
     examine: 'Down from the canopy on a humming wire. (Agility 100)',
   },
   container_yard_run_stack: {
     name: 'Container stack', label: 'Stack', type: 'agility', verb: 'Climb', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 130, xp: 163, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'climb', level: 130, xp: 163, markChance: 0.08,
     examine: 'Up a cargo net on the side of a container stack. (Agility 130)',
   },
   container_yard_run_gap: {
     name: 'Container gap', label: 'Gap', type: 'agility', verb: 'Leap', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 130, xp: 163, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'jump', level: 130, xp: 163, markChance: 0.08,
     examine: 'A long jump between two stacks. (Agility 130)',
   },
   container_yard_run_crane: {
     name: 'Crane hook', label: 'Hook', type: 'agility', verb: 'Swing on', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 130, xp: 163, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'rope', level: 130, xp: 163, markChance: 0.08,
     examine: 'Swing across the yard on a crane hook. (Agility 130)',
   },
   container_yard_run_ropes: {
     name: 'Mooring ropes', label: 'Ropes', type: 'agility', verb: 'Balance on', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 130, xp: 163, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'balance', level: 130, xp: 163, markChance: 0.08,
     examine: 'Walk the thick mooring ropes above the quay. (Agility 130)',
   },
   container_yard_run_chute: {
     name: 'Cargo chute', label: 'Chute', type: 'agility', verb: 'Slide down', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 130, xp: 163, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'slide', level: 130, xp: 163, markChance: 0.08,
     examine: 'Down the cargo chute to the wharf. (Agility 130)',
   },
   canopy_course_rope_bridge: {
     name: 'Rope bridge', label: 'Bridge', type: 'agility', verb: 'Cross', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 160, xp: 247, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'balance', level: 160, xp: 247, markChance: 0.08,
     examine: 'A rope bridge strung between rainforest giants. (Agility 160)',
   },
   canopy_course_vine_swing: {
     name: 'Vine swing', label: 'Swing', type: 'agility', verb: 'Swing on', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 160, xp: 247, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'rope', level: 160, xp: 247, markChance: 0.08,
     examine: 'Swing on a liana across the creek. (Agility 160)',
   },
   canopy_course_treetop_walk: {
     name: 'Treetop walk', label: 'Walk', type: 'agility', verb: 'Edge across', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 160, xp: 247, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'ledge', level: 160, xp: 247, markChance: 0.08,
     examine: 'Along a mossy branch high above the forest floor. (Agility 160)',
   },
   canopy_course_log_slide: {
     name: 'Log slide', label: 'Slide', type: 'agility', verb: 'Slide down', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 160, xp: 247, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'slide', level: 160, xp: 247, markChance: 0.08,
     examine: 'Down a fallen trunk to the ground. (Agility 160)',
   },
   cloud_steps_ledge: {
     name: 'Cliff ledge', label: 'Ledge', type: 'agility', verb: 'Edge across', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 200, xp: 317, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'ledge', level: 200, xp: 317, markChance: 0.08,
     examine: 'A ledge no wider than your foot, above the clouds. (Agility 200)',
   },
   cloud_steps_stepping_stones: {
     name: 'Floating stones', label: 'Stones', type: 'agility', verb: 'Hop across', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 200, xp: 317, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'hop', level: 200, xp: 317, markChance: 0.08,
     examine: 'Stones that hang in the air. Do not look down. (Agility 200)',
   },
   cloud_steps_rock_climb: {
     name: 'Rock face', label: 'Face', type: 'agility', verb: 'Climb', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 200, xp: 317, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'climb', level: 200, xp: 317, markChance: 0.08,
     examine: 'A sheer face with a few good holds. (Agility 200)',
   },
   cloud_steps_cloud_bridge: {
     name: 'Cloud bridge', label: 'Bridge', type: 'agility', verb: 'Cross', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 200, xp: 317, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'balance', level: 200, xp: 317, markChance: 0.08,
     examine: 'A bridge of mist that holds your weight, mostly. (Agility 200)',
   },
   cloud_steps_glide: {
     name: 'Glide wire', label: 'Wire', type: 'agility', verb: 'Ride', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 200, xp: 317, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'zip', level: 200, xp: 317, markChance: 0.08,
     examine: 'A wire down the mountainside. (Agility 200)',
   },
   wraith_run_gravestones: {
     name: 'Gravestone hop', label: 'Hop', type: 'agility', verb: 'Hop across', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 250, xp: 461, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'hop', level: 250, xp: 461, markChance: 0.08,
     examine: 'Leap from headstone to headstone. Mind the residents. (Agility 250)',
   },
   wraith_run_broken_pier: {
     name: 'Broken pier', label: 'Pier', type: 'agility', verb: 'Edge across', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 250, xp: 461, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'ledge', level: 250, xp: 461, markChance: 0.08,
     examine: 'What is left of the old jetty. (Agility 250)',
   },
   wraith_run_lantern_swing: {
     name: 'Lantern swing', label: 'Swing', type: 'agility', verb: 'Swing on', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 250, xp: 461, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'rope', level: 250, xp: 461, markChance: 0.08,
     examine: 'Swing on a rope hung with spirit lanterns. (Agility 250)',
   },
   wraith_run_ghost_bridge: {
     name: 'Ghost bridge', label: 'Bridge', type: 'agility', verb: 'Cross', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 250, xp: 461, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'balance', level: 250, xp: 461, markChance: 0.08,
     examine: 'A bridge that is only there when you believe in it. (Agility 250)',
   },
   rift_leap_chasm: {
     name: 'Chasm leap', label: 'Leap', type: 'agility', verb: 'Leap', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 300, xp: 577, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'jump', level: 300, xp: 577, markChance: 0.08,
     examine: 'A jump across a crack in the world. (Agility 300)',
   },
   rift_leap_floating_rocks: {
     name: 'Floating rocks', label: 'Rocks', type: 'agility', verb: 'Hop across', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 300, xp: 577, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'hop', level: 300, xp: 577, markChance: 0.08,
     examine: 'Rocks drifting over the void. (Agility 300)',
   },
   rift_leap_chain_climb: {
     name: 'Chain climb', label: 'Climb', type: 'agility', verb: 'Climb', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 300, xp: 577, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'climb', level: 300, xp: 577, markChance: 0.08,
     examine: 'Up a great chain that anchors the Rift. (Agility 300)',
   },
   rift_leap_void_bridge: {
     name: 'Void bridge', label: 'Bridge', type: 'agility', verb: 'Cross', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 300, xp: 577, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'balance', level: 300, xp: 577, markChance: 0.08,
     examine: 'A bridge of dark light. (Agility 300)',
   },
   rift_leap_portal_dive: {
     name: 'Portal dive', label: 'Dive', type: 'agility', verb: 'Dive into', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 300, xp: 577, markChance: 0.08,
+    skill: 'agility', agilityMotion: 'portal', level: 300, xp: 577, markChance: 0.08,
     examine: 'Through a portal and out at the start. (Agility 300)',
   },
 
@@ -1030,4 +1030,9 @@ export function getObject(id) {
   const obj = OBJECTS[id];
   if (!obj) throw new Error(`Unknown object id: ${id}`);
   return obj;
+}
+
+export function agilityClipId(obj) {
+  const motion = obj?.def?.agilityMotion || OBJECTS[obj?.objId]?.agilityMotion || 'jump';
+  return `agility_${motion}`;
 }

@@ -1,6 +1,6 @@
 import { bossPracticeTip, knownBossMove } from './bosspractice.js';
 import { updateFirstJourney } from './firstjourney.js';
-import { getObject } from '../data/objects.js';   // quest guides read node levels
+import { agilityClipId, getObject } from '../data/objects.js';   // quest guides read node levels
 import { EventBus } from '../core/events.js';
 import { impactCue } from '../audio/impactProfile.js';
 import { goldenMult, goldenSkills, GOLDEN_HOUR_XP, SKILL_HOURS } from '../data/skillhours.js';
@@ -66,7 +66,7 @@ import { Home } from './home.js';
 import { placeLumberYards } from './construction.js';
 import { placeIslandSites } from './islandlife.js';
 import { HawkerStall } from './hawkerstall.js';
-import { CROP_BY_SEED, cropFor, POTIONS, greenFingersChance } from '../data/trades.js';
+import { CROP_BY_SEED, cropFor, farmProgress, POTIONS, greenFingersChance } from '../data/trades.js';
 import { saveGame, loadGame, hasSave } from './save.js';
 import * as Play from './playbalance.js';
 import { getShop } from '../data/shops.js';
@@ -1569,6 +1569,7 @@ export class Game {
         this.prayerPoints = this.maxPrayer();
         this.bus.emit('hp'); this.bus.emit('prayer');
         this.spawnSparkle(this.player, '#9adcff', 16);
+        this.bus.emit('skillpose', { id: 'pray', target: a.obj });
         const home = a.obj?.def?.homeAltar;   // your own altar (a Construction build, home.js)
         this.msg(home ? 'You kneel at your home altar. Your health and Faith are restored.' : 'You kneel at the A-Worthy Monument. Your health and Faith are restored.', 'system');
         if (this.inventory.slots.some((x) => x && isBone(x.id))) this.msg(`You could offer your bones here for ${home ? this.home.altarMult() : ALTAR_XP_MULT}x Prayer XP (right-click them).`, 'system');
@@ -1580,6 +1581,7 @@ export class Game {
         this.runEnergy = 100;
         this.bus.emit('hp'); this.bus.emit('run');
         this.spawnSparkle(this.player, '#f5a623', 16);
+        this.bus.emit('skillpose', { id: 'rest', target: a.obj });
         this.msg('You rest at the A-Worthy Mascot Statue. Health restored.', 'system');
         this.markPillar('obelisk');
       }, 'interact:rest');
@@ -1636,12 +1638,17 @@ export class Game {
     if (gather) {
       levelHaul(this, a, obj, before);   // a bonus one now and then, likelier as your level rises (levelhaul.js)
       const after = this._bagCounts();
+      let gathered = false;
       for (const [id, n] of after) {
         const got = n - (before.get(id) || 0);
         if (got > 0 && id !== 'coins') this.addHitsplat(this.player, 0, { text: `+${got} ${getItem(id).name}` });
-        if (got > 0) this.collection.onGather(a.type, id, got);   // rare finds for the Collection log
+        if (got > 0) {
+          gathered = true;
+          this.collection.onGather(a.type, id, got);   // rare finds for the Collection log
+        }
       }
       this.worldEvents.onGather(obj, before, after);   // event nodes' bonus, weekly region challenge
+      if (gathered && !going && obj.depleted && a.type !== 'fish') this.bus.emit('skillpose', { action: a, target: obj });
     }
     // Remember what we're gathering, so auto gather can pick it up again after
     // a fight, or once the mined-out rocks and felled trees grow back.
@@ -4533,7 +4540,12 @@ export class Game {
     this.spawnSparkle(this.player, altar ? '#9adcff' : '#ffe89a', Math.min(24, 6 + n));
     const what = n > 1 ? `${n} ${it.name.toLowerCase()}` : `the ${it.name.toLowerCase()}`;
     this.msg(altar ? `You offer ${what} at the monument.` : `You bury ${what}.`, 'system');
-    if (n > 0 && !quiet) this.bus.emit('sfx', altar ? 'interact:offer' : 'interact:bury');
+    if (n > 0) {
+      if (!quiet) this.bus.emit('sfx', altar ? 'interact:offer' : 'interact:bury');
+      const p = this.player;
+      const target = altar && this.world.objects.find((o) => o.def.type === 'shrine' && chebyshev(p.x, p.y, o.x, o.y) <= ALTAR_RANGE);
+      this.bus.emit('skillpose', { id: altar ? 'offer' : 'bury', prop: it.id, target });
+    }
     return n;
   }
   /** Bury (or offer) every kind of bone in the pack. Walks backwards: removeAt only nulls a slot
@@ -4575,6 +4587,7 @@ export class Game {
       this.skills.addXp('thieving', t.xp);
       this.addEvil(1); // theft tips you toward evil
       this.spawnSparkle(this.player, '#ffe24a', 6);
+      this.bus.emit('skillpose', { id: 'pickpocket', target: npc });
       this.msg(`You pick the ${npc.name}'s pocket and steal ${qty > 1 ? qty + ' x ' : ''}${getItem(pick.id).name}.`, 'system');
       this.bus.emit('sfx', 'interact:thieve');
       return;
@@ -4588,6 +4601,7 @@ export class Game {
       this.skills.addXp('thieving', pickpocketXp(lvl));
       this.addEvil(1); // theft tips you toward evil
       this.spawnSparkle(this.player, '#ffe24a', 6);
+      this.bus.emit('skillpose', { id: 'pickpocket', target: npc });
       this.msg(`You pick the ${npc.name}'s pocket and steal ${coins} coins.`, 'system');
       this.bus.emit('sfx', 'interact:thieve');
     }
@@ -4613,6 +4627,7 @@ export class Game {
     this.runEnergy = Math.min(100, this.runEnergy + 8);
     this.bus.emit('run');
     this.spawnPoof(obj.x * TILE + TILE / 2, obj.y * TILE + TILE / 2 - 6, '#8fd6ff');
+    this.bus.emit('skillpose', { id: agilityClipId(obj), target: obj, agility: true });
     if (!course) return true;   // a lone obstacle is a lap of its own: keep training
 
     // Course lap tracking: a lap is every obstacle of the course you have the
@@ -4706,6 +4721,7 @@ export class Game {
       this.msg(`You steal ${qty > 1 ? qty + ' x ' : ''}${name} from the ${d.name}.`, 'system');
       obj.depleted = true; obj.respawnTimer = d.respawn || 5; // the stall is emptied briefly
       this.bus.emit('sfx', 'interact:stall');
+      this.bus.emit('skillpose', { action: a || { type: 'stall', obj }, target: obj });
       if (a) { a.stealing = true; return true; }
     } else {
       const dmg = randInt(1, 3);
@@ -5377,16 +5393,9 @@ export class Game {
       this.player.setPath([], false); // stop after current step
     }
     this.player.setAction(action);
-    if (reached && !this.player.isMoving) this._kickoff(action);
+    // Instant interactions respond without waiting up to one full game tick.
+    if (reached && !this.player.isMoving && INSTANT_ACTIONS.has(action.type)) this.resolvePlayerAction();
     return true;
-  }
-
-  /** Respond to a press right away instead of on the next 0.6s tick. One-shot
-   *  actions (talk, bank, shop, pick up...) fire now; gathering starts its swing
-   *  now but keeps its normal roll timing, so tapping fast can't gather faster. */
-  _kickoff(a) {
-    if (INSTANT_ACTIONS.has(a.type)) { this.resolvePlayerAction(); return; }
-    if (a.obj && GATHER_ACTIONS.has(a.type)) this._swingToward(this.player, a.obj);
   }
 
   // ---------------- Auto battle ----------------
@@ -7041,7 +7050,7 @@ export class Game {
     if (obj.crop) {
       const c = cropFor(obj.crop);
       if (obj.growLeft > 0) {
-        const pct = Math.round(100 * (1 - obj.growLeft / c.grow));
+        const pct = Math.round(100 * farmProgress(obj));
         this.msg(`The ${c.name.toLowerCase()} is growing (${pct}%). About ${Math.ceil(obj.growLeft * TICK_MS / 1000)}s to go.`);
         return;
       }
@@ -7061,11 +7070,12 @@ export class Game {
     if (!c || obj.crop || !this.inventory.has(seedId)) return false;
     if (this.skills.level('farming') < c.level) { this.msg(`You need a Farming level of ${c.level} to plant this.`); return false; }
     this.inventory.remove(seedId, 1);
-    obj.crop = c.id; obj.growLeft = growTicks(this, c.grow);   // Farming unlocks grow it faster
+    obj.crop = c.id; obj.growTotal = obj.growLeft = growTicks(this, c.grow);   // Farming unlocks grow it faster
     this.skills.addXp('farming', c.plantXp);
     this.spawnPoof(obj.x * TILE + TILE / 2, obj.y * TILE + TILE / 2, '#8a6a3a');
-    this.msg(`You plant the ${c.name.toLowerCase()} seed. It will be ready in about ${Math.ceil(c.grow * TICK_MS / 1000)}s.`);
+    this.msg(`You plant the ${c.name.toLowerCase()} seed. It will be ready in about ${Math.ceil(obj.growLeft * TICK_MS / 1000)}s.`);
     this.bus.emit('sfx', 'interact:plant');
+    this.bus.emit('skillpose', { id: 'farm_plant', prop: seedId, target: obj });
     return true;
   }
 
@@ -7079,12 +7089,13 @@ export class Game {
     if (this.inventory.canAdd(c.id, n) <= 0) { this.msg('Your inventory is too full to harvest.'); return false; }
     this.inventory.add(c.id, n);
     this.skills.addXp('farming', c.harvestXp * n);
-    obj.crop = null; obj.growLeft = 0;
+    obj.crop = null; obj.growLeft = 0; obj.growTotal = undefined;
     this.spawnSparkle({ x: obj.x, y: obj.y }, c.color, 10);
     this.msg(`You harvest ${n} ${c.name.toLowerCase()}.`);
     recordHarvest(this, obj, c, rolled);   // now and then the patch gives its yield many times over (jackpot.js)
     if (Math.random() < 0.25) { this.inventory.add(c.seed, 1); this.msg(`You save ${aOrAn(c.name.toLowerCase())} seed for next time.`); }
     this.bus.emit('sfx', 'gather:farming');
+    this.bus.emit('skillpose', { id: 'farm_harvest', prop: c.id, target: obj });
     return true;
   }
 

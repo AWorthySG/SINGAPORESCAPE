@@ -99,7 +99,7 @@ export function finishVoyage(game, id, choices, { freight = false } = {}) {
   game._autoLife = null;
   game.autoGatherBest = null;
   const dest = LANDINGS[voyage.to];
-  if (!teleportPlayer(game, dest.x, dest.y, `You tie up at ${dest.name}.`)) return false;
+  if (!teleportPlayer(game, dest.x, dest.y, `You tie up at ${dest.name}.`, { sparkle: false })) return false;
   const book = islandBook(game), first = !book.voyages.includes(id);
   if (first) book.voyages.push(id);
   if (freight) {

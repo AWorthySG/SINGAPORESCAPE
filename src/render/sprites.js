@@ -4,11 +4,11 @@
 import { drawLayeredObject, isDepthShop } from './streetdepth.js';
 import { fireScale } from '../game/bonfire.js';   // bonfires are drawn bigger
 import { itemIconImage } from './icons.js';
-import { CROPS } from '../data/trades.js';
+import { CROPS, farmProgress } from '../data/trades.js';
 import { classAccent } from '../data/classColours.js';
 import { drawHeroRig } from './heroRig.js';
 import { drawRangedHeroRig } from './rangedHeroRig.js';
-import { drawPictureTool, drawWeaponTrail, HERO_CLIPS } from './heroanim.js';
+import { drawHeroArm, drawPictureTool, drawWeaponTrail, HERO_CLIPS } from './heroanim.js';
 import { drawHeroBack, heroBackReady } from './heroAnimArt.js';
 import { heroLit, bakeRim } from './herolight.js';
 import { poseBlender } from './poseBlend.js';
@@ -22,12 +22,10 @@ import { RESIDENTS } from '../data/consequences.js';
 import { PORTRAIT_CROPS } from '../data/portraitcrops.js';
 import { BESTIARY_SPECIES, BESTIARY_BOSSES } from '../data/bestiary.js';
 import { GENERATION_ONLY_SCENERY, OBJECTS } from '../data/objects.js';
-import { drawDiveFlag, drawDiveSpot } from './diveart.js';
+import { drawDiveRipples, drawDiveSpot } from './diveart.js';
 import { drawDigSite, drawRestoreBench } from './digart.js';
 
 const CROP_COLORS = Object.fromEntries(CROPS.map((c) => [c[0], c[9]]));
-const CROP_GROW = Object.fromEntries(CROPS.map((c) => [c[0], c[3]]));
-const cropGrowTicks = (id) => CROP_GROW[id] || 0;
 
 const OUTLINE = 'rgba(34,48,74,0.6)';   // A-Worthy navy ink
 
@@ -2261,6 +2259,12 @@ const HERO_ART_H = 56, HERO_ART_W = 60, HERO_ART_FEET = 15;
 // These heroes have complete paint for both facings. Each view uses the
 // puppet below so the newer paint stays consistent through the whole pose.
 export const PUPPET_HEROES = new Set(['ninja', 'sniper']);
+// The work plates keep the same clothes and planted feet. The near and far
+// sleeves attach at their own joints when the hero puts its weapon away.
+const PUPPET_WORK = {
+  ninja: { front: [11, -9, '#302647'], back: [-9, -10, '#332853'] },
+  sniper: { front: [8, -9, '#697932'], back: [-10, -8, '#516328'] },
+};
 
 // ---- Puppet animation for the painted hero ----
 // The picture is cut once into a body and two feet (the bottom band, split at
@@ -2478,7 +2482,7 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
     // of it otherwise living entirely in the HUD's prayer orb/panel.
     if (opts.prayerActive) {
       const t = opts.time || 0;
-      const pulse = 1 + Math.sin(t * 0.004) * 0.08;
+      const pulse = calm ? 1 : 1 + Math.sin(t * 0.004) * 0.08;
       const g = c.createRadialGradient(0, -2, 2, 0, -2, 15 * pulse);
       g.addColorStop(0, 'rgba(255,226,150,0.30)');
       g.addColorStop(0.6, 'rgba(255,214,120,0.14)');
@@ -2516,18 +2520,24 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       }
       const g = opts.gait;
       const puppet = PUPPET_HEROES.has(opts.jobClass);
-      const north = opts.facing?.dx === 0 && opts.facing.dy < 0 && !(anim?.ch?.mix > 0.05);
+      const working = anim?.kind === 'skill' || anim?.ch?.mix > 0.05;
+      const north = opts.facing?.dx === 0 && opts.facing.dy < 0 && !working;
       const back = puppet && (g || north) ? heroImage(`puppet/${opts.jobClass}-back`) : null;
+      const work = puppet && (opts.entity || working) ? heroImage(`puppet/${opts.jobClass}-work`) : null;
+      const workReady = working && work?.complete && work.naturalWidth;
       const ready = north && (puppet ? !!back?.complete && back.naturalWidth > 0 : heroBackReady(opts.jobClass));
       const view = heroView(g ? opts.entity : null, ready, t, calm);
-      if (view.width < 1) {
+      // Work poses are side-on. A previous rear view must not hide the tool
+      // or leave loose fishing gear while its normal turn catches up.
+      const rear = view.rear && !working;
+      if (view.width < 1 && !working) {
         const turn = g?.turn ?? opts.turn;
         c.translate(0, -Math.max(0, view.rise - turnHop(turn)));
         c.scale(Math.min(1, view.width / turnWidth(turn)), 1);
       }
-      const layered = !puppet && ((view.rear && drawHeroBack(c, { ...opts, backView: true })) || drawHeroRig(c, opts) || drawRangedHeroRig(c, opts));
+      const layered = !puppet && ((rear && drawHeroBack(c, { ...opts, backView: true })) || drawHeroRig(c, opts) || drawRangedHeroRig(c, opts));
       if (!layered) {
-        const pic = puppet && view.rear ? back : himg;
+        const pic = workReady ? work : puppet && rear ? back : himg;
         const s = Math.min(HERO_ART_H / pic.naturalHeight, HERO_ART_W / pic.naturalWidth);
         const w = pic.naturalWidth * s, h = pic.naturalHeight * s;
         if (g) heroPuppet(c, pic, w, h, g, t, calm);
@@ -2537,8 +2547,11 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
           if (mv > 0.001 && !calm) c.rotate(Math.sin(t * 0.018 + cx) * 0.06 * mv);
           c.drawImage(heroLit(pic), -w / 2, HERO_ART_FEET - h, w, h);
         }
-        // A single picture can't move its arms: it just bobs and leans, with the tool in a fist.
-        if (anim) drawPictureTool(c, anim);
+        if (workReady) {
+          const joints = PUPPET_WORK[opts.jobClass];
+          drawHeroArm(c, anim, 'back', -11, joints.back);
+          drawHeroArm(c, anim, 'front', -11, joints.front);
+        } else if (anim) drawPictureTool(c, anim);
         if (fancy && pose && pose.flash > 0) {
           c.save();
           c.globalAlpha *= pose.flash * 0.35; c.globalCompositeOperation = 'lighter';
@@ -2818,8 +2831,7 @@ const FIRE_FRAME_MS = 110;
 /** A farm patch's growth stage: 0 empty, 1 planted, 2 sprouting, 3 growing, 4 ripe. */
 function farmStage(obj) {
   if (!obj.crop) return 0;
-  const grow = cropGrowTicks(obj.crop);
-  const k = grow ? 1 - (obj.growLeft || 0) / grow : 1;
+  const k = farmProgress(obj);
   return k >= 1 ? 4 : k >= 0.5 ? 3 : k >= 0.15 ? 2 : 1;
 }
 // World events add an ordinary spot, rock or tree with a def of their own; each
@@ -2867,6 +2879,7 @@ export function bedLook(obj) {
   return { key, tint, s: 0.92 + tileHash(obj.x, obj.y, 63) * 0.16, flip: tileHash(obj.x, obj.y, 64) < 0.5 };
 }
 const _worldImg = {};
+const _worldFrameSets = new Map();
 // Replaced art gets a new URL so the offline cache serves the current sprite.
 const revisedWorldArt = new Set(['obj-heritage_lamp', 'obj-lantern_post', 'obj-fishing_spot', 'obj-rod_spot', 'obj-harpoon_spot']);
 function worldImage(key) {
@@ -2878,12 +2891,36 @@ function worldImage(key) {
   _worldImg[key] = img;
   return img;
 }
+const readyArt = (img) => img?.complete && img.naturalWidth;
+
+/** Request a loop together and hold an earlier loaded frame while it decodes. */
+function readyWorldArtKey(obj, key) {
+  const type = obj.def.type;
+  const count = type === 'fire' ? 4 : type === 'farm' ? 5 : obj.def.frames;
+  if (!count) return key;
+  const split = key.lastIndexOf('-') + 1;
+  const prefix = key.slice(0, split);
+  let keys = _worldFrameSets.get(prefix);
+  if (!keys) {
+    keys = Array.from({ length: count }, (_, i) => prefix + i);
+    _worldFrameSets.set(prefix, keys);
+    for (const frame of keys) worldImage(frame);
+  }
+  const current = Number(key.slice(split));
+  const steps = type === 'farm' ? current + 1 : count;
+  for (let step = 0; step < steps; step++) {
+    const frame = keys[(current - step + count) % count];
+    if (readyArt(worldImage(frame))) return frame;
+  }
+  return null;
+}
 export const worldArt = () => new Set(Object.keys(WORLD_ART));
 /** A world object's painted picture fitted to its box ({ img, w, h, foot }),
  *  for the depth view's cast shadows (depthview.js); null while it loads or headless. */
 export function worldArtBox(obj, time = 0, out = {}) {
-  const key = worldArtKey(obj, time), img = key && worldImage(key);
-  if (!img || !img.complete || !img.naturalWidth) return null;
+  const key = readyWorldArtKey(obj, worldArtKey(obj, time));
+  const img = key && worldImage(key);
+  if (!readyArt(img)) return null;
   const [mw, mh, foot] = WORLD_ART[key];
   const s = Math.min(mw / img.naturalWidth, mh / img.naturalHeight);
   out.img = img; out.w = img.naturalWidth * s; out.h = img.naturalHeight * s; out.foot = foot;
@@ -2970,16 +3007,12 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time, upperAlpha) {
 // fishing spot's fish shows (drawCatchBadge).
 export function drawObjectSprite(ctx, obj, cx, cy, time = 0, low = false, still = false, upperAlpha = 1) {
   const t = obj.def.type;
-  const key = worldArtKey(obj, time);
-  // Load every frame of an animated object together, so it never drops back
-  // to its drawn version between frames.
-  if (t === 'fire' || t === 'farm') for (const k of Object.keys(WORLD_ART)) if (k.startsWith(t === 'fire' ? 'obj-fire-' : 'obj-farm_patch-')) worldImage(k);
-  else if (obj.def.frames) for (let i = 0; i < obj.def.frames; i++) worldImage(`obj-${obj.objId}-${i}`);
+  const key = readyWorldArtKey(obj, worldArtKey(obj, time));
   const art = key && worldImage(key);
-  if (art && art.complete && art.naturalWidth) {
+  if (readyArt(art)) {
     drawWorldArt(ctx, obj, art, key, cx, cy, time, upperAlpha);
     if (t === 'fishing') drawCatchBadge(ctx, obj, cx, cy, time, low, still);
-    if (t === 'dive') drawDiveFlag(ctx, cx + 12, cy + 7);
+    if (t === 'dive' && !low) drawDiveRipples(ctx, obj, cx, cy, time);
     return;
   }
   if (obj.def.footprint) return;   // a landmark has no drawn stand-in: it appears once its picture loads
@@ -3026,9 +3059,10 @@ const RISE_MS = 500, DIP_MS = 260, UNDER_MS = 600, SPLASH_MS = 450;
 // The way a raw fish's sticker faces (its head), so it leaps head first; any
 // not listed face right. A repainted sticker may face another way: update it here.
 export const FISH_FACING = {
-  ...Object.fromEntries(['anchovy', 'arapaima', 'bluefin_tuna', 'climbing_perch', 'coral_trout', 'diamond_trevally', 'dragon_arowana',
-    'giant_snakehead', 'grouper', 'lobster', 'longfin_trevally', 'mackerel', 'marble_goby', 'moonfish', 'peacock_bass', 'pike', 'rift_eel',
-    'sailfish', 'salmon', 'sardine', 'shark', 'speckled_temensis', 'stingray', 'swordfish', 'tenggiri', 'tilapia', 'trout', 'tuna'].map((f) => [`raw_${f}`, 'left'])),
+  ...Object.fromEntries(['anchovy', 'arapaima', 'arowana', 'barramundi', 'belida', 'bluefin_tuna', 'climbing_perch', 'cobia', 'coral_trout',
+    'diamond_trevally', 'dragon_arowana', 'giant_snakehead', 'giant_trevally', 'grouper', 'ikan_keli', 'lobster', 'longfin_trevally',
+    'mackerel', 'marble_goby', 'milkfish', 'moonfish', 'peacock_bass', 'pike', 'queenfish', 'rift_eel', 'sailfish', 'salmon', 'sardine',
+    'shark', 'speckled_temensis', 'stingray', 'swordfish', 'tenggiri', 'threadfin', 'tilapia', 'trout', 'tuna'].map((f) => [`raw_${f}`, 'left'])),
   raw_red_snapper: 'up', raw_manta_ray: 'up',
 };
 // A steady 0..1 for a tile and a salt: each spot's own beat.
@@ -3408,8 +3442,7 @@ function farmPatch(ctx, obj, cx, cy, time) {
   for (const dy of [0, 5, 10]) { ctx.beginPath(); ctx.moveTo(cx - 11, cy + dy); ctx.lineTo(cx + 11, cy + dy); ctx.stroke(); }
   if (!obj.crop) return;
   const def = CROP_COLORS[obj.crop] || '#5aa04a';
-  const grow = cropGrowTicks(obj.crop);
-  const k = grow ? 1 - (obj.growLeft || 0) / grow : 1;   // 0 just planted .. 1 ripe
+  const k = farmProgress(obj);
   const sway = Math.sin(time * 0.003 + obj.x) * 0.8;
   for (const [px, py] of [[-8, 1], [0, 1], [8, 1], [-4, 7], [4, 7]]) {
     const h = 3 + k * 8;

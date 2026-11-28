@@ -1,7 +1,9 @@
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
+import { mulberry32 } from '../game/pets.js';
 import { blendMood } from './ambience.js';
 import { fxImage, drawFx } from './fxart.js';
+import { motionOK } from './juice.js';
 
 // Weather and region moods, purely for looks (nothing here touches the game's
 // rules). The forecast is worked out from the game clock alone, so the same
@@ -110,6 +112,8 @@ export class Weather {
     this.mist = 0;
     this._drops = []; this._flakes = []; this._embers = []; this._ripples = [];
     this._splashes = [];   // rain bouncing off the ground (screen space)
+    this._rippleCarry = 0;
+    this._visualRand = mulberry32(0xae5742d);   // weather never rolls the game's random stream
     this.clouds = 0;       // cloud shadow strength (cloudShadeAt)
     this._cloudImg = null;
     this._sky = [0, 0, 0, 0];
@@ -138,14 +142,15 @@ export class Weather {
     const base = weatherAt(game.playMs || 0, this._base);
     const w = regionWeather(zone, base);
     const s = this.state;
-    s.rain = w.rain; s.snow = w.snow; s.embers = w.embers; s.storm = w.storm; s.flash = w.flash;
+    s.rain = w.rain; s.snow = w.snow; s.embers = w.embers; s.storm = w.storm;
+    s.flash = w.flash && motionOK(game) ? w.flash : 0;
     s.gloom = Math.max(w.rain * 0.45, w.storm * 0.75, w.snow * 0.2);
     this._rainWash[3] = w.rain * 0.1 + w.storm * 0.16;
     const phase = game.dayPhase ? game.dayPhase() : 0.5;
     this.mist = MIST_REGIONS.has(zone) ? Math.max(mistAt(phase), w.rain * 0.35) : 0;
     if (HAZY.has(zone)) this.mist = Math.max(this.mist, HAZY.get(zone));   // a haze that never quite lifts
     this._mistWash[3] = this.mist * 0.16;
-    s.flashWash[3] = w.flash * 0.32;
+    s.flashWash[3] = s.flash * 0.32;
     blendMood(this._sky, REGION_SKY[zone] || NO_SKY, dt);
     // Puddles come up over ~20s of rain and dry over a minute after.
     const target = ROOFED.has(zone) ? 0 : Math.min(1, w.rain * 1.4);
@@ -162,7 +167,7 @@ export class Weather {
     // The light pass paints the cloud shadows (drawCloudsInto); trimmed or low
     // graphics go without.
     s.clouds = low ? 0 : this.clouds;
-    if (low) return;
+    if (low) { this._ripples.length = 0; this._rippleCarry = 0; return; }
     const world = game.world;
     const x0 = Math.max(0, Math.floor(ox / TILE)), y0 = Math.max(0, Math.floor(oy / TILE));
     const x1 = Math.min(world.width - 1, Math.ceil((ox + vw) / TILE)), y1 = Math.min(world.height - 1, Math.ceil((oy + vh) / TILE));
@@ -188,20 +193,23 @@ export class Weather {
     // Ripples: rain landing on water tiles in view.
     const rp = this._ripples;
     if (s.rain > 0.05) {
-      // A few random tiles are tried each frame; only those on water ripple.
-      const tries = Math.ceil(s.rain * dt * 0.4);
+      // Carry the fractional attempts forward so faster frames do not create more rain.
+      this._rippleCarry += s.rain * dt * 0.4;
+      const tries = Math.floor(this._rippleCarry);
+      this._rippleCarry -= tries;
+      const random = this._visualRand;
       for (let i = 0; i < tries && rp.length < RIPPLE_CAP; i++) {
-        const tx = x0 + Math.floor(Math.random() * (x1 - x0 + 1)), ty = y0 + Math.floor(Math.random() * (y1 - y0 + 1));
+        const tx = x0 + Math.floor(random() * (x1 - x0 + 1)), ty = y0 + Math.floor(random() * (y1 - y0 + 1));
         const tt = world.terrainAt(tx, ty);
-        if (tt === TERRAIN.WATER) { rp.push({ x: tx * TILE + Math.random() * TILE, y: ty * TILE + Math.random() * TILE, life: 0 }); continue; }
+        if (tt === TERRAIN.WATER) { rp.push({ x: tx * TILE + random() * TILE, y: ty * TILE + random() * TILE, life: 0 }); continue; }
         // Drops landing in a puddle (the same spots the sheen marks) ripple too.
         if (this.wet < 0.3 || (tt !== TERRAIN.PATH && tt !== TERRAIN.STONE)) continue;
         const h = hash01(tx * 92821 + ty * 68917);
         if (h > 0.28) continue;
         const rx = 6 + h * 26;
-        rp.push({ x: tx * TILE + 8 + h * 50 + (Math.random() - 0.5) * rx * 1.2, y: ty * TILE + 10 + ((h * 977) % 1) * 14 + (Math.random() - 0.5) * rx * 0.3, life: 0 });
+        rp.push({ x: tx * TILE + 8 + h * 50 + (random() - 0.5) * rx * 1.2, y: ty * TILE + 10 + ((h * 977) % 1) * 14 + (random() - 0.5) * rx * 0.3, life: 0 });
       }
-    }
+    } else this._rippleCarry = 0;
     if (rp.length) {
       ctx.save();
       ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.1;
@@ -305,13 +313,14 @@ export class Weather {
   }
 
   _rain(ctx, vw, vh, dt, low) {
-    const s = this.state, drops = this._drops;
+    const s = this.state, drops = this._drops, random = this._visualRand;
     const want = Math.round((low ? RAIN_CAP_LOW : RAIN_CAP) * (this.small() ? 0.5 : 1) * s.rain * Math.min(1.4, (vw * vh) / (1100 * 620)));
-    while (drops.length < want) drops.push({ x: Math.random() * (vw + 80), y: Math.random() * vh, v: 0.75 + Math.random() * 0.5 });
+    while (drops.length < want) drops.push({ x: random() * (vw + 80), y: random() * vh, v: 0.75 + random() * 0.5 });
     if (drops.length > want) drops.length = want;
+    const sp = this._splashes;
+    if (low || !drops.length) sp.length = 0;
     if (!drops.length) return;
     const slant = 0.22 + s.storm * 0.25, len = 13 + s.storm * 6, fall = 0.9 + s.storm * 0.3;
-    const sp = this._splashes;
     ctx.save();
     ctx.lineCap = 'round';
     // Two layers for depth: far drops thin and faint, near ones longer and
@@ -325,8 +334,8 @@ export class Weather {
         d.y += fall * d.v * dt; d.x -= slant * fall * d.v * dt;
         if (d.y > (d.land || vh + 10) || d.x < -20) {
           if (near && !low && d.land && sp.length < SPLASH_CAP) sp.push({ x: d.x, y: d.y, life: 0 });
-          d.y = -10 - Math.random() * 40; d.x = Math.random() * (vw + 80);
-          d.land = near ? vh * (0.15 + Math.random() * 0.85) : 0;   // where on screen it hits the ground
+          d.y = -10 - random() * 40; d.x = random() * (vw + 80);
+          d.land = near ? vh * (0.15 + random() * 0.85) : 0;   // where on screen it hits the ground
         }
         const l = len * d.v * (near ? 1.25 : 0.8);
         ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + slant * l, d.y - l);
@@ -351,9 +360,9 @@ export class Weather {
   }
 
   _snow(ctx, vw, vh, t, dt, low) {
-    const s = this.state, fl = this._flakes;
+    const s = this.state, fl = this._flakes, random = this._visualRand;
     const want = Math.round((low ? SNOW_CAP / 3 : SNOW_CAP) * s.snow);
-    while (fl.length < want) fl.push({ x: Math.random() * vw, y: Math.random() * vh, v: 0.6 + Math.random() * 0.8, p: Math.random() * 6 });
+    while (fl.length < want) fl.push({ x: random() * vw, y: random() * vh, v: 0.6 + random() * 0.8, p: random() * 6 });
     if (fl.length > want) fl.length = want;
     if (!fl.length) return;
     ctx.save();
@@ -361,7 +370,7 @@ export class Weather {
     ctx.beginPath();
     for (const f of fl) {
       f.y += 0.035 * f.v * dt; f.x += Math.sin(t * 0.0012 + f.p) * 0.02 * dt;
-      if (f.y > vh + 4) { f.y = -4; f.x = Math.random() * vw; }
+      if (f.y > vh + 4) { f.y = -4; f.x = random() * vw; }
       const r = 1 + f.v;
       ctx.moveTo(f.x + r, f.y); ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
     }
@@ -372,16 +381,16 @@ export class Weather {
   // Embers rising through the Shadow Rift: the painted ember once it has
   // loaded (fxart.js), a small orange spark until then.
   _embersDraw(ctx, vw, vh, t, dt) {
-    const s = this.state, em = this._embers;
+    const s = this.state, em = this._embers, random = this._visualRand;
     const want = Math.round(EMBER_CAP * s.embers);
-    while (em.length < want) em.push({ x: Math.random() * vw, y: vh * (0.3 + Math.random() * 0.8), v: 0.5 + Math.random() * 0.7, p: Math.random() * 6 });
+    while (em.length < want) em.push({ x: random() * vw, y: vh * (0.3 + random() * 0.8), v: 0.5 + random() * 0.7, p: random() * 6 });
     if (em.length > want) em.length = want;
     if (!em.length) return;
     const img = fxImage('particle-ember');
     ctx.save();
     for (const e of em) {
       e.y -= 0.022 * e.v * dt; e.x += Math.sin(t * 0.0016 + e.p) * 0.025 * dt;
-      if (e.y < -10) { e.y = vh + 10; e.x = Math.random() * vw; }
+      if (e.y < -10) { e.y = vh + 10; e.x = random() * vw; }
       ctx.globalAlpha = 0.55 + 0.4 * Math.sin(t * 0.006 + e.p * 3);
       if (img) drawFx(ctx, img, e.x, e.y, 7 + e.v * 5);
       else { ctx.fillStyle = '#ff8a3a'; ctx.beginPath(); ctx.arc(e.x, e.y, 1.6 + e.v, 0, Math.PI * 2); ctx.fill(); }
