@@ -52,6 +52,7 @@
   <link rel="stylesheet" href="styles/hud-touch.css" />
   <link rel="stylesheet" href="styles/hud-information.css" />
   <link rel="stylesheet" href="styles/hud-panels.css" />
+  <link rel="stylesheet" href="styles/combat-panel.css" />
   <!-- modulepreload: the whole static import graph (node tools/modulepreload.mjs) -->
   <script>
   // Ask for every module at once (the browser would otherwise find them a few levels at a time).
@@ -447,16 +448,16 @@
           <div id="skills-total"></div>
           <div id="alignment-readout"></div>
         </section>
-        <section class="panel-view hidden" data-view="combat">
+        <section class="panel-view hidden" data-view="combat" id="panel-view-combat" role="tabpanel" aria-labelledby="combat-tab-combat">
           <div id="combat-panel"></div>
         </section>
-        <section class="panel-view hidden" data-view="prayer">
+        <section class="panel-view hidden" data-view="prayer" id="panel-view-prayer" role="tabpanel" aria-labelledby="combat-tab-prayer">
           <div id="prayer-panel"></div>
         </section>
         <section class="panel-view hidden" data-view="quests">
           <div id="quest-panel"></div>
         </section>
-        <section class="panel-view hidden" data-view="stats">
+        <section class="panel-view hidden" data-view="stats" id="panel-view-stats" role="tabpanel" aria-labelledby="combat-tab-stats">
           <div id="stats-panel"></div>
         </section>
         <section class="panel-view hidden" data-view="achievements">

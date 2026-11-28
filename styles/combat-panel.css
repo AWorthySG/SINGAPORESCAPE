@@ -1,0 +1,67 @@
+/* One rail and one scroll area for the Combat, Blessings and Stats views. */
+#game-root #sidepanel {
+  --combat-ink: #243932;
+  --combat-muted: #536258;
+  --combat-paper: #fffdf7;
+  --combat-line: #e2d3b8;
+  --combat-teal: #27554b;
+  --combat-gold: #805b29;
+  --combat-well: #f7edd9;
+}
+
+#game-root #sidepanel #panel-body:has(> #panel-subtabs[data-tab="combat"]) {
+  scroll-padding-top: 64px;
+}
+
+#game-root #sidepanel #panel-subtabs[data-tab="combat"] {
+  gap: 5px;
+  padding-block: 7px;
+  background: var(--panel-paper);
+  border-bottom: 1px solid var(--combat-line);
+}
+
+#game-root #sidepanel #panel-subtabs[data-tab="combat"] .subtab-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 42px;
+  padding: 4px 6px;
+  border: 1px solid var(--combat-line);
+  border-radius: 9px;
+  background: var(--combat-paper);
+  color: var(--combat-ink);
+  font-size: var(--fs-sm);
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+#game-root #sidepanel #panel-subtabs[data-tab="combat"] .subtab-btn[aria-selected="true"] {
+  border-color: var(--combat-teal);
+  background: var(--combat-teal);
+  color: #fffdf5;
+  box-shadow: inset 0 -2px #c2a16b;
+}
+
+#game-root #sidepanel #panel-subtabs[data-tab="combat"] .subtab-btn .panel-key {
+  margin-left: 0;
+}
+
+#panel-subtabs .combat-tab-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+}
+
+@media (pointer: coarse), (max-width: 540px) {
+  #game-root #sidepanel #panel-subtabs[data-tab="combat"] .subtab-btn { min-height: 44px; }
+  #game-root #sidepanel #panel-subtabs[data-tab="combat"] .panel-key { display: none; }
+}
+
+@media (hover: hover) {
+  #game-root #sidepanel #panel-subtabs[data-tab="combat"] .subtab-btn[aria-selected="false"]:hover {
+    border-color: #bba17b;
+    background: var(--combat-well);
+  }
+}
