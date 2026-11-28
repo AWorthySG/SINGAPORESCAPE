@@ -4,7 +4,7 @@ import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { Game } from '../src/game/game.js';
+import { Game, pickpocketXp } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
 import { OBJECTS } from '../src/data/objects.js';
 import { TOOL_TIERS } from '../src/data/tooltiers.js';
@@ -100,10 +100,10 @@ test('agility: a lap run in the world walks from obstacle to obstacle, and 9999 
   assert.ok(hours > 30, `Agility 99 -> 9999 takes ${hours.toFixed(1)} h (it was ~15 h)`);
 });
 
-test('thieving: pickpocket XP stops growing past 99; stalls out-earn pickpocketing at their levels', () => {
+test('thieving: townsfolk give more XP up to 99 and starting stalls out-earn pockets', () => {
   const g = newGame();
   const npc = { def: { role: 'townsfolk' }, name: 'Uncle' };
-  for (const [lvl, base] of [[50, 58], [99, 107], [1000, 107]]) {
+  for (const [lvl, base] of [[1, 11], [50, 73], [99, 134], [1000, 134]]) {
     setLevel(g, 'thieving', lvl);
     assert.ok(Math.abs(gained(g, 'thieving', () => g.pickpocket(npc)) - base * XP_RATE * LIFE_XP_BOOST * pastCapXpMult(lvl)) < 0.01, `level ${lvl}`);
   }
@@ -122,8 +122,9 @@ test('thieving: pickpocket XP stops growing past 99; stalls out-earn pickpocketi
       t.update(600);
       gain += t.skills.xp.thieving - base; t.skills.xp.thieving = base;
     }
-    const perTick = gain / T / XP_RATE;
-    assert.ok(perTick > 8 + L, `${id}: ${perTick.toFixed(1)} xp a tick vs ${8 + L} pickpocketing`);
+    const perTick = gain / T / XP_RATE / t.skills.lifeXpMult('thieving');
+    const pocket = pickpocketXp(L);
+    assert.ok(perTick > pocket, `${id}: ${perTick.toFixed(1)} xp a tick vs ${pocket} pickpocketing`);
   }
 });
 

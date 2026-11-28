@@ -602,7 +602,7 @@ export const OBJECTS = {
   // good stretch of levels after it unlocks.
   stall_food: {
     name: 'Hawker stall', label: 'Hawker stall', type: 'stall', verb: 'Steal-from', emoji: '🍢', blocking: true,
-    skill: 'thieving', level: 1, xp: 150, respawn: 4, examine: 'A food stall, ripe for a cheeky steal. (Thieving 1)',
+    skill: 'thieving', level: 1, xp: 190, respawn: 4, examine: 'A food stall, ripe for a cheeky steal. (Thieving 1)',
     loot: [
       { id: 'coins', min: 5, max: 25, weight: 50 },
       { id: 'kaya_toast', weight: 20 }, { id: 'roti_prata', weight: 14 }, { id: 'chicken_rice', weight: 8 },
@@ -610,7 +610,7 @@ export const OBJECTS = {
   },
   stall_market: {
     name: 'Market stall', label: 'Market stall', type: 'stall', verb: 'Steal-from', emoji: '🛍️', blocking: true,
-    skill: 'thieving', level: 12, xp: 280, respawn: 6, examine: 'A bric-a-brac stall. (Thieving 12)',
+    skill: 'thieving', level: 12, xp: 350, respawn: 6, examine: 'A bric-a-brac stall. (Thieving 12)',
     loot: [
       { id: 'coins', min: 25, max: 90, weight: 50 },
       { id: 'sapphire', weight: 10 }, { id: 'emerald', weight: 5 }, { id: 'gold_ore', weight: 14 },
@@ -618,10 +618,60 @@ export const OBJECTS = {
   },
   stall_gem: {
     name: 'Gem stall', label: 'Gem stall', type: 'stall', verb: 'Steal-from', emoji: '💎', blocking: true,
-    skill: 'thieving', level: 25, xp: 700, respawn: 9, examine: 'Glittering gems, lightly guarded. (Thieving 25)',
+    skill: 'thieving', level: 25, xp: 875, respawn: 9, examine: 'Glittering gems, lightly guarded. (Thieving 25)',
     loot: [
       { id: 'coins', min: 60, max: 200, weight: 40 },
       { id: 'sapphire', weight: 16 }, { id: 'emerald', weight: 12 }, { id: 'ruby', weight: 7 }, { id: 'diamond', weight: 2 },
+    ],
+  },
+  stall_spice: {
+    name: 'Spice stall', label: 'Spice stall', type: 'stall', verb: 'Steal-from', emoji: '🌶️', blocking: true,
+    skill: 'thieving', level: 35, xp: 980, respawn: 10, sure: 0.78,
+    examine: 'Chilli, turmeric and galangal fill the baskets. (Thieving 35)',
+    loot: [
+      { id: 'coins', min: 80, max: 180, weight: 52 },
+      { id: 'chilli', min: 3, max: 6, weight: 18 }, { id: 'turmeric', min: 2, max: 4, weight: 16 },
+      { id: 'galangal', min: 2, max: 4, weight: 14 },
+    ],
+  },
+  stall_textile: {
+    name: 'Textile stall', label: 'Textile stall', type: 'stall', verb: 'Steal-from', emoji: '🧵', blocking: true,
+    skill: 'thieving', level: 45, xp: 1160, respawn: 10, sure: 0.81,
+    examine: 'Bolts of batik stand beside bundles of dyestuff. (Thieving 45)',
+    loot: [
+      { id: 'coins', min: 100, max: 240, weight: 60 },
+      { id: 'butterfly_pea', min: 2, max: 4, weight: 20 }, { id: 'torch_ginger', min: 2, max: 3, weight: 13 },
+      { id: 'silk_sash', weight: 6 }, { id: 'batik_cape', weight: 1 },
+    ],
+  },
+  stall_produce: {
+    name: 'Produce stall', label: 'Produce stall', type: 'stall', verb: 'Steal-from', emoji: '🥬', blocking: true,
+    skill: 'thieving', level: 60, xp: 1420, respawn: 11, sure: 0.84,
+    examine: 'Fresh produce and seed packets from the farms around Kranji. (Thieving 60)',
+    loot: [
+      { id: 'coins', min: 120, max: 300, weight: 44 },
+      { id: 'rambutan_seed', min: 1, max: 2, weight: 20 }, { id: 'butterfly_pea_seed', min: 1, max: 3, weight: 20 },
+      { id: 'ginseng_seed', min: 1, max: 2, weight: 16 },
+    ],
+  },
+  stall_seafood: {
+    name: 'Seafood stall', label: 'Seafood stall', type: 'stall', verb: 'Steal-from', emoji: '🐟', blocking: true,
+    skill: 'thieving', level: 75, xp: 1700, respawn: 12, sure: 0.87,
+    examine: 'The morning catch rests in crates of ice. (Thieving 75)',
+    loot: [
+      { id: 'coins', min: 180, max: 440, weight: 52 },
+      { id: 'raw_lobster', min: 1, max: 2, weight: 18 }, { id: 'raw_grouper', min: 1, max: 2, weight: 16 },
+      { id: 'raw_threadfin', min: 1, max: 2, weight: 12 }, { id: 'pearl', weight: 2 },
+    ],
+  },
+  stall_goldsmith: {
+    name: 'Goldsmith stall', label: 'Goldsmith stall', type: 'stall', verb: 'Steal-from', emoji: '💍', blocking: true,
+    skill: 'thieving', level: 90, xp: 1850, respawn: 12, sure: 0.90,
+    examine: 'Rings, bars and the odd diamond gleam under the lamps. (Thieving 90)',
+    loot: [
+      { id: 'coins', min: 220, max: 530, weight: 50 },
+      { id: 'silver_bar', min: 1, max: 2, weight: 21 }, { id: 'gold_bar', min: 1, max: 2, weight: 16 },
+      { id: 'gold_ring', weight: 10 }, { id: 'diamond', weight: 3 },
     ],
   },
   // ---- Endgame chests (Thieving 160-300) ----
@@ -634,7 +684,7 @@ export const OBJECTS = {
   // picture (assets/world/).
   temple_vault: {
     name: 'Temple vault', label: 'Vault', type: 'stall', verb: 'Crack', emoji: '🧰', blocking: true,
-    skill: 'thieving', level: 160, xp: 2450, respawn: 10, sure: 0.8,
+    skill: 'thieving', level: 160, xp: 3775, respawn: 10, sure: 0.8,
     examine: 'A stone vault in the old temple, its lock worn smooth. (Thieving 160)',
     loot: [
       { id: 'coins', min: 500, max: 1500, weight: 66 },
@@ -644,7 +694,7 @@ export const OBJECTS = {
   },
   observatory_chest: {
     name: 'Observatory chest', label: 'Chest', type: 'stall', verb: 'Crack', emoji: '🧰', blocking: true,
-    skill: 'thieving', level: 200, xp: 3610, respawn: 10, sure: 0.8,
+    skill: 'thieving', level: 200, xp: 5570, respawn: 10, sure: 0.8,
     examine: 'A star-chart chest in the mountain observatory. (Thieving 200)',
     loot: [
       { id: 'coins', min: 800, max: 2000, weight: 66 },
@@ -654,7 +704,7 @@ export const OBJECTS = {
   },
   smugglers_hold: {
     name: "Smugglers' hold", label: 'Hold', type: 'stall', verb: 'Crack', emoji: '🧰', blocking: true,
-    skill: 'thieving', level: 250, xp: 5350, respawn: 10, sure: 0.8,
+    skill: 'thieving', level: 250, xp: 8250, respawn: 10, sure: 0.8,
     examine: 'A false-bottomed crate of contraband on the wharf. (Thieving 250)',
     loot: [
       { id: 'coins', min: 1000, max: 3000, weight: 70 },
@@ -664,7 +714,7 @@ export const OBJECTS = {
   },
   rift_treasury: {
     name: 'Rift treasury', label: 'Treasury', type: 'stall', verb: 'Crack', emoji: '🧰', blocking: true,
-    skill: 'thieving', level: 300, xp: 7800, respawn: 10, sure: 0.8,
+    skill: 'thieving', level: 300, xp: 12000, respawn: 10, sure: 0.8,
     examine: 'The hoard of the Rift, guarded by nothing you can see. (Thieving 300)',
     // A rare-item table: weights out of 1000, so the merlion amulet is one success in a thousand.
     loot: [

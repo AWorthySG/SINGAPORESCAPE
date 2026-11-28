@@ -1605,6 +1605,13 @@ export function buildWorld({ groves: withGroves = true } = {}) {
     for (const [x, y] of [[452, 166], [454, 167]]) placeNpc('transit_verge_boar', x, y, 1);
   }
 
+  // Set up on the existing paved plazas after the landmarks have found their spots.
+  placeObj('stall_spice', 84, 51);       // Chinatown
+  placeObj('stall_textile', 87, 50);     // Chinatown
+  placeObj('stall_produce', 454, 134);   // Kranji Village
+  placeObj('stall_seafood', 434, 44);    // Punggol Point
+  placeObj('stall_goldsmith', 194, 143); // Marina Bay
+
   return {
     width: W,
     height: H,

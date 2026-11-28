@@ -2810,6 +2810,8 @@ const WORLD_ART = {
   'obj-apothecary_table': [52, 42, 16], 'obj-fletching_bench': [52, 42, 16], 'obj-bank_booth': [56, 54, 16],
   'obj-shrine': [54, 56, 16], 'obj-offering_shrine': [54, 56, 16], 'obj-mascot_statue': [48, 54, 16], 'obj-mrt_station': [66, 50, 16],
   'obj-stall_food': [56, 50, 16], 'obj-stall_market': [56, 50, 16], 'obj-stall_gem': [56, 50, 16],
+  'obj-stall_spice': [56, 50, 16], 'obj-stall_textile': [56, 50, 16], 'obj-stall_produce': [56, 50, 16],
+  'obj-stall_seafood': [56, 50, 16], 'obj-stall_goldsmith': [56, 50, 16],
   'obj-agility_course': [60, 48, 16], 'obj-agility_balance': [50, 34, 15], 'obj-agility_net': [46, 46, 16],
   'obj-agility_rope': [44, 46, 16], 'obj-agility_ledge': [44, 42, 16], 'obj-agility_zip': [48, 46, 16],
   'obj-wall': [40, 36, 15], 'obj-fence': [40, 34, 15], 'obj-bush': [34, 30, 14],
@@ -3587,7 +3589,10 @@ function stall(ctx, objId, depleted, cx, cy) {
   ctx.fillStyle = '#7a5230'; rr(ctx, cx - 14, cy + 2, 28, 12, 2); ctx.fill(); line(ctx, OUTLINE, 2);
   ctx.fillStyle = '#8a6038'; rr(ctx, cx - 14, cy, 28, 4, 2); ctx.fill();
   // striped awning, coloured per stall type
-  const cols = { stall_food: '#d8566f', stall_market: '#2f7bbf', stall_gem: '#7a4a9a' };
+  const cols = {
+    stall_food: '#d8566f', stall_market: '#2f7bbf', stall_gem: '#7a4a9a',
+    stall_spice: '#b84927', stall_textile: '#434f83', stall_produce: '#7d9659', stall_seafood: '#53a0c6', stall_goldsmith: '#236571',
+  };
   const a = cols[objId] || '#d8566f';
   for (let i = 0; i < 6; i++) { ctx.fillStyle = i % 2 ? a : '#f0e7d4'; rr(ctx, cx - 15 + i * 5, cy - 16, 5, 7, 0); ctx.fill(); }
   line(ctx, OUTLINE, 1);
