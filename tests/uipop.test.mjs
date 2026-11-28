@@ -1,4 +1,4 @@
-// Pop and fade (the "Pop and fade" block at the end of styles/compact.css,
+// Pop and fade (the "Pop and fade" block in styles/compact.css,
 // copyCanvases in src/ui/uifx.js): windows and the side panel pop open and
 // leave with a quick fade, on the compositor only, and stay still with
 // reduced motion (the system's or Settings'). No browser here, so the CSS is
@@ -13,9 +13,10 @@ import { copyCanvases, ghostCopy } from '../src/ui/uifx.js';
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const strip = (css) => css.replace(/\/\*[^]*?\*\//g, '');
 const compact = read('styles/compact.css');
-const block = strip(compact.slice(compact.indexOf('/* ---------- Pop and fade: windows and the side panel')));
+const start = compact.indexOf('/* ---------- Pop and fade: windows and the side panel');
+const block = strip(compact.slice(start, compact.indexOf('\n#centre-hud { display: contents; }', start)));
 
-test('the pop block is there, at the end, and moves only transform and opacity', () => {
+test('the pop block moves only transform and opacity', () => {
   assert.ok(block.length > 200, 'the block exists');
   for (const [, name, body] of block.matchAll(/@keyframes (\w+) \{([^]*?\})\s*\}/g)) {
     const props = [...body.matchAll(/([a-z-]+)\s*:/g)].map((m) => m[1]);

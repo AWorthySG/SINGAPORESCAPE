@@ -145,7 +145,7 @@ test('phone layout: a column under the Bag button that stops short of Interact; 
   let depth = 0;
   for (const ch of bare) { if (ch === '{') depth++; else if (ch === '}') { depth--; assert.ok(depth >= 0); } }
   assert.equal(depth, 0, 'every { is closed');
-  assert.ok(!/@media \(pointer: coarse\) \{/.test(css), 'no bare touch block');
+  assert.match(css, /@media \(pointer: coarse\) \{\s*#quickbar \.qb-more \{ display: grid; \}/, 'phones and tablets can open the quick actions');
   const desk = /#quickbar \{([^}]*)\}/.exec(css)[1];
   // Desktop: centred, above the action bar (its top sits ~120px up with the adrenaline bar showing).
   assert.match(desk, /left: 50%/);
