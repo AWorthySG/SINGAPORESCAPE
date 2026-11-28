@@ -723,7 +723,8 @@ test('gameplay art pack: items, world objects, quest givers, pets and gameplay i
     for (const [objId, key] of [['dorado_spot', 'obj-event_shoal'], ['fallen_star', 'rock-meteorite'], ['oak', 'tree-ancient']]) {
       drawn.length = 0;
       drawObjectSprite(ctx, { objId, def: { ...OBJECTS[objId], tint: 'saturate(2)', worldEvent: true }, worldEvent: true, x: 1, y: 1 }, 50, 50, 0);
-      assert.ok(drawn.some((im) => im.src === `assets/world/${key}.webp`), `${objId} as a world event draws ${key}`);
+      const url = `assets/world/${key}.webp${key === 'rock-meteorite' ? '?v=2' : ''}`;
+      assert.ok(drawn.some((im) => im.src === url), `${objId} as a world event draws ${key}`);
     }
   } finally { delete globalThis.Image; }
   // The earlier quest givers and the lost merchant have their own pictures.

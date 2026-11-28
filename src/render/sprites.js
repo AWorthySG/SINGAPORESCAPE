@@ -25,6 +25,7 @@ import { BESTIARY_SPECIES, BESTIARY_BOSSES } from '../data/bestiary.js';
 import { GENERATION_ONLY_SCENERY, OBJECTS } from '../data/objects.js';
 import { drawDiveRipples, drawDiveSpot } from './diveart.js';
 import { drawDigSite, drawRestoreBench } from './digart.js';
+import { drawMiningRock, rockLayout } from './miningRock.js';
 
 const CROP_COLORS = Object.fromEntries(CROPS.map((c) => [c[0], c[9]]));
 
@@ -1321,16 +1322,6 @@ function rgba(c, a) {
   }
   if (typeof c === 'string' && c.startsWith('rgb(')) return c.replace('rgb(', 'rgba(').replace(')', `,${a})`);
   return c;
-}
-
-// Linear blend of two #rrggbb colours; t=0 -> a, t=1 -> b. Falls back to a.
-function mix(a, b, t) {
-  if (typeof a !== 'string' || a[0] !== '#' || typeof b !== 'string' || b[0] !== '#') return a;
-  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
-  const r = ((pa >> 16) & 255) + (((pb >> 16) & 255) - ((pa >> 16) & 255)) * t;
-  const g = ((pa >> 8) & 255) + (((pb >> 8) & 255) - ((pa >> 8) & 255)) * t;
-  const bl = (pa & 255) + ((pb & 255) - (pa & 255)) * t;
-  return `rgb(${r | 0},${g | 0},${bl | 0})`;
 }
 
 // A lively eye: white sclera, dark pupil, tiny catchlight.
@@ -2754,7 +2745,7 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
 // ================= OBJECTS =================
 // Objects that never animate are cached as bitmaps; trees too, with their
 // sway applied as a gentle lean about the trunk base.
-const CACHED_OBJECTS = new Set(['tree', 'rock', 'anvil', 'craft', 'bank', 'rest', 'agility', 'stall', 'transport', 'scenery', 'dig', 'restore']);
+const CACHED_OBJECTS = new Set(['tree', 'anvil', 'craft', 'bank', 'rest', 'agility', 'stall', 'transport', 'scenery', 'dig', 'restore']);
 
 // Painted world art (assets/world/<key>.webp): trees and their stumps, ore
 // rocks, stations, stalls, agility obstacles, scenery, fishing spots and Hunter
@@ -2763,7 +2754,8 @@ const CACHED_OBJECTS = new Set(['tree', 'rock', 'anvil', 'craft', 'bank', 'rest'
 // without art (fires, farm patches) keeps its drawn sprite.
 const TREE_IDS = ['tree', 'oak', 'willow', 'rain_tree', 'yew_tree', 'magic_tree', 'bamboo', 'angsana', 'teak', 'mangrove', 'mahogany', 'tembusu',
   'seraya_tree', 'meranti_tree', 'chengal_tree', 'starfall_banyan', 'moonlit_kapok', 'keramat_tree'];
-const ROCK_IDS = [...['copper', 'tin', 'iron', 'coal', 'mithril', 'adamantite', 'runite', 'gold', 'clay', 'limestone', 'silver', 'sandstone', 'gem', 'granite'].map((o) => `${o}_rock`),
+const ORDINARY_ROCK_IDS = ['copper', 'tin', 'iron', 'coal', 'mithril', 'adamantite', 'runite', 'gold', 'clay', 'limestone', 'silver', 'sandstone', 'gem', 'granite'].map((o) => `${o}_rock`);
+const ROCK_IDS = [...ORDINARY_ROCK_IDS,
   'obsidian_vein', 'orichalcum_rock', 'jade_seam', 'fallen_star', 'skyglass_crystal', 'eternal_lode'];
 const WORLD_ART = {
   ...Object.fromEntries(TREE_IDS.flatMap((t) => [[`tree-${t}`, [66, 74, 15]], [`stump-${t}`, [34, 28, 14]]])),
@@ -2856,10 +2848,10 @@ function worldArtKey(obj, time = 0) {
   if (t === 'fire') return `obj-fire-${Math.floor(time / FIRE_FRAME_MS + obj.x * 3 + obj.y) % 4}`;   // each fire on its own beat
   if (t === 'farm') return `obj-farm_patch-${farmStage(obj)}`;
   if (obj.def.frames) return `obj-${obj.objId}-${Math.floor(time / obj.def.frameMs + obj.x * 3 + obj.y) % obj.def.frames}`;   // a looping prop
+  if (t === 'rock') return obj.worldEvent ? EVENT_ART.rock : `rock-${obj.objId}`;
   if (obj.worldEvent && !obj.depleted && EVENT_ART[t]) return EVENT_ART[t];   // a world event's node
   // A tree without its own picture yet may borrow another's (`borrow`), recoloured by its `tint`.
   if (t === 'tree') return obj.depleted ? `stump-${obj.def.borrow || obj.objId}` : `tree-${obj.def.borrow || obj.objId}`;
-  if (t === 'rock') return obj.depleted ? 'rock-empty' : `rock-${obj.objId}`;
   if (obj.art && WORLD_ART[obj.art]) return obj.art;   // one object's own picture (a resource zone's signpost)
   if (t === 'scenery' && BED_LOOKS[obj.objId]) return bedLook(obj).key;   // a flowerbed's own look
   return obj.def.art || `obj-${obj.objId}`;   // an object may borrow another's picture (the Offering Shrine)
@@ -2893,7 +2885,8 @@ export function bedLook(obj) {
 const _worldImg = {};
 const _worldFrameSets = new Map();
 // Replaced art gets a new URL so the offline cache serves the current sprite.
-const revisedWorldArt = new Set(['obj-heritage_lamp', 'obj-lantern_post', 'obj-fishing_spot', 'obj-rod_spot', 'obj-harpoon_spot']);
+const revisedWorldArt = new Set(['obj-heritage_lamp', 'obj-lantern_post', 'obj-fishing_spot', 'obj-rod_spot', 'obj-harpoon_spot',
+  ...ROCK_IDS.map((id) => `rock-${id}`), 'rock-meteorite']);
 function worldImage(key) {
   if (!WORLD_ART[key]) return null;
   if (_worldImg[key] !== undefined) return _worldImg[key];
@@ -3015,10 +3008,21 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time, upperAlpha, light, bend)
   ctx.restore();
 }
 
-// `low` (low graphics) and `still` (a school swirling there) only change how a
+export function drawMiningRockSprite(ctx, obj, cx, cy, reduced, layout) {
+  const art = worldImage(worldArtKey(obj));
+  drawMiningRock(ctx, obj, readyArt(art) ? art : null, cx, cy, reduced, layout);
+}
+
+export function miningRockSpriteLayout(obj) {
+  const art = worldImage(worldArtKey(obj));
+  return rockLayout(obj, readyArt(art) ? art : null);
+}
+
+// `low` (low graphics) and `still` (a school swirling there) change how a
 // fishing spot's fish shows (drawCatchBadge).
 export function drawObjectSprite(ctx, obj, cx, cy, time = 0, low = false, still = false, upperAlpha = 1, light = null, bend = 0) {
   const t = obj.def.type;
+  if (t === 'rock') return drawMiningRockSprite(ctx, obj, cx, cy, low);
   const key = readyWorldArtKey(obj, worldArtKey(obj, time));
   const art = key && worldImage(key);
   if (readyArt(art)) {
@@ -3200,7 +3204,6 @@ function drawObjectRaw(ctx, obj, cx, cy, time) {
   const t = obj.def.type;
   switch (t) {
     case 'tree': return tree(ctx, obj.objId, obj.depleted, cx, cy, time);
-    case 'rock': return rock(ctx, obj.def.ore, obj.depleted, cx, cy);
     case 'fishing': return fishing(ctx, cx, cy, time);
     case 'fire': {
       // A bonfire (more logs piled on, bonfire.js) is drawn bigger, from its base.
@@ -3335,35 +3338,6 @@ function tree(ctx, variant, depleted, cx, cy, time) {
   if (t.glow) {
     ctx.fillStyle = '#fff';
     for (const [sx, sy] of [[cxx - 4, cyy - 6], [cxx + 6, cyy], [cxx + 2, cyy - 10]]) { circle(ctx, sx, sy, 0.9); ctx.fill(); }
-  }
-}
-
-function rock(ctx, ore, depleted, cx, cy) {
-  drawShadow(ctx, cx, cy + 9, 13, 5);
-  // base stone tinted faintly toward the ore's colour so each material reads distinctly
-  const base = depleted ? '#5c5c5c' : (ore ? mix('#828790', ore, 0.17) : '#828790');
-  ctx.fillStyle = base;
-  path(ctx, () => {
-    ctx.moveTo(cx - 12, cy + 9); ctx.lineTo(cx - 9, cy - 7); ctx.lineTo(cx - 1, cy - 11);
-    ctx.lineTo(cx + 8, cy - 8); ctx.lineTo(cx + 12, cy + 2); ctx.lineTo(cx + 8, cy + 10);
-  });
-  ctx.fill(); line(ctx, OUTLINE, 2);
-  // shaded lower-right facet for 3D form
-  ctx.fillStyle = 'rgba(20,20,26,0.24)';
-  path(ctx, () => { ctx.moveTo(cx + 2, cy - 4); ctx.lineTo(cx + 12, cy + 2); ctx.lineTo(cx + 8, cy + 10); ctx.lineTo(cx - 1, cy + 9); }); ctx.fill();
-  // top highlight facet
-  ctx.fillStyle = 'rgba(255,255,255,0.18)';
-  path(ctx, () => { ctx.moveTo(cx - 9, cy - 7); ctx.lineTo(cx - 1, cy - 11); ctx.lineTo(cx + 2, cy - 4); ctx.lineTo(cx - 6, cy - 2); }); ctx.fill();
-  // a cleft crack for stone texture
-  ctx.strokeStyle = 'rgba(34,48,74,0.3)'; ctx.lineWidth = 0.8;
-  ctx.beginPath(); ctx.moveTo(cx - 3, cy - 6); ctx.lineTo(cx - 1, cy - 1); ctx.lineTo(cx - 4, cy + 4); ctx.stroke();
-  if (!depleted && ore) {
-    // embedded ore nuggets, each with a shadow + glint for relief
-    for (const [dx, dy, r] of [[-5, 1, 2.1], [3, 4, 1.9], [-1, -4, 1.7], [6, -1, 1.8], [1, 7, 1.2]]) {
-      ctx.fillStyle = `rgba(${SHADOW_RGB},0.24)`; circle(ctx, cx + dx + 0.5, cy + dy + 0.6, r); ctx.fill();
-      ctx.fillStyle = ore; circle(ctx, cx + dx, cy + dy, r); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.6)'; circle(ctx, cx + dx - 0.5, cy + dy - 0.6, r * 0.34); ctx.fill();
-    }
   }
 }
 

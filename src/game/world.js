@@ -38,6 +38,7 @@ export class World {
 
     this.objects = [];
     this.objectByTile = new Map();
+    this._miningOrigins = new Map();
     this.landmarks = [];   // the multi-tile set pieces, drawn by their own short list (renderer.js)
     this.groundItems = [];
     this.baseBlocked = new Uint8Array(this.width * this.height);
@@ -55,7 +56,11 @@ export class World {
       if (o.displayName) extra.def = { ...getObject(o.objId), name: o.displayName };
       const island = o.objId === 'mrt_station' && islandStops.get(this.idx(o.x, o.y));
       if (island) this.addObject('sign', o.x, o.y, { sign: island.name });
-      else this.addObject(o.objId, o.x, o.y, extra);
+      else {
+        if (o.miningOrigin) extra.miningOrigin = o.miningOrigin;
+        const obj = this.addObject(o.objId, o.x, o.y, extra);
+        if (o.miningOrigin) this._miningOrigins.set(this.idx(o.miningOrigin.x, o.miningOrigin.y), obj);
+      }
     }
     for (const { from, to } of this.ferryLinks) {
       this.addFerryLanding(from, to);
@@ -210,6 +215,11 @@ export class World {
 
   objectAt(x, y) {
     return this.objectByTile.get(this.idx(x, y)) || null;
+  }
+
+  /** Resolve a saved work target on a rock's former tile. */
+  miningNodeAtOrigin(x, y) {
+    return this._miningOrigins.get(this.idx(x, y));
   }
 
   // ---------------- Spatial index ----------------

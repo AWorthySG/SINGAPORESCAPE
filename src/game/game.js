@@ -6,6 +6,7 @@ import { impactCue } from '../audio/impactProfile.js';
 import { goldenMult, goldenSkills, GOLDEN_HOUR_XP, SKILL_HOURS } from '../data/skillhours.js';
 import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
 import { geographicWorld, geographicTile, legacyTile } from '../data/worldlayout.js';
+import { arrangeMining } from '../data/miningLayout.js';
 import { compareGear, deltaText, gearRating, effectiveRating, offenceFirstScore, weaponStyle, reqLevel, swingBeats } from './gear.js';
 import { planCarry, applyCarry, carryMessages, scoreAfterCarry } from './carry.js';
 import { pickGain, wornSnapshot, wornChanges } from './bestpick.js';   // Equip best's rule, shared with every "upgrade" signal
@@ -473,6 +474,7 @@ export class Game {
     const authored = buildWorld();
     const isGeographic = layout === 'singapore';
     const data = isGeographic ? addArena(geographicWorld(authored), geographicTile) : addArena(authored);
+    arrangeMining(data, isGeographic ? geographicTile : undefined);
     this.world = new World(this.bus);
     this.world.build(data, isGeographic ? { forward: geographicTile, reverse: legacyTile } : undefined);
 
@@ -8105,7 +8107,7 @@ export class Game {
     }
     // Only the objects within two tiles (the world's spatial index, in list order).
     for (const o of this.world.objectsIn(at.x - 2, at.y - 2, at.x + 2, at.y + 2, this._interactObjs || (this._interactObjs = []))) {
-      if (!o.def.verb || (o.def.type === 'tree' && o.depleted)) continue;
+      if (!o.def.verb || (o.depleted && (o.def.type === 'tree' || o.def.type === 'rock'))) continue;
       consider('obj', o, o.x, o.y, 2);
     }
     return best;

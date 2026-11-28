@@ -22,7 +22,7 @@ import { NPC } from './npc.js';
 import { getNpc } from '../data/npcs.js';
 import { OBJECTS } from '../data/objects.js';
 import { getItem } from '../data/items.js';
-import { zoneLevel } from '../data/world.js';
+import { TERRAIN, zoneLevel } from '../data/world.js';
 import { findPath } from '../engine/pathfinding.js';
 import { chebyshev } from '../core/utils.js';
 import { TILE } from '../config.js';
@@ -39,6 +39,8 @@ const SECS_TO_TICKS = 1 / 0.6;
 const between = ([a, b]) => a + Math.floor(Math.random() * (b - a + 1));
 const BANNER = 'worldevent';
 const GATHER_KINDS = new Set(['shoal', 'meteor', 'grove']);
+const METEOR_GROUND = new Set([TERRAIN.GRASS, TERRAIN.DARKGRASS, TERRAIN.SAND, TERRAIN.STONE]);
+const CARDINAL = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 /** A fresh weekly challenge record (no week yet). */
 export const defaultWeekly = () => ({ week: null, region: null, kills: 0, gathers: 0, events: 0, claimed: false });
@@ -122,8 +124,8 @@ export class WorldEvents {
     return this._townList;
   }
 
-  /** A free walkable tile in zone z (optionally inside rect r), not in a town. */
-  _landSpot(z, r = null, tries = 200) {
+  /** A free walkable tile in zone z, optionally within a rectangle or with a site filter. */
+  _landSpot(z, r = null, tries = 200, fits = null) {
     const w = this.game.world, towns = this._towns(), p = this.game.player;
     const [x0, y0, x1, y1] = r || [z.x0, z.y0, z.x1, z.y1];
     for (let i = 0; i < tries; i++) {
@@ -131,9 +133,24 @@ export class WorldEvents {
       if (!w.inBounds(x, y) || w.isBlocked(x, y) || w.objectAt(x, y) || w.zoneAt(x, y) !== z) continue;
       if (!r && towns.some((t) => x >= t.rect[0] - 2 && x <= t.rect[2] + 2 && y >= t.rect[1] - 2 && y <= t.rect[3] + 2)) continue;
       if (x === p.x && y === p.y) continue;
+      if (fits && !fits(x, y)) continue;
       return { x, y };
     }
     return null;
+  }
+
+  /** A crater needs open ground with dry standing room and a route onto its island. */
+  _meteorSpot(z) {
+    const { world: w, npcs } = this.game;
+    const occupied = new Set(npcs.filter((npc) => npc.alive).map(({ x, y }) => w.idx(x, y)));
+    const landings = w.ferryLinks.flatMap(({ from, to }) => [from, to]);
+    const reachable = new Set([w.spawnPoint, ...w.stations, ...landings].map((tile) => w._walkComponent(tile)));
+    reachable.delete(0);
+    return this._landSpot(z, null, 200, (x, y) => {
+      if (!METEOR_GROUND.has(w.terrainAt(x, y)) || occupied.has(w.idx(x, y))) return false;
+      const open = CARDINAL.filter(([dx, dy]) => !w.isBlocked(x + dx, y + dy) && METEOR_GROUND.has(w.terrainAt(x + dx, y + dy)));
+      return open.length >= 3 && reachable.has(w._walkComponent({ x, y }));
+    });
   }
 
   /** A water tile by the shore of zone z (an open land tile next to it). */
@@ -303,8 +320,10 @@ export class WorldEvents {
   }
 
   _setup_meteor(ev, z) {
-    const g = this.game, rock = this._bestRock(), spot = this._landSpot(z);
-    if (!rock || !spot) return false;
+    const g = this.game, rock = this._bestRock();
+    if (!rock) return false;
+    const spot = this._meteorSpot(z);
+    if (!spot) return false;
     const r = OBJECTS[rock];
     // It looks like a fallen star whatever ore it holds (the star's art), and
     // grows back at once until its charges are spent.

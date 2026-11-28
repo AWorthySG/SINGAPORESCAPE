@@ -172,7 +172,7 @@ const SHORE_PATHS = [
   [[692, 555], [692, 563]], // Lazarus shore
 ];
 
-const PORTS = {
+export const PORTS = {
   changi: ['Changi Point Ferry Terminal', [293, 47]],
   pulau_ubin: ['Pulau Ubin Jetty', [193, 53]],
   pulau_tekong: ['Pulau Tekong', [258, 150]],
