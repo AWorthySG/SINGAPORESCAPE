@@ -12,6 +12,7 @@ import { TERRAIN } from '../data/world.js';
 import { formatNumber } from '../core/utils.js';
 import { regionList, regionInfo } from '../game/regioninfo.js';
 import { regionFlavour } from '../data/flavour.js';
+import { districtArtwork } from '../data/districtVisuals.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const pctOf = (a, b) => (b ? Math.floor((a / b) * 100) : 0);
@@ -53,18 +54,27 @@ export function regionMapSrc(game, r) {
   return cache[r.name];
 }
 
-/** Every region: name, level band, visited or not. An unvisited one is "???". */
+function placePicture(art, fallback = '') {
+  if (!art) return `<span class="ency-place-picture unknown" aria-hidden="true">${fallback}</span>`;
+  return `<span class="ency-place-picture${art.scenery ? ' scenery' : ''}" aria-hidden="true"><img src="${esc(art.scenery || art.src)}" alt="" loading="lazy" decoding="async"></span>`;
+}
+
+/** Every region: name, level band and a picture revealed on the first visit. */
 export function regionListHTML(game) {
   const list = regionList(game);
   const seen = list.filter((r) => r.visited).length;
   const groups = [...new Set(list.map((r) => r.group))];
   return `<div class="cx-head"><div class="cx-prog"><span class="cx-prog-label">Visited <b>${seen} / ${list.length}</b> · ${pctOf(seen, list.length)}%</span>` +
     `<span class="cx-bar"><i style="width:${pctOf(seen, list.length)}%"></i></span></div></div>` +
-    groups.map((g) => `<h4 class="ency-h4">${esc(g)}</h4><div class="cx-list">` + list.filter((r) => r.group === g).map((r) =>
-      `<button type="button" class="cx-row ency-row${r.visited ? '' : ' unseen'}" data-region="${esc(r.name)}">` +
-      `<span class="ency-reg-ic">${r.visited ? '🗺️' : '?'}</span><span class="cx-row-main"><span class="cx-row-top"><b>${r.visited ? esc(r.name) : '???'}</b></span>` +
-      `<span class="cx-row-sub">${r.band ? `Monsters level ${esc(r.band)}` : 'Peaceful'}</span></span>` +
-      `<span class="cx-kc">${r.visited ? 'Visited' : 'Not visited'}</span></button>`).join('') + '</div>').join('');
+    groups.map((g) => `<h4 class="ency-h4">${esc(g)}</h4><div class="ency-place-grid">` + list.filter((r) => r.group === g).map((r) => {
+      const art = r.visited ? districtArtwork(r.name) : null;
+      const palette = art ? ` style="--district-ink:${art.ink};--district-paper:${art.paper}"` : '';
+      return `<button type="button" class="cx-row ency-place-card${r.visited ? '' : ' unseen'}" data-region="${esc(r.name)}"${palette}>` +
+        placePicture(art, r.visited ? '🗺️' : '?') +
+        `<span class="ency-place-copy"><b>${r.visited ? esc(r.name) : '???'}</b>` +
+        `<span class="cx-row-sub">${r.band ? `Monsters level ${esc(r.band)}` : 'Peaceful'}</span>` +
+        `<span class="ency-place-status">${r.visited ? 'Visited' : 'Not visited'}</span></span></button>`;
+    }).join('') + '</div>').join('');
 }
 
 const goBtn = (x, y, label = 'Go') => `<button type="button" class="wm-go" data-goxy="${x},${y}">${label}</button>`;
@@ -73,17 +83,26 @@ const goBtn = (x, y, label = 'Go') => `<button type="button" class="wm-go" data-
 export function regionPageHTML(game, name) {
   const r = regionInfo(game, name);
   if (!r) return '<div class="modal-hint">That place is missing.</div>';
+  const art = districtArtwork(r.name);
+  const palette = art ? ` style="--district-ink:${art.ink};--district-paper:${art.paper}"` : '';
   const mon = (id) => `<button type="button" class="cp-chip ency-chip" data-monster="${esc(id)}">${game?.kills?.[id] > 0 ? esc(getNpc(id).name) : '???'} <small>${formatNumber(getNpc(id).level)}</small></button>`;
-  let html = `<div class="cx-entry ency-entry ency-region"><div class="cx-entry-name">${esc(r.name)}</div>` +
+  let html = `<div class="cx-entry ency-entry ency-region"><div class="ency-place-hero"${palette}>` +
+    (art ? placePicture(art) : '') +
+    `<div class="ency-place-heading"><div class="cx-entry-name">${esc(r.name)}</div>` +
     `<div class="cx-entry-lvl">${r.band ? `Monsters level ${esc(r.band)}` : 'Peaceful'} · ${esc(r.group)}${r.visited ? '' : ' · not visited yet'}</div>`;
+  if (art) html += `<div class="ency-place-landmark">${esc(art.landmark)}</div>`;
   if (r.rep) {
     const n = r.rep.next;
     html += `<div class="ency-rep"><span>Your reputation: <b style="color:${esc(r.rep.rank.colour)}">${esc(r.rep.rank.name)}</b> (${formatNumber(Math.floor(r.rep.points))})</span>` +
       (n ? `<span class="cx-bar"><i style="width:${Math.round(n.frac * 100)}%"></i></span><small>${formatNumber(n.need)} to ${esc(n.next.name)}</small>` : '<small>The highest rank</small>') + '</div>';
   }
+  html += '</div></div>';
+  const p = game?.player;
+  html += `<div class="cx-go-row ency-go-row"><span class="cx-dist">${p ? `${formatNumber(Math.max(Math.abs(r.go.x - p.x), Math.abs(r.go.y - p.y)))} tiles away` : ''}</span>` +
+    `<button type="button" class="wm-go cx-map" data-mapxy="${r.go.x},${r.go.y}" data-label="${esc(r.name)}">World map</button>${goBtn(r.go.x, r.go.y)}</div>`;
   // The map, with you on it when you are inside.
   const src = regionMapSrc(game, r);
-  const z = r.zone, p = game?.player;
+  const z = r.zone;
   const you = p && r.inside(p.x, p.y) ? `<i class="ency-you" style="left:${((p.x - z.x0 + 0.5) / (z.x1 - z.x0 + 1) * 100).toFixed(1)}%;top:${((p.y - z.y0 + 0.5) / (z.y1 - z.y0 + 1) * 100).toFixed(1)}%"></i>` : '';
   if (src) {
     // At most about 260px tall, whatever the region's shape.
@@ -91,8 +110,6 @@ export function regionPageHTML(game, name) {
     html += `<div class="ency-map" style="aspect-ratio:${W}/${H};max-width:min(100%, ${Math.round(260 * W / H)}px)"><img src="${src}" alt="Map of ${esc(r.name)}">${you}</div>` +
       '<div class="ency-legend"><span><i class="lg st"></i>MRT</span><span><i class="lg gv"></i>Quest giver</span><span><i class="lg rz"></i>Resource zone</span>' + (you ? '<span><i class="lg you"></i>You</span>' : '') + '</div>';
   }
-  html += `<div class="cx-go-row ency-go-row"><span class="cx-dist">${p ? `${formatNumber(Math.max(Math.abs(r.go.x - p.x), Math.abs(r.go.y - p.y)))} tiles away` : ''}</span>` +
-    `<button type="button" class="wm-go cx-map" data-mapxy="${r.go.x},${r.go.y}" data-label="${esc(r.name)}">World map</button>${goBtn(r.go.x, r.go.y)}</div>`;
   const note = regionFlavour(r.name);
   if (note) html += `<div class="cx-sec ency-dyk"><h4>Did you know?</h4><p>${esc(note)}</p></div>`;
   if (r.stations.length) html += `<div class="cx-sec"><h4>MRT</h4>${r.stations.map((s) => `<div class="ency-line"><span>🚇 <b>${esc(s.name)}</b></span>${goBtn(s.x, s.y)}</div>`).join('')}</div>`;

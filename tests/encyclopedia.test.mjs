@@ -225,7 +225,14 @@ test('every region has a page with its level band and what lives there', () => {
   // Reputation shows as it grows.
   addRep(g, 'Pulau Ubin', 350, '', true);
   assert.equal(regionInfo(g, 'Pulau Ubin').rep.rank.id, 'friend');
-  assert.match(regionListHTML(g), /Kampong Glam/);
+  const places = regionListHTML(g);
+  assert.match(places, /data-region="Kampong Glam"[^>]*>.*assets\/places\/kampong-glam\.webp/);
+  const unvisited = /<button[^>]*data-region="Pulau Ubin"[^>]*>(.*?)<\/button>/.exec(places)[1];
+  assert.match(unvisited, /Not visited/);
+  assert.doesNotMatch(unvisited, /<img|<b>Pulau Ubin/);
+  g.zonesVisited.add('Pulau Ubin');
+  assert.match(regionListHTML(g), /data-region="Pulau Ubin"[^>]*>.*assets\/world\/obj-stilt_house\.webp/);
+  assert.match(regionPageHTML(g, 'Kampong Glam'), /ency-place-hero.*kampong-glam\.webp.*Golden-domed hall/);
 });
 
 // ---------------- The window ----------------
