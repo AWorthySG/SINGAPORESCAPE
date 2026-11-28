@@ -15,20 +15,25 @@ import { HOME_W, HOME_H } from './home.js';
 // Beside Kampong Glam's work benches (by the kampung allotment), and west of
 // Kranji Village's MRT; each yard stands wholly inside its region (`zone`), so
 // the skill guide and the map can say where it is.
-export const YARD_ANCHORS = [{ name: 'Kampong Glam', zone: 'Kampong Glam', x: 58, y: 62 }, { name: 'Kranji', zone: 'Kranji Farmlands', x: 440, y: 141 }];
-// [objId, dx] along one row, with a free tile between each so all three can be reached.
+export const YARD_ANCHORS = [
+  { name: 'Kampong Glam', zone: 'Kampong Glam', x: 58, y: 62 },
+  { name: 'Kranji', zone: 'Kranji Farmlands', x: 440, y: 141, anvil: true },
+];
+// [objId, dx] along one row, with a free tile between each station.
 export const YARD = [['sawmill', 0], ['kiln', 2], ['workbench', 4]];
+const WITH_ANVIL = [...YARD, ['anvil', 6]];
 const YARD_W = 5, YARD_H = 3;   // the row and a free row either side
 
-/** The yard's top-left tile: the first free YARD_W x YARD_H patch around the
+/** The yard's top-left tile: the first patch with room for its stations around the
  *  anchor, inside its region, that doesn't touch the home plot (with a tile's
  *  margin), or null. */
 export function findYard(world, home, anchor) {
+  const width = anchor.anvil ? WITH_ANVIL.at(-1)[1] + 1 : YARD_W;
   const plot = home?.origin;
-  const clearOfHome = (x0, y0) => !plot || x0 + YARD_W < plot.x - 1 || x0 > plot.x + HOME_W || y0 + YARD_H < plot.y - 1 || y0 > plot.y + HOME_H;
+  const clearOfHome = (x0, y0) => !plot || x0 + width < plot.x - 1 || x0 > plot.x + HOME_W || y0 + YARD_H < plot.y - 1 || y0 > plot.y + HOME_H;
   const free = (x0, y0) => {
     if (!clearOfHome(x0, y0)) return false;
-    for (let y = y0; y < y0 + YARD_H; y++) for (let x = x0; x < x0 + YARD_W; x++) {
+    for (let y = y0; y < y0 + YARD_H; y++) for (let x = x0; x < x0 + width; x++) {
       if (!world.inBounds(x, y) || world.isBlocked(x, y) || world.objectAt(x, y)) return false;
       if (anchor.zone && world.zoneAt?.(x, y)?.name !== anchor.zone) return false;
     }
@@ -50,7 +55,7 @@ export function placeLumberYards(game) {
   for (const a of YARD_ANCHORS) {
     const at = findYard(w, game.home, a);
     if (!at) continue;
-    for (const [objId, dx] of YARD) w.addObject(objId, at.x + dx, at.y + 1);
+    for (const [objId, dx] of a.anvil ? WITH_ANVIL : YARD) w.addObject(objId, at.x + dx, at.y + 1);
     out.push({ name: a.name, ...at });
   }
   return out;
